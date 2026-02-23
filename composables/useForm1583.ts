@@ -48,7 +48,7 @@ export const useForm1583 = () => {
     const streetLine = [addr.street, addr.exterior_number].filter(Boolean).join(' ')
     draw(streetLine, 20, 497)                              // 4f. Street
     draw(addr.municipio || '', 21, 467)                    // 4g. City
-    draw(addr.estado || '', 165, 464)                      // 4h. State
+    draw(addr.estado || '', 165, 464, 6)                    // 4h. State (smaller to fit long names)
     draw(addr.postal_code || '', 210, 463)                 // 4i. ZIP
     draw('Mexico', 259, 463)                               // 4j. Country
 
