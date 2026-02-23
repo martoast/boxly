@@ -34,15 +34,12 @@ export const useForm1583 = () => {
     draw('CA', 167, 628)                                   // 2d. State
     draw('92173', 260, 628)                                // 2e. ZIP
 
-    // === Section 3: Residential/Personal Use checkbox ===
-    draw('X', 300, 590)
-
     // === Section 8e: Photo ID type checkbox ===
-    draw('X', 320, 632)
+    draw('X', 318, 631)
 
     // === Section 4: Applicant ===
     draw(lastName, 19, 559)                                // 4a. Last Name
-    draw(firstName, 218, 556)                              // 4b. First Name
+    draw(firstName, 116, 560)                              // 4b. First Name
     draw(profile.phone || '', 22, 529)                     // 4d. Phone
     draw(profile.email || '', 167, 526)                    // 4e. Email
 
@@ -52,8 +49,8 @@ export const useForm1583 = () => {
     draw(streetLine, 20, 497)                              // 4f. Street
     draw(addr.municipio || '', 21, 467)                    // 4g. City
     draw(addr.estado || '', 165, 464)                      // 4h. State
-    draw(addr.postal_code || '', 260, 465)                 // 4i. ZIP
-    draw('Mexico', 310, 463)                               // 4j. Country
+    draw(addr.postal_code || '', 210, 463)                 // 4i. ZIP
+    draw('Mexico', 259, 463)                               // 4j. Country
 
     // Save and trigger download
     const filledBytes = await pdfDoc.save()
