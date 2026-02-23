@@ -29,28 +29,28 @@ export const useForm1583 = () => {
     const firstName = nameParts.length > 1 ? nameParts.slice(0, -1).join(' ') : ''
 
     // === Section 2: CMRA (Boxly) ===
-    draw('482 W. San Ysidro Blvd. Apt. 123', 30, 667)
-    draw('San Ysidro', 30, 638)
-    draw('CA', 178, 638)
-    draw('92173', 240, 638)
+    draw('482 W. San Ysidro Blvd. Apt. 123', 30, 652)
+    draw('San Ysidro', 30, 623)
+    draw('CA', 290, 623)
+    draw('92173', 370, 623)
 
     // === Section 3: Residential/Personal Use checkbox ===
-    draw('X', 170, 613, 11)
+    draw('X', 250, 598, 9)
 
     // === Section 4: Applicant ===
-    draw(lastName, 30, 581)
-    draw(firstName, 170, 581)
-    draw(profile.phone || '', 30, 549)
-    draw(profile.email || '', 178, 549)
+    draw(lastName, 30, 566)
+    draw(firstName, 200, 566)
+    draw(profile.phone || '', 30, 534)
+    draw(profile.email || '', 275, 534)
 
     // Street address: combine street + exterior_number
     const addr = profile.address || {}
     const streetLine = [addr.street, addr.exterior_number].filter(Boolean).join(' ')
-    draw(streetLine, 30, 517)
-    draw(addr.municipio || '', 30, 485)
-    draw(addr.estado || '', 178, 485)
-    draw(addr.postal_code || '', 240, 485)
-    draw('Mexico', 300, 485)
+    draw(streetLine, 30, 502)
+    draw(addr.municipio || '', 30, 470)
+    draw(addr.estado || '', 255, 470)
+    draw(addr.postal_code || '', 350, 470)
+    draw('Mexico', 425, 470)
 
     // Save and trigger download
     const filledBytes = await pdfDoc.save()
