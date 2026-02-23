@@ -320,6 +320,34 @@
                 </div>
               </div>
   
+              <!-- Form 1583 Section -->
+              <div class="px-6 py-6 border-b border-gray-100">
+                <h2 class="text-lg font-semibold text-gray-900 mb-4">{{ t.form1583Section }}</h2>
+                <div class="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                  <div>
+                    <p class="text-sm font-medium text-gray-900">{{ t.form1583Label }}</p>
+                    <p class="text-xs text-gray-500 mt-0.5">
+                      {{ form.form_1583_completed_at ? t.form1583CompletedOn + ' ' + formatDate(form.form_1583_completed_at) : t.form1583NotCompleted }}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    @click="toggleForm1583"
+                    :class="[
+                      'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
+                      form.form_1583_completed_at ? 'bg-green-500' : 'bg-gray-200'
+                    ]"
+                  >
+                    <span
+                      :class="[
+                        'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                        form.form_1583_completed_at ? 'translate-x-5' : 'translate-x-0'
+                      ]"
+                    />
+                  </button>
+                </div>
+              </div>
+
               <!-- Actions -->
               <div class="px-6 py-4 bg-gray-50 flex items-center justify-end gap-3">
                 <NuxtLink 
@@ -380,7 +408,8 @@
     municipio: '',
     estado: '',
     postal_code: '',
-    full_address: ''
+    full_address: '',
+    form_1583_completed_at: null
   })
   
   // Mexican states
@@ -561,6 +590,22 @@
     fullAddressPlaceholder: {
       es: 'Ej: Calle Principal 123, Col. Centro, Tijuana, BC 22000',
       en: 'E.g.: Main Street 123, Downtown, Tijuana, BC 22000'
+    },
+    form1583Section: {
+      es: 'Formulario USPS 1583',
+      en: 'USPS Form 1583'
+    },
+    form1583Label: {
+      es: 'Formulario 1583 Completado',
+      en: 'Form 1583 Completed'
+    },
+    form1583CompletedOn: {
+      es: 'Completado el',
+      en: 'Completed on'
+    },
+    form1583NotCompleted: {
+      es: 'No completado aún',
+      en: 'Not completed yet'
     }
   }
   
@@ -586,6 +631,7 @@
       form.estado = customer.value.estado || ''
       form.postal_code = customer.value.postal_code || ''
       form.full_address = customer.value.full_address || ''
+      form.form_1583_completed_at = customer.value.form_1583_completed_at || null
 
       // If full_address exists but no individual fields, default to full address mode
       if (customer.value.full_address && !customer.value.street) {
@@ -613,7 +659,8 @@
       name: form.name,
       phone: form.phone,
       user_type: form.user_type,
-      preferred_language: form.preferred_language
+      preferred_language: form.preferred_language,
+      form_1583_completed_at: form.form_1583_completed_at
     }
 
     if (useFullAddress.value) {
@@ -664,6 +711,19 @@
     }
   }
   
+  const toggleForm1583 = () => {
+    if (form.form_1583_completed_at) {
+      form.form_1583_completed_at = null
+    } else {
+      form.form_1583_completed_at = new Date().toISOString()
+    }
+  }
+
+  const formatDate = (date) => {
+    if (!date) return ''
+    return new Date(date).toLocaleDateString('es-MX', { month: 'short', day: 'numeric', year: 'numeric' })
+  }
+
   // Fetch customer on mount
   onMounted(() => {
     fetchCustomer()

@@ -312,6 +312,30 @@
           </div>
         </div>
 
+        <!-- Form 1583 Banner -->
+        <NuxtLink
+          v-if="totalOrders >= 5 && !user?.form_1583_completed_at"
+          to="/app/usps-form"
+          class="block mb-6 relative overflow-hidden bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl p-5 shadow-md hover:shadow-lg transition-all duration-300 group animate-fadeIn"
+          style="animation-delay: 0.5s"
+        >
+          <div class="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+          <div class="relative flex items-center gap-4">
+            <div class="flex-shrink-0 p-3 bg-white/20 rounded-xl">
+              <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+              </svg>
+            </div>
+            <div class="flex-1">
+              <h3 class="font-bold text-white text-base">{{ t.form1583Title }}</h3>
+              <p class="text-sm text-white/80 mt-0.5">{{ t.form1583Description }}</p>
+            </div>
+            <div class="flex-shrink-0 px-4 py-2 bg-white text-amber-600 font-semibold rounded-lg text-sm group-hover:bg-amber-50 transition-colors">
+              {{ t.form1583CTA }}
+            </div>
+          </div>
+        </NuxtLink>
+
         <!-- Recent Orders & Quick Actions -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <!-- Recent Orders -->
@@ -639,6 +663,7 @@ const { t: createTranslations } = useLanguage();
 
 // State
 const recentOrders = ref([]);
+const totalOrders = ref(0);
 const loadingOrders = ref(false);
 const isInitialLoading = ref(true);
 const copied = ref(false);
@@ -893,6 +918,18 @@ const translations = {
     es: "Ver estadísticas y ganancias",
     en: "View stats & earnings",
   },
+  form1583Title: {
+    es: "Formulario USPS 1583 Requerido",
+    en: "USPS Form 1583 Required",
+  },
+  form1583Description: {
+    es: "Para seguir recibiendo paquetes, necesitas completar el Formulario USPS 1583. Es un requisito del servicio postal de EE.UU.",
+    en: "To continue receiving packages, you need to complete USPS Form 1583. It's a US postal service requirement.",
+  },
+  form1583CTA: {
+    es: "Completar Formulario",
+    en: "Complete Form",
+  },
 };
 
 // Get reactive translations
@@ -906,6 +943,7 @@ const fetchRecentOrders = async () => {
       params: { page: 1, per_page: 5 },
     });
     recentOrders.value = response.data.data;
+    totalOrders.value = response.data.total || 0;
   } catch (error) {
     console.error("Error fetching recent orders:", error);
   } finally {
