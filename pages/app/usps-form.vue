@@ -1,106 +1,96 @@
 <template>
-  <section class="min-h-screen bg-gradient-to-br from-gray-50 via-white to-primary-50/20">
-    <!-- Header -->
-    <div class="bg-white/90 backdrop-blur-sm shadow-sm border-b border-gray-100">
-      <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div class="flex items-center gap-4">
-          <NuxtLink
-            to="/app"
-            class="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-          >
-            <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+  <section class="min-h-screen bg-gradient-to-b from-gray-50 to-white">
+    <!-- Hero Header -->
+    <div class="relative bg-gradient-to-br from-dark-500 via-dark-600 to-dark-700 overflow-hidden">
+      <!-- Background decorations -->
+      <div class="absolute inset-0 overflow-hidden">
+        <div class="absolute -top-24 -right-24 w-96 h-96 bg-primary-500/10 rounded-full blur-3xl"></div>
+        <div class="absolute -bottom-24 -left-24 w-96 h-96 bg-primary-400/10 rounded-full blur-3xl"></div>
+      </div>
+
+      <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14 relative z-10">
+        <NuxtLink
+          to="/app"
+          class="inline-flex items-center gap-2 text-sm font-medium text-white/70 hover:text-white transition-colors mb-6"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+          </svg>
+          {{ t.backToDashboard }}
+        </NuxtLink>
+
+        <div class="flex items-center gap-3 mb-3">
+          <div class="p-2.5 bg-white/10 rounded-xl">
+            <svg class="w-6 h-6 text-primary-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
             </svg>
-          </NuxtLink>
-          <div>
-            <h1 class="text-2xl sm:text-3xl font-extrabold text-gray-900">{{ t.title }}</h1>
-            <p class="mt-1 text-sm text-gray-600">{{ t.subtitle }}</p>
           </div>
+          <span class="px-3 py-1 bg-primary-500/20 text-primary-300 text-xs font-semibold rounded-full uppercase tracking-wider">{{ t.requiredTag }}</span>
         </div>
+
+        <h1 class="text-3xl sm:text-4xl font-bold text-white mb-3">{{ t.title }}</h1>
+        <p class="text-base sm:text-lg text-gray-300 max-w-2xl">{{ t.whatIsDescription }}</p>
       </div>
     </div>
 
     <!-- Main Content -->
-    <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-      <!-- What is Form 1583 -->
-      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-        <h2 class="text-lg font-bold text-gray-900 mb-3">{{ t.whatIsTitle }}</h2>
-        <p class="text-sm text-gray-700 leading-relaxed">{{ t.whatIsDescription }}</p>
-      </div>
-
-      <!-- Incomplete Address Warning -->
-      <div
-        v-if="!hasCompleteAddress"
-        class="bg-red-50 border border-red-200 rounded-2xl p-5"
-      >
-        <div class="flex gap-3">
-          <div class="flex-shrink-0">
-            <svg class="w-5 h-5 text-red-500 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
-            </svg>
-          </div>
-          <div>
-            <p class="text-sm font-semibold text-red-800">{{ t.addressWarning }}</p>
-            <p class="text-sm text-red-700 mt-1">{{ t.addressWarningDesc }}</p>
-            <NuxtLink
-              to="/app/account/shipping-address"
-              class="inline-flex items-center gap-1 mt-2 text-sm font-medium text-red-700 hover:text-red-800"
-            >
-              {{ t.goToAddress }}
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-              </svg>
-            </NuxtLink>
-          </div>
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 space-y-6">
+      <!-- Steps Card -->
+      <div class="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden">
+        <div class="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-primary-50/50 to-transparent">
+          <h2 class="text-lg font-bold text-gray-900">{{ t.stepsTitle }}</h2>
         </div>
-      </div>
-
-      <!-- Steps -->
-      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-        <h2 class="text-lg font-bold text-gray-900 mb-5">{{ t.stepsTitle }}</h2>
-        <div class="space-y-5">
+        <div class="p-6 space-y-6">
           <!-- Step 1: Download -->
           <div class="flex gap-4">
-            <div class="flex-shrink-0 w-8 h-8 bg-primary-100 text-primary-700 rounded-full flex items-center justify-center text-sm font-bold">1</div>
-            <div>
+            <div class="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 text-white rounded-xl flex items-center justify-center text-sm font-bold shadow-sm">1</div>
+            <div class="pt-1">
               <p class="font-semibold text-gray-900">{{ t.step1Title }}</p>
-              <p class="text-sm text-gray-600 mt-0.5">{{ t.step1Desc }}</p>
+              <p class="text-sm text-gray-600 mt-1">{{ t.step1Desc }}</p>
             </div>
           </div>
+
+          <div class="ml-5 border-l-2 border-primary-100 h-2"></div>
 
           <!-- Step 2: Print -->
           <div class="flex gap-4">
-            <div class="flex-shrink-0 w-8 h-8 bg-primary-100 text-primary-700 rounded-full flex items-center justify-center text-sm font-bold">2</div>
-            <div>
+            <div class="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 text-white rounded-xl flex items-center justify-center text-sm font-bold shadow-sm">2</div>
+            <div class="pt-1">
               <p class="font-semibold text-gray-900">{{ t.step2Title }}</p>
-              <p class="text-sm text-gray-600 mt-0.5">{{ t.step2Desc }}</p>
+              <p class="text-sm text-gray-600 mt-1">{{ t.step2Desc }}</p>
             </div>
           </div>
+
+          <div class="ml-5 border-l-2 border-primary-100 h-2"></div>
 
           <!-- Step 3: Sign -->
           <div class="flex gap-4">
-            <div class="flex-shrink-0 w-8 h-8 bg-primary-100 text-primary-700 rounded-full flex items-center justify-center text-sm font-bold">3</div>
-            <div>
+            <div class="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 text-white rounded-xl flex items-center justify-center text-sm font-bold shadow-sm">3</div>
+            <div class="pt-1">
               <p class="font-semibold text-gray-900">{{ t.step3Title }}</p>
-              <p class="text-sm text-gray-600 mt-0.5">{{ t.step3Desc }}</p>
+              <p class="text-sm text-gray-600 mt-1">{{ t.step3Desc }}</p>
             </div>
           </div>
+
+          <div class="ml-5 border-l-2 border-primary-100 h-2"></div>
 
           <!-- Step 4: Photo -->
           <div class="flex gap-4">
-            <div class="flex-shrink-0 w-8 h-8 bg-primary-100 text-primary-700 rounded-full flex items-center justify-center text-sm font-bold">4</div>
-            <div>
+            <div class="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 text-white rounded-xl flex items-center justify-center text-sm font-bold shadow-sm">4</div>
+            <div class="pt-1">
               <p class="font-semibold text-gray-900">{{ t.step4Title }}</p>
-              <p class="text-sm text-gray-600 mt-0.5">{{ t.step4Desc }}</p>
+              <p class="text-sm text-gray-600 mt-1">{{ t.step4Desc }}</p>
             </div>
           </div>
 
+          <div class="ml-5 border-l-2 border-primary-100 h-2"></div>
+
           <!-- Step 5: Send -->
           <div class="flex gap-4">
-            <div class="flex-shrink-0 w-8 h-8 bg-primary-100 text-primary-700 rounded-full flex items-center justify-center text-sm font-bold">5</div>
-            <div>
+            <div class="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 text-white rounded-xl flex items-center justify-center text-sm font-bold shadow-sm">5</div>
+            <div class="pt-1">
               <p class="font-semibold text-gray-900">{{ t.step5Title }}</p>
-              <p class="text-sm text-gray-600 mt-0.5">{{ t.step5Desc }}</p>
+              <p class="text-sm text-gray-600 mt-1">{{ t.step5Desc }}</p>
             </div>
           </div>
         </div>
@@ -112,7 +102,7 @@
         <button
           @click="handleDownload"
           :disabled="isDownloading"
-          class="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-primary-600 text-white font-semibold rounded-xl hover:bg-primary-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+          class="w-full inline-flex items-center justify-center gap-2.5 px-6 py-4 bg-gradient-to-r from-primary-500 to-primary-600 text-white font-bold rounded-xl hover:from-primary-600 hover:to-primary-700 transition-all duration-300 shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <svg v-if="!isDownloading" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
@@ -129,7 +119,7 @@
           href="https://wa.me/16195591910?text=Hola%2C%20les%20env%C3%ADo%20mi%20Forma%201583%20firmada%20y%20mi%20identificaci%C3%B3n."
           target="_blank"
           rel="noopener noreferrer"
-          class="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-green-600 text-white font-semibold rounded-xl hover:bg-green-700 transition-all duration-300"
+          class="w-full inline-flex items-center justify-center gap-2.5 px-6 py-4 bg-accent-green text-white font-bold rounded-xl hover:bg-green-600 transition-all duration-300 shadow-md hover:shadow-lg"
         >
           <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
             <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.006c.106.005.249-.04.39.298.144.347.491 1.2.534 1.287.043.087.072.188.014.304-.058.116-.087.188-.173.289l-.26.304c-.087.086-.177.18-.076.354.101.174.449.741.964 1.201.662.591 1.221.774 1.394.86s.274.072.376-.043c.101-.116.433-.506.549-.68.116-.173.231-.145.39-.087s1.011.477 1.184.564.289.13.332.202c.045.072.045.419-.1.824zm-3.423-14.416c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm.029 18.88c-1.161 0-2.305-.292-3.318-.844l-3.677.964.98-3.686c-.592-1.02-.9-2.176-.898-3.358.002-3.808 3.105-6.912 6.913-6.912 3.809 0 6.913 3.104 6.913 6.913s-3.104 6.923-6.913 6.923z"/>
@@ -139,12 +129,12 @@
       </div>
 
       <!-- Info tip -->
-      <div class="bg-blue-50 rounded-2xl p-5 border border-blue-200/50">
+      <div class="bg-primary-50 rounded-2xl p-5 border border-primary-200/50">
         <div class="flex gap-3">
-          <svg class="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="w-5 h-5 text-primary-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
           </svg>
-          <p class="text-sm text-gray-700">{{ t.infoTip }}</p>
+          <p class="text-sm text-primary-800">{{ t.infoTip }}</p>
         </div>
       </div>
     </div>
@@ -152,27 +142,17 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 
 definePageMeta({
   layout: 'app',
   middleware: ['auth']
 })
 
-const user = useUser()
 const { t: createTranslations } = useLanguage()
 const { downloadForm } = useForm1583()
 
 const isDownloading = ref(false)
-
-const hasCompleteAddress = computed(() => {
-  return (
-    user.value?.street &&
-    user.value?.municipio &&
-    user.value?.estado &&
-    user.value?.postal_code
-  )
-})
 
 const handleDownload = async () => {
   isDownloading.value = true
@@ -186,33 +166,21 @@ const handleDownload = async () => {
 }
 
 const translations = {
+  backToDashboard: {
+    es: 'Volver al inicio',
+    en: 'Back to dashboard'
+  },
+  requiredTag: {
+    es: 'Requerido',
+    en: 'Required'
+  },
   title: {
     es: 'Formulario USPS 1583',
     en: 'USPS Form 1583'
   },
-  subtitle: {
-    es: 'Requerido por USPS para recibir correo a través de Boxly',
-    en: 'Required by USPS to receive mail through Boxly'
-  },
-  whatIsTitle: {
-    es: '¿Qué es el Formulario 1583?',
-    en: 'What is Form 1583?'
-  },
   whatIsDescription: {
-    es: 'El Formulario PS 1583 es un documento requerido por el Servicio Postal de Estados Unidos (USPS) para cualquier persona que reciba correo a través de una agencia receptora de correo comercial (CMRA) como Boxly. Este formulario autoriza a Boxly a recibir paquetes y correo en tu nombre.',
-    en: 'PS Form 1583 is a document required by the United States Postal Service (USPS) for anyone receiving mail through a Commercial Mail Receiving Agency (CMRA) like Boxly. This form authorizes Boxly to receive packages and mail on your behalf.'
-  },
-  addressWarning: {
-    es: 'Dirección incompleta',
-    en: 'Incomplete address'
-  },
-  addressWarningDesc: {
-    es: 'Necesitas completar tu dirección de envío en México antes de descargar el formulario.',
-    en: 'You need to complete your Mexican shipping address before downloading the form.'
-  },
-  goToAddress: {
-    es: 'Ir a dirección de envío',
-    en: 'Go to shipping address'
+    es: 'El Servicio Postal de EE.UU. requiere este formulario para autorizar a Boxly a recibir paquetes y correo en tu nombre. Solo toma unos minutos.',
+    en: 'The US Postal Service requires this form to authorize Boxly to receive packages and mail on your behalf. It only takes a few minutes.'
   },
   stepsTitle: {
     es: '¿Cómo completar el formulario?',
