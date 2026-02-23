@@ -15,7 +15,7 @@ export const useForm1583 = () => {
     const pdfDoc = await PDFDocument.load(pdfBytes)
     const page = pdfDoc.getPage(0)
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica)
-    const fontSize = 10
+    const fontSize = 8
     const color = rgb(0, 0, 0)
 
     const draw = (text: string, x: number, y: number, size = fontSize) => {
@@ -29,28 +29,31 @@ export const useForm1583 = () => {
     const firstName = nameParts.length > 1 ? nameParts.slice(0, -1).join(' ') : ''
 
     // === Section 2: CMRA (Boxly) ===
-    draw('482 W. San Ysidro Blvd. Apt. 123', 32, 688)    // 2a. Street
-    draw('San Ysidro', 32, 648)                            // 2c. City
-    draw('CA', 225, 648)                                   // 2d. State
-    draw('92173', 310, 648)                                // 2e. ZIP
+    draw('482 W. San Ysidro Blvd. Apt. 123', 21, 663)    // 2a. Street
+    draw('San Ysidro', 19, 628)                            // 2c. City
+    draw('CA', 167, 628)                                   // 2d. State
+    draw('92173', 260, 628)                                // 2e. ZIP
 
     // === Section 3: Residential/Personal Use checkbox ===
-    draw('X', 222, 600, 9)
+    draw('X', 300, 590)
+
+    // === Section 8e: Photo ID type checkbox ===
+    draw('X', 320, 632)
 
     // === Section 4: Applicant ===
-    draw(lastName, 32, 568)                                // 4a. Last Name
-    draw(firstName, 190, 568)                              // 4b. First Name
-    draw(profile.phone || '', 32, 537)                     // 4d. Phone
-    draw(profile.email || '', 210, 537)                    // 4e. Email
+    draw(lastName, 19, 559)                                // 4a. Last Name
+    draw(firstName, 218, 556)                              // 4b. First Name
+    draw(profile.phone || '', 22, 529)                     // 4d. Phone
+    draw(profile.email || '', 167, 526)                    // 4e. Email
 
     // Street address: combine street + exterior_number
     const addr = profile.address || {}
     const streetLine = [addr.street, addr.exterior_number].filter(Boolean).join(' ')
-    draw(streetLine, 32, 505)                              // 4f. Street
-    draw(addr.municipio || '', 32, 473)                    // 4g. City
-    draw(addr.estado || '', 190, 473)                      // 4h. State
-    draw(addr.postal_code || '', 280, 473)                 // 4i. ZIP
-    draw('Mexico', 355, 473)                               // 4j. Country
+    draw(streetLine, 20, 497)                              // 4f. Street
+    draw(addr.municipio || '', 21, 467)                    // 4g. City
+    draw(addr.estado || '', 165, 464)                      // 4h. State
+    draw(addr.postal_code || '', 260, 465)                 // 4i. ZIP
+    draw('Mexico', 310, 463)                               // 4j. Country
 
     // Save and trigger download
     const filledBytes = await pdfDoc.save()
