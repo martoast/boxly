@@ -1,79 +1,28 @@
-# Feature: Order Consolidation
+# Update Terms of Service & Privacy Policy — Liability Disclaimers
 
-## Overview
-Allow admins to consolidate multiple orders from the same user into a single order. This fixes the issue where users create multiple orders instead of adding all items to one order.
-
-## Requirements
-- Orders must belong to the same user (user_id) to be consolidated
-- All items from selected orders get merged into the target order
-- Source orders are deleted after consolidation
-- The order with the furthest status becomes the target (e.g., delivered > shipped > paid > awaiting_packages)
-
-## Status Priority (furthest wins)
-1. `delivered` (highest)
-2. `shipped`
-3. `paid`
-4. `processing`
-5. `awaiting_payment`
-6. `packages_complete`
-7. `awaiting_packages` (lowest)
+## Goal
+Make it very clear that Boxly is an **importation logistics provider**, NOT a shipping company. Boxly is not liable for any damages, losses, or theft once packages are handed off to carriers (Estafeta/DHL) — in both USA and Mexico. If a product arrives damaged or has any issues, it is the user's responsibility to handle it directly with the store/retailer, not Boxly.
 
 ---
 
-## API Tasks
+## Tasks
 
-- [ ] 1. Create `POST /admin/orders/consolidate` endpoint in AdminOrderController
-  - Accepts: `order_ids[]` (array of order IDs to consolidate)
-  - Validates all orders belong to same user
-  - Auto-selects target order based on furthest status
-  - Moves all items from source orders to target order
-  - Deletes source orders
-  - Returns updated target order with items
+### Terms of Service (`pages/terms-of-service.vue`)
 
-- [ ] 2. Add route in api.php
+- [ ] 1. Update the **introduction** to explicitly define Boxly as an "importation logistics provider" (not a shipping company)
+- [ ] 2. Update **Section 2 (Service Description)** to clarify Boxly coordinates importation logistics, does not ship packages itself
+- [ ] 3. Strengthen **Section 5 (Shipping & Delivery)** — add clear language that Boxly is not liable in both USA and Mexico once handed to carrier
+- [ ] 4. Strengthen **Section 5.1 (Carrier Claims)** — reinforce that all product/package issues must be resolved by user with the original store/retailer or carrier, not Boxly
+- [ ] 5. Update **Section 7 (Liability & Insurance)** — add item that damaged/defective products are the user's responsibility to resolve with the retailer, not Boxly
+- [ ] 6. Update **Section 16 (Limitation of Liability)** — reinforce Boxly is not liable for product condition, damage, theft in transit
 
----
+### Privacy Policy (`pages/privacy-policy.vue`)
 
-## Frontend Tasks
-
-- [ ] 3. Add checkbox selection to admin orders list
-  - Add checkbox column to orders table
-  - Track selected order IDs in state
-  - Show selection count in header
-
-- [ ] 4. Add "Consolidate Orders" button in header
-  - Only visible when 2+ orders selected
-  - Validate orders are from same user before enabling
-
-- [ ] 5. Create `AdminOrderModalConsolidate.vue` component
-  - Show selected orders summary (order number, items count, user)
-  - Let admin choose which order to keep as target (radio buttons)
-  - Show warning about what will happen
-  - Confirm/Cancel buttons
-  - Call API on confirm
-
-- [ ] 6. Handle consolidation response
-  - Show success toast
-  - Refresh orders list
-  - Clear selection
+- [ ] 7. Update the **introduction** to define Boxly as an importation logistics provider
+- [ ] 8. Update **Section 4 (Information Sharing)** — add note that sharing data with carriers does not make Boxly liable for carrier actions
+- [ ] 9. Add a **new Section** (before Contact) — "Service Liability Disclaimer" clarifying Boxly is a logistics coordinator, not responsible for product condition/damage/theft
 
 ---
 
 ## Review
-
-### Files Modified
-
-**`pages/app/admin/orders/index.vue`**
-- Added merge orders state: `showMergeModal`, `mergingOrders`
-- Added computed properties: `canMergeOrders` (validates same user), `selectedOrdersData`
-- Added translations for merge feature (mergeOrders, merging, confirmMerge, etc.)
-- Added "Merge Orders" button to both mobile and desktop bulk actions bars
-- Added merge confirmation modal showing selected orders with status badges
-- Added `mergeOrders()` function that calls the API endpoint
-
-### How It Works
-1. Admin selects 2+ orders using checkboxes
-2. If all selected orders belong to the same user, "Merge Orders" button appears
-3. Clicking the button shows a modal with the selected orders
-4. On confirm, API merges all items into the order with the furthest status
-5. Source orders are deleted, list is refreshed
+_(to be filled after completion)_
