@@ -51,12 +51,14 @@
 
          
 
-          <NuxtLink 
+          <!-- HIDDEN: Track my package page temporarily disabled
+          <NuxtLink
             to="/track"
             class="text-gray-700 hover:text-primary-600 transition-colors duration-200"
           >
             {{ t.track }}
           </NuxtLink>
+          -->
 
           <!-- Help Dropdown -->
           <div 
@@ -234,6 +236,7 @@
 
           
 
+          <!-- HIDDEN: Track my package page temporarily disabled
           <NuxtLink
             to="/track"
             @click="mobileMenuOpen = false"
@@ -241,6 +244,7 @@
           >
             {{ t.track }}
           </NuxtLink>
+          -->
 
           <!-- Help Section -->
           <div class="border-t border-gray-100 pt-2 mt-2">
