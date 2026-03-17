@@ -20,7 +20,7 @@
       aria-label="Switch to English"
     >
       <img 
-        src="https://upload.wikimedia.org/wikipedia/en/thumb/a/a4/Flag_of_the_United_States.svg/1600px-Flag_of_the_United_States.svg.png?20250221172329" 
+        src="https://upload.wikimedia.org/wikipedia/commons/a/a4/Flag_of_the_United_States.svg" 
         alt="United States Flag" 
         class="w-6 h-6 rounded-full shadow-sm object-cover"
       >
