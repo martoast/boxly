@@ -105,17 +105,7 @@
               <li>{{ t.carrierClaimsItem1 }}</li>
               <li>{{ t.carrierClaimsItem2 }}</li>
               <li>{{ t.carrierClaimsItem3 }}</li>
-              <li>{{ t.carrierClaimsItem4 }}</li>
-              <li>{{ t.carrierClaimsItem5 }}</li>
             </ul>
-            <div
-              class="mt-4 p-4 bg-red-50 border-l-4 border-red-400 rounded-lg"
-            >
-              <p class="text-sm font-semibold text-red-800 mb-2">
-                {{ t.carrierWarningTitle }}
-              </p>
-              <p class="text-sm text-red-700">{{ t.carrierWarningText }}</p>
-            </div>
           </section>
 
           <!-- Section 6: Prohibited Items -->
@@ -490,40 +480,40 @@ const translations = {
     en: "Boxly does not provide guarantees on specific delivery times. The 3-5 business day estimate is approximate and may vary based on location, season, and carrier circumstances. Important: We do not ship on Fridays.",
   },
   carrierClaimsTitle: {
-    es: "Reclamos al Transportista y Disputas de Entrega",
-    en: "Carrier Claims and Delivery Disputes",
+    es: "¿Qué pasa si mi paquete se daña o se pierde?",
+    en: "What happens if my package is damaged or lost?",
   },
   carrierClaimsText: {
-    es: "Política de reclamos con el transportista - LEA CUIDADOSAMENTE:",
-    en: "Carrier claims policy - READ CAREFULLY:",
+    es: "Política de seguro y reclamos:",
+    en: "Insurance and claims policy:",
   },
   carrierClaimsItem1: {
-    es: "Una vez que Boxly genera el número de guía (tracking) y entrega el paquete al transportista (Estafeta o DHL), la responsabilidad de Boxly TERMINA. A partir de ese momento, el transportista es el único responsable del paquete",
-    en: "Once Boxly generates the tracking number (guía) and hands the package to the carrier (Estafeta or DHL), Boxly's responsibility ENDS. From that point, the carrier is solely responsible for the package",
+    es: "BOXLY no ofrece seguro directo sobre los envíos. El cliente puede contratar un seguro adicional directamente con la paquetería correspondiente, como DHL o Estafeta, sujeto a sus propios términos y condiciones",
+    en: "BOXLY does not offer direct insurance on shipments. The customer may purchase additional insurance directly with the corresponding carrier, such as DHL or Estafeta, subject to their own terms and conditions",
   },
   carrierClaimsItem2: {
-    es: "La responsabilidad final de cualquier paquete perdido o dañado durante el tránsito nacional recae en el transportista (Estafeta o DHL) según sus términos y condiciones de servicio",
-    en: "Final liability for any package lost or damaged during domestic transit lies with the carrier (Estafeta or DHL) according to their terms and conditions of service",
+    es: "En caso de daño o pérdida, BOXLY podrá apoyar en el proceso de seguimiento o reclamación; sin embargo, la resolución, tiempos de respuesta y cualquier compensación dependerán exclusivamente de la paquetería o aseguradora",
+    en: "In case of damage or loss, BOXLY may assist in the tracking or claims process; however, resolution, response times, and any compensation will depend exclusively on the carrier or insurer",
   },
   carrierClaimsItem3: {
-    es: "Los reclamos de seguro, si están disponibles, deben presentarse directamente con el transportista (Estafeta o DHL) o su proveedor de seguros",
-    en: "Insurance claims, if available, must be filed directly with the carrier (Estafeta or DHL) or your insurance provider",
+    es: "En caso de no contar con seguro, BOXLY no será responsable por pérdidas o daños durante el transporte",
+    en: "In the absence of insurance, BOXLY will not be responsible for losses or damages during transport",
   },
   carrierClaimsItem4: {
-    es: "Boxly NO es responsable de compensar a los clientes por paquetes perdidos, dañados o retrasados una vez que han sido entregados al transportista. La responsabilidad máxima de Boxly se limita exclusivamente al reembolso del costo del servicio de envío pagado a Boxly, excluyendo completamente el valor del contenido del paquete",
-    en: "Boxly is NOT responsible for compensating customers for packages lost, damaged, or delayed once they have been handed to the carrier. Boxly's maximum liability is limited exclusively to a refund of the shipping service cost paid to Boxly, completely excluding the value of package contents",
+    es: "",
+    en: "",
   },
   carrierClaimsItem5: {
-    es: "El cliente acepta que al usar los servicios de Boxly y recibir el número de guía, entiende y acepta que Boxly actúa únicamente como intermediario de envío y que el transportista (Estafeta o DHL) es el responsable final de la entrega segura y oportuna del paquete",
-    en: "The customer agrees that by using Boxly services and receiving the tracking number, they understand and accept that Boxly acts solely as a shipping intermediary and that the carrier (Estafeta or DHL) is ultimately responsible for safe and timely package delivery",
+    es: "",
+    en: "",
   },
   carrierWarningTitle: {
-    es: "ADVERTENCIA IMPORTANTE:",
-    en: "IMPORTANT WARNING:",
+    es: "",
+    en: "",
   },
   carrierWarningText: {
-    es: "Boxly NO es una compañía de seguros y NO asegura el contenido de sus paquetes. Si está enviando artículos de alto valor, se recomienda encarecidamente contratar seguro adicional a través de su tienda de compras o un proveedor de seguros de terceros ANTES de enviar a nuestra dirección en San Diego. UNA VEZ QUE BOXLY GENERA LA GUÍA (TRACKING) Y ENTREGA EL PAQUETE A ESTAFETA O DHL, BOXLY NO TIENE CONTROL NI RESPONSABILIDAD ALGUNA SOBRE EL MISMO. Cualquier reclamo por pérdida o daño debe dirigirse directamente al transportista.",
-    en: "Boxly is NOT an insurance company and does NOT insure the contents of your packages. If you are shipping high-value items, it is strongly recommended to purchase additional insurance through your shopping store or a third-party insurance provider BEFORE shipping to our San Diego address. ONCE BOXLY GENERATES THE TRACKING NUMBER (GUÍA) AND HANDS THE PACKAGE TO ESTAFETA OR DHL, BOXLY HAS NO CONTROL OR LIABILITY WHATSOEVER OVER IT. Any claims for loss or damage must be directed to the carrier.",
+    es: "",
+    en: "",
   },
   prohibitedTitle: {
     es: "Artículos Prohibidos",
@@ -566,28 +556,28 @@ const translations = {
     en: "Note: Boxly reserves the right to reject, hold, or destroy any package containing prohibited items without prior notice or refund.",
   },
   liabilityTitle: {
-    es: "Responsabilidad y Seguro",
-    en: "Liability and Insurance",
+    es: "¿Qué garantías incluye el servicio?",
+    en: "What guarantees does the service include?",
   },
   liabilityText: {
-    es: "Términos de responsabilidad:",
-    en: "Liability terms:",
+    es: "BOXLY ofrece un servicio de recepción, consolidación y coordinación logística de envíos internacionales.",
+    en: "BOXLY offers a reception, consolidation, and international shipping logistics coordination service.",
   },
   liabilityItem1: {
-    es: "Boxly maneja sus paquetes con cuidado, pero no es responsable por daños causados por el transportista o empaque inadecuado del vendedor original",
-    en: "Boxly handles your packages with care, but is not responsible for damage caused by the carrier or inadequate packaging by the original seller",
+    es: "BOXLY es responsable del manejo de los paquetes únicamente durante su recepción y proceso de consolidación en nuestras instalaciones",
+    en: "BOXLY is responsible for package handling only during reception and the consolidation process at our facilities",
   },
   liabilityItem2: {
-    es: "La responsabilidad máxima de Boxly está limitada al costo del servicio de envío pagado",
-    en: "Boxly's maximum liability is limited to the cost of the shipping service paid",
+    es: "Una vez que los envíos son entregados a terceros para su cruce o transporte (incluyendo paqueterías y proveedores logísticos), la responsabilidad recae en dichos proveedores",
+    en: "Once shipments are handed to third parties for crossing or transport (including carriers and logistics providers), responsibility falls on those providers",
   },
   liabilityItem3: {
-    es: "Boxly no es responsable del contenido o valor de los artículos en sus paquetes",
-    en: "Boxly is not responsible for the content or value of items in your packages",
+    es: "BOXLY no ofrece garantías de entrega ni seguros incluidos",
+    en: "BOXLY does not offer delivery guarantees or included insurance",
   },
   liabilityItem4: {
-    es: "Se recomienda contratar seguro adicional para artículos de alto valor a través de su tienda de compras",
-    en: "Additional insurance for high-value items through your shopping store is recommended",
+    es: "El cliente podrá contratar cobertura adicional directamente con la paquetería correspondiente, como DHL o Estafeta, bajo sus propios términos y condiciones",
+    en: "The customer may purchase additional coverage directly with the corresponding carrier, such as DHL or Estafeta, under their own terms and conditions",
   },
   customsTitle: {
     es: "Aduanas y Regulaciones de Importación",
@@ -614,12 +604,12 @@ const translations = {
     en: "Packages held or confiscated by customs are not Boxly's responsibility",
   },
   storageTitle: {
-    es: "Almacenamiento de Paquetes",
-    en: "Package Storage",
+    es: "¿Hay una fecha de vencimiento para mi dirección o mis paquetes?",
+    en: "Is there an expiration date for my address or packages?",
   },
   storageText: {
-    es: "Los paquetes se almacenan gratuitamente en nuestro almacén por hasta 60 días. Después de este período, Boxly se reserva el derecho de cobrar una tarifa de almacenamiento o disponer del paquete según lo considere apropiado. Es su responsabilidad crear órdenes de envío oportunamente.",
-    en: "Packages are stored free of charge at our warehouse for up to 60 days. After this period, Boxly reserves the right to charge a storage fee or dispose of the package as deemed appropriate. It is your responsibility to create shipping orders in a timely manner.",
+    es: "El servicio de dirección en EE.UU. es de uso indefinido; sin embargo, los paquetes recibidos deberán ser procesados y enviados dentro de un plazo máximo de 90 días naturales a partir de su recepción. En caso de que un paquete permanezca sin movimiento o sin instrucciones por parte del cliente durante este periodo, BOXLY se reserva el derecho de disponer de la mercancía, incluyendo su desecho, donación o liquidación, sin responsabilidad alguna. BOXLY no será responsable por paquetes no reclamados o sin instrucciones después de este plazo. Adicionalmente, la cuenta podrá ser suspendida o desactivada en caso de inactividad prolongada o incumplimiento en los términos del servicio.",
+    en: "The U.S. address service is for indefinite use; however, received packages must be processed and shipped within a maximum period of 90 calendar days from their reception. If a package remains without movement or instructions from the customer during this period, BOXLY reserves the right to dispose of the merchandise, including disposal, donation, or liquidation, without any liability. BOXLY will not be responsible for unclaimed packages or packages without instructions after this period. Additionally, the account may be suspended or deactivated in case of prolonged inactivity or non-compliance with the terms of service.",
   },
   cancellationTitle: {
     es: "Cancelaciones y Reembolsos",
