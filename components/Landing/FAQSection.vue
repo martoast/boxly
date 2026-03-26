@@ -199,10 +199,14 @@
       },
       answer: {
         es: [
-          "Todas tus compras están respaldadas automáticamente por un seguro de $9 USD/lb hasta $100.00 USD. En Boxly, somos responsables de tus paquetes desde que llegan y se ubican en el P.O Box hasta la entrega final en tu hogar u oficina.",
+          "BOXLY ofrece un servicio de recepción, consolidación y coordinación logística de envíos internacionales.",
+          "BOXLY es responsable del manejo de los paquetes únicamente durante su recepción y proceso de consolidación en nuestras instalaciones. Una vez que los envíos son entregados a terceros para su cruce o transporte (incluyendo paqueterías y proveedores logísticos), la responsabilidad recae en dichos proveedores.",
+          "BOXLY no ofrece garantías de entrega ni seguros incluidos. El cliente podrá contratar cobertura adicional directamente con la paquetería correspondiente, como DHL o Estafeta, bajo sus propios términos y condiciones.",
         ],
         en: [
-          "All your purchases are automatically backed by insurance of U.S. $9/lb up to U.S $100.00. At Boxly, we are responsible for your packages since they arrive and are located at the P.O Box until the final delivery at your home or office.",
+          "BOXLY offers a reception, consolidation, and international shipping logistics coordination service.",
+          "BOXLY is responsible for package handling only during reception and the consolidation process at our facilities. Once shipments are handed to third parties for crossing or transport (including carriers and logistics providers), responsibility falls on those providers.",
+          "BOXLY does not offer delivery guarantees or included insurance. The customer may purchase additional coverage directly with the corresponding carrier, such as DHL or Estafeta, under their own terms and conditions.",
         ],
       },
     },
@@ -210,15 +214,19 @@
       id: 4,
       category: "locker",
       question: {
-        es: "¿Hay una fecha de vencimiento para mi dirección de envío en EE.UU.?",
-        en: "Is there an expiration date for my U.S. Shipping Address?",
+        es: "¿Hay una fecha de vencimiento para mi dirección de envío en EE.UU. o para mis paquetes?",
+        en: "Is there an expiration date for my U.S. shipping address or my packages?",
       },
       answer: {
         es: [
-          "El servicio es por tiempo indefinido, pero puede ser desactivado si tu dirección de envío en EE.UU. muestra inactividad por un año, o si no pagas por tu servicio.",
+          "El servicio de dirección en EE.UU. es de uso indefinido; sin embargo, los paquetes recibidos deberán ser procesados y enviados dentro de un plazo máximo de 90 días naturales a partir de su recepción.",
+          "En caso de que un paquete permanezca sin movimiento o sin instrucciones por parte del cliente durante este periodo, BOXLY se reserva el derecho de disponer de la mercancía, incluyendo su desecho, donación o liquidación, sin responsabilidad alguna. BOXLY no será responsable por paquetes no reclamados o sin instrucciones después de este plazo.",
+          "Adicionalmente, la cuenta podrá ser suspendida o desactivada en caso de inactividad prolongada o incumplimiento en los términos del servicio.",
         ],
         en: [
-          "The service is for an indefinite term, but it can be deactivated if your U.S. shipping address shows inactivity for a year, or if you fail to pay for your service.",
+          "The U.S. address service is for indefinite use; however, received packages must be processed and shipped within a maximum period of 90 calendar days from their reception.",
+          "If a package remains without movement or instructions from the customer during this period, BOXLY reserves the right to dispose of the merchandise, including disposal, donation, or liquidation, without any liability. BOXLY will not be responsible for unclaimed packages or packages without instructions after this period.",
+          "Additionally, the account may be suspended or deactivated in case of prolonged inactivity or non-compliance with the terms of service.",
         ],
       },
     },
@@ -383,10 +391,14 @@
       },
       answer: {
         es: [
-          "Todos los paquetes están asegurados automáticamente. En el caso poco probable de daño o pérdida, nuestro equipo de atención al cliente trabajará contigo para resolver el problema rápidamente y procesar tu reclamación de seguro.",
+          "BOXLY no ofrece seguro directo sobre los envíos. El cliente puede contratar un seguro adicional directamente con la paquetería correspondiente, como DHL o Estafeta, sujeto a sus propios términos y condiciones.",
+          "En caso de daño o pérdida, BOXLY podrá apoyar en el proceso de seguimiento o reclamación; sin embargo, la resolución, tiempos de respuesta y cualquier compensación dependerán exclusivamente de la paquetería o aseguradora.",
+          "En caso de no contar con seguro, BOXLY no será responsable por pérdidas o daños durante el transporte.",
         ],
         en: [
-          "All packages are automatically insured. In the unlikely event of damage or loss, our customer service team will work with you to resolve the issue quickly and process your insurance claim.",
+          "BOXLY does not offer direct insurance on shipments. The customer may purchase additional insurance directly with the corresponding carrier, such as DHL or Estafeta, subject to their own terms and conditions.",
+          "In case of damage or loss, BOXLY may assist in the tracking or claims process; however, resolution, response times, and any compensation will depend exclusively on the carrier or insurer.",
+          "In the absence of insurance, BOXLY will not be responsible for losses or damages during transport.",
         ],
       },
     },
