@@ -105,6 +105,8 @@
               <li>{{ t.carrierClaimsItem1 }}</li>
               <li>{{ t.carrierClaimsItem2 }}</li>
               <li>{{ t.carrierClaimsItem3 }}</li>
+              <li>{{ t.carrierClaimsItem4 }}</li>
+              <li>{{ t.carrierClaimsItem5 }}</li>
             </ul>
           </section>
 
@@ -488,24 +490,24 @@ const translations = {
     en: "Insurance and claims policy:",
   },
   carrierClaimsItem1: {
-    es: "BOXLY no ofrece seguro directo sobre los envíos. El cliente puede contratar un seguro adicional directamente con la paquetería correspondiente, como DHL o Estafeta, sujeto a sus propios términos y condiciones",
-    en: "BOXLY does not offer direct insurance on shipments. The customer may purchase additional insurance directly with the corresponding carrier, such as DHL or Estafeta, subject to their own terms and conditions",
+    es: "BOXLY actúa exclusivamente como intermediario logístico y no como transportista ni aseguradora",
+    en: "BOXLY acts exclusively as a logistics intermediary and not as a carrier or insurer",
   },
   carrierClaimsItem2: {
-    es: "En caso de daño o pérdida, BOXLY podrá apoyar en el proceso de seguimiento o reclamación; sin embargo, la resolución, tiempos de respuesta y cualquier compensación dependerán exclusivamente de la paquetería o aseguradora",
-    en: "In case of damage or loss, BOXLY may assist in the tracking or claims process; however, resolution, response times, and any compensation will depend exclusively on the carrier or insurer",
+    es: "BOXLY no ofrece seguro directo sobre los envíos. El cliente puede contratar un seguro adicional directamente con la paquetería correspondiente (como DHL o Estafeta), sujeto a los términos y condiciones de dicha paquetería",
+    en: "BOXLY does not offer direct insurance on shipments. The customer may purchase additional insurance directly with the corresponding carrier (such as DHL or Estafeta), subject to that carrier's terms and conditions",
   },
   carrierClaimsItem3: {
-    es: "En caso de no contar con seguro, BOXLY no será responsable por pérdidas o daños durante el transporte",
-    en: "In the absence of insurance, BOXLY will not be responsible for losses or damages during transport",
+    es: "Una vez que el paquete es entregado a la paquetería para su envío, la responsabilidad sobre el transporte, manejo y entrega recae exclusivamente en la paquetería seleccionada",
+    en: "Once the package is handed to the carrier for shipment, responsibility for transport, handling, and delivery falls exclusively on the selected carrier",
   },
   carrierClaimsItem4: {
-    es: "",
-    en: "",
+    es: "En caso de daño, pérdida o retraso, BOXLY podrá brindar apoyo administrativo en el proceso de seguimiento o reclamación; sin embargo, la resolución, tiempos de respuesta y cualquier compensación dependerán exclusivamente de la paquetería o aseguradora",
+    en: "In case of damage, loss, or delay, BOXLY may provide administrative support in the tracking or claims process; however, resolution, response times, and any compensation will depend exclusively on the carrier or insurer",
   },
   carrierClaimsItem5: {
-    es: "",
-    en: "",
+    es: "En caso de no contar con seguro, el cliente asume el riesgo total del envío. BOXLY no será responsable por pérdidas, daños o incidencias ocurridas durante el transporte",
+    en: "In the absence of insurance, the customer assumes the full risk of the shipment. BOXLY will not be responsible for losses, damages, or incidents occurring during transport",
   },
   carrierWarningTitle: {
     es: "",
@@ -564,20 +566,20 @@ const translations = {
     en: "BOXLY offers a reception, consolidation, and international shipping logistics coordination service.",
   },
   liabilityItem1: {
-    es: "BOXLY es responsable del manejo de los paquetes únicamente durante su recepción y proceso de consolidación en nuestras instalaciones",
-    en: "BOXLY is responsible for package handling only during reception and the consolidation process at our facilities",
+    es: "BOXLY se compromete a manejar los paquetes con cuidado razonable durante su recepción y proceso de consolidación en sus instalaciones. Sin embargo, BOXLY no garantiza la integridad absoluta del contenido, ni asume responsabilidad por daños, faltantes o incidencias derivadas de empaques deficientes por parte del proveedor o condiciones previas a la recepción",
+    en: "BOXLY commits to handling packages with reasonable care during their reception and consolidation process at its facilities. However, BOXLY does not guarantee the absolute integrity of contents, nor assumes responsibility for damage, shortages, or incidents resulting from inadequate packaging by the supplier or conditions prior to reception",
   },
   liabilityItem2: {
-    es: "Una vez que los envíos son entregados a terceros para su cruce o transporte (incluyendo paqueterías y proveedores logísticos), la responsabilidad recae en dichos proveedores",
-    en: "Once shipments are handed to third parties for crossing or transport (including carriers and logistics providers), responsibility falls on those providers",
+    es: "Una vez que los envíos son entregados a terceros para su cruce, transporte o entrega (incluyendo paqueterías y proveedores logísticos), la responsabilidad recae exclusivamente en dichos terceros",
+    en: "Once shipments are handed to third parties for crossing, transport, or delivery (including carriers and logistics providers), responsibility falls exclusively on those third parties",
   },
   liabilityItem3: {
-    es: "BOXLY no ofrece garantías de entrega ni seguros incluidos",
-    en: "BOXLY does not offer delivery guarantees or included insurance",
+    es: "BOXLY no ofrece garantías de entrega, tiempos de tránsito ni resultados del servicio, ya que estos pueden verse afectados por factores externos como procesos aduanales, inspecciones, retrasos logísticos o causas fuera de su control",
+    en: "BOXLY does not offer delivery guarantees, transit times, or service outcome guarantees, as these may be affected by external factors such as customs processes, inspections, logistics delays, or causes beyond its control",
   },
   liabilityItem4: {
-    es: "El cliente podrá contratar cobertura adicional directamente con la paquetería correspondiente, como DHL o Estafeta, bajo sus propios términos y condiciones",
-    en: "The customer may purchase additional coverage directly with the corresponding carrier, such as DHL or Estafeta, under their own terms and conditions",
+    es: "BOXLY no incluye seguro en sus servicios. El cliente podrá contratar cobertura adicional directamente con la paquetería correspondiente (como DHL o Estafeta), bajo sus propios términos y condiciones",
+    en: "BOXLY does not include insurance in its services. The customer may purchase additional coverage directly with the corresponding carrier (such as DHL or Estafeta), under their own terms and conditions",
   },
   customsTitle: {
     es: "Aduanas y Regulaciones de Importación",
@@ -588,16 +590,16 @@ const translations = {
     en: "Customs responsibilities:",
   },
   customsItem1: {
-    es: "Usted es responsable de cumplir con todas las leyes de importación de México",
-    en: "You are responsible for complying with all Mexico import laws",
+    es: "El cliente, en su calidad de importador final o receptor de la mercancía, es el único responsable del pago de impuestos, aranceles y cualquier otro cargo aplicable por autoridades aduanales",
+    en: "The customer, as the final importer or recipient of the goods, is solely responsible for the payment of taxes, duties, and any other charges applicable by customs authorities",
   },
   customsItem2: {
-    es: "Boxly proporciona documentación aduanal (GIA), pero no garantiza la aprobación aduanal",
-    en: "Boxly provides customs documentation (GIA), but does not guarantee customs approval",
+    es: "BOXLY podrá asistir en la coordinación del proceso de despacho aduanal; sin embargo, no actúa como agente aduanal ni asume responsabilidad sobre la clasificación, valoración o determinación de contribuciones",
+    en: "BOXLY may assist in coordinating the customs clearance process; however, it does not act as a customs agent and assumes no responsibility for the classification, valuation, or determination of contributions",
   },
   customsItem3: {
-    es: "Usted es responsable de cualquier impuesto, arancel o tarifa aduanal aplicable",
-    en: "You are responsible for any applicable taxes, duties, or customs fees",
+    es: "Cualquier cargo adicional será informado al cliente antes de la entrega, cuando dicha información esté disponible",
+    en: "Any additional charges will be communicated to the customer before delivery, when such information is available",
   },
   customsItem4: {
     es: "Los paquetes retenidos o confiscados por aduanas no son responsabilidad de Boxly",

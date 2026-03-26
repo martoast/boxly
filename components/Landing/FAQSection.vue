@@ -200,13 +200,17 @@
       answer: {
         es: [
           "BOXLY ofrece un servicio de recepción, consolidación y coordinación logística de envíos internacionales.",
-          "BOXLY es responsable del manejo de los paquetes únicamente durante su recepción y proceso de consolidación en nuestras instalaciones. Una vez que los envíos son entregados a terceros para su cruce o transporte (incluyendo paqueterías y proveedores logísticos), la responsabilidad recae en dichos proveedores.",
-          "BOXLY no ofrece garantías de entrega ni seguros incluidos. El cliente podrá contratar cobertura adicional directamente con la paquetería correspondiente, como DHL o Estafeta, bajo sus propios términos y condiciones.",
+          "BOXLY se compromete a manejar los paquetes con cuidado razonable durante su recepción y proceso de consolidación en sus instalaciones. Sin embargo, BOXLY no garantiza la integridad absoluta del contenido, ni asume responsabilidad por daños, faltantes o incidencias derivadas de empaques deficientes por parte del proveedor o condiciones previas a la recepción.",
+          "Una vez que los envíos son entregados a terceros para su cruce, transporte o entrega (incluyendo paqueterías y proveedores logísticos), la responsabilidad recae exclusivamente en dichos terceros.",
+          "BOXLY no ofrece garantías de entrega, tiempos de tránsito ni resultados del servicio, ya que estos pueden verse afectados por factores externos como procesos aduanales, inspecciones, retrasos logísticos o causas fuera de su control.",
+          "BOXLY no incluye seguro en sus servicios. El cliente podrá contratar cobertura adicional directamente con la paquetería correspondiente (como DHL o Estafeta), bajo sus propios términos y condiciones.",
         ],
         en: [
           "BOXLY offers a reception, consolidation, and international shipping logistics coordination service.",
-          "BOXLY is responsible for package handling only during reception and the consolidation process at our facilities. Once shipments are handed to third parties for crossing or transport (including carriers and logistics providers), responsibility falls on those providers.",
-          "BOXLY does not offer delivery guarantees or included insurance. The customer may purchase additional coverage directly with the corresponding carrier, such as DHL or Estafeta, under their own terms and conditions.",
+          "BOXLY commits to handling packages with reasonable care during their reception and consolidation process at its facilities. However, BOXLY does not guarantee the absolute integrity of contents, nor assumes responsibility for damage, shortages, or incidents resulting from inadequate packaging by the supplier or conditions prior to reception.",
+          "Once shipments are handed to third parties for crossing, transport, or delivery (including carriers and logistics providers), responsibility falls exclusively on those third parties.",
+          "BOXLY does not offer delivery guarantees, transit times, or service outcome guarantees, as these may be affected by external factors such as customs processes, inspections, logistics delays, or causes beyond its control.",
+          "BOXLY does not include insurance in its services. The customer may purchase additional coverage directly with the corresponding carrier (such as DHL or Estafeta), under their own terms and conditions.",
         ],
       },
     },
@@ -391,14 +395,18 @@
       },
       answer: {
         es: [
-          "BOXLY no ofrece seguro directo sobre los envíos. El cliente puede contratar un seguro adicional directamente con la paquetería correspondiente, como DHL o Estafeta, sujeto a sus propios términos y condiciones.",
-          "En caso de daño o pérdida, BOXLY podrá apoyar en el proceso de seguimiento o reclamación; sin embargo, la resolución, tiempos de respuesta y cualquier compensación dependerán exclusivamente de la paquetería o aseguradora.",
-          "En caso de no contar con seguro, BOXLY no será responsable por pérdidas o daños durante el transporte.",
+          "BOXLY actúa exclusivamente como intermediario logístico y no como transportista ni aseguradora.",
+          "BOXLY no ofrece seguro directo sobre los envíos. El cliente puede contratar un seguro adicional directamente con la paquetería correspondiente (como DHL o Estafeta), sujeto a los términos y condiciones de dicha paquetería.",
+          "Una vez que el paquete es entregado a la paquetería para su envío, la responsabilidad sobre el transporte, manejo y entrega recae exclusivamente en la paquetería seleccionada.",
+          "En caso de daño, pérdida o retraso, BOXLY podrá brindar apoyo administrativo en el proceso de seguimiento o reclamación; sin embargo, la resolución, tiempos de respuesta y cualquier compensación dependerán exclusivamente de la paquetería o aseguradora.",
+          "En caso de no contar con seguro, el cliente asume el riesgo total del envío. BOXLY no será responsable por pérdidas, daños o incidencias ocurridas durante el transporte.",
         ],
         en: [
-          "BOXLY does not offer direct insurance on shipments. The customer may purchase additional insurance directly with the corresponding carrier, such as DHL or Estafeta, subject to their own terms and conditions.",
-          "In case of damage or loss, BOXLY may assist in the tracking or claims process; however, resolution, response times, and any compensation will depend exclusively on the carrier or insurer.",
-          "In the absence of insurance, BOXLY will not be responsible for losses or damages during transport.",
+          "BOXLY acts exclusively as a logistics intermediary and not as a carrier or insurer.",
+          "BOXLY does not offer direct insurance on shipments. The customer may purchase additional insurance directly with the corresponding carrier (such as DHL or Estafeta), subject to that carrier's terms and conditions.",
+          "Once the package is handed to the carrier for shipment, responsibility for transport, handling, and delivery falls exclusively on the selected carrier.",
+          "In case of damage, loss, or delay, BOXLY may provide administrative support in the tracking or claims process; however, resolution, response times, and any compensation will depend exclusively on the carrier or insurer.",
+          "In the absence of insurance, the customer assumes the full risk of the shipment. BOXLY will not be responsible for losses, damages, or incidents occurring during transport.",
         ],
       },
     },
@@ -411,10 +419,14 @@
       },
       answer: {
         es: [
-          "Como receptor, eres responsable de los impuestos y aranceles de importación aplicables. Nuestro equipo te ayudará con el proceso de despacho aduanal y te informará sobre cualquier cargo adicional antes de la entrega.",
+          "El cliente, en su calidad de importador final o receptor de la mercancía, es el único responsable del pago de impuestos, aranceles y cualquier otro cargo aplicable por autoridades aduanales.",
+          "BOXLY podrá asistir en la coordinación del proceso de despacho aduanal; sin embargo, no actúa como agente aduanal ni asume responsabilidad sobre la clasificación, valoración o determinación de contribuciones.",
+          "Cualquier cargo adicional será informado al cliente antes de la entrega, cuando dicha información esté disponible.",
         ],
         en: [
-          "As the recipient, you are responsible for applicable import taxes and duties. Our team will help you with the customs clearance process and inform you of any additional charges before delivery.",
+          "The customer, as the final importer or recipient of the goods, is solely responsible for the payment of taxes, duties, and any other charges applicable by customs authorities.",
+          "BOXLY may assist in coordinating the customs clearance process; however, it does not act as a customs agent and assumes no responsibility for the classification, valuation, or determination of contributions.",
+          "Any additional charges will be communicated to the customer before delivery, when such information is available.",
         ],
       },
     },
