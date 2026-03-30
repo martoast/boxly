@@ -29,7 +29,7 @@ export const useForm1583 = () => {
     const firstName = nameParts.length > 1 ? nameParts.slice(0, -1).join(' ') : ''
 
     // === Section 2: CMRA (Boxly) ===
-    draw('482 W. San Ysidro Blvd. Apt. 123', 21, 663)    // 2a. Street
+    draw('157 Virginia Ave #835', 21, 663)                // 2a. Street
     draw('San Ysidro', 19, 628)                            // 2c. City
     draw('CA', 167, 628)                                   // 2d. State
     draw('92173', 260, 628)                                // 2e. ZIP

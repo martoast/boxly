@@ -101,25 +101,32 @@
 
                 <!-- Content Area with Fixed Height -->
                 <div class="flex-1 flex flex-col justify-between">
-                  <div class="space-y-4">
-                    <!-- Address Display -->
-                    <div
-                      class="bg-gray-50 rounded-xl p-4 border border-gray-200"
-                    >
+                  <div class="space-y-3">
+                    <!-- Card 1: Online Shopping Address -->
+                    <div class="bg-primary-50 rounded-xl p-4 border border-primary-200">
+                      <p class="text-xs font-semibold text-primary-700 uppercase tracking-wide mb-2">
+                        {{ t.onlineShoppingAddress }}
+                      </p>
                       <div class="space-y-1">
-                        <p class="font-medium text-gray-900">
-                          BOXLY {{ fullUserName }}
-                        </p>
+                        <p class="font-medium text-gray-900">BOXLY {{ fullUserName }}</p>
                         <p class="text-gray-700">{{ poBoxAddress.line1 }}</p>
                         <p class="text-gray-700">{{ poBoxAddress.line2 }}</p>
                       </div>
                     </div>
 
-                    <!-- Info Text -->
-                    <p class="text-sm text-gray-600">{{ t.useThisAddress }}</p>
+                    <!-- Card 2: Drop-off Address -->
+                    <div class="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                      <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                        {{ t.dropOffAddressLabel }}
+                      </p>
+                      <div class="space-y-1">
+                        <p class="text-gray-700">{{ dropOffAddress.line1 }}</p>
+                        <p class="text-gray-700">{{ dropOffAddress.line2 }}</p>
+                      </div>
+                    </div>
                   </div>
 
-                  <!-- Copy Button - Always at Bottom -->
+                  <!-- Copy Button for online shopping address -->
                   <button
                     @click="copyAddress"
                     class="w-full inline-flex items-center justify-center gap-2 px-6 py-3 bg-primary-600 text-white font-semibold rounded-xl hover:bg-primary-700 transition-all duration-300 group mt-4"
@@ -687,11 +694,17 @@ const fullUserName = computed(() => {
   return user.value?.name || "Loading...";
 });
 
-// PO Box Address
+// Shipping address (for online purchases)
 const poBoxAddress = computed(() => ({
-  line1: `482 W. San Ysidro Blvd. Apt. 123`,
+  line1: `157 Virginia Ave #835`,
   line2: "San Ysidro, CA 92173",
 }));
+
+// Drop-off address (in-person delivery in San Diego)
+const dropOffAddress = {
+  line1: "482 W. San Ysidro Blvd. Apt. 123",
+  line2: "San Ysidro, CA 92173",
+};
 
 // Translations
 const translations = {
@@ -710,6 +723,14 @@ const translations = {
   copyAddress: {
     es: "Copiar Dirección",
     en: "Copy Address",
+  },
+  onlineShoppingAddress: {
+    es: "Dirección para compras en línea",
+    en: "Online Shopping Address",
+  },
+  dropOffAddressLabel: {
+    es: "Dirección para entrega en persona (San Diego)",
+    en: "In-Person Drop-off Address (San Diego)",
   },
   copied: {
     es: "¡Copiado!",
