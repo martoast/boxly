@@ -246,7 +246,7 @@ definePageMeta({
 })
 
 // Nuxt imports
-const { $customFetch } = useNuxtApp()
+const { $customFetch, $retriveUser } = useNuxtApp()
 const runtimeConfig = useRuntimeConfig();
 
 // Use the language composable
@@ -398,20 +398,18 @@ const handleLogin = async () => {
     const route = useRoute()
     const redirectTo = route.query.redirect
 
-    if (redirectTo && typeof redirectTo === 'string') {
-      // Ensure the redirect is a relative path for security
-      if (redirectTo.startsWith('/')) {
-        console.log('Redirecting to:', redirectTo)
-        await navigateTo(redirectTo)
+    if (redirectTo && typeof redirectTo === 'string' && redirectTo.startsWith('/')) {
+      await navigateTo(redirectTo)
+    } else {
+      // Fetch user to determine role-based redirect
+      const user = await $retriveUser()
+      if (user?.role === 'employee') {
+        await navigateTo('/app/employee/packages')
+      } else if (user?.role === 'admin') {
+        await navigateTo('/app/admin/dashboard')
       } else {
-        // If it's not a relative path, go to default app page
-        console.log('Invalid redirect path, going to default app page')
         await navigateTo('/app/')
       }
-    } else {
-      // No redirect, go to default app page
-      console.log('No redirect parameter, going to default app page')
-      await navigateTo('/app/')
     }
 
   } catch (error) {

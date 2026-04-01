@@ -9,6 +9,8 @@ export default defineNuxtRouteMiddleware(async (to) => {
     switch (userState.value.role) {
       case 'admin':
         return navigateTo('/app/admin/dashboard')
+      case 'employee':
+        return navigateTo('/app/employee/packages')
       case 'customer':
         return navigateTo('/app/')
       default:
