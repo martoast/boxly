@@ -137,7 +137,7 @@
           </div>
         </div>
 
-        <!-- Contents photo -->
+        <!-- Contents photos -->
         <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <div class="flex items-center gap-3 mb-3">
             <div class="h-9 w-9 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
@@ -146,24 +146,26 @@
               </svg>
             </div>
             <div>
-              <p class="font-semibold text-gray-900 text-sm">Contents photo</p>
-              <p class="text-xs text-gray-400">Lay out all items — one photo of everything</p>
+              <p class="font-semibold text-gray-900 text-sm">Contents photos</p>
+              <p class="text-xs text-gray-400">Photos of the items inside the packages</p>
             </div>
           </div>
           <label class="block w-full cursor-pointer">
             <div
               class="border-2 border-dashed rounded-xl py-3 px-4 text-center transition-colors"
-              :class="contentsFile ? 'border-emerald-200 bg-emerald-50' : 'border-gray-200 hover:border-emerald-300 hover:bg-emerald-50/50'"
+              :class="contentsFiles.length > 0 ? 'border-emerald-200 bg-emerald-50' : 'border-gray-200 hover:border-emerald-300 hover:bg-emerald-50/50'"
             >
-              <p class="text-sm font-medium" :class="contentsFile ? 'text-emerald-600' : 'text-gray-500'">
-                {{ contentsFile ? 'Photo selected ✓' : '+ Add contents photo' }}
+              <p class="text-sm font-medium" :class="contentsFiles.length > 0 ? 'text-emerald-600' : 'text-gray-500'">
+                {{ contentsFiles.length > 0 ? `${contentsFiles.length} photo${contentsFiles.length > 1 ? 's' : ''} selected` : '+ Add contents photos' }}
               </p>
             </div>
-            <input type="file" accept="image/*" class="hidden" @change="onContentsFileChange" />
+            <input type="file" accept="image/*" multiple class="hidden" @change="onContentsFilesChange" />
           </label>
-          <div v-if="contentsFile" class="mt-3 relative h-16 w-16 rounded-xl overflow-hidden bg-gray-100 border border-gray-200">
-            <img :src="contentsPreview" class="h-full w-full object-cover" />
-            <button class="absolute top-0.5 right-0.5 h-5 w-5 bg-red-500 text-white rounded-full flex items-center justify-center text-[10px] shadow" @click="removeContentsFile">✕</button>
+          <div v-if="contentsFiles.length > 0" class="flex gap-2 mt-3 flex-wrap">
+            <div v-for="(f, i) in contentsFiles" :key="i" class="relative h-16 w-16 rounded-xl overflow-hidden bg-gray-100 border border-gray-200">
+              <img :src="contentsPreviews[i]" class="h-full w-full object-cover" />
+              <button class="absolute top-0.5 right-0.5 h-5 w-5 bg-red-500 text-white rounded-full flex items-center justify-center text-[10px] shadow" @click="removeContentsFile(i)">✕</button>
+            </div>
           </div>
         </div>
 
@@ -210,14 +212,14 @@ const uploadError = ref(null)
 
 const labelFiles = ref([])
 const labelPreviews = ref([])
-const contentsFile = ref(null)
-const contentsPreview = ref(null)
+const contentsFiles = ref([])
+const contentsPreviews = ref([])
 
 const hasUploadedPhotos = computed(() =>
   order.value?.arrival_images?.length > 0 || !!order.value?.arrival_image_url
 )
-const canUpload = computed(() => labelFiles.value.length > 0 && contentsFile.value !== null)
-const totalPhotoCount = computed(() => labelFiles.value.length + (contentsFile.value ? 1 : 0))
+const canUpload = computed(() => labelFiles.value.length > 0 && contentsFiles.value.length > 0)
+const totalPhotoCount = computed(() => labelFiles.value.length + contentsFiles.value.length)
 
 const fetchOrder = async () => {
   loading.value = true
@@ -247,19 +249,19 @@ const removeLabelFile = (i) => {
   labelPreviews.value.splice(i, 1)
 }
 
-const onContentsFileChange = (e) => {
-  const file = e.target.files?.[0]
-  if (!file) return
-  contentsFile.value = file
-  const reader = new FileReader()
-  reader.onload = (ev) => { contentsPreview.value = ev.target.result }
-  reader.readAsDataURL(file)
+const onContentsFilesChange = (e) => {
+  Array.from(e.target.files ?? []).forEach(f => {
+    contentsFiles.value.push(f)
+    const reader = new FileReader()
+    reader.onload = (ev) => contentsPreviews.value.push(ev.target.result)
+    reader.readAsDataURL(f)
+  })
   e.target.value = ''
 }
 
-const removeContentsFile = () => {
-  contentsFile.value = null
-  contentsPreview.value = null
+const removeContentsFile = (i) => {
+  contentsFiles.value.splice(i, 1)
+  contentsPreviews.value.splice(i, 1)
 }
 
 const handleUpload = async () => {
@@ -269,7 +271,7 @@ const handleUpload = async () => {
   try {
     const formData = new FormData()
     labelFiles.value.forEach(f => formData.append('labels[]', f))
-    formData.append('contents', contentsFile.value)
+    contentsFiles.value.forEach(f => formData.append('contents[]', f))
     await $customFetch(`/employee/orders/${order.value.id}/arrival-images`, {
       method: 'POST',
       body: formData,
