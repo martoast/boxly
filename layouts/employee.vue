@@ -3,10 +3,7 @@
     <!-- Header -->
     <header class="bg-white/90 backdrop-blur-sm border-b border-gray-100 shadow-sm sticky top-0 z-10">
       <div class="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
-        <div class="flex items-center gap-2">
-          <img src="/logo.svg" class="h-8 w-8" alt="Boxly" />
-          <span class="font-bold text-gray-900 text-base">Boxly</span>
-        </div>
+        <img src="/logo.svg" class="h-8 w-8" alt="Boxly" />
         <div class="flex items-center gap-3">
           <div class="flex items-center gap-2">
             <div class="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center">
