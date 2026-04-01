@@ -53,40 +53,24 @@
         :to="`/app/employee/packages/${order.id}`"
         class="block bg-white rounded-2xl border border-gray-100 shadow-sm p-4 transition-all duration-200 active:scale-[0.99] hover:shadow-md hover:border-primary-100"
       >
-        <div class="flex items-start justify-between mb-3">
+        <div class="flex items-start justify-between">
           <div class="flex-1 min-w-0 pr-3">
             <p class="font-bold text-gray-900 text-base truncate">{{ order.user?.name }}</p>
             <p class="text-xs text-gray-400 mt-0.5 font-mono">{{ order.order_number }}</p>
+            <p class="text-xs text-gray-400 mt-1">{{ order.total_items }} item{{ order.total_items !== 1 ? 's' : '' }}</p>
           </div>
           <!-- Badge -->
           <span
-            v-if="order.all_items_arrived"
+            v-if="order.arrival_image_url"
             class="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-50 text-green-700 border border-green-100"
           >
             <span class="h-1.5 w-1.5 rounded-full bg-green-500" />
-            Ready
+            Photos done
           </span>
           <span v-else class="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-100">
             <span class="h-1.5 w-1.5 rounded-full bg-amber-400" />
-            {{ order.pending_items }} pending
+            No photos
           </span>
-        </div>
-
-        <!-- Progress -->
-        <div>
-          <div class="flex justify-between text-xs text-gray-400 mb-1.5">
-            <span>{{ order.arrived_items }} of {{ order.total_items }} items arrived</span>
-            <span class="font-medium" :class="order.all_items_arrived ? 'text-green-600' : 'text-gray-400'">
-              {{ order.total_items > 0 ? Math.round((order.arrived_items / order.total_items) * 100) : 0 }}%
-            </span>
-          </div>
-          <div class="w-full bg-gray-100 rounded-full h-1.5">
-            <div
-              class="h-1.5 rounded-full transition-all duration-500"
-              :class="order.all_items_arrived ? 'bg-green-500' : 'bg-primary-500'"
-              :style="{ width: order.total_items > 0 ? `${(order.arrived_items / order.total_items) * 100}%` : '0%' }"
-            />
-          </div>
         </div>
 
         <!-- Arrow -->

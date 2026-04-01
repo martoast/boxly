@@ -70,6 +70,58 @@
         </div>
       </div>
 
+      <!-- Arrival Photos Gallery (label + contents from warehouse) -->
+      <div
+        v-if="order.arrival_images?.length > 0"
+        class="mt-6 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden"
+      >
+        <div class="px-5 py-4 border-b border-gray-100">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center">
+              <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+              </svg>
+            </div>
+            <div>
+              <h2 class="text-lg font-bold text-gray-900">{{ t.packagesArrived }}</h2>
+              <p class="text-sm text-gray-500">{{ order.arrival_images.length }} photo{{ order.arrival_images.length !== 1 ? 's' : '' }} from the warehouse</p>
+            </div>
+          </div>
+        </div>
+        <div class="p-4">
+          <!-- Label photos -->
+          <div v-if="order.arrival_images.filter(i => i.type === 'label').length > 0" class="mb-4">
+            <p class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Box Labels</p>
+            <div class="flex flex-wrap gap-3">
+              <a
+                v-for="img in order.arrival_images.filter(i => i.type === 'label')"
+                :key="img.id"
+                :href="img.url"
+                target="_blank"
+                class="block h-24 w-24 rounded-xl overflow-hidden border border-gray-200 hover:opacity-90 transition-opacity"
+              >
+                <img :src="img.url" alt="Label photo" class="h-full w-full object-cover" />
+              </a>
+            </div>
+          </div>
+          <!-- Contents photo -->
+          <div v-if="order.arrival_images.filter(i => i.type === 'contents').length > 0">
+            <p class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Contents</p>
+            <div class="flex flex-wrap gap-3">
+              <a
+                v-for="img in order.arrival_images.filter(i => i.type === 'contents')"
+                :key="img.id"
+                :href="img.url"
+                target="_blank"
+                class="block h-24 w-24 rounded-xl overflow-hidden border border-gray-200 hover:opacity-90 transition-opacity"
+              >
+                <img :src="img.url" alt="Contents photo" class="h-full w-full object-cover" />
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Main Grid Layout -->
       <div class="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
 
