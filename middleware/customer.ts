@@ -36,21 +36,13 @@ export default defineNuxtRouteMiddleware(async (to) => {
   // Check if user has customer role
   if (userState.value.role !== 'customer') {
     console.error(`Customer middleware: User role is '${userState.value.role}', not 'customer'`)
-    // If admin, redirect to admin area
     if (userState.value.role === 'admin') {
       return navigateTo('/app/admin/dashboard')
     }
-    
-    // Otherwise redirect to login with redirect
-    const redirectUrl = to.fullPath
-    const queryParams = new URLSearchParams({
-        redirect: redirectUrl
-    });
-    
-    return navigateTo(`/login?${queryParams.toString()}`, {
-        redirectCode: 302,
-        external: false
-    })
+    if (userState.value.role === 'employee') {
+      return navigateTo('/app/employee/packages')
+    }
+    return navigateTo('/login')
   }
   
   // User is authenticated and is a customer, allow access
