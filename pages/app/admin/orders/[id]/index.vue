@@ -105,9 +105,9 @@
         </div>
       </div>
 
-      <!-- Arrival Image Display (when already uploaded) -->
+      <!-- Arrival Photos (single section — gallery if arrival_images exist, legacy single image fallback) -->
       <div
-        v-if="order.arrival_image_url"
+        v-if="order.arrival_images?.length > 0 || order.arrival_image_url"
         class="mb-6 bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm"
       >
         <!-- Header -->
@@ -120,12 +120,16 @@
             </div>
             <div>
               <h3 class="font-semibold text-gray-900 text-sm sm:text-base">{{ t.arrivalProofImage }}</h3>
-              <p class="text-xs text-gray-500 hidden sm:block">{{ t.arrivalImageUploaded }}</p>
+              <p class="text-xs text-gray-500 hidden sm:block">
+                <template v-if="order.arrival_images?.length > 0">
+                  {{ order.arrival_images.length }} photo{{ order.arrival_images.length !== 1 ? 's' : '' }} uploaded by warehouse
+                </template>
+                <template v-else>{{ t.arrivalImageUploaded }}</template>
+              </p>
             </div>
           </div>
           <!-- Actions -->
           <div class="flex items-center gap-2">
-            <!-- Replace Image -->
             <input
               type="file"
               ref="replaceImageInput"
@@ -144,7 +148,6 @@
               </svg>
               <span class="hidden sm:inline text-sm font-medium">{{ t.replaceImage }}</span>
             </button>
-            <!-- Download -->
             <button
               @click="downloadArrivalImage"
               class="p-2 sm:px-3 sm:py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors flex items-center gap-2"
@@ -157,53 +160,10 @@
             </button>
           </div>
         </div>
-        <!-- Image -->
-        <div
-          class="relative group cursor-pointer"
-          @click="showArrivalImageModal = true"
-        >
-          <img
-            :src="order.arrival_image_url"
-            alt="Arrival proof"
-            class="w-full h-48 sm:h-56 md:h-64 object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-          >
-          <!-- Overlay on hover -->
-          <div class="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all duration-300 flex items-center justify-center">
-            <div class="opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center gap-2 px-4 py-2 bg-white/95 rounded-full shadow-lg">
-              <svg class="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"/>
-              </svg>
-              <span class="text-sm font-medium text-gray-700">{{ t.viewFullscreen }}</span>
-            </div>
-          </div>
-          <!-- Mobile tap indicator -->
-          <div class="absolute bottom-3 right-3 sm:hidden bg-white/90 rounded-full p-2 shadow-md">
-            <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"/>
-            </svg>
-          </div>
-        </div>
-      </div>
 
-      <!-- Arrival Images Gallery (label + contents photos from Mau) -->
-      <div
-        v-if="order.arrival_images?.length > 0"
-        class="mb-6 bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm"
-      >
-        <div class="px-4 py-3 sm:px-5 sm:py-4 border-b border-gray-100 flex items-center gap-3">
-          <div class="w-9 h-9 sm:w-10 sm:h-10 bg-blue-50 rounded-xl flex items-center justify-center">
-            <svg class="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-            </svg>
-          </div>
-          <div>
-            <h3 class="font-semibold text-gray-900 text-sm sm:text-base">Arrival Photos</h3>
-            <p class="text-xs text-gray-500">{{ order.arrival_images.length }} photo{{ order.arrival_images.length !== 1 ? 's' : '' }} uploaded by warehouse</p>
-          </div>
-        </div>
-        <div class="p-4">
-          <!-- Label photos -->
-          <div v-if="order.arrival_images.filter(i => i.type === 'label').length > 0" class="mb-4">
+        <!-- Gallery view (when arrival_images records exist) -->
+        <div v-if="order.arrival_images?.length > 0" class="p-4 space-y-4">
+          <div v-if="order.arrival_images.filter(i => i.type === 'label').length > 0">
             <p class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Box Labels</p>
             <div class="flex flex-wrap gap-3">
               <a
@@ -217,7 +177,6 @@
               </a>
             </div>
           </div>
-          <!-- Contents photo -->
           <div v-if="order.arrival_images.filter(i => i.type === 'contents').length > 0">
             <p class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Contents</p>
             <div class="flex flex-wrap gap-3">
@@ -231,6 +190,32 @@
                 <img :src="img.url" alt="Contents photo" class="h-full w-full object-cover" />
               </a>
             </div>
+          </div>
+        </div>
+
+        <!-- Legacy single image fallback -->
+        <div
+          v-else
+          class="relative group cursor-pointer"
+          @click="showArrivalImageModal = true"
+        >
+          <img
+            :src="order.arrival_image_url"
+            alt="Arrival proof"
+            class="w-full h-48 sm:h-56 md:h-64 object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+          >
+          <div class="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all duration-300 flex items-center justify-center">
+            <div class="opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center gap-2 px-4 py-2 bg-white/95 rounded-full shadow-lg">
+              <svg class="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"/>
+              </svg>
+              <span class="text-sm font-medium text-gray-700">{{ t.viewFullscreen }}</span>
+            </div>
+          </div>
+          <div class="absolute bottom-3 right-3 sm:hidden bg-white/90 rounded-full p-2 shadow-md">
+            <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"/>
+            </svg>
           </div>
         </div>
       </div>
