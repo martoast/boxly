@@ -749,20 +749,25 @@ const selectUser = (user) => {
   showUserDropdown.value = false
   
   // Only auto-fill address for shipping orders
-  if (form.value.order_type === 'shipping' && user.street) {
+  const hasAddress = user.street || user.full_address
+  if (form.value.order_type === 'shipping' && hasAddress) {
     if (useSimpleAddress.value) {
-      const parts = [
-        user.street,
-        user.exterior_number,
-        user.colonia,
-        user.municipio,
-        user.estado,
-        user.postal_code
-      ].filter(Boolean)
-      form.value.delivery_address.full_address = parts.join(', ')
+      if (user.full_address) {
+        form.value.delivery_address.full_address = user.full_address
+      } else {
+        const parts = [
+          user.street,
+          user.exterior_number,
+          user.colonia,
+          user.municipio,
+          user.estado,
+          user.postal_code
+        ].filter(Boolean)
+        form.value.delivery_address.full_address = parts.join(', ')
+      }
     } else {
       form.value.delivery_address = {
-        full_address: '',
+        full_address: user.full_address || '',
         street: user.street || '',
         exterior_number: user.exterior_number || '',
         interior_number: user.interior_number || '',
@@ -773,7 +778,7 @@ const selectUser = (user) => {
         referencias: ''
       }
     }
-    
+
     setTimeout(() => {
       $toast.success(t.value.addressCopied)
     }, 300)
@@ -788,19 +793,20 @@ const clearUserSelection = () => {
 
 const copyUserAddress = () => {
   if (!selectedUser.value) return
-  
+
+  const user = selectedUser.value
   form.value.delivery_address = {
-    full_address: '',
-    street: selectedUser.value.street || '',
-    exterior_number: selectedUser.value.exterior_number || '',
-    interior_number: selectedUser.value.interior_number || '',
-    colonia: selectedUser.value.colonia || '',
-    municipio: selectedUser.value.municipio || '',
-    estado: selectedUser.value.estado || '',
-    postal_code: selectedUser.value.postal_code || '',
+    full_address: user.full_address || '',
+    street: user.street || '',
+    exterior_number: user.exterior_number || '',
+    interior_number: user.interior_number || '',
+    colonia: user.colonia || '',
+    municipio: user.municipio || '',
+    estado: user.estado || '',
+    postal_code: user.postal_code || '',
     referencias: ''
   }
-  
+
   $toast.success(t.value.addressCopied)
 }
 
