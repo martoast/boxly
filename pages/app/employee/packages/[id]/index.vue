@@ -264,14 +264,40 @@ const removeContentsFile = (i) => {
   contentsPreviews.value.splice(i, 1)
 }
 
+const compressImage = (file, maxDim = 1600, quality = 0.78) => new Promise((resolve) => {
+  const img = new Image()
+  const url = URL.createObjectURL(file)
+  img.onload = () => {
+    URL.revokeObjectURL(url)
+    let { width, height } = img
+    if (width > maxDim || height > maxDim) {
+      if (width >= height) { height = Math.round(height * maxDim / width); width = maxDim }
+      else { width = Math.round(width * maxDim / height); height = maxDim }
+    }
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    canvas.getContext('2d').drawImage(img, 0, 0, width, height)
+    canvas.toBlob(
+      blob => resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' })),
+      'image/jpeg', quality
+    )
+  }
+  img.src = url
+})
+
 const handleUpload = async () => {
   if (!canUpload.value) return
   uploading.value = true
   uploadError.value = null
   try {
+    const [compressedLabels, compressedContents] = await Promise.all([
+      Promise.all(labelFiles.value.map(f => compressImage(f))),
+      Promise.all(contentsFiles.value.map(f => compressImage(f))),
+    ])
     const formData = new FormData()
-    labelFiles.value.forEach(f => formData.append('labels[]', f))
-    contentsFiles.value.forEach(f => formData.append('contents[]', f))
+    compressedLabels.forEach(f => formData.append('labels[]', f))
+    compressedContents.forEach(f => formData.append('contents[]', f))
     await $customFetch(`/employee/orders/${order.value.id}/arrival-images`, {
       method: 'POST',
       body: formData,
