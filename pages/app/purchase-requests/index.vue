@@ -2,7 +2,7 @@
 <template>
     <section class="min-h-screen bg-gradient-to-br from-gray-50 via-white to-primary-50/20">
       <!-- Onboarding Modal -->
-      <AssistedPurchaseOnboarding v-model="showOnboarding" @close="onOnboardingClose" />
+      <AssistedPurchaseOnboarding v-model="showOnboarding" @close="onOnboardingClose" @open-personal-shopping="openBooking" />
 
       <!-- Personal Shopping Booking Sheet -->
       <Teleport to="body">
@@ -213,33 +213,55 @@
         </div>
   
         <!-- Empty State -->
-        <div v-else-if="requests.length === 0" class="text-center py-16 bg-white rounded-2xl shadow-sm border border-gray-100 animate-fadeIn">
-          <div class="w-20 h-20 bg-primary-50 rounded-full flex items-center justify-center mx-auto mb-6">
-            <svg class="w-10 h-10 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-            </svg>
-          </div>
-          <h3 class="text-xl font-bold text-gray-900 mb-2">{{ t.noRequests }}</h3>
-          <p class="text-gray-500 mb-6 max-w-md mx-auto px-4">{{ t.noRequestsDesc }}</p>
+        <div v-else-if="requests.length === 0" class="animate-fadeIn">
+          <p class="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-3 px-1">¿Cómo quieres comprar?</p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
 
-          <!-- Learn More Button -->
-          <button
-            @click="showOnboarding = true"
-            class="inline-flex items-center gap-2 text-primary-600 hover:text-primary-700 font-medium mb-6 text-sm transition-colors"
-          >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            {{ t.learnMore }}
-          </button>
-
-          <div class="block">
+            <!-- Online purchase path -->
             <NuxtLink
               to="/app/purchase-requests/create"
-              class="inline-flex items-center gap-2 px-6 py-3 bg-primary-500 text-white font-medium rounded-xl hover:bg-primary-600 transition-colors shadow-lg shadow-primary-500/25"
+              class="group flex flex-col gap-3 p-5 bg-white rounded-2xl border-2 border-gray-100 hover:border-primary-200 hover:shadow-md active:scale-[0.99] transition-all duration-200 shadow-sm"
             >
-              {{ t.startShopping }}
+              <div class="h-12 w-12 rounded-2xl bg-primary-100 flex items-center justify-center group-hover:bg-primary-200 transition-colors">
+                <svg class="h-6 w-6 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+                </svg>
+              </div>
+              <div>
+                <h3 class="font-bold text-gray-900 text-base mb-1">Compra Online</h3>
+                <p class="text-sm text-gray-500 leading-snug">Mándanos el link y compramos con nuestra tarjeta americana.</p>
+              </div>
+              <div class="mt-auto flex items-center justify-between">
+                <span class="text-xs font-semibold text-primary-600 bg-primary-50 border border-primary-100 px-2.5 py-1 rounded-full">8% comisión</span>
+                <svg class="h-4 w-4 text-gray-300 group-hover:text-primary-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                </svg>
+              </div>
             </NuxtLink>
+
+            <!-- Personal shopping path -->
+            <button
+              class="group flex flex-col gap-3 p-5 bg-white rounded-2xl border-2 border-gray-100 hover:border-amber-200 hover:shadow-md active:scale-[0.99] transition-all duration-200 shadow-sm text-left w-full"
+              @click="openBooking"
+            >
+              <div class="h-12 w-12 rounded-2xl bg-amber-100 flex items-center justify-center group-hover:bg-amber-200 transition-colors">
+                <svg class="h-6 w-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
+              </div>
+              <div>
+                <h3 class="font-bold text-gray-900 text-base mb-1">Personal Shopping</h3>
+                <p class="text-sm text-gray-500 leading-snug">Vamos físicamente a Las Americas Outlets en San Diego a comprar por ti.</p>
+              </div>
+              <div class="mt-auto flex items-center justify-between">
+                <span class="text-xs font-semibold text-amber-600 bg-amber-50 border border-amber-100 px-2.5 py-1 rounded-full">mín. $600 USD</span>
+                <svg class="h-4 w-4 text-gray-300 group-hover:text-amber-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                </svg>
+              </div>
+            </button>
+
           </div>
         </div>
   
