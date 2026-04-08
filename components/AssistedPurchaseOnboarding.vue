@@ -74,9 +74,12 @@
               </NuxtLink>
 
               <!-- Option B: Personal Shopping -->
-              <button
-                class="group flex items-start gap-4 p-4 rounded-2xl border-2 border-gray-100 hover:border-amber-200 hover:bg-amber-50/40 active:scale-[0.99] transition-all duration-200 text-left w-full"
-                @click="handlePersonalShopping"
+              <a
+                href="https://wa.me/16195591910?text=Hola%21+Me+gustar%C3%ADa+agendar+un+personal+shopping+en+Las+Americas+Premium+Outlets"
+                target="_blank"
+                rel="noopener"
+                class="group flex items-start gap-4 p-4 rounded-2xl border-2 border-gray-100 hover:border-amber-200 hover:bg-amber-50/40 active:scale-[0.99] transition-all duration-200 text-left"
+                @click="handleClose"
               >
                 <div class="h-12 w-12 rounded-2xl bg-amber-100 flex items-center justify-center shrink-0 group-hover:bg-amber-200 transition-colors">
                   <svg class="h-6 w-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -94,7 +97,7 @@
                 <svg class="h-5 w-5 text-gray-300 group-hover:text-amber-400 transition-colors shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                 </svg>
-              </button>
+              </a>
 
             </div>
 
@@ -129,7 +132,7 @@ const props = defineProps({
   modelValue: { type: Boolean, default: false }
 });
 
-const emit = defineEmits(['update:modelValue', 'close', 'open-personal-shopping']);
+const emit = defineEmits(['update:modelValue', 'close']);
 
 const onboardingDismissed = useCookie('boxly_assisted_purchase_onboarding_dismissed', {
   maxAge: 60 * 60 * 24 * 365,
@@ -149,8 +152,4 @@ const handleClose = () => {
   emit('close');
 };
 
-const handlePersonalShopping = () => {
-  handleClose();
-  emit('open-personal-shopping');
-};
 </script>

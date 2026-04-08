@@ -2,120 +2,7 @@
 <template>
     <section class="min-h-screen bg-gradient-to-br from-gray-50 via-white to-primary-50/20">
       <!-- Onboarding Modal -->
-      <AssistedPurchaseOnboarding v-model="showOnboarding" @close="onOnboardingClose" @open-personal-shopping="openBooking" />
-
-      <!-- Personal Shopping Booking Sheet -->
-      <Teleport to="body">
-        <Transition name="ps-modal">
-          <div
-            v-if="showPersonalShoppingModal"
-            class="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
-          >
-            <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="showPersonalShoppingModal = false" />
-
-            <div class="ps-sheet relative w-full sm:max-w-md sm:mx-4 bg-white sm:rounded-3xl rounded-t-3xl shadow-2xl z-10 overflow-hidden">
-              <!-- drag pill -->
-              <div class="flex justify-center pt-3 pb-1 sm:hidden">
-                <div class="h-1 w-10 rounded-full bg-gray-200" />
-              </div>
-
-              <!-- Step 1: Intent -->
-              <div v-if="bookingStep === 1" class="px-6 pt-4 pb-6">
-                <div class="flex items-center justify-between mb-5">
-                  <div>
-                    <p class="text-xs font-semibold uppercase tracking-widest text-primary-500 mb-0.5">Paso 1 de 2</p>
-                    <h3 class="text-xl font-extrabold text-gray-900">Cuéntanos qué buscas</h3>
-                  </div>
-                  <button class="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors" @click="closeBooking">
-                    <svg class="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                  </button>
-                </div>
-
-                <div class="space-y-4">
-                  <div>
-                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">¿Qué quieres comprar?</label>
-                    <textarea
-                      v-model="bookingIntent"
-                      rows="3"
-                      placeholder="Ej: Tenis Nike talla 10, bolsa Coach café, perfume Hugo Boss..."
-                      class="w-full rounded-2xl border border-gray-200 px-4 py-3 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent resize-none transition"
-                    />
-                  </div>
-                  <div>
-                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Presupuesto estimado (USD)</label>
-                    <div class="relative">
-                      <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-semibold text-sm">$</span>
-                      <input
-                        v-model="bookingBudget"
-                        type="number"
-                        placeholder="600"
-                        min="600"
-                        class="w-full rounded-2xl border border-gray-200 pl-8 pr-4 py-3 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent transition"
-                      />
-                    </div>
-                    <p class="text-xs text-gray-400 mt-1.5 ml-1">Mínimo $600 USD</p>
-                  </div>
-                </div>
-
-                <button
-                  class="mt-6 w-full py-4 rounded-2xl font-bold text-base transition-all flex items-center justify-center gap-2"
-                  :class="bookingIntent.trim() && bookingBudget ? 'bg-primary-500 hover:bg-primary-600 active:bg-primary-700 text-white shadow-lg shadow-primary-500/25' : 'bg-gray-100 text-gray-400 cursor-not-allowed'"
-                  :disabled="!bookingIntent.trim() || !bookingBudget"
-                  @click="bookingStep = 2"
-                >
-                  Siguiente
-                  <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
-                </button>
-              </div>
-
-              <!-- Step 2: Schedule -->
-              <div v-else class="px-6 pt-4 pb-6">
-                <div class="flex items-center gap-3 mb-5">
-                  <button class="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors" @click="bookingStep = 1">
-                    <svg class="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
-                  </button>
-                  <div>
-                    <p class="text-xs font-semibold uppercase tracking-widest text-primary-500 mb-0.5">Paso 2 de 2</p>
-                    <h3 class="text-xl font-extrabold text-gray-900">Elige tu fecha</h3>
-                  </div>
-                </div>
-
-                <!-- Summary chip -->
-                <div class="bg-gray-50 rounded-2xl px-4 py-3 mb-5">
-                  <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Tu solicitud</p>
-                  <p class="text-sm text-gray-700 leading-snug">{{ bookingIntent }}</p>
-                  <p class="text-xs text-primary-600 font-semibold mt-1">${{ bookingBudget }} USD estimado</p>
-                </div>
-
-                <!-- Location block -->
-                <div class="flex items-center gap-3 mb-5 bg-gray-50 rounded-2xl px-4 py-3">
-                  <div class="h-9 w-9 rounded-xl bg-white border border-gray-200 flex items-center justify-center shrink-0 shadow-sm">
-                    <svg class="h-4 w-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
-                    </svg>
-                  </div>
-                  <div>
-                    <p class="text-xs font-bold text-gray-800">Las Americas Premium Outlets</p>
-                    <p class="text-xs text-gray-400">San Ysidro, San Diego CA</p>
-                  </div>
-                </div>
-
-                <a
-                  :href="`https://calendly.com/contact-boxly/30min?a1=${encodeURIComponent(bookingIntent)}&a2=${encodeURIComponent('$' + bookingBudget + ' USD')}`"
-                  target="_blank"
-                  rel="noopener"
-                  class="flex items-center justify-center gap-2.5 w-full py-4 bg-primary-500 hover:bg-primary-600 active:bg-primary-700 text-white font-bold rounded-2xl transition-colors shadow-lg shadow-primary-500/25 text-base"
-                >
-                  <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                  Agendar mi sesión
-                </a>
-                <p class="text-center text-xs text-gray-400 mt-3">Sin costo por agendar · Te confirmamos por WhatsApp</p>
-              </div>
-            </div>
-          </div>
-        </Transition>
-      </Teleport>
+      <AssistedPurchaseOnboarding v-model="showOnboarding" @close="onOnboardingClose" />
 
       <!-- Header -->
       <div class="bg-white/90 backdrop-blur-sm shadow-sm border-b border-gray-100">
@@ -142,10 +29,12 @@
   
       <!-- Personal Shopping Hero Card -->
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
-        <div
-          class="relative w-full rounded-3xl overflow-hidden cursor-pointer group shadow-xl shadow-black/10 hover:shadow-2xl hover:shadow-black/20 transition-all duration-300 hover:-translate-y-0.5"
+        <a
+          href="https://wa.me/16195591910?text=Hola%21+Me+gustar%C3%ADa+agendar+un+personal+shopping+en+Las+Americas+Premium+Outlets"
+          target="_blank"
+          rel="noopener"
+          class="relative w-full rounded-3xl overflow-hidden cursor-pointer group shadow-xl shadow-black/10 hover:shadow-2xl hover:shadow-black/20 transition-all duration-300 hover:-translate-y-0.5 block"
           style="min-height: 280px"
-          @click="openBooking"
         >
           <!-- Background photo -->
           <img
@@ -202,7 +91,7 @@
               </div>
             </div>
           </div>
-        </div>
+        </a>
       </div>
 
       <!-- Main Content -->
@@ -240,9 +129,11 @@
             </NuxtLink>
 
             <!-- Personal shopping path -->
-            <button
-              class="group flex flex-col gap-3 p-5 bg-white rounded-2xl border-2 border-gray-100 hover:border-amber-200 hover:shadow-md active:scale-[0.99] transition-all duration-200 shadow-sm text-left w-full"
-              @click="openBooking"
+            <a
+              href="https://wa.me/16195591910?text=Hola%21+Me+gustar%C3%ADa+agendar+un+personal+shopping+en+Las+Americas+Premium+Outlets"
+              target="_blank"
+              rel="noopener"
+              class="group flex flex-col gap-3 p-5 bg-white rounded-2xl border-2 border-gray-100 hover:border-amber-200 hover:shadow-md active:scale-[0.99] transition-all duration-200 shadow-sm text-left"
             >
               <div class="h-12 w-12 rounded-2xl bg-amber-100 flex items-center justify-center group-hover:bg-amber-200 transition-colors">
                 <svg class="h-6 w-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -260,7 +151,7 @@
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                 </svg>
               </div>
-            </button>
+            </a>
 
           </div>
         </div>
@@ -365,23 +256,7 @@
   const pagination = ref({ currentPage: 1, lastPage: 1 });
   const showOnboarding = ref(false);
 
-  // Personal Shopping
-  const showPersonalShoppingModal = ref(false);
-  const bookingStep = ref(1);
-  const bookingIntent = ref('');
-  const bookingBudget = ref('');
   const brands = ['Nike', 'Coach', 'Michael Kors', 'Hugo Boss', 'Karl Lagerfeld', 'Calvin Klein'];
-
-  const openBooking = () => {
-    bookingStep.value = 1;
-    bookingIntent.value = '';
-    bookingBudget.value = '';
-    showPersonalShoppingModal.value = true;
-  };
-
-  const closeBooking = () => {
-    showPersonalShoppingModal.value = false;
-  };
 
   // Use Nuxt's useCookie for SSR-friendly persistent storage
   const onboardingDismissed = useCookie('boxly_assisted_purchase_onboarding_dismissed', {
@@ -453,25 +328,4 @@
 <style scoped>
 .no-scrollbar { scrollbar-width: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
-
-.ps-modal-enter-active,
-.ps-modal-leave-active {
-  transition: opacity 0.25s ease;
-}
-.ps-modal-enter-active .ps-sheet,
-.ps-modal-leave-active .ps-sheet {
-  transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1);
-}
-.ps-modal-enter-from,
-.ps-modal-leave-to {
-  opacity: 0;
-}
-.ps-modal-enter-from .ps-sheet {
-  transform: translateY(100%);
-}
-@media (min-width: 640px) {
-  .ps-modal-enter-from .ps-sheet {
-    transform: translateY(16px) scale(0.97);
-  }
-}
 </style>
