@@ -137,6 +137,22 @@
               {{ t.purchaseRequests }}
             </button>
 
+            <!-- Tienda (Boxly Store) -->
+            <button
+              @click="handleNavigation('/shop')"
+              :class="[
+                $route.path.startsWith('/shop') || $route.path === '/cart' || $route.path.startsWith('/app/marketplace-orders')
+                  ? 'border-primary-500 text-gray-900'
+                  : 'border-transparent text-gray-600 hover:border-gray-300 hover:text-gray-900',
+                'inline-flex items-center border-b-2 px-1 pt-1 text-sm font-medium transition-colors duration-200',
+              ]"
+            >
+              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
+              </svg>
+              {{ t.shop }}
+            </button>
+
             <!-- Affiliate Portal (shown only for affiliates) -->
             <button
               v-if="user?.affiliate"
@@ -158,11 +174,26 @@
         </div>
         <div class="flex items-center">
           <div class="hidden md:ml-4 md:flex md:flex-shrink-0 md:items-center">
+            <!-- Cart icon -->
+            <button
+              @click="handleNavigation('/cart')"
+              class="relative mr-3 p-2 rounded-full text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
+              :aria-label="t.cart"
+            >
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
+              </svg>
+              <span
+                v-if="cartCount > 0"
+                class="absolute -top-1 -right-1 bg-primary-500 text-white text-[10px] font-bold rounded-full h-5 min-w-5 px-1 flex items-center justify-center"
+              >{{ cartCount }}</span>
+            </button>
+
             <!-- Language Toggle (Desktop) -->
             <div class="mr-3">
               <LanguageToggle />
             </div>
-            
+
             <!-- Profile dropdown -->
             <Menu as="div" class="relative ml-3">
               <div>
@@ -445,6 +476,8 @@ const translations = {
   allOrdersDesc: { es: 'Ver historial completo', en: 'View complete history' },
   createNewOrder: { es: 'Crear Nuevo Envio', en: 'Create New Order' },
   purchaseRequests: { es: 'Compra Asistida', en: 'Assisted Purchase' },
+  shop: { es: 'Tienda', en: 'Shop' },
+  cart: { es: 'Carrito', en: 'Cart' },
   signedInAs: { es: 'Sesión iniciada como', en: 'Signed in as' },
   myAccount: { es: 'Mi Cuenta', en: 'My Account' },
   affiliatePortal: { es: 'Portal de Afiliado', en: 'Affiliate Portal' },
@@ -460,6 +493,9 @@ const userInitials = computed(() => {
   const names = user.name.split(' ');
   return names.map(n => n[0]).join('').toUpperCase().slice(0, 2);
 });
+
+// Cart count (Boxly Store)
+const { totalItems: cartCount } = useStoreCart();
 
 const dropdowns = reactive({ orders: false });
 const dropdownTimers = reactive({});
