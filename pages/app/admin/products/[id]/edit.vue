@@ -38,6 +38,7 @@
 import AdminProductForm from '~/components/admin/AdminProductForm.vue'
 
 definePageMeta({
+  layout: 'admin',
   middleware: ['auth', 'admin'],
 })
 

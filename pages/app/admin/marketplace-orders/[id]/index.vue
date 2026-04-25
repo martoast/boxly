@@ -174,6 +174,7 @@
 import StatusBadge from '~/components/store/MarketplaceStatusBadge.vue'
 
 definePageMeta({
+  layout: 'admin',
   middleware: ['auth', 'admin'],
 })
 
