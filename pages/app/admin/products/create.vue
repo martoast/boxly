@@ -33,15 +33,51 @@ const toast = useToast()
 
 const saving = ref(false)
 
-const onSubmit = async (payload) => {
+const compressImage = (file, maxDim = 1600, quality = 0.78) => new Promise((resolve) => {
+  const img = new Image()
+  const url = URL.createObjectURL(file)
+  img.onload = () => {
+    URL.revokeObjectURL(url)
+    let { width, height } = img
+    if (width > maxDim || height > maxDim) {
+      if (width >= height) { height = Math.round(height * maxDim / width); width = maxDim }
+      else { width = Math.round(width * maxDim / height); height = maxDim }
+    }
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    canvas.getContext('2d').drawImage(img, 0, 0, width, height)
+    canvas.toBlob(
+      blob => resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' })),
+      'image/jpeg', quality
+    )
+  }
+  img.src = url
+})
+
+const onSubmit = async ({ fields, images }) => {
   saving.value = true
   try {
-    const res = await $customFetch('/admin/products', {
+    // 1. Create product
+    const createRes = await $customFetch('/admin/products', {
       method: 'POST',
-      body: payload,
+      body: fields,
     })
-    toast.success('Producto creado. Sube imágenes desde la página de edición.')
-    router.push(`/app/admin/products/${res.data.id}/edit`)
+    const product = createRes.data
+
+    // 2. If there are images, upload them in one multipart request
+    if (images && images.length > 0) {
+      const compressed = await Promise.all(images.map(f => compressImage(f)))
+      const fd = new FormData()
+      compressed.forEach(f => fd.append('images[]', f))
+      await $customFetch(`/admin/products/${product.id}/images`, {
+        method: 'POST',
+        body: fd,
+      })
+    }
+
+    toast.success('Producto creado.')
+    router.push(`/app/admin/products/${product.id}/edit`)
   } catch (err) {
     console.error(err)
     toast.error(err?.data?.message ?? 'No se pudo crear el producto.')

@@ -28,7 +28,7 @@
             </svg>
             <input
               v-model="search"
-              placeholder="Buscar por nombre o SKU..."
+              placeholder="Buscar por nombre..."
               class="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
             />
           </div>
@@ -61,7 +61,6 @@
             <thead class="bg-gray-50 border-b border-gray-100">
               <tr class="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                 <th class="px-4 py-3">Producto</th>
-                <th class="px-4 py-3">SKU</th>
                 <th class="px-4 py-3 text-right">Precio</th>
                 <th class="px-4 py-3 text-right">Stock</th>
                 <th class="px-4 py-3">Estado</th>
@@ -81,7 +80,6 @@
                     </div>
                   </div>
                 </td>
-                <td class="px-4 py-3 text-gray-500 font-mono text-xs">{{ p.sku ?? '—' }}</td>
                 <td class="px-4 py-3 text-right font-semibold text-gray-900">${{ formatPrice(p.price_cents) }}</td>
                 <td class="px-4 py-3 text-right">
                   <span :class="p.stock <= 0 ? 'text-red-600' : p.stock <= 10 ? 'text-amber-600' : 'text-gray-900'" class="font-medium">{{ p.stock }}</span>

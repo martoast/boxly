@@ -18,7 +18,6 @@
         :existing-product="product"
         :saving="saving"
         @submit="onSubmit"
-        @upload-images="onUploadImages"
         @delete-image="onDeleteImage"
       />
 
@@ -85,36 +84,31 @@ const fetchProduct = async () => {
   }
 }
 
-const onSubmit = async (payload) => {
+const onSubmit = async ({ fields, images }) => {
   saving.value = true
   try {
-    const res = await $customFetch(`/admin/products/${product.value.id}`, {
+    // 1. Update fields
+    const updateRes = await $customFetch(`/admin/products/${product.value.id}`, {
       method: 'PUT',
-      body: payload,
+      body: fields,
     })
-    product.value = res.data
+    product.value = updateRes.data
+
+    // 2. If there are new images, upload them
+    if (images && images.length > 0) {
+      const compressed = await Promise.all(images.map(f => compressImage(f)))
+      const fd = new FormData()
+      compressed.forEach(f => fd.append('images[]', f))
+      const imgRes = await $customFetch(`/admin/products/${product.value.id}/images`, {
+        method: 'POST',
+        body: fd,
+      })
+      product.value = imgRes.data
+    }
+
     toast.success('Cambios guardados.')
   } catch (err) {
     toast.error(err?.data?.message ?? 'No se pudo guardar.')
-  } finally {
-    saving.value = false
-  }
-}
-
-const onUploadImages = async (files) => {
-  saving.value = true
-  try {
-    const compressed = await Promise.all(files.map(f => compressImage(f)))
-    const formData = new FormData()
-    compressed.forEach(f => formData.append('images[]', f))
-    const res = await $customFetch(`/admin/products/${product.value.id}/images`, {
-      method: 'POST',
-      body: formData,
-    })
-    product.value = res.data
-    toast.success('Imágenes subidas.')
-  } catch (err) {
-    toast.error(err?.data?.message ?? 'Falló la subida.')
   } finally {
     saving.value = false
   }
