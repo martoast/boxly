@@ -93,7 +93,14 @@
 
             <!-- Stock -->
             <div class="mb-5">
-              <p v-if="isOutOfStock" class="inline-flex items-center gap-2 px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 rounded-full text-sm font-semibold">
+              <p v-if="rechecking" class="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-full text-sm font-semibold">
+                <svg class="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                </svg>
+                {{ t.verifying }}
+              </p>
+              <p v-else-if="isOutOfStock" class="inline-flex items-center gap-2 px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 rounded-full text-sm font-semibold">
                 <span class="h-2 w-2 rounded-full bg-red-500"></span>
                 {{ t.soldOut }}
               </p>
@@ -321,6 +328,7 @@ const t = createTranslations({
   backToShop:     { es: 'Volver a la Tienda', en: 'Back to Shop' },
   inStock:        { es: 'Disponible', en: 'In stock' },
   soldOut:        { es: 'Agotado', en: 'Sold out' },
+  verifying:      { es: 'Verificando disponibilidad...', en: 'Verifying availability...' },
   addToCart:      { es: 'Agregar al carrito', en: 'Add to cart' },
   added:          { es: '¡Agregado!', en: 'Added!' },
   buyNow:         { es: 'Comprar ahora', en: 'Buy now' },
@@ -419,6 +427,10 @@ const isOutOfStock = computed(() => {
 })
 
 const canAddToCart = computed(() => {
+  // Lock the buy buttons while a stock recheck is in flight — we don't want
+  // the user adding something to cart that might be flipping to out-of-stock
+  // a second later.
+  if (rechecking.value) return false
   if (isOutOfStock.value) return false
   if (!hasVariants.value) return true
   // Need both axes filled if both exist; selectedVariant must be in stock
@@ -479,12 +491,13 @@ const fetchProduct = async () => {
       // If the cron data is stale (>15 min old), the first user to view the page
       // triggers a fresh check. The result writes back to the DB, so every other
       // visitor in the next 15 min sees the updated state immediately.
+      // Fires in parallel with the page render — the badge shows "Verificando..."
+      // and the Add-to-Cart button is locked until the check completes.
       const lastCheck = product.value.last_stock_check_at
         ? new Date(product.value.last_stock_check_at).getTime()
         : 0
       if (Date.now() - lastCheck > 15 * 60 * 1000) {
-        // Defer slightly so it doesn't block initial paint
-        setTimeout(() => recheckStock(), 400)
+        recheckStock()
       }
     }
   } catch (err) {
