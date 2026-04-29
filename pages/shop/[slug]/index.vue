@@ -93,7 +93,7 @@
 
             <!-- Stock -->
             <div class="mb-5">
-              <p v-if="product.stock <= 0" class="inline-flex items-center gap-2 px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 rounded-full text-sm font-semibold">
+              <p v-if="isOutOfStock" class="inline-flex items-center gap-2 px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 rounded-full text-sm font-semibold">
                 <span class="h-2 w-2 rounded-full bg-red-500"></span>
                 {{ t.soldOut }}
               </p>
@@ -107,53 +107,73 @@
               </p>
             </div>
 
-            <!-- Quantity selector + Add to Cart -->
-            <div class="flex items-center gap-3 mb-4">
-              <div class="flex items-center border border-gray-200 rounded-xl overflow-hidden">
-                <button
-                  @click="qty = Math.max(1, qty - 1)"
-                  :disabled="qty <= 1"
-                  class="px-4 py-3 text-gray-500 hover:bg-gray-50 disabled:opacity-30 transition-colors"
-                  type="button"
-                >−</button>
-                <input
-                  v-model.number="qty"
-                  type="number"
-                  min="1"
-                  :max="product.stock"
-                  class="w-14 text-center font-semibold focus:outline-none"
-                />
-                <button
-                  @click="qty = Math.min(product.stock, qty + 1)"
-                  :disabled="qty >= product.stock"
-                  class="px-4 py-3 text-gray-500 hover:bg-gray-50 disabled:opacity-30 transition-colors"
-                  type="button"
-                >+</button>
+            <!-- Out of stock: WhatsApp CTA replacing the buy buttons -->
+            <div v-if="isOutOfStock" class="space-y-3 mb-5">
+              <div class="bg-amber-50 border border-amber-200 rounded-2xl p-4">
+                <p class="font-semibold text-amber-900 mb-1">{{ t.outOfStockTitle }}</p>
+                <p class="text-sm text-amber-800 leading-relaxed">{{ t.outOfStockBody }}</p>
               </div>
-
-              <button
-                @click="addToCart"
-                :disabled="product.stock <= 0 || added"
-                class="flex-1 inline-flex items-center justify-center gap-2 py-3 px-6 bg-primary-500 hover:bg-primary-600 active:bg-primary-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold rounded-xl shadow-lg shadow-primary-500/20 transition-colors"
+              <a
+                :href="whatsappLink"
+                target="_blank"
+                rel="noopener"
+                class="flex items-center justify-center gap-2.5 w-full py-3.5 bg-green-500 hover:bg-green-600 active:bg-green-700 text-white font-bold rounded-xl shadow-lg shadow-green-500/20 transition-colors"
               >
-                <svg v-if="added" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
                 </svg>
-                <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
-                </svg>
-                {{ added ? t.added : t.addToCart }}
-              </button>
+                {{ t.contactWhatsApp }}
+              </a>
             </div>
 
-            <!-- Buy Now (go to cart) -->
-            <button
-              @click="buyNow"
-              :disabled="product.stock <= 0"
-              class="w-full py-3 bg-amber-400 hover:bg-amber-500 active:bg-amber-600 disabled:bg-gray-200 disabled:cursor-not-allowed text-amber-900 font-bold rounded-xl shadow transition-colors mb-5"
-            >
-              {{ t.buyNow }}
-            </button>
+            <!-- In stock: Quantity selector + Add to Cart -->
+            <template v-else>
+              <div class="flex items-center gap-3 mb-4">
+                <div class="flex items-center border border-gray-200 rounded-xl overflow-hidden">
+                  <button
+                    @click="qty = Math.max(1, qty - 1)"
+                    :disabled="qty <= 1"
+                    class="px-4 py-3 text-gray-500 hover:bg-gray-50 disabled:opacity-30 transition-colors"
+                    type="button"
+                  >−</button>
+                  <input
+                    v-model.number="qty"
+                    type="number"
+                    min="1"
+                    :max="product.stock"
+                    class="w-14 text-center font-semibold focus:outline-none"
+                  />
+                  <button
+                    @click="qty = Math.min(product.stock, qty + 1)"
+                    :disabled="qty >= product.stock"
+                    class="px-4 py-3 text-gray-500 hover:bg-gray-50 disabled:opacity-30 transition-colors"
+                    type="button"
+                  >+</button>
+                </div>
+
+                <button
+                  @click="addToCart"
+                  :disabled="added"
+                  class="flex-1 inline-flex items-center justify-center gap-2 py-3 px-6 bg-primary-500 hover:bg-primary-600 active:bg-primary-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold rounded-xl shadow-lg shadow-primary-500/20 transition-colors"
+                >
+                  <svg v-if="added" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+                  </svg>
+                  <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
+                  </svg>
+                  {{ added ? t.added : t.addToCart }}
+                </button>
+              </div>
+
+              <!-- Buy Now (go to cart) -->
+              <button
+                @click="buyNow"
+                class="w-full py-3 bg-amber-400 hover:bg-amber-500 active:bg-amber-600 text-amber-900 font-bold rounded-xl shadow transition-colors mb-5"
+              >
+                {{ t.buyNow }}
+              </button>
+            </template>
 
             <!-- Trust signals -->
             <div class="space-y-2 pb-5 mb-5 border-b border-gray-100">
@@ -263,6 +283,9 @@ const t = createTranslations({
   addToCart:      { es: 'Agregar al carrito', en: 'Add to cart' },
   added:          { es: '¡Agregado!', en: 'Added!' },
   buyNow:         { es: 'Comprar ahora', en: 'Buy now' },
+  outOfStockTitle:{ es: 'Sin stock por ahora', en: 'Out of stock right now' },
+  outOfStockBody: { es: 'Si lo necesitas, podemos comprarlo y enviártelo cuando regrese al inventario. Escríbenos por WhatsApp y te ayudamos.', en: 'If you need it, we can source it and ship it once it\'s back in stock. Message us on WhatsApp and we\'ll help.' },
+  contactWhatsApp:{ es: 'Pedir por WhatsApp', en: 'Request on WhatsApp' },
   specs:          { es: 'Especificaciones', en: 'Specifications' },
   weight:         { es: 'Peso', en: 'Weight' },
   dimensions:     { es: 'Dimensiones', en: 'Dimensions' },
@@ -287,6 +310,17 @@ const added = ref(false)
 const activeImage = computed(() => {
   const imgs = product.value?.images ?? []
   return imgs[activeIndex.value]?.url ?? null
+})
+
+const isOutOfStock = computed(() => {
+  if (!product.value) return false
+  return product.value.stock_check_status === 'out_of_stock' || product.value.stock <= 0
+})
+
+const whatsappLink = computed(() => {
+  const name = product.value?.name ?? ''
+  const message = `Hola! Me interesa el producto "${name}" en la Tienda Boxly. ¿Pueden ayudarme a conseguirlo cuando regrese al inventario?`
+  return `https://wa.me/16195591910?text=${encodeURIComponent(message)}`
 })
 
 const formatPrice = (cents) => (cents / 100).toLocaleString('es-MX', {

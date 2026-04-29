@@ -1,7 +1,7 @@
 <template>
   <NuxtLink
     :to="`/shop/${product.slug}`"
-    class="group block bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200"
+    class="group block bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 relative"
   >
     <!-- Image -->
     <div class="relative aspect-square bg-gray-100 overflow-hidden">
@@ -9,7 +9,7 @@
         v-if="product.first_image_url"
         :src="product.first_image_url"
         :alt="product.name"
-        class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+        :class="['w-full h-full object-cover transition-transform duration-300 group-hover:scale-105', isOutOfStock ? 'opacity-50 grayscale' : '']"
         loading="lazy"
       />
       <div v-else class="w-full h-full flex items-center justify-center text-gray-300">
@@ -18,8 +18,15 @@
         </svg>
       </div>
 
-      <!-- Expiring soon badge -->
-      <div v-if="expiringSoon" class="absolute top-2 left-2 bg-amber-500 text-white text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full">
+      <!-- Out of stock overlay -->
+      <div v-if="isOutOfStock" class="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <span class="bg-white/90 backdrop-blur-sm text-gray-900 text-xs font-bold uppercase tracking-widest px-4 py-2 rounded-full shadow border border-gray-200">
+          Agotado
+        </span>
+      </div>
+
+      <!-- Expiring soon badge (only if not out of stock) -->
+      <div v-else-if="expiringSoon" class="absolute top-2 left-2 bg-amber-500 text-white text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full">
         {{ expiringLabel }}
       </div>
     </div>
@@ -48,6 +55,10 @@ const formatPrice = (cents) => (cents / 100).toLocaleString('es-MX', {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 })
+
+const isOutOfStock = computed(() =>
+  props.product.stock_check_status === 'out_of_stock' || props.product.stock <= 0
+)
 
 const expiringSoon = computed(() => {
   if (!props.product.available_until) return false
