@@ -84,7 +84,7 @@ const fetchProduct = async () => {
   }
 }
 
-const onSubmit = async ({ fields, images }) => {
+const onSubmit = async ({ fields, images, variants }) => {
   saving.value = true
   try {
     // 1. Update fields
@@ -94,7 +94,16 @@ const onSubmit = async ({ fields, images }) => {
     })
     product.value = updateRes.data
 
-    // 2. If there are new images, upload them
+    // 2. Sync variants if any are configured
+    if (variants && variants.length > 0) {
+      const vRes = await $customFetch(`/admin/products/${product.value.id}/variants/sync`, {
+        method: 'POST',
+        body: { variants },
+      })
+      product.value = vRes.data
+    }
+
+    // 3. If there are new images, upload them
     if (images && images.length > 0) {
       const compressed = await Promise.all(images.map(f => compressImage(f)))
       const fd = new FormData()

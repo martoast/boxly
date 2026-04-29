@@ -185,6 +185,50 @@
       </div>
     </div>
 
+    <!-- Variants -->
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+      <h2 class="font-bold text-gray-900 mb-1">Variantes (talla × color)</h2>
+      <p class="text-xs text-gray-400 mb-4">Define las tallas y colores. El sistema crea la matriz automáticamente. Si solo hay tallas o solo colores, déjalo así.</p>
+
+      <div class="grid sm:grid-cols-2 gap-4 mb-4">
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Tallas (separadas por coma)</label>
+          <input v-model="sizesInput" type="text" placeholder="S, M, L, XL" class="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Colores (separados por coma)</label>
+          <input v-model="colorsInput" type="text" placeholder="Black, Olive, Brown" class="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
+        </div>
+      </div>
+
+      <p v-if="variantPreview.length > 0" class="text-xs text-gray-500 mb-2">
+        Se crearán <strong>{{ variantPreview.length }}</strong> variantes:
+      </p>
+
+      <!-- Existing variants (in edit mode) — show stock check status per variant -->
+      <div v-if="(existingProduct?.variants ?? []).length > 0" class="space-y-1.5 mb-3">
+        <div
+          v-for="v in existingProduct.variants"
+          :key="v.id"
+          class="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg text-sm"
+        >
+          <span class="font-medium text-gray-900">
+            <span v-if="v.size">Talla: {{ v.size }}</span>
+            <span v-if="v.size && v.color"> · </span>
+            <span v-if="v.color">Color: {{ v.color }}</span>
+          </span>
+          <span :class="variantStatusBadge(v.stock_check_status)" class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold border">
+            <span :class="variantStatusDot(v.stock_check_status)" class="h-1.5 w-1.5 rounded-full"></span>
+            {{ variantStatusLabel(v.stock_check_status) }}
+          </span>
+        </div>
+      </div>
+
+      <p v-if="hasInputs" class="text-xs text-amber-600">
+        ⚠️ Al guardar, se reemplazarán todas las variantes existentes con esta lista.
+      </p>
+    </div>
+
     <!-- Actions -->
     <div class="flex justify-end gap-3">
       <NuxtLink to="/app/admin/products" class="px-5 py-2.5 rounded-xl border border-gray-200 text-gray-700 font-medium hover:bg-gray-50">Cancelar</NuxtLink>
@@ -306,6 +350,58 @@ const newImageFiles = ref([])
 const newImagePreviews = ref([])
 const fileInput = ref(null)
 
+// Variants — pre-fill from existing product so admin sees current matrix
+const sizesInput  = ref(uniqueAxis(props.existingProduct?.variants ?? [], 'size').join(', '))
+const colorsInput = ref(uniqueAxis(props.existingProduct?.variants ?? [], 'color').join(', '))
+
+const parsedSizes  = computed(() => sizesInput.value.split(',').map(s => s.trim()).filter(Boolean))
+const parsedColors = computed(() => colorsInput.value.split(',').map(s => s.trim()).filter(Boolean))
+
+const hasInputs = computed(() => parsedSizes.value.length > 0 || parsedColors.value.length > 0)
+
+const variantPreview = computed(() => {
+  const sizes = parsedSizes.value
+  const colors = parsedColors.value
+  if (sizes.length === 0 && colors.length === 0) return []
+  if (sizes.length > 0 && colors.length > 0) {
+    const out = []
+    let order = 0
+    for (const c of colors) for (const s of sizes) out.push({ size: s, color: c, display_order: order++ })
+    return out
+  }
+  if (sizes.length > 0) return sizes.map((s, i) => ({ size: s, display_order: i }))
+  return colors.map((c, i) => ({ color: c, display_order: i }))
+})
+
+function uniqueAxis(variants, axis) {
+  const seen = new Set()
+  const out = []
+  for (const v of variants) {
+    if (!v[axis] || seen.has(v[axis])) continue
+    seen.add(v[axis])
+    out.push(v[axis])
+  }
+  return out
+}
+
+const variantStatusLabel = (s) => ({
+  in_stock: 'En stock',
+  out_of_stock: 'Agotado',
+  unknown: 'Sin verificar',
+}[s] ?? '—')
+
+const variantStatusBadge = (s) => ({
+  in_stock:     'bg-green-50 text-green-700 border-green-100',
+  out_of_stock: 'bg-red-50 text-red-700 border-red-100',
+  unknown:      'bg-gray-50 text-gray-600 border-gray-100',
+}[s] ?? 'bg-gray-50 text-gray-600 border-gray-100')
+
+const variantStatusDot = (s) => ({
+  in_stock: 'bg-green-500',
+  out_of_stock: 'bg-red-500',
+  unknown: 'bg-gray-400',
+}[s] ?? 'bg-gray-400')
+
 function formatDateTimeLocal(d) {
   if (!d) return ''
   const date = new Date(d)
@@ -333,6 +429,10 @@ const submit = () => {
   const payload = { ...form.value }
   if (!payload.slug) delete payload.slug
   if (!payload.available_until) payload.available_until = null
-  emit('submit', { fields: payload, images: newImageFiles.value })
+  emit('submit', {
+    fields: payload,
+    images: newImageFiles.value,
+    variants: variantPreview.value,
+  })
 }
 </script>

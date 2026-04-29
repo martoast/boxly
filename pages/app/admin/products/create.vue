@@ -55,7 +55,7 @@ const compressImage = (file, maxDim = 1600, quality = 0.78) => new Promise((reso
   img.src = url
 })
 
-const onSubmit = async ({ fields, images }) => {
+const onSubmit = async ({ fields, images, variants }) => {
   saving.value = true
   try {
     // 1. Create product
@@ -65,7 +65,15 @@ const onSubmit = async ({ fields, images }) => {
     })
     const product = createRes.data
 
-    // 2. If there are images, upload them in one multipart request
+    // 2. Sync variants if any
+    if (variants && variants.length > 0) {
+      await $customFetch(`/admin/products/${product.id}/variants/sync`, {
+        method: 'POST',
+        body: { variants },
+      })
+    }
+
+    // 3. If there are images, upload them
     if (images && images.length > 0) {
       const compressed = await Promise.all(images.map(f => compressImage(f)))
       const fd = new FormData()
