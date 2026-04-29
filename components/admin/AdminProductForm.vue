@@ -231,7 +231,7 @@
 
     <!-- Actions -->
     <div class="flex justify-end gap-3">
-      <NuxtLink to="/app/admin/products" class="px-5 py-2.5 rounded-xl border border-gray-200 text-gray-700 font-medium hover:bg-gray-50">Cancelar</NuxtLink>
+      <NuxtLink :to="cancelTo" class="px-5 py-2.5 rounded-xl border border-gray-200 text-gray-700 font-medium hover:bg-gray-50">Cancelar</NuxtLink>
       <button type="submit" :disabled="saving" class="px-6 py-2.5 bg-primary-500 hover:bg-primary-600 disabled:bg-gray-300 text-white font-bold rounded-xl shadow-lg shadow-primary-500/20 transition-colors">
         {{ saving ? 'Guardando...' : (existingProduct ? 'Guardar cambios' : 'Crear producto') }}
       </button>
@@ -240,6 +240,11 @@
 </template>
 
 <script setup>
+const route = useRoute()
+const cancelTo = computed(() =>
+  route.path.includes('/shopping/') ? '/app/shopping/products' : '/app/admin/products'
+)
+
 const props = defineProps({
   existingProduct: { type: Object, default: null },
   saving: { type: Boolean, default: false },
