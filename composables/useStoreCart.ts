@@ -1,7 +1,8 @@
 // Boxly Store cart composable
 // - Persists cart to localStorage (works for both guests and logged-in users)
 // - Syncs across tabs via storage event
-// - Computes box estimate based on (cart + open shipment) combined weight
+// - Computes box estimate based on cart weight (each store checkout creates its
+//   own assisted Purchase Request; admins can merge later if box-fill is needed)
 
 import { computed, ref, watch } from 'vue'
 
@@ -18,13 +19,6 @@ export interface CartItem {
   quantity: number
 }
 
-export interface OpenOrderSummary {
-  id: number
-  order_number: string
-  total_weight_kg: number
-  item_count: number
-}
-
 // Bumped to v2 so old cart data (without variants) is dropped on first load
 const STORAGE_KEY = 'boxly_store_cart_v2'
 
@@ -39,7 +33,6 @@ export const BOX_TIERS = [
 
 // Singleton state — shared across all consumers of useStoreCart()
 const items = ref<CartItem[]>([])
-const openOrder = ref<OpenOrderSummary | null>(null)
 let initialized = false
 
 function persist() {
@@ -68,7 +61,6 @@ function initOnce() {
     window.addEventListener('storage', (e) => {
       if (e.key === STORAGE_KEY) rehydrate()
     })
-    // Persist on any change
     watch(items, () => persist(), { deep: true })
   }
 }
@@ -88,12 +80,8 @@ export function useStoreCart() {
     items.value.reduce((sum, item) => sum + item.price_cents * item.quantity, 0)
   )
 
-  const openOrderWeightKg = computed(() => openOrder.value?.total_weight_kg ?? 0)
-
-  const combinedWeightKg = computed(() => cartWeightKg.value + openOrderWeightKg.value)
-
   const estimatedBox = computed(() => {
-    const w = combinedWeightKg.value
+    const w = cartWeightKg.value
     if (w <= 0) return null
     if (w > 50) return 'over_50'
     return BOX_TIERS.find(t => w <= t.weight)?.size ?? null
@@ -110,7 +98,7 @@ export function useStoreCart() {
     if (!box || box === 'over_50') return 0
     const tier = BOX_TIERS.find(t => t.size === box)
     if (!tier) return 0
-    return Math.min(100, Math.round((combinedWeightKg.value / tier.weight) * 100))
+    return Math.min(100, Math.round((cartWeightKg.value / tier.weight) * 100))
   })
 
   const nextBoxThresholdKg = computed(() => {
@@ -118,10 +106,9 @@ export function useStoreCart() {
     if (!box || box === 'over_50') return null
     const idx = BOX_TIERS.findIndex(t => t.size === box)
     if (idx < 0 || idx >= BOX_TIERS.length - 1) return null
-    return BOX_TIERS[idx + 1].weight - combinedWeightKg.value
+    return BOX_TIERS[idx + 1].weight - cartWeightKg.value
   })
 
-  /** Compose a unique key for a cart line — different variants of the same product are separate lines. */
   function lineKey(productId: number, variantId: number | null): string {
     return `${productId}:${variantId ?? ''}`
   }
@@ -160,43 +147,11 @@ export function useStoreCart() {
     items.value = []
   }
 
-  async function refreshOpenOrder() {
-    const { $customFetch } = useNuxtApp()
-    const userState = useState<any>('user')
-    if (!userState.value) {
-      openOrder.value = null
-      return
-    }
-    try {
-      const res: any = await $customFetch('/marketplace/orders/current')
-      const order = res?.data
-      if (!order) {
-        openOrder.value = null
-        return
-      }
-      const totalWeight = (order.items ?? []).reduce(
-        (sum: number, it: any) => sum + Number(it.weight_kg_snapshot) * it.quantity,
-        0
-      )
-      openOrder.value = {
-        id: order.id,
-        order_number: order.order_number,
-        total_weight_kg: totalWeight,
-        item_count: (order.items ?? []).reduce((s: number, i: any) => s + i.quantity, 0),
-      }
-    } catch {
-      openOrder.value = null
-    }
-  }
-
   return {
     items,
-    openOrder,
     totalItems,
     cartWeightKg,
     cartSubtotalCents,
-    openOrderWeightKg,
-    combinedWeightKg,
     estimatedBox,
     estimatedShippingCents,
     fillPercent,
@@ -205,7 +160,6 @@ export function useStoreCart() {
     setQuantity,
     remove,
     clear,
-    refreshOpenOrder,
     lineKey,
   }
 }

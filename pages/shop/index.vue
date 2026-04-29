@@ -8,33 +8,6 @@
         <p class="text-gray-500 mt-2 text-lg">{{ t.subtitle }}</p>
       </div>
 
-      <!-- Open shipment banner -->
-      <div
-        v-if="openOrder"
-        class="mb-6 bg-gradient-to-r from-primary-50 to-blue-50 border border-primary-200 rounded-2xl p-4 flex items-center justify-between gap-4"
-      >
-        <div class="flex items-center gap-3">
-          <div class="h-10 w-10 rounded-xl bg-primary-500 flex items-center justify-center text-white shrink-0">
-            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
-            </svg>
-          </div>
-          <div class="min-w-0">
-            <p class="font-semibold text-gray-900 text-sm">{{ t.openShipment }}</p>
-            <p class="text-xs text-gray-500">
-              {{ openOrder.item_count }} {{ openOrder.item_count === 1 ? t.product : t.products }} · ~{{ Number(openOrder.total_weight_kg).toFixed(1) }} kg
-              <span v-if="estimatedBox && estimatedBox !== 'over_50'">· {{ t.estBox }} {{ estimatedBox }}</span>
-            </p>
-          </div>
-        </div>
-        <NuxtLink
-          :to="`/app/marketplace-orders/${openOrder.id}`"
-          class="text-primary-600 text-sm font-semibold hover:text-primary-700 whitespace-nowrap"
-        >
-          {{ t.viewShipment }} →
-        </NuxtLink>
-      </div>
-
       <!-- Search + filters -->
       <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-6">
         <div class="flex flex-col md:flex-row gap-3">
@@ -177,14 +150,7 @@ const t = createTranslations({
   tryAdjusting:    { es: 'Intenta ajustar tu búsqueda o filtros', en: 'Try adjusting your search or filters' },
   prev:            { es: 'Anterior', en: 'Prev' },
   next:            { es: 'Siguiente', en: 'Next' },
-  openShipment:    { es: 'Tu envío actual', en: 'Your current shipment' },
-  product:         { es: 'producto', en: 'product' },
-  products:        { es: 'productos', en: 'products' },
-  estBox:          { es: 'caja estimada', en: 'estimated box' },
-  viewShipment:    { es: 'Ver envío', en: 'View shipment' },
 })
-
-const { openOrder, refreshOpenOrder, estimatedBox } = useStoreCart()
 
 const products = ref([])
 const categories = ref([])
@@ -282,6 +248,5 @@ watch(sort, () => {
 onMounted(() => {
   fetchProducts()
   fetchCategories()
-  refreshOpenOrder()
 })
 </script>

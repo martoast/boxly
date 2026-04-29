@@ -13,34 +13,12 @@
       </div>
 
       <div v-else class="space-y-6">
-        <!-- Address -->
-        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-          <h2 class="font-semibold text-gray-900 mb-4">{{ t.shippingAddress }}</h2>
-
-          <div v-if="user?.full_address && !editAddress" class="flex items-start justify-between gap-3">
-            <div class="text-sm text-gray-700 leading-relaxed">{{ user.full_address }}</div>
-            <button @click="editAddress = true; addressInput = user.full_address" class="text-xs text-primary-600 font-semibold hover:text-primary-700">
-              {{ t.changeAddress }}
-            </button>
-          </div>
-
-          <div v-else>
-            <textarea
-              v-model="addressInput"
-              :placeholder="t.addressPlaceholder"
-              rows="3"
-              class="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-            ></textarea>
-            <p class="text-xs text-gray-400 mt-2">{{ t.addressHelp }}</p>
-          </div>
-        </div>
-
         <!-- Order summary -->
         <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
           <h2 class="font-semibold text-gray-900 mb-4">{{ t.orderSummary }}</h2>
 
           <div class="space-y-3 mb-4">
-            <div v-for="item in items" :key="item.product_id" class="flex items-center gap-3 py-2">
+            <div v-for="item in items" :key="`${item.product_id}-${item.variant_id ?? 'base'}`" class="flex items-center gap-3 py-2">
               <div class="w-12 h-12 rounded-lg bg-gray-100 overflow-hidden shrink-0">
                 <img v-if="item.image_url" :src="item.image_url" :alt="item.name" class="w-full h-full object-cover" />
               </div>
@@ -64,7 +42,7 @@
         <!-- Checkout CTA -->
         <button
           @click="startCheckout"
-          :disabled="loading || !canPay"
+          :disabled="loading || items.length === 0"
           class="w-full py-4 bg-primary-500 hover:bg-primary-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold rounded-xl shadow-lg shadow-primary-500/25 transition-colors flex items-center justify-center gap-2"
         >
           <svg v-if="loading" class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -93,17 +71,12 @@ definePageMeta({
 
 const { $customFetch } = useNuxtApp()
 const { t: createTranslations } = useLanguage()
-const router = useRouter()
 const toast = useToast()
 
 const t = createTranslations({
   title:             { es: 'Finalizar compra', en: 'Checkout' },
   emptyCart:         { es: 'Tu carrito está vacío', en: 'Your cart is empty' },
   backToShop:        { es: 'Volver a la Tienda', en: 'Back to Shop' },
-  shippingAddress:   { es: 'Dirección de envío', en: 'Shipping address' },
-  changeAddress:     { es: 'Cambiar', en: 'Change' },
-  addressPlaceholder:{ es: 'Calle, número, colonia, ciudad, estado, CP', en: 'Street, number, neighborhood, city, state, ZIP' },
-  addressHelp:       { es: 'Aquí enviaremos tu caja desde San Diego.', en: 'This is where we ship your box from San Diego.' },
   orderSummary:      { es: 'Resumen del pedido', en: 'Order summary' },
   qty:               { es: 'Cant', en: 'Qty' },
   total:             { es: 'Total a pagar ahora', en: 'Total to pay now' },
@@ -113,21 +86,10 @@ const t = createTranslations({
   poweredBy:         { es: 'Pago seguro con Stripe', en: 'Secure payment by Stripe' },
 })
 
-const userState = useState('user')
-const user = computed(() => userState.value)
 const { items, cartSubtotalCents, clear } = useStoreCart()
 
-const editAddress = ref(false)
-const addressInput = ref('')
 const loading = ref(false)
 const error = ref(null)
-
-const finalAddress = computed(() => {
-  if (editAddress.value) return addressInput.value.trim()
-  return user.value?.full_address ?? ''
-})
-
-const canPay = computed(() => items.value.length > 0 && finalAddress.value.length >= 10)
 
 const formatPrice = (cents) => (cents / 100).toLocaleString('es-MX', {
   minimumFractionDigits: 2,
@@ -135,32 +97,22 @@ const formatPrice = (cents) => (cents / 100).toLocaleString('es-MX', {
 })
 
 const startCheckout = async () => {
-  if (!canPay.value) {
-    error.value = 'Por favor ingresa una dirección de envío válida.'
-    return
-  }
   error.value = null
   loading.value = true
 
   try {
-    const payload = {
-      items: items.value.map((it) => ({
-        product_id: it.product_id,
-        variant_id: it.variant_id ?? null,
-        quantity: it.quantity,
-      })),
-      shipping_address: {
-        full_address: finalAddress.value,
-      },
-    }
-
-    const res = await $customFetch('/marketplace/checkout', {
+    const res = await $customFetch('/store/checkout', {
       method: 'POST',
-      body: payload,
+      body: {
+        items: items.value.map((it) => ({
+          product_id: it.product_id,
+          variant_id: it.variant_id ?? null,
+          quantity: it.quantity,
+        })),
+      },
     })
 
     if (res?.checkout_url) {
-      // Clear cart on successful session creation
       clear()
       window.location.href = res.checkout_url
     } else {

@@ -92,12 +92,6 @@
           <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 lg:sticky lg:top-24">
             <h2 class="font-bold text-gray-900 mb-4">{{ t.summary }}</h2>
 
-            <!-- Open shipment context -->
-            <div v-if="openOrder" class="mb-4 p-3 bg-primary-50 border border-primary-100 rounded-xl">
-              <p class="text-xs font-semibold text-primary-700 uppercase tracking-wider mb-1">{{ t.openShipment }}</p>
-              <p class="text-xs text-primary-900">{{ t.willAddToShipment.replace('{n}', openOrder.item_count).replace('{w}', Number(openOrder.total_weight_kg).toFixed(1)) }}</p>
-            </div>
-
             <div class="space-y-2.5 text-sm pb-4 mb-4 border-b border-gray-100">
               <div class="flex justify-between text-gray-600">
                 <span>{{ t.subtotal }} ({{ totalItems }} {{ totalItems === 1 ? t.item : t.items }})</span>
@@ -169,8 +163,6 @@ const t = createTranslations({
   size:                { es: 'Talla', en: 'Size' },
   color:                { es: 'Color', en: 'Color' },
   summary:             { es: 'Resumen', en: 'Summary' },
-  openShipment:        { es: 'Tu envío actual', en: 'Your current shipment' },
-  willAddToShipment:   { es: 'Estos productos se sumarán a tu envío actual ({n} productos · {w} kg)', en: 'These will be added to your current shipment ({n} items · {w} kg)' },
   subtotal:            { es: 'Subtotal', en: 'Subtotal' },
   item:                { es: 'producto', en: 'item' },
   items:               { es: 'productos', en: 'items' },
@@ -194,10 +186,8 @@ const {
   estimatedShippingCents,
   fillPercent,
   nextBoxThresholdKg,
-  openOrder,
   setQuantity,
   remove,
-  refreshOpenOrder,
   lineKey,
 } = useStoreCart()
 
@@ -205,6 +195,4 @@ const formatPrice = (cents) => (cents / 100).toLocaleString('es-MX', {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 })
-
-onMounted(() => refreshOpenOrder())
 </script>
