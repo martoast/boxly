@@ -31,7 +31,7 @@
         <div class="lg:col-span-2 space-y-3">
           <div
             v-for="item in items"
-            :key="item.product_id"
+            :key="lineKey(item.product_id, item.variant_id)"
             class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex gap-4"
           >
             <NuxtLink :to="`/shop/${item.slug}`" class="shrink-0">
@@ -44,22 +44,33 @@
               <NuxtLink :to="`/shop/${item.slug}`" class="block">
                 <h3 class="font-semibold text-gray-900 line-clamp-2 hover:text-primary-600 transition-colors">{{ item.name }}</h3>
               </NuxtLink>
+
+              <!-- Variant chips -->
+              <div v-if="item.size || item.color" class="flex flex-wrap gap-1.5 mt-1.5">
+                <span v-if="item.size" class="inline-flex items-center px-2 py-0.5 bg-gray-100 text-gray-700 text-xs font-medium rounded-md">
+                  {{ t.size }}: <strong class="ml-1">{{ item.size }}</strong>
+                </span>
+                <span v-if="item.color" class="inline-flex items-center px-2 py-0.5 bg-gray-100 text-gray-700 text-xs font-medium rounded-md">
+                  {{ t.color }}: <strong class="ml-1">{{ item.color }}</strong>
+                </span>
+              </div>
+
               <p class="text-xs text-gray-400 mt-1">{{ Number(item.weight_kg).toFixed(2) }} kg c/u</p>
 
               <div class="flex items-center justify-between gap-3 mt-3">
                 <div class="flex items-center border border-gray-200 rounded-lg">
                   <button
-                    @click="setQuantity(item.product_id, item.quantity - 1)"
+                    @click="setQuantity(item.product_id, item.variant_id, item.quantity - 1)"
                     class="px-3 py-1.5 text-gray-500 hover:bg-gray-50 transition-colors"
                   >−</button>
                   <span class="w-10 text-center text-sm font-semibold">{{ item.quantity }}</span>
                   <button
-                    @click="setQuantity(item.product_id, item.quantity + 1)"
+                    @click="setQuantity(item.product_id, item.variant_id, item.quantity + 1)"
                     class="px-3 py-1.5 text-gray-500 hover:bg-gray-50 transition-colors"
                   >+</button>
                 </div>
                 <button
-                  @click="remove(item.product_id)"
+                  @click="remove(item.product_id, item.variant_id)"
                   class="text-xs text-gray-400 hover:text-red-500 transition-colors"
                 >
                   {{ t.remove }}
@@ -155,6 +166,8 @@ const t = createTranslations({
   emptyDesc:           { es: 'Agrega productos para empezar a llenar tu envío.', en: 'Add products to start filling your shipment.' },
   browseProducts:      { es: 'Ver productos', en: 'Browse products' },
   remove:              { es: 'Quitar', en: 'Remove' },
+  size:                { es: 'Talla', en: 'Size' },
+  color:                { es: 'Color', en: 'Color' },
   summary:             { es: 'Resumen', en: 'Summary' },
   openShipment:        { es: 'Tu envío actual', en: 'Your current shipment' },
   willAddToShipment:   { es: 'Estos productos se sumarán a tu envío actual ({n} productos · {w} kg)', en: 'These will be added to your current shipment ({n} items · {w} kg)' },
@@ -185,6 +198,7 @@ const {
   setQuantity,
   remove,
   refreshOpenOrder,
+  lineKey,
 } = useStoreCart()
 
 const formatPrice = (cents) => (cents / 100).toLocaleString('es-MX', {

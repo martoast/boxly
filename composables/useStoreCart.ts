@@ -7,11 +7,14 @@ import { computed, ref, watch } from 'vue'
 
 export interface CartItem {
   product_id: number
+  variant_id: number | null
   slug: string
   name: string
   price_cents: number
   weight_kg: number
   image_url: string | null
+  size: string | null
+  color: string | null
   quantity: number
 }
 
@@ -22,7 +25,8 @@ export interface OpenOrderSummary {
   item_count: number
 }
 
-const STORAGE_KEY = 'boxly_store_cart_v1'
+// Bumped to v2 so old cart data (without variants) is dropped on first load
+const STORAGE_KEY = 'boxly_store_cart_v2'
 
 // Box thresholds — mirror BoxPricing.vue (landing page) exactly
 export const BOX_TIERS = [
@@ -117,8 +121,15 @@ export function useStoreCart() {
     return BOX_TIERS[idx + 1].weight - combinedWeightKg.value
   })
 
+  /** Compose a unique key for a cart line — different variants of the same product are separate lines. */
+  function lineKey(productId: number, variantId: number | null): string {
+    return `${productId}:${variantId ?? ''}`
+  }
+
   function add(product: Omit<CartItem, 'quantity'>, qty: number = 1) {
-    const existing = items.value.find(i => i.product_id === product.product_id)
+    const existing = items.value.find(
+      i => i.product_id === product.product_id && i.variant_id === product.variant_id
+    )
     if (existing) {
       existing.quantity += qty
     } else {
@@ -126,8 +137,10 @@ export function useStoreCart() {
     }
   }
 
-  function setQuantity(productId: number, qty: number) {
-    const idx = items.value.findIndex(i => i.product_id === productId)
+  function setQuantity(productId: number, variantId: number | null, qty: number) {
+    const idx = items.value.findIndex(
+      i => i.product_id === productId && i.variant_id === variantId
+    )
     if (idx < 0) return
     if (qty <= 0) {
       items.value.splice(idx, 1)
@@ -136,8 +149,10 @@ export function useStoreCart() {
     }
   }
 
-  function remove(productId: number) {
-    const idx = items.value.findIndex(i => i.product_id === productId)
+  function remove(productId: number, variantId: number | null = null) {
+    const idx = items.value.findIndex(
+      i => i.product_id === productId && i.variant_id === variantId
+    )
     if (idx >= 0) items.value.splice(idx, 1)
   }
 
@@ -191,5 +206,6 @@ export function useStoreCart() {
     remove,
     clear,
     refreshOpenOrder,
+    lineKey,
   }
 }

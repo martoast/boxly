@@ -146,6 +146,7 @@ const startCheckout = async () => {
     const payload = {
       items: items.value.map((it) => ({
         product_id: it.product_id,
+        variant_id: it.variant_id ?? null,
         quantity: it.quantity,
       })),
       shipping_address: {

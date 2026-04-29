@@ -126,8 +126,53 @@
               </a>
             </div>
 
-            <!-- In stock: Quantity selector + Add to Cart -->
+            <!-- In stock: variant selectors + Quantity + Add to Cart -->
             <template v-else>
+              <!-- Color selector -->
+              <div v-if="availableColors.length > 0" class="mb-4">
+                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                  {{ t.color }}<span v-if="selectedColor" class="text-gray-900 normal-case ml-1.5 tracking-normal">— {{ selectedColor }}</span>
+                </p>
+                <div class="flex flex-wrap gap-2">
+                  <button
+                    v-for="color in availableColors"
+                    :key="color.value"
+                    @click="selectColor(color.value)"
+                    :disabled="!color.hasStock"
+                    :class="[
+                      selectedColor === color.value
+                        ? 'border-primary-500 ring-2 ring-primary-200 text-primary-700 bg-primary-50'
+                        : 'border-gray-200 text-gray-700 hover:border-gray-400',
+                      !color.hasStock ? 'opacity-40 line-through cursor-not-allowed' : '',
+                      'px-3.5 py-2 rounded-xl border-2 text-sm font-medium transition-colors min-w-12'
+                    ]"
+                  >{{ color.value }}</button>
+                </div>
+              </div>
+
+              <!-- Size selector -->
+              <div v-if="availableSizes.length > 0" class="mb-5">
+                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                  {{ t.size }}<span v-if="selectedSize" class="text-gray-900 normal-case ml-1.5 tracking-normal">— {{ selectedSize }}</span>
+                </p>
+                <div class="flex flex-wrap gap-2">
+                  <button
+                    v-for="size in availableSizes"
+                    :key="size.value"
+                    @click="selectSize(size.value)"
+                    :disabled="!size.hasStock"
+                    :class="[
+                      selectedSize === size.value
+                        ? 'border-primary-500 ring-2 ring-primary-200 text-primary-700 bg-primary-50'
+                        : 'border-gray-200 text-gray-700 hover:border-gray-400',
+                      !size.hasStock ? 'opacity-40 line-through cursor-not-allowed' : '',
+                      'min-w-12 px-4 py-2 rounded-xl border-2 text-sm font-semibold transition-colors'
+                    ]"
+                  >{{ size.value }}</button>
+                </div>
+                <p v-if="hasVariants && !selectedVariant" class="text-xs text-amber-600 mt-2">{{ t.pickVariant }}</p>
+              </div>
+
               <div class="flex items-center gap-3 mb-4">
                 <div class="flex items-center border border-gray-200 rounded-xl overflow-hidden">
                   <button
@@ -153,7 +198,7 @@
 
                 <button
                   @click="addToCart"
-                  :disabled="added"
+                  :disabled="added || !canAddToCart"
                   class="flex-1 inline-flex items-center justify-center gap-2 py-3 px-6 bg-primary-500 hover:bg-primary-600 active:bg-primary-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold rounded-xl shadow-lg shadow-primary-500/20 transition-colors"
                 >
                   <svg v-if="added" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -169,7 +214,8 @@
               <!-- Buy Now (go to cart) -->
               <button
                 @click="buyNow"
-                class="w-full py-3 bg-amber-400 hover:bg-amber-500 active:bg-amber-600 text-amber-900 font-bold rounded-xl shadow transition-colors mb-5"
+                :disabled="!canAddToCart"
+                class="w-full py-3 bg-amber-400 hover:bg-amber-500 active:bg-amber-600 disabled:bg-gray-200 disabled:cursor-not-allowed text-amber-900 font-bold rounded-xl shadow transition-colors mb-5"
               >
                 {{ t.buyNow }}
               </button>
@@ -286,6 +332,9 @@ const t = createTranslations({
   outOfStockTitle:{ es: 'Sin stock por ahora', en: 'Out of stock right now' },
   outOfStockBody: { es: 'Si lo necesitas, podemos comprarlo y enviártelo cuando regrese al inventario. Escríbenos por WhatsApp y te ayudamos.', en: 'If you need it, we can source it and ship it once it\'s back in stock. Message us on WhatsApp and we\'ll help.' },
   contactWhatsApp:{ es: 'Pedir por WhatsApp', en: 'Request on WhatsApp' },
+  size:           { es: 'Talla', en: 'Size' },
+  color:          { es: 'Color', en: 'Color' },
+  pickVariant:    { es: 'Elige talla y color para continuar', en: 'Pick size and color to continue' },
   specs:          { es: 'Especificaciones', en: 'Specifications' },
   weight:         { es: 'Peso', en: 'Weight' },
   dimensions:     { es: 'Dimensiones', en: 'Dimensions' },
@@ -306,16 +355,89 @@ const qty = ref(1)
 const activeIndex = ref(0)
 const lightboxOpen = ref(false)
 const added = ref(false)
+const selectedSize = ref(null)
+const selectedColor = ref(null)
 
 const activeImage = computed(() => {
   const imgs = product.value?.images ?? []
   return imgs[activeIndex.value]?.url ?? null
 })
 
+// Variants — list of all variants for this product (may be empty for products without variants)
+const variants = computed(() => product.value?.variants ?? [])
+const hasVariants = computed(() => variants.value.length > 0)
+
+// Unique colors / sizes drawn from variants, with hasStock derived from
+// availability of any variant matching that axis (and respecting the other
+// axis selection if present).
+const availableColors = computed(() => {
+  const seen = new Set()
+  const out = []
+  for (const v of variants.value) {
+    if (!v.color || seen.has(v.color)) continue
+    seen.add(v.color)
+    // hasStock = any variant with this color and (current size or no size constraint) is in stock
+    const hasStock = variants.value.some(x =>
+      x.color === v.color
+      && (!selectedSize.value || x.size === selectedSize.value)
+      && x.stock_check_status !== 'out_of_stock'
+    )
+    out.push({ value: v.color, hasStock })
+  }
+  return out
+})
+
+const availableSizes = computed(() => {
+  const seen = new Set()
+  const out = []
+  for (const v of variants.value) {
+    if (!v.size || seen.has(v.size)) continue
+    seen.add(v.size)
+    const hasStock = variants.value.some(x =>
+      x.size === v.size
+      && (!selectedColor.value || x.color === selectedColor.value)
+      && x.stock_check_status !== 'out_of_stock'
+    )
+    out.push({ value: v.size, hasStock })
+  }
+  return out
+})
+
+// Find the selected variant given current size/color picks
+const selectedVariant = computed(() => {
+  if (!hasVariants.value) return null
+  return variants.value.find(v =>
+    (v.size ?? null) === (selectedSize.value ?? null)
+    && (v.color ?? null) === (selectedColor.value ?? null)
+  ) ?? null
+})
+
 const isOutOfStock = computed(() => {
   if (!product.value) return false
+  if (hasVariants.value) {
+    // Out of stock at product level only if EVERY variant is out_of_stock
+    return variants.value.every(v => v.stock_check_status === 'out_of_stock')
+  }
   return product.value.stock_check_status === 'out_of_stock' || product.value.stock <= 0
 })
+
+const canAddToCart = computed(() => {
+  if (isOutOfStock.value) return false
+  if (!hasVariants.value) return true
+  // Need both axes filled if both exist; selectedVariant must be in stock
+  const colorRequired = availableColors.value.length > 0
+  const sizeRequired = availableSizes.value.length > 0
+  if (colorRequired && !selectedColor.value) return false
+  if (sizeRequired && !selectedSize.value) return false
+  return selectedVariant.value && selectedVariant.value.stock_check_status !== 'out_of_stock'
+})
+
+const selectColor = (c) => {
+  selectedColor.value = selectedColor.value === c ? null : c
+}
+const selectSize = (s) => {
+  selectedSize.value = selectedSize.value === s ? null : s
+}
 
 const whatsappLink = computed(() => {
   const name = product.value?.name ?? ''
@@ -369,21 +491,30 @@ const fetchProduct = async () => {
 }
 
 const addToCart = () => {
-  if (!product.value || product.value.stock <= 0) return
+  if (!product.value || !canAddToCart.value) return
+  const v = selectedVariant.value
+  // Variant price override if set, otherwise product price
+  const unitPrice = v?.price_cents ?? product.value.price_cents
+
   add({
     product_id:  product.value.id,
+    variant_id:  v?.id ?? null,
     slug:        product.value.slug,
     name:        product.value.name,
-    price_cents: product.value.price_cents,
+    price_cents: unitPrice,
     weight_kg:   Number(product.value.weight_kg),
     image_url:   product.value.first_image_url,
+    size:        v?.size ?? null,
+    color:       v?.color ?? null,
   }, qty.value)
   added.value = true
-  toast.success(`${product.value.name} agregado al carrito`)
+  const variantSuffix = v ? ` (${[v.size, v.color].filter(Boolean).join(' / ')})` : ''
+  toast.success(`${product.value.name}${variantSuffix} agregado al carrito`)
   setTimeout(() => { added.value = false }, 2000)
 }
 
 const buyNow = () => {
+  if (!canAddToCart.value) return
   addToCart()
   setTimeout(() => router.push('/cart'), 250)
 }
