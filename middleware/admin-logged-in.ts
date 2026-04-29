@@ -11,12 +11,13 @@ export default defineNuxtRouteMiddleware(async (to) => {
           await $retriveUser()
         }
         
-        // If user is an admin, redirect to admin dashboard
-        if (userState.value?.role === 'admin') {
-          return navigateTo('/app/admin/dashboard')
+        // Route by role+team so employees don't bounce off the customer middleware
+        const u = userState.value
+        if (u?.role === 'admin') return navigateTo('/app/admin/dashboard')
+        if (u?.role === 'employee') {
+          if (u.team === 'shopping') return navigateTo('/app/shopping/purchase-requests')
+          return navigateTo('/app/employee/packages')
         }
-        
-        // Otherwise redirect to regular app
         return navigateTo('/app/')
       } catch (error) {
         // If retrieval fails, clear the user state

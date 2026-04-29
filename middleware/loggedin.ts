@@ -11,8 +11,14 @@ export default defineNuxtRouteMiddleware(async (to) => {
         if (!userState.value) {
           await $retriveUser()
         }
-        
-        // If retrieval is successful or we already have a user state, redirect to app
+
+        // Route by role+team so employees don't bounce off the customer middleware
+        const u = userState.value
+        if (u?.role === 'admin') return navigateTo('/app/admin/dashboard')
+        if (u?.role === 'employee') {
+          if (u.team === 'shopping') return navigateTo('/app/shopping/purchase-requests')
+          return navigateTo('/app/employee/packages')
+        }
         return navigateTo('/app/')
       } catch (error) {
         // If retrieval fails, clear the user state and allow access to login/register

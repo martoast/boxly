@@ -403,10 +403,14 @@ const handleLogin = async () => {
     } else {
       // Fetch user to determine role-based redirect
       const user = await $retriveUser()
-      if (user?.role === 'employee') {
-        await navigateTo('/app/employee/packages')
-      } else if (user?.role === 'admin') {
+      if (user?.role === 'admin') {
         await navigateTo('/app/admin/dashboard')
+      } else if (user?.role === 'employee') {
+        if (user.team === 'shopping') {
+          await navigateTo('/app/shopping/purchase-requests')
+        } else {
+          await navigateTo('/app/employee/packages')
+        }
       } else {
         await navigateTo('/app/')
       }
