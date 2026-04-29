@@ -97,10 +97,6 @@
                 <span class="h-2 w-2 rounded-full bg-red-500"></span>
                 {{ t.soldOut }}
               </p>
-              <p v-else-if="product.stock <= 10" class="inline-flex items-center gap-2 px-3 py-1.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full text-sm font-semibold">
-                <span class="h-2 w-2 rounded-full bg-amber-500"></span>
-                {{ t.onlyLeft.replace('{n}', product.stock) }}
-              </p>
               <p v-else class="inline-flex items-center gap-2 px-3 py-1.5 bg-green-50 text-green-700 border border-green-200 rounded-full text-sm font-semibold">
                 <span class="h-2 w-2 rounded-full bg-green-500"></span>
                 {{ t.inStock }}
@@ -324,7 +320,6 @@ const t = createTranslations({
   notFound:       { es: 'Producto no encontrado', en: 'Product not found' },
   backToShop:     { es: 'Volver a la Tienda', en: 'Back to Shop' },
   inStock:        { es: 'Disponible', en: 'In stock' },
-  onlyLeft:       { es: 'Solo {n} disponibles', en: 'Only {n} left' },
   soldOut:        { es: 'Agotado', en: 'Sold out' },
   addToCart:      { es: 'Agregar al carrito', en: 'Add to cart' },
   added:          { es: '¡Agregado!', en: 'Added!' },
