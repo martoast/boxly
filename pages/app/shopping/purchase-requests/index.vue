@@ -69,6 +69,22 @@
                 {{ t.clearSelection }}
               </button>
             </div>
+            <div class="flex flex-wrap items-center gap-2">
+            <!-- Bulk Status Dropdown -->
+            <select
+              v-model="bulkStatusTarget"
+              @change="onBulkStatusPick"
+              :disabled="updatingBulkStatus"
+              class="text-sm bg-white border border-primary-300 text-primary-900 rounded-lg px-3 py-2 font-medium focus:outline-none focus:ring-2 focus:ring-primary-500"
+            >
+              <option value="" disabled>{{ updatingBulkStatus ? t.updating : t.bulkSetStatus }}</option>
+              <option value="pending_review">{{ t.pendingReview }}</option>
+              <option value="quoted">{{ t.quoted }}</option>
+              <option value="paid">{{ t.paid }}</option>
+              <option value="rejected">{{ t.rejected }}</option>
+              <option value="cancelled">{{ t.cancelled }}</option>
+            </select>
+
             <!-- Merge Button -->
             <button
               v-if="canMergeRequests"
@@ -157,6 +173,7 @@
               </svg>
               {{ deletingBulk ? t.deleting : t.deleteSelected }}
             </button>
+            </div>
           </div>
 
           <div class="flex flex-col sm:flex-row gap-4">
@@ -541,6 +558,48 @@
         </div>
       </div>
     </Teleport>
+
+    <!-- Bulk Status Confirmation Modal -->
+    <Teleport to="body">
+      <div v-if="showBulkStatusModal" class="fixed inset-0 z-50 overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+          <div class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" @click="cancelBulkStatus"></div>
+          <div class="inline-block overflow-hidden text-left align-bottom transition-all transform bg-white rounded-2xl shadow-xl sm:my-8 sm:align-middle sm:max-w-lg sm:w-full p-6">
+            <div class="sm:flex sm:items-start">
+              <div class="flex items-center justify-center flex-shrink-0 w-12 h-12 mx-auto bg-primary-100 rounded-full sm:mx-0 sm:h-10 sm:w-10">
+                <svg class="w-6 h-6 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+                </svg>
+              </div>
+              <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                <h3 class="text-lg font-medium leading-6 text-gray-900">{{ t.confirmBulkStatus }}</h3>
+                <p class="mt-2 text-sm text-gray-500">
+                  {{ t.confirmBulkStatusMessage
+                      .replace('{count}', selectedRequests.length)
+                      .replace('{status}', statusLabel(bulkStatusTarget)) }}
+                </p>
+              </div>
+            </div>
+            <div class="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse gap-3">
+              <button
+                @click="bulkUpdateStatus"
+                :disabled="updatingBulkStatus"
+                class="inline-flex justify-center w-full px-4 py-2 text-base font-medium text-white bg-primary-600 border border-transparent rounded-lg shadow-sm hover:bg-primary-700 sm:w-auto sm:text-sm disabled:opacity-50"
+              >
+                {{ updatingBulkStatus ? t.updating : t.yesUpdate }}
+              </button>
+              <button
+                @click="cancelBulkStatus"
+                :disabled="updatingBulkStatus"
+                class="inline-flex justify-center w-full px-4 py-2 mt-3 text-base font-medium text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 sm:mt-0 sm:w-auto sm:text-sm disabled:opacity-50"
+              >
+                {{ t.cancel }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </section>
 </template>
 
@@ -607,6 +666,18 @@ const translations = {
   paid: { es: "Pagado", en: "Paid" },
   purchased: { es: "Comprado", en: "Purchased" },
   rejected: { es: "Rechazado", en: "Rejected" },
+  cancelled: { es: "Cancelado", en: "Cancelled" },
+  // Bulk status update
+  bulkSetStatus: { es: "Cambiar estado…", en: "Change status…" },
+  updating: { es: "Actualizando…", en: "Updating…" },
+  confirmBulkStatus: { es: "¿Actualizar estado?", en: "Update status?" },
+  confirmBulkStatusMessage: {
+    es: "Cambiar el estado de {count} solicitud(es) a \"{status}\".",
+    en: "Change status of {count} request(s) to \"{status}\".",
+  },
+  yesUpdate: { es: "Sí, actualizar", en: "Yes, update" },
+  bulkStatusSuccess: { es: "Estado actualizado", en: "Status updated" },
+  bulkStatusError: { es: "Error al actualizar estado", en: "Error updating status" },
 };
 
 const t = createTranslations(translations);
@@ -629,6 +700,9 @@ const showDeleteModal = ref(false);
 const deletingBulk = ref(false);
 const showMergeModal = ref(false);
 const mergingRequests = ref(false);
+const showBulkStatusModal = ref(false);
+const updatingBulkStatus = ref(false);
+const bulkStatusTarget = ref("");
 
 const allSelected = computed(() => {
   return (
@@ -782,6 +856,53 @@ watch(statusFilter, () => {
   fetchRequests(1);
   clearSelection();
 });
+
+// Bulk status update
+const statusLabel = (s) => {
+  const map = {
+    pending_review: t.value.pendingReview,
+    quoted: t.value.quoted,
+    paid: t.value.paid,
+    purchased: t.value.purchased,
+    rejected: t.value.rejected,
+    cancelled: t.value.cancelled,
+  };
+  return map[s] ?? s;
+};
+
+const onBulkStatusPick = () => {
+  if (!bulkStatusTarget.value || selectedRequests.value.length === 0) return;
+  showBulkStatusModal.value = true;
+};
+
+const cancelBulkStatus = () => {
+  showBulkStatusModal.value = false;
+  bulkStatusTarget.value = "";
+};
+
+const bulkUpdateStatus = async () => {
+  if (!bulkStatusTarget.value || selectedRequests.value.length === 0) return;
+  updatingBulkStatus.value = true;
+  try {
+    await $customFetch("/shopping/purchase-requests/bulk-status", {
+      method: "PUT",
+      body: {
+        ids: selectedRequests.value,
+        status: bulkStatusTarget.value,
+      },
+    });
+    $toast.success(t.value.bulkStatusSuccess);
+    showBulkStatusModal.value = false;
+    bulkStatusTarget.value = "";
+    selectedRequests.value = [];
+    await fetchRequests(pagination.value.currentPage);
+  } catch (e) {
+    console.error(e);
+    $toast.error(e?.data?.message || t.value.bulkStatusError);
+  } finally {
+    updatingBulkStatus.value = false;
+  }
+};
 
 onMounted(() => fetchRequests());
 </script>
