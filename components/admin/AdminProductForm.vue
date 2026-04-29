@@ -87,15 +87,48 @@
 
     <!-- Pricing & stock -->
     <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-      <h2 class="font-bold text-gray-900 mb-4">Precio y stock</h2>
+      <h2 class="font-bold text-gray-900 mb-1">Precio</h2>
+      <p class="text-xs text-gray-400 mb-4">Costo y margen son visibles solo para admin. El cliente solo ve el precio final.</p>
+
       <div class="grid sm:grid-cols-3 gap-4">
+        <!-- Cost (admin-only) -->
         <div>
-          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Precio MXN *</label>
+          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+            Costo MXN <span class="text-gray-300 font-normal">— solo admin</span>
+          </label>
           <div class="relative">
             <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">$</span>
-            <input v-model.number="priceDisplay" type="number" min="0" step="0.01" required class="w-full pl-8 pr-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
+            <input v-model.number="costDisplay" type="number" min="0" step="0.01" placeholder="Lo que pagamos" class="w-full pl-8 pr-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
           </div>
         </div>
+
+        <!-- Markup -->
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Margen %</label>
+          <div class="relative">
+            <input v-model.number="form.markup_percent" type="number" min="0" step="0.01" class="w-full pl-4 pr-8 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
+            <span class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">%</span>
+          </div>
+        </div>
+
+        <!-- Final price (auto-calc, overridable) -->
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+            Precio final MXN *
+            <button v-if="canSuggestPrice && !priceMatchesSuggested" type="button" @click="useSuggestedPrice" class="ml-1 text-primary-600 font-semibold hover:underline">(usar sugerido)</button>
+          </label>
+          <div class="relative">
+            <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+            <input v-model.number="priceDisplay" type="number" min="0" step="0.01" required class="w-full pl-8 pr-4 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-primary-500" />
+          </div>
+          <p v-if="canSuggestPrice" class="text-xs text-gray-400 mt-1">
+            Sugerido: <strong>${{ suggestedPrice.toFixed(2) }}</strong>
+            <span v-if="actualMargin !== null"> · margen actual: <strong :class="actualMargin >= 0 ? 'text-green-600' : 'text-red-600'">{{ actualMargin.toFixed(2) }}%</strong></span>
+          </p>
+        </div>
+      </div>
+
+      <div class="grid sm:grid-cols-3 gap-4 mt-4">
         <div>
           <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Stock *</label>
           <input v-model.number="form.stock" type="number" min="0" required class="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
@@ -109,11 +142,22 @@
             <option value="sold_out">Agotado</option>
           </select>
         </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Disponible hasta</label>
+          <input v-model="form.available_until" type="datetime-local" class="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
+        </div>
       </div>
-      <div class="mt-4">
-        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Disponible hasta (clearance)</label>
-        <input v-model="form.available_until" type="datetime-local" class="rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
-        <p class="text-xs text-gray-400 mt-1">Opcional. Si se llena, el producto se oculta automáticamente al pasar la fecha.</p>
+
+      <!-- Stock check status (read-only display) -->
+      <div v-if="existingProduct?.stock_check_status" class="mt-4 flex items-center gap-2 text-xs">
+        <span class="text-gray-400 uppercase tracking-wider font-semibold">Estado en fuente:</span>
+        <span :class="stockCheckBadgeClass">
+          <span :class="stockCheckDotClass" class="h-1.5 w-1.5 rounded-full"></span>
+          {{ stockCheckLabel }}
+        </span>
+        <span v-if="existingProduct.last_stock_check_at" class="text-gray-400">
+          (revisado {{ formatRelativeTime(existingProduct.last_stock_check_at) }})
+        </span>
       </div>
     </div>
 
@@ -166,6 +210,8 @@ const form = ref({
   source_url: props.existingProduct?.source_url ?? '',
   category: props.existingProduct?.category ?? '',
   price_cents: props.existingProduct?.price_cents ?? 0,
+  cost_cents: props.existingProduct?.cost_cents ?? null,
+  markup_percent: Number(props.existingProduct?.markup_percent ?? 8),
   stock: props.existingProduct?.stock ?? 0,
   status: props.existingProduct?.status ?? 'draft',
   available_until: formatDateTimeLocal(props.existingProduct?.available_until),
@@ -179,6 +225,81 @@ const priceDisplay = computed({
   get: () => (form.value.price_cents ?? 0) / 100,
   set: (val) => { form.value.price_cents = Math.round(Number(val || 0) * 100) },
 })
+
+const costDisplay = computed({
+  get: () => form.value.cost_cents == null ? null : form.value.cost_cents / 100,
+  set: (val) => {
+    if (val === '' || val === null || val === undefined) {
+      form.value.cost_cents = null
+      return
+    }
+    form.value.cost_cents = Math.round(Number(val) * 100)
+  },
+})
+
+// Auto-suggest final price based on cost + markup, but admin can override
+const canSuggestPrice = computed(() => form.value.cost_cents != null && form.value.cost_cents > 0)
+
+const suggestedPrice = computed(() => {
+  if (! canSuggestPrice.value) return 0
+  const markup = Number(form.value.markup_percent ?? 0) / 100
+  return Math.round((form.value.cost_cents * (1 + markup))) / 100
+})
+
+const priceMatchesSuggested = computed(() => {
+  if (! canSuggestPrice.value) return true
+  return Math.abs(priceDisplay.value - suggestedPrice.value) < 0.01
+})
+
+const actualMargin = computed(() => {
+  if (! canSuggestPrice.value) return null
+  if (form.value.price_cents <= 0) return null
+  return ((form.value.price_cents - form.value.cost_cents) / form.value.cost_cents) * 100
+})
+
+const useSuggestedPrice = () => {
+  if (! canSuggestPrice.value) return
+  form.value.price_cents = Math.round(form.value.cost_cents * (1 + Number(form.value.markup_percent) / 100))
+}
+
+// Auto-fill price when cost is set for the first time (no override yet)
+watch(() => [form.value.cost_cents, form.value.markup_percent], () => {
+  if (! canSuggestPrice.value) return
+  // Only auto-fill if the price is currently empty/zero
+  if (! form.value.price_cents || form.value.price_cents === 0) {
+    useSuggestedPrice()
+  }
+})
+
+// Stock check display helpers
+const stockCheckLabel = computed(() => ({
+  in_stock: 'En stock',
+  out_of_stock: 'Agotado en fuente',
+  unknown: 'Sin verificar',
+}[props.existingProduct?.stock_check_status] ?? '—'))
+
+const stockCheckBadgeClass = computed(() => ({
+  in_stock:     'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-100 font-semibold',
+  out_of_stock: 'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-100 font-semibold',
+  unknown:      'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-gray-50 text-gray-600 border border-gray-100 font-semibold',
+}[props.existingProduct?.stock_check_status] ?? ''))
+
+const stockCheckDotClass = computed(() => ({
+  in_stock: 'bg-green-500',
+  out_of_stock: 'bg-red-500',
+  unknown: 'bg-gray-400',
+}[props.existingProduct?.stock_check_status] ?? 'bg-gray-400'))
+
+const formatRelativeTime = (iso) => {
+  if (!iso) return ''
+  const diffMs = Date.now() - new Date(iso).getTime()
+  const mins = Math.floor(diffMs / 60000)
+  if (mins < 60) return `hace ${mins} min`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `hace ${hrs}h`
+  const days = Math.floor(hrs / 24)
+  return `hace ${days}d`
+}
 
 // Image state — both new files and previews
 const newImageFiles = ref([])
