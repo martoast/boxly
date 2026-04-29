@@ -92,7 +92,7 @@
             </div>
 
             <!-- Stock -->
-            <div class="mb-5">
+            <div class="mb-5 flex flex-wrap items-center gap-3">
               <p v-if="isOutOfStock" class="inline-flex items-center gap-2 px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 rounded-full text-sm font-semibold">
                 <span class="h-2 w-2 rounded-full bg-red-500"></span>
                 {{ t.soldOut }}
@@ -101,6 +101,21 @@
                 <span class="h-2 w-2 rounded-full bg-green-500"></span>
                 {{ t.inStock }}
               </p>
+
+              <!-- Manual recheck -->
+              <button
+                @click="recheckStock"
+                :disabled="rechecking"
+                type="button"
+                class="inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-primary-600 disabled:opacity-50 disabled:cursor-wait transition-colors"
+              >
+                <svg :class="['w-3.5 h-3.5', rechecking ? 'animate-spin' : '']" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg>
+                <span>{{ rechecking ? t.checking : t.recheck }}</span>
+              </button>
+
+              <span v-if="lastChecked" class="text-xs text-gray-400">{{ t.checkedAt }} {{ lastChecked }}</span>
             </div>
 
             <!-- Out of stock: WhatsApp CTA replacing the buy buttons -->
@@ -321,6 +336,11 @@ const t = createTranslations({
   backToShop:     { es: 'Volver a la Tienda', en: 'Back to Shop' },
   inStock:        { es: 'Disponible', en: 'In stock' },
   soldOut:        { es: 'Agotado', en: 'Sold out' },
+  recheck:        { es: 'Verificar ahora', en: 'Check now' },
+  checking:       { es: 'Verificando...', en: 'Checking...' },
+  checkedAt:      { es: 'Verificado', en: 'Checked' },
+  rateLimited:    { es: 'Espera un momento antes de volver a verificar', en: 'Wait a moment before checking again' },
+  recheckFailed:  { es: 'No se pudo verificar el stock. Intenta de nuevo.', en: 'Could not verify stock. Try again.' },
   addToCart:      { es: 'Agregar al carrito', en: 'Add to cart' },
   added:          { es: '¡Agregado!', en: 'Added!' },
   buyNow:         { es: 'Comprar ahora', en: 'Buy now' },
@@ -352,6 +372,8 @@ const lightboxOpen = ref(false)
 const added = ref(false)
 const selectedSize = ref(null)
 const selectedColor = ref(null)
+const rechecking = ref(false)
+const lastChecked = ref(null)
 
 const activeImage = computed(() => {
   const imgs = product.value?.images ?? []
@@ -473,6 +495,18 @@ const fetchProduct = async () => {
           { property: 'og:image', content: product.value.first_image_url ?? '' },
         ],
       })
+
+      // Auto-recheck if cron data is stale (>15 min old) — fires after page renders
+      // so the user sees content immediately, then variant buttons silently update
+      // when fresh data comes back. Silent on rate-limit / failure.
+      const lastCheck = product.value.last_stock_check_at
+        ? new Date(product.value.last_stock_check_at).getTime()
+        : 0
+      const ageMs = Date.now() - lastCheck
+      if (ageMs > 15 * 60 * 1000) {
+        // Defer slightly so it doesn't block initial paint
+        setTimeout(() => recheckStock({ silent: true }), 400)
+      }
     }
   } catch (err) {
     if (err?.response?.status === 404) {
@@ -512,6 +546,37 @@ const buyNow = () => {
   if (!canAddToCart.value) return
   addToCart()
   setTimeout(() => router.push('/cart'), 250)
+}
+
+const recheckStock = async ({ silent = false } = {}) => {
+  if (rechecking.value || !product.value) return
+  rechecking.value = true
+  try {
+    const res = await $customFetch(`/store/products/${product.value.slug}/check-stock`, {
+      method: 'POST',
+    })
+    if (res?.data) {
+      // Replace product (and its variants) with the freshly checked data
+      product.value = res.data
+      lastChecked.value = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
+
+      // If the variant the user picked is now sold out, surface that loudly
+      if (selectedVariant.value && selectedVariant.value.stock_check_status === 'out_of_stock') {
+        toast.info('La variante que tenías seleccionada ya no está disponible')
+      }
+    }
+  } catch (err) {
+    // Auto-rechecks on page load are silent — we only show errors when the user
+    // explicitly clicked "Verificar ahora".
+    if (silent) return
+    if (err?.response?.status === 429) {
+      toast.error(t.value.rateLimited)
+    } else {
+      toast.error(t.value.recheckFailed)
+    }
+  } finally {
+    rechecking.value = false
+  }
 }
 
 watch(() => route.params.slug, fetchProduct)
