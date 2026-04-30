@@ -81,6 +81,7 @@
               <option value="pending_review">{{ t.pendingReview }}</option>
               <option value="quoted">{{ t.quoted }}</option>
               <option value="paid">{{ t.paid }}</option>
+              <option value="purchased">{{ t.purchased }}</option>
               <option value="rejected">{{ t.rejected }}</option>
               <option value="cancelled">{{ t.cancelled }}</option>
             </select>
@@ -578,6 +579,9 @@
                       .replace('{count}', selectedRequests.length)
                       .replace('{status}', statusLabel(bulkStatusTarget)) }}
                 </p>
+                <p v-if="bulkStatusTarget === 'purchased'" class="mt-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                  {{ t.purchasedNote }}
+                </p>
               </div>
             </div>
             <div class="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse gap-3">
@@ -678,6 +682,10 @@ const translations = {
   yesUpdate: { es: "Sí, actualizar", en: "Yes, update" },
   bulkStatusSuccess: { es: "Estado actualizado", en: "Status updated" },
   bulkStatusError: { es: "Error al actualizar estado", en: "Error updating status" },
+  purchasedNote: {
+    es: "Solo se procesan las solicitudes en estado 'Pagado'. Por cada una se creará una orden de envío que entrará al flujo del almacén.",
+    en: "Only requests in 'Paid' status will be processed. Each one creates a shipping order that enters the warehouse flow.",
+  },
 };
 
 const t = createTranslations(translations);
@@ -884,14 +892,16 @@ const bulkUpdateStatus = async () => {
   if (!bulkStatusTarget.value || selectedRequests.value.length === 0) return;
   updatingBulkStatus.value = true;
   try {
-    await $customFetch("/shopping/purchase-requests/bulk-status", {
+    const res = await $customFetch("/shopping/purchase-requests/bulk-status", {
       method: "PUT",
       body: {
         ids: selectedRequests.value,
         status: bulkStatusTarget.value,
       },
     });
-    $toast.success(t.value.bulkStatusSuccess);
+    // The endpoint may report skipped items (e.g. when bulk-marking purchased
+    // and some PRs aren't in `paid` state). Surface that in the toast.
+    $toast.success(res?.message || t.value.bulkStatusSuccess);
     showBulkStatusModal.value = false;
     bulkStatusTarget.value = "";
     selectedRequests.value = [];
