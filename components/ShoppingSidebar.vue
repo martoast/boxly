@@ -204,6 +204,7 @@ import {
   XMarkIcon,
   ShoppingCartIcon,
   ArchiveBoxIcon,
+  MegaphoneIcon,
   ChevronDoubleLeftIcon,
   ChevronDoubleRightIcon,
   ArrowRightOnRectangleIcon,
@@ -218,6 +219,7 @@ const { t: createTranslations } = useLanguage();
 const t = createTranslations({
   purchaseRequests: { es: 'Solicitudes de Compra', en: 'Purchase Requests' },
   storeProducts:    { es: 'Productos Tienda',       en: 'Store Products' },
+  campaigns:        { es: 'Campañas',               en: 'Campaigns' },
   shoppingRole:     { es: 'Compras',                en: 'Shopping' },
   logout:           { es: 'Cerrar Sesión',          en: 'Sign out' },
 });
@@ -225,6 +227,7 @@ const t = createTranslations({
 const navItems = computed(() => [
   { route: '/app/shopping/purchase-requests', icon: ShoppingCartIcon, label: t.value.purchaseRequests },
   { route: '/app/shopping/products',          icon: ArchiveBoxIcon,   label: t.value.storeProducts },
+  { route: '/app/shopping/campaigns',         icon: MegaphoneIcon,    label: t.value.campaigns },
 ]);
 
 const userInitials = computed(() => {
