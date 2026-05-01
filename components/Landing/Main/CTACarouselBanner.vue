@@ -138,13 +138,6 @@ const slides = computed(() => {
       description: 'Consolidamos todos tus paquetes en uno solo. Paga un solo envío a México.',
       buttonText: 'Calcular Envío',
       link: '/shipping-calculator'
-    },
-    {
-      image: '/stanley.webp',
-      title: 'Compra en tus tiendas favoritas de EE.UU.',
-      description: 'Aprovecha las mejores ofertas y descuentos en Estados Unidos, y recibe todo fácilmente en México con Boxly.',
-      buttonText: 'Ver tiendas',
-      link: '/stores'
     }
   ] : [
     {
@@ -160,13 +153,6 @@ const slides = computed(() => {
       description: 'We consolidate all your packages into one. Pay only one shipment to Mexico.',
       buttonText: 'Calculate Savings',
       link: '/shipping-calculator'
-    },
-    {
-      image: '/stanley.webp',
-      title: 'Shop from any US store',
-      description: 'Take advantage of the best deals and sales in the US, and get everything delivered easily to Mexico with Boxly.',
-      buttonText: 'Shop Now',
-      link: '/stores'
     }
   ]
   
