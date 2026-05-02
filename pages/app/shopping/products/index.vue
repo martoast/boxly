@@ -36,7 +36,7 @@
           </button>
         </div>
         <div class="flex items-center gap-2">
-          <!-- Restore button — only meaningful for inactive products. Shown when filter=inactive. -->
+          <!-- Restore + Force Delete only meaningful for inactive products. Shown when filter=inactive. -->
           <button
             v-if="statusFilter === 'inactive'"
             @click="confirmBulkRestore"
@@ -49,6 +49,18 @@
             {{ restoringBulk ? 'Restaurando...' : 'Restaurar seleccionados' }}
           </button>
           <button
+            v-if="statusFilter === 'inactive'"
+            @click="confirmBulkForceDelete"
+            :disabled="forceDeletingBulk"
+            class="inline-flex items-center px-4 py-2 bg-red-700 text-white text-sm font-medium rounded-lg hover:bg-red-800 disabled:opacity-50 transition-all"
+          >
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+            </svg>
+            {{ forceDeletingBulk ? 'Eliminando...' : 'Eliminar permanente' }}
+          </button>
+          <button
+            v-if="statusFilter !== 'inactive'"
             @click="confirmBulkDelete"
             :disabled="deletingBulk"
             class="inline-flex items-center px-4 py-2 bg-red-500 text-white text-sm font-medium rounded-lg hover:bg-red-600 disabled:opacity-50 transition-all"
@@ -164,6 +176,13 @@
                   >
                     Restaurar
                   </button>
+                  <button
+                    v-if="p.status === 'inactive'"
+                    @click="confirmForceDeleteOne(p)"
+                    class="text-red-700 font-medium hover:text-red-800 text-sm mr-3"
+                  >
+                    Eliminar permanente
+                  </button>
                   <NuxtLink :to="`/app/shopping/products/${p.id}/edit`" class="text-primary-600 font-medium hover:text-primary-700 text-sm">Editar</NuxtLink>
                 </td>
               </tr>
@@ -183,6 +202,54 @@
         </button>
       </div>
     </div>
+
+    <!-- Confirm Force-Delete Modal (single OR bulk depending on forceTarget) -->
+    <Teleport to="body">
+      <div v-if="showForceDeleteModal" class="fixed inset-0 z-50 overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 sm:p-0">
+          <div class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" @click="cancelForceDelete"></div>
+          <div class="relative inline-block overflow-hidden text-left align-bottom transition-all transform bg-white rounded-2xl shadow-xl sm:my-8 sm:align-middle sm:max-w-lg sm:w-full p-6">
+            <div class="sm:flex sm:items-start">
+              <div class="flex items-center justify-center flex-shrink-0 w-12 h-12 mx-auto bg-red-100 rounded-full sm:mx-0 sm:h-10 sm:w-10">
+                <svg class="w-6 h-6 text-red-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                </svg>
+              </div>
+              <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                <h3 class="text-lg font-medium leading-6 text-gray-900">¿Eliminar permanentemente?</h3>
+                <p class="mt-2 text-sm text-gray-500">
+                  <template v-if="forceTarget === 'bulk'">
+                    Se eliminarán <strong>permanentemente</strong> {{ selectedIds.length }} producto(s) y sus imágenes (incluso de DigitalOcean Spaces).
+                  </template>
+                  <template v-else>
+                    Se eliminará <strong>permanentemente</strong> el producto <strong>"{{ forceProduct?.name }}"</strong> y sus imágenes (incluso de DigitalOcean Spaces).
+                  </template>
+                </p>
+                <p class="mt-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                  Esta acción es irreversible. El historial de órdenes que ya referencien estos productos no se afecta — los nombres e imágenes se guardan en cada orden por separado.
+                </p>
+              </div>
+            </div>
+            <div class="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse gap-3">
+              <button
+                @click="executeForceDelete"
+                :disabled="forceDeletingBulk"
+                class="inline-flex justify-center w-full px-4 py-2 text-base font-medium text-white bg-red-700 border border-transparent rounded-lg shadow-sm hover:bg-red-800 sm:w-auto sm:text-sm disabled:opacity-50"
+              >
+                {{ forceDeletingBulk ? 'Eliminando...' : 'Sí, eliminar para siempre' }}
+              </button>
+              <button
+                @click="cancelForceDelete"
+                :disabled="forceDeletingBulk"
+                class="inline-flex justify-center w-full px-4 py-2 mt-3 text-base font-medium text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 sm:mt-0 sm:w-auto sm:text-sm"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
 
     <!-- Confirm Bulk Restore Modal -->
     <Teleport to="body">
@@ -290,6 +357,10 @@ const showDeleteModal = ref(false)
 const deletingBulk = ref(false)
 const showRestoreModal = ref(false)
 const restoringBulk = ref(false)
+const showForceDeleteModal = ref(false)
+const forceDeletingBulk = ref(false)
+const forceTarget = ref(null) // 'single' | 'bulk'
+const forceProduct = ref(null)
 
 const isSelected = (id) => selectedIds.value.includes(id)
 const toggleSelection = (id) => {
@@ -375,6 +446,49 @@ const restoreOne = async (id) => {
   } catch (err) {
     console.error(err)
     $toast?.error?.(err?.data?.message ?? 'Error al restaurar producto')
+  }
+}
+
+const confirmForceDeleteOne = (product) => {
+  forceTarget.value = 'single'
+  forceProduct.value = product
+  showForceDeleteModal.value = true
+}
+
+const confirmBulkForceDelete = () => {
+  if (selectedIds.value.length === 0) return
+  forceTarget.value = 'bulk'
+  forceProduct.value = null
+  showForceDeleteModal.value = true
+}
+
+const cancelForceDelete = () => {
+  showForceDeleteModal.value = false
+  forceTarget.value = null
+  forceProduct.value = null
+}
+
+const executeForceDelete = async () => {
+  forceDeletingBulk.value = true
+  try {
+    let res
+    if (forceTarget.value === 'single') {
+      res = await $customFetch(`/shopping/products/${forceProduct.value.id}/force`, { method: 'DELETE' })
+    } else {
+      res = await $customFetch('/shopping/products/bulk-force', {
+        method: 'DELETE',
+        body: { ids: selectedIds.value },
+      })
+    }
+    $toast?.success?.(res?.message ?? 'Productos eliminados permanentemente')
+    cancelForceDelete()
+    selectedIds.value = []
+    await fetchProducts()
+  } catch (err) {
+    console.error(err)
+    $toast?.error?.(err?.data?.message ?? 'Error al eliminar permanentemente')
+  } finally {
+    forceDeletingBulk.value = false
   }
 }
 
