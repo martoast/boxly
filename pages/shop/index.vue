@@ -32,32 +32,41 @@
           </select>
         </div>
 
+        <!-- Store pills -->
+        <div v-if="stores.length > 0" class="flex flex-wrap items-center gap-2 mt-4">
+          <span class="text-xs uppercase tracking-wider text-gray-400 font-semibold mr-1">{{ t.storesLabel }}</span>
+          <button
+            @click="setStore(null)"
+            :class="[!selectedStore ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400',
+              'px-3 py-1 rounded-full border text-xs font-medium transition-colors']"
+          >{{ t.all }}</button>
+          <button
+            v-for="s in stores"
+            :key="s.id"
+            @click="setStore(s.id)"
+            :class="[selectedStore === s.id ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400',
+              'inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-medium transition-colors']"
+          >
+            <img v-if="s.logo_url" :src="s.logo_url" alt="" class="h-4 w-4 rounded-full object-cover" />
+            {{ s.name }}
+          </button>
+        </div>
+
         <!-- Category pills -->
-        <div v-if="categories.length > 0" class="flex flex-wrap gap-2 mt-4">
+        <div v-if="categories.length > 0" class="flex flex-wrap items-center gap-2 mt-3">
+          <span class="text-xs uppercase tracking-wider text-gray-400 font-semibold mr-1">{{ t.categoriesLabel }}</span>
           <button
             @click="setCategory(null)"
-            :class="[
-              !selectedCategory
-                ? 'bg-primary-500 text-white border-primary-500'
-                : 'bg-white text-gray-600 border-gray-200 hover:border-primary-300',
-              'px-4 py-1.5 rounded-full border text-sm font-medium transition-colors'
-            ]"
-          >
-            {{ t.all }}
-          </button>
+            :class="[!selectedCategory ? 'bg-primary-500 text-white border-primary-500' : 'bg-white text-gray-600 border-gray-200 hover:border-primary-300',
+              'px-3 py-1 rounded-full border text-xs font-medium transition-colors']"
+          >{{ t.all }}</button>
           <button
             v-for="cat in categories"
-            :key="cat"
-            @click="setCategory(cat)"
-            :class="[
-              selectedCategory === cat
-                ? 'bg-primary-500 text-white border-primary-500'
-                : 'bg-white text-gray-600 border-gray-200 hover:border-primary-300',
-              'px-4 py-1.5 rounded-full border text-sm font-medium transition-colors'
-            ]"
-          >
-            {{ cat }}
-          </button>
+            :key="cat.id"
+            @click="setCategory(cat.id)"
+            :class="[selectedCategory === cat.id ? 'bg-primary-500 text-white border-primary-500' : 'bg-white text-gray-600 border-gray-200 hover:border-primary-300',
+              'px-3 py-1 rounded-full border text-xs font-medium transition-colors']"
+          >{{ cat.name }}</button>
         </div>
       </div>
 
@@ -150,13 +159,17 @@ const t = createTranslations({
   tryAdjusting:    { es: 'Intenta ajustar tu búsqueda o filtros', en: 'Try adjusting your search or filters' },
   prev:            { es: 'Anterior', en: 'Prev' },
   next:            { es: 'Siguiente', en: 'Next' },
+  storesLabel:     { es: 'Tienda:', en: 'Store:' },
+  categoriesLabel: { es: 'Categoría:', en: 'Category:' },
 })
 
 const products = ref([])
 const categories = ref([])
+const stores = ref([])
 const loading = ref(true)
 const search = ref(route.query.search?.toString() ?? '')
-const selectedCategory = ref(route.query.category?.toString() ?? null)
+const selectedCategory = ref(route.query.category_id ? Number(route.query.category_id) : null)
+const selectedStore = ref(route.query.store_id ? Number(route.query.store_id) : null)
 const sort = ref(route.query.sort?.toString() ?? 'newest')
 const currentPage = ref(parseInt(route.query.page?.toString() ?? '1', 10) || 1)
 const lastPage = ref(1)
@@ -172,7 +185,8 @@ const fetchProducts = async () => {
         page: currentPage.value,
         per_page: 24,
         search: search.value || undefined,
-        category: selectedCategory.value || undefined,
+        category_id: selectedCategory.value || undefined,
+        store_id: selectedStore.value || undefined,
         sort: sort.value,
       },
     })
@@ -185,7 +199,8 @@ const fetchProducts = async () => {
       query: {
         ...(currentPage.value > 1 ? { page: currentPage.value } : {}),
         ...(search.value ? { search: search.value } : {}),
-        ...(selectedCategory.value ? { category: selectedCategory.value } : {}),
+        ...(selectedCategory.value ? { category_id: selectedCategory.value } : {}),
+        ...(selectedStore.value ? { store_id: selectedStore.value } : {}),
         ...(sort.value !== 'newest' ? { sort: sort.value } : {}),
       },
     })
@@ -203,8 +218,21 @@ const fetchCategories = async () => {
   } catch {}
 }
 
-const setCategory = (cat) => {
-  selectedCategory.value = cat
+const fetchStores = async () => {
+  try {
+    const res = await $customFetch('/store/stores')
+    stores.value = res.data ?? []
+  } catch {}
+}
+
+const setCategory = (catId) => {
+  selectedCategory.value = catId
+  currentPage.value = 1
+  fetchProducts()
+}
+
+const setStore = (storeId) => {
+  selectedStore.value = storeId
   currentPage.value = 1
   fetchProducts()
 }
@@ -248,5 +276,6 @@ watch(sort, () => {
 onMounted(() => {
   fetchProducts()
   fetchCategories()
+  fetchStores()
 })
 </script>

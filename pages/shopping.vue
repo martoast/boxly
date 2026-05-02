@@ -30,10 +30,10 @@
 
             <!-- Product Info -->
             <div class="p-6 flex flex-col flex-1">
-              <!-- Category -->
+              <!-- Store / Category -->
               <div class="mb-3">
                 <span class="inline-block text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                  {{ product.category }}
+                  {{ product.store?.name ?? product.categories?.[0]?.name ?? '' }}
                 </span>
               </div>
               

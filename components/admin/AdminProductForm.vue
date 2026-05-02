@@ -14,8 +14,23 @@
           <input v-model="form.slug" type="text" placeholder="se genera del nombre" class="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary-500" />
         </div>
         <div>
-          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Categoría</label>
-          <input v-model="form.category" type="text" placeholder="Ej: Tenis, Belleza" class="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
+          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Tienda (marca)</label>
+          <select v-model="form.store_id" class="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+            <option :value="null">— Sin tienda —</option>
+            <option v-for="s in stores" :key="s.id" :value="s.id">{{ s.name }}</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Categorías <span class="text-gray-300 font-normal">— puedes elegir varias</span></label>
+          <div class="flex flex-wrap gap-2 p-3 rounded-xl border border-gray-200 max-h-44 overflow-y-auto">
+            <label v-for="c in categories" :key="c.id" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border cursor-pointer text-sm transition-colors"
+              :class="form.category_ids.includes(c.id) ? 'bg-primary-50 border-primary-300 text-primary-700' : 'border-gray-200 text-gray-700 hover:bg-gray-50'">
+              <input type="checkbox" :value="c.id" v-model="form.category_ids" class="hidden" />
+              <span v-if="form.category_ids.includes(c.id)" class="text-primary-600">✓</span>
+              {{ c.name }}
+            </label>
+            <p v-if="categories.length === 0" class="text-xs text-gray-400">No hay categorías. Crea algunas en /categorías.</p>
+          </div>
         </div>
         <div>
           <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Descripción</label>
@@ -241,9 +256,12 @@
 
 <script setup>
 const route = useRoute()
+const apiNs = computed(() => route.path.includes('/shopping/') ? '/shopping' : '/admin')
 const cancelTo = computed(() =>
   route.path.includes('/shopping/') ? '/app/shopping/products' : '/app/admin/products'
 )
+
+const { $customFetch } = useNuxtApp()
 
 const props = defineProps({
   existingProduct: { type: Object, default: null },
@@ -257,7 +275,8 @@ const form = ref({
   slug: props.existingProduct?.slug ?? '',
   description: props.existingProduct?.description ?? '',
   source_url: props.existingProduct?.source_url ?? '',
-  category: props.existingProduct?.category ?? '',
+  store_id: props.existingProduct?.store_id ?? null,
+  category_ids: (props.existingProduct?.categories ?? []).map(c => c.id),
   price_cents: props.existingProduct?.price_cents ?? 0,
   cost_cents: props.existingProduct?.cost_cents ?? null,
   markup_percent: Number(props.existingProduct?.markup_percent ?? 8),
@@ -268,6 +287,22 @@ const form = ref({
   length_cm: props.existingProduct?.length_cm ?? null,
   width_cm: props.existingProduct?.width_cm ?? null,
   height_cm: props.existingProduct?.height_cm ?? null,
+})
+
+// Stores + categories for the dropdown / checkbox group
+const stores = ref([])
+const categories = ref([])
+onMounted(async () => {
+  try {
+    const [s, c] = await Promise.all([
+      $customFetch(`${apiNs.value}/stores`, { query: { active_only: 1, per_page: 200 } }),
+      $customFetch(`${apiNs.value}/categories`, { query: { active_only: 1, per_page: 200 } }),
+    ])
+    stores.value = s.data?.data ?? []
+    categories.value = c.data?.data ?? []
+  } catch (e) {
+    console.error('Failed to load stores/categories', e)
+  }
 })
 
 const priceDisplay = computed({

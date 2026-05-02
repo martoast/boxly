@@ -6,8 +6,8 @@
       <nav class="mb-4 text-sm text-gray-500 flex items-center gap-2">
         <NuxtLink to="/shop" class="hover:text-primary-600 transition-colors">{{ t.shop }}</NuxtLink>
         <span>/</span>
-        <span v-if="product?.category" class="text-gray-700">{{ product.category }}</span>
-        <span v-if="product?.category">/</span>
+        <NuxtLink v-if="product?.store" :to="`/shop?store_id=${product.store.id}`" class="text-gray-700 hover:text-primary-600">{{ product.store.name }}</NuxtLink>
+        <span v-if="product?.store">/</span>
         <span class="text-gray-900 font-medium truncate">{{ product?.name ?? '...' }}</span>
       </nav>
 
@@ -73,10 +73,22 @@
         <div class="lg:sticky lg:top-24 lg:self-start">
           <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
 
-            <!-- Category -->
-            <p v-if="product.category" class="text-xs text-primary-600 font-semibold uppercase tracking-widest mb-2">
-              {{ product.category }}
-            </p>
+            <!-- Store + Categories -->
+            <div class="flex flex-wrap items-center gap-2 mb-2">
+              <NuxtLink v-if="product.store" :to="`/shop?store_id=${product.store.id}`" class="inline-flex items-center gap-1.5 text-xs text-gray-700 font-semibold uppercase tracking-widest hover:text-primary-600">
+                <img v-if="product.store.logo_url" :src="product.store.logo_url" alt="" class="h-4 w-4 rounded-full object-cover" />
+                {{ product.store.name }}
+              </NuxtLink>
+              <span v-if="product.store && product.categories?.length" class="text-gray-300">·</span>
+              <NuxtLink
+                v-for="cat in (product.categories ?? [])"
+                :key="cat.id"
+                :to="`/shop?category_id=${cat.id}`"
+                class="text-xs text-primary-600 font-semibold uppercase tracking-widest hover:text-primary-700"
+              >
+                {{ cat.name }}
+              </NuxtLink>
+            </div>
 
             <!-- Title -->
             <h1 class="text-2xl md:text-3xl font-bold text-gray-900 leading-tight mb-3">
@@ -264,9 +276,13 @@
                   <dt class="text-gray-500">SKU</dt>
                   <dd class="text-gray-900 font-medium font-mono text-xs">{{ product.sku }}</dd>
                 </div>
-                <div v-if="product.category" class="flex justify-between py-1.5">
-                  <dt class="text-gray-500">{{ t.category }}</dt>
-                  <dd class="text-gray-900 font-medium">{{ product.category }}</dd>
+                <div v-if="product.store" class="flex justify-between py-1.5">
+                  <dt class="text-gray-500">{{ t.brand }}</dt>
+                  <dd class="text-gray-900 font-medium">{{ product.store.name }}</dd>
+                </div>
+                <div v-if="(product.categories ?? []).length" class="flex justify-between py-1.5">
+                  <dt class="text-gray-500">{{ t.categories }}</dt>
+                  <dd class="text-gray-900 font-medium">{{ product.categories.map(c => c.name).join(', ') }}</dd>
                 </div>
               </dl>
             </div>
@@ -342,6 +358,8 @@ const t = createTranslations({
   weight:         { es: 'Peso', en: 'Weight' },
   dimensions:     { es: 'Dimensiones', en: 'Dimensions' },
   category:       { es: 'Categoría', en: 'Category' },
+  categories:     { es: 'Categorías', en: 'Categories' },
+  brand:          { es: 'Tienda', en: 'Store' },
   aboutThis:      { es: 'Acerca de este producto', en: 'About this product' },
   related:        { es: 'Productos relacionados', en: 'Related products' },
   trustQuality:   { es: 'Producto verificado por Boxly', en: 'Quality verified by Boxly' },
