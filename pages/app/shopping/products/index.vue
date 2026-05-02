@@ -22,7 +22,7 @@
       <!-- Bulk Actions Bar -->
       <div
         v-if="selectedIds.length > 0"
-        class="flex items-center justify-between p-3 bg-primary-50 border border-primary-200 rounded-xl mb-4"
+        class="flex items-center justify-between p-3 bg-primary-50 border border-primary-200 rounded-xl mb-4 flex-wrap gap-2"
       >
         <div class="flex items-center gap-3">
           <span class="text-sm font-medium text-primary-900">
@@ -35,16 +35,30 @@
             Limpiar selección
           </button>
         </div>
-        <button
-          @click="confirmBulkDelete"
-          :disabled="deletingBulk"
-          class="inline-flex items-center px-4 py-2 bg-red-500 text-white text-sm font-medium rounded-lg hover:bg-red-600 disabled:opacity-50 transition-all"
-        >
-          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-          </svg>
-          {{ deletingBulk ? 'Eliminando...' : 'Eliminar seleccionados' }}
-        </button>
+        <div class="flex items-center gap-2">
+          <!-- Restore button — only meaningful for inactive products. Shown when filter=inactive. -->
+          <button
+            v-if="statusFilter === 'inactive'"
+            @click="confirmBulkRestore"
+            :disabled="restoringBulk"
+            class="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 transition-all"
+          >
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
+            {{ restoringBulk ? 'Restaurando...' : 'Restaurar seleccionados' }}
+          </button>
+          <button
+            @click="confirmBulkDelete"
+            :disabled="deletingBulk"
+            class="inline-flex items-center px-4 py-2 bg-red-500 text-white text-sm font-medium rounded-lg hover:bg-red-600 disabled:opacity-50 transition-all"
+          >
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+            </svg>
+            {{ deletingBulk ? 'Eliminando...' : 'Eliminar seleccionados' }}
+          </button>
+        </div>
       </div>
 
       <!-- Filters -->
@@ -61,11 +75,11 @@
             />
           </div>
           <select v-model="statusFilter" class="px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
-            <option value="">Todos los estados</option>
+            <option value="">Todos (sin inactivos)</option>
             <option value="active">Activos</option>
             <option value="draft">Borradores</option>
-            <option value="inactive">Inactivos</option>
             <option value="sold_out">Agotados</option>
+            <option value="inactive">Inactivos (eliminados)</option>
           </select>
           <select v-model="perPage" class="px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
             <option :value="20">20 / página</option>
@@ -142,7 +156,14 @@
                     {{ statusLabel(p.status) }}
                   </span>
                 </td>
-                <td class="px-4 py-3 text-right">
+                <td class="px-4 py-3 text-right whitespace-nowrap">
+                  <button
+                    v-if="p.status === 'inactive'"
+                    @click="restoreOne(p.id)"
+                    class="text-green-600 font-medium hover:text-green-700 text-sm mr-3"
+                  >
+                    Restaurar
+                  </button>
                   <NuxtLink :to="`/app/shopping/products/${p.id}/edit`" class="text-primary-600 font-medium hover:text-primary-700 text-sm">Editar</NuxtLink>
                 </td>
               </tr>
@@ -162,6 +183,46 @@
         </button>
       </div>
     </div>
+
+    <!-- Confirm Bulk Restore Modal -->
+    <Teleport to="body">
+      <div v-if="showRestoreModal" class="fixed inset-0 z-50 overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 sm:p-0">
+          <div class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" @click="showRestoreModal = false"></div>
+          <div class="relative inline-block overflow-hidden text-left align-bottom transition-all transform bg-white rounded-2xl shadow-xl sm:my-8 sm:align-middle sm:max-w-lg sm:w-full p-6">
+            <div class="sm:flex sm:items-start">
+              <div class="flex items-center justify-center flex-shrink-0 w-12 h-12 mx-auto bg-green-100 rounded-full sm:mx-0 sm:h-10 sm:w-10">
+                <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg>
+              </div>
+              <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                <h3 class="text-lg font-medium leading-6 text-gray-900">¿Restaurar productos?</h3>
+                <p class="mt-2 text-sm text-gray-500">
+                  Se reactivarán {{ selectedIds.length }} producto(s). Pasarán a estado <strong>activo</strong> y volverán a aparecer en la tienda.
+                </p>
+              </div>
+            </div>
+            <div class="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse gap-3">
+              <button
+                @click="bulkRestore"
+                :disabled="restoringBulk"
+                class="inline-flex justify-center w-full px-4 py-2 text-base font-medium text-white bg-green-600 border border-transparent rounded-lg shadow-sm hover:bg-green-700 sm:w-auto sm:text-sm disabled:opacity-50"
+              >
+                {{ restoringBulk ? 'Restaurando...' : 'Sí, restaurar' }}
+              </button>
+              <button
+                @click="showRestoreModal = false"
+                :disabled="restoringBulk"
+                class="inline-flex justify-center w-full px-4 py-2 mt-3 text-base font-medium text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 sm:mt-0 sm:w-auto sm:text-sm"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
 
     <!-- Confirm Bulk Delete Modal -->
     <Teleport to="body">
@@ -227,6 +288,8 @@ let searchTimer = null
 const selectedIds = ref([])
 const showDeleteModal = ref(false)
 const deletingBulk = ref(false)
+const showRestoreModal = ref(false)
+const restoringBulk = ref(false)
 
 const isSelected = (id) => selectedIds.value.includes(id)
 const toggleSelection = (id) => {
@@ -275,6 +338,43 @@ const bulkDelete = async () => {
     $toast?.error?.(err?.data?.message ?? 'Error al eliminar productos')
   } finally {
     deletingBulk.value = false
+  }
+}
+
+const confirmBulkRestore = () => {
+  if (selectedIds.value.length > 0) showRestoreModal.value = true
+}
+
+const bulkRestore = async () => {
+  restoringBulk.value = true
+  try {
+    const res = await $customFetch('/shopping/products/bulk-restore', {
+      method: 'PUT',
+      body: { ids: selectedIds.value },
+    })
+    $toast?.success?.(res?.message ?? 'Productos restaurados')
+    showRestoreModal.value = false
+    selectedIds.value = []
+    await fetchProducts()
+  } catch (err) {
+    console.error(err)
+    $toast?.error?.(err?.data?.message ?? 'Error al restaurar productos')
+  } finally {
+    restoringBulk.value = false
+  }
+}
+
+const restoreOne = async (id) => {
+  try {
+    const res = await $customFetch('/shopping/products/bulk-restore', {
+      method: 'PUT',
+      body: { ids: [id] },
+    })
+    $toast?.success?.(res?.message ?? 'Producto restaurado')
+    await fetchProducts()
+  } catch (err) {
+    console.error(err)
+    $toast?.error?.(err?.data?.message ?? 'Error al restaurar producto')
   }
 }
 
