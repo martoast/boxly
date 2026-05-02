@@ -21,7 +21,8 @@ definePageMeta({
   middleware: ['auth', 'shopping'],
 })
 
-const { $customFetch, $toast } = useNuxtApp()
+const { $customFetch } = useNuxtApp()
+const toast = useToast()
 const route = useRoute()
 const router = useRouter()
 
@@ -30,12 +31,12 @@ const listPath = computed(() => route.path.includes('/shopping/') ? '/app/shoppi
 
 const onSubmit = async (form) => {
   try {
-    const res = await $customFetch(`${apiNs.value}/categories`, { method: 'POST', body: form })
-    $toast?.success?.('Categoría creada')
-    router.push(`${listPath.value}/${res.data.id}/edit`)
+    await $customFetch(`${apiNs.value}/categories`, { method: 'POST', body: form })
+    toast.success('Categoría creada')
+    router.push(listPath.value)
   } catch (e) {
     console.error(e)
-    $toast?.error?.(e?.data?.message ?? 'Error al crear categoría')
+    toast.error(e?.data?.message ?? 'Error al crear categoría')
   }
 }
 </script>

@@ -25,7 +25,8 @@ definePageMeta({
   middleware: ['auth', 'shopping'],
 })
 
-const { $customFetch, $toast } = useNuxtApp()
+const { $customFetch } = useNuxtApp()
+const toast = useToast()
 const route = useRoute()
 const router = useRouter()
 
@@ -39,6 +40,8 @@ const fetchStore = async () => {
   try {
     const res = await $customFetch(`${apiNs.value}/stores/${route.params.id}`)
     store.value = res.data
+  } catch (e) {
+    toast.error('No se pudo cargar la tienda.')
   } finally {
     loading.value = false
   }
@@ -46,12 +49,12 @@ const fetchStore = async () => {
 
 const onSubmit = async (form) => {
   try {
-    const res = await $customFetch(`${apiNs.value}/stores/${route.params.id}`, { method: 'PUT', body: form })
-    store.value = res.data
-    $toast?.success?.('Tienda actualizada')
+    await $customFetch(`${apiNs.value}/stores/${route.params.id}`, { method: 'PUT', body: form })
+    toast.success('Tienda actualizada')
+    router.push(listPath.value)
   } catch (e) {
     console.error(e)
-    $toast?.error?.(e?.data?.message ?? 'Error al actualizar')
+    toast.error(e?.data?.message ?? 'Error al actualizar')
   }
 }
 
@@ -62,10 +65,10 @@ const onUploadLogo = async (formData) => {
       body: formData,
     })
     store.value = res.data
-    $toast?.success?.('Logo actualizado')
+    toast.success('Logo actualizado')
   } catch (e) {
     console.error(e)
-    $toast?.error?.(e?.data?.message ?? 'Error al subir logo')
+    toast.error(e?.data?.message ?? 'Error al subir logo')
   }
 }
 
@@ -73,11 +76,11 @@ const onDelete = async () => {
   if (!confirm('¿Eliminar esta tienda? Los productos quedarán sin tienda asignada.')) return
   try {
     await $customFetch(`${apiNs.value}/stores/${route.params.id}`, { method: 'DELETE' })
-    $toast?.success?.('Tienda eliminada')
+    toast.success('Tienda eliminada')
     router.push(listPath.value)
   } catch (e) {
     console.error(e)
-    $toast?.error?.(e?.data?.message ?? 'Error al eliminar')
+    toast.error(e?.data?.message ?? 'Error al eliminar')
   }
 }
 

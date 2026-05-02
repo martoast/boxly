@@ -25,7 +25,8 @@ definePageMeta({
   middleware: ['auth', 'admin'],
 })
 
-const { $customFetch, $toast } = useNuxtApp()
+const { $customFetch } = useNuxtApp()
+const toast = useToast()
 const route = useRoute()
 const router = useRouter()
 
@@ -39,6 +40,8 @@ const fetchCategory = async () => {
   try {
     const res = await $customFetch(`${apiNs.value}/categories/${route.params.id}`)
     category.value = res.data
+  } catch (e) {
+    toast.error('No se pudo cargar la categoría.')
   } finally {
     loading.value = false
   }
@@ -46,12 +49,12 @@ const fetchCategory = async () => {
 
 const onSubmit = async (form) => {
   try {
-    const res = await $customFetch(`${apiNs.value}/categories/${route.params.id}`, { method: 'PUT', body: form })
-    category.value = res.data
-    $toast?.success?.('Categoría actualizada')
+    await $customFetch(`${apiNs.value}/categories/${route.params.id}`, { method: 'PUT', body: form })
+    toast.success('Categoría actualizada')
+    router.push(listPath.value)
   } catch (e) {
     console.error(e)
-    $toast?.error?.(e?.data?.message ?? 'Error al actualizar')
+    toast.error(e?.data?.message ?? 'Error al actualizar')
   }
 }
 
@@ -62,10 +65,10 @@ const onUploadImage = async (formData) => {
       body: formData,
     })
     category.value = res.data
-    $toast?.success?.('Imagen actualizada')
+    toast.success('Imagen actualizada')
   } catch (e) {
     console.error(e)
-    $toast?.error?.(e?.data?.message ?? 'Error al subir imagen')
+    toast.error(e?.data?.message ?? 'Error al subir imagen')
   }
 }
 
@@ -73,11 +76,11 @@ const onDelete = async () => {
   if (!confirm('¿Eliminar esta categoría? Los productos pierden la asociación.')) return
   try {
     await $customFetch(`${apiNs.value}/categories/${route.params.id}`, { method: 'DELETE' })
-    $toast?.success?.('Categoría eliminada')
+    toast.success('Categoría eliminada')
     router.push(listPath.value)
   } catch (e) {
     console.error(e)
-    $toast?.error?.(e?.data?.message ?? 'Error al eliminar')
+    toast.error(e?.data?.message ?? 'Error al eliminar')
   }
 }
 
