@@ -19,6 +19,34 @@
         </NuxtLink>
       </div>
 
+      <!-- Bulk Actions Bar -->
+      <div
+        v-if="selectedIds.length > 0"
+        class="flex items-center justify-between p-3 bg-primary-50 border border-primary-200 rounded-xl mb-4"
+      >
+        <div class="flex items-center gap-3">
+          <span class="text-sm font-medium text-primary-900">
+            {{ selectedIds.length }} seleccionado(s)
+          </span>
+          <button
+            @click="clearSelection"
+            class="text-sm text-primary-600 hover:text-primary-700 font-medium"
+          >
+            Limpiar selección
+          </button>
+        </div>
+        <button
+          @click="confirmBulkDelete"
+          :disabled="deletingBulk"
+          class="inline-flex items-center px-4 py-2 bg-red-500 text-white text-sm font-medium rounded-lg hover:bg-red-600 disabled:opacity-50 transition-all"
+        >
+          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+          </svg>
+          {{ deletingBulk ? 'Eliminando...' : 'Eliminar seleccionados' }}
+        </button>
+      </div>
+
       <!-- Filters -->
       <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-5">
         <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -60,6 +88,15 @@
           <table class="w-full text-sm">
             <thead class="bg-gray-50 border-b border-gray-100">
               <tr class="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                <th class="px-4 py-3 w-10">
+                  <input
+                    type="checkbox"
+                    :checked="allOnPageSelected"
+                    :indeterminate.prop="someOnPageSelected && !allOnPageSelected"
+                    @change="toggleSelectAll"
+                    class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
+                  />
+                </th>
                 <th class="px-4 py-3">Producto</th>
                 <th class="px-4 py-3 text-right">Precio</th>
                 <th class="px-4 py-3">Disponibilidad</th>
@@ -68,7 +105,19 @@
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
-              <tr v-for="p in products" :key="p.id" class="hover:bg-gray-50 transition-colors">
+              <tr
+                v-for="p in products"
+                :key="p.id"
+                :class="[isSelected(p.id) ? 'bg-primary-50/40' : 'hover:bg-gray-50', 'transition-colors']"
+              >
+                <td class="px-4 py-3">
+                  <input
+                    type="checkbox"
+                    :checked="isSelected(p.id)"
+                    @change="toggleSelection(p.id)"
+                    class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
+                  />
+                </td>
                 <td class="px-4 py-3">
                   <div class="flex items-center gap-3">
                     <div class="w-12 h-12 rounded-lg bg-gray-100 overflow-hidden shrink-0">
@@ -113,6 +162,46 @@
         </button>
       </div>
     </div>
+
+    <!-- Confirm Bulk Delete Modal -->
+    <Teleport to="body">
+      <div v-if="showDeleteModal" class="fixed inset-0 z-50 overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 sm:p-0">
+          <div class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" @click="showDeleteModal = false"></div>
+          <div class="relative inline-block overflow-hidden text-left align-bottom transition-all transform bg-white rounded-2xl shadow-xl sm:my-8 sm:align-middle sm:max-w-lg sm:w-full p-6">
+            <div class="sm:flex sm:items-start">
+              <div class="flex items-center justify-center flex-shrink-0 w-12 h-12 mx-auto bg-red-100 rounded-full sm:mx-0 sm:h-10 sm:w-10">
+                <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                </svg>
+              </div>
+              <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                <h3 class="text-lg font-medium leading-6 text-gray-900">¿Eliminar productos?</h3>
+                <p class="mt-2 text-sm text-gray-500">
+                  Se desactivarán {{ selectedIds.length }} producto(s). Pasarán a estado <strong>inactivo</strong> y se ocultarán de la tienda. El historial de órdenes se conserva.
+                </p>
+              </div>
+            </div>
+            <div class="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse gap-3">
+              <button
+                @click="bulkDelete"
+                :disabled="deletingBulk"
+                class="inline-flex justify-center w-full px-4 py-2 text-base font-medium text-white bg-red-600 border border-transparent rounded-lg shadow-sm hover:bg-red-700 sm:w-auto sm:text-sm disabled:opacity-50"
+              >
+                {{ deletingBulk ? 'Eliminando...' : 'Sí, eliminar' }}
+              </button>
+              <button
+                @click="showDeleteModal = false"
+                :disabled="deletingBulk"
+                class="inline-flex justify-center w-full px-4 py-2 mt-3 text-base font-medium text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 sm:mt-0 sm:w-auto sm:text-sm"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </section>
 </template>
 
@@ -122,7 +211,7 @@ definePageMeta({
   middleware: ['auth', 'admin'],
 })
 
-const { $customFetch } = useNuxtApp()
+const { $customFetch, $toast } = useNuxtApp()
 
 const products = ref([])
 const loading = ref(true)
@@ -133,6 +222,61 @@ const currentPage = ref(1)
 const lastPage = ref(1)
 const total = ref(0)
 let searchTimer = null
+
+// Bulk selection
+const selectedIds = ref([])
+const showDeleteModal = ref(false)
+const deletingBulk = ref(false)
+
+const isSelected = (id) => selectedIds.value.includes(id)
+const toggleSelection = (id) => {
+  const idx = selectedIds.value.indexOf(id)
+  if (idx > -1) selectedIds.value.splice(idx, 1)
+  else selectedIds.value.push(id)
+}
+
+const allOnPageSelected = computed(
+  () => products.value.length > 0 && products.value.every(p => selectedIds.value.includes(p.id))
+)
+const someOnPageSelected = computed(
+  () => products.value.some(p => selectedIds.value.includes(p.id))
+)
+
+const toggleSelectAll = () => {
+  if (allOnPageSelected.value) {
+    // Deselect just the ones on this page (preserve cross-page selection)
+    const pageIds = new Set(products.value.map(p => p.id))
+    selectedIds.value = selectedIds.value.filter(id => !pageIds.has(id))
+  } else {
+    const merged = new Set([...selectedIds.value, ...products.value.map(p => p.id)])
+    selectedIds.value = [...merged]
+  }
+}
+
+const clearSelection = () => { selectedIds.value = [] }
+
+const confirmBulkDelete = () => {
+  if (selectedIds.value.length > 0) showDeleteModal.value = true
+}
+
+const bulkDelete = async () => {
+  deletingBulk.value = true
+  try {
+    const res = await $customFetch('/admin/products/bulk', {
+      method: 'DELETE',
+      body: { ids: selectedIds.value },
+    })
+    $toast?.success?.(res?.message ?? 'Productos eliminados')
+    showDeleteModal.value = false
+    selectedIds.value = []
+    await fetchProducts()
+  } catch (err) {
+    console.error(err)
+    $toast?.error?.(err?.data?.message ?? 'Error al eliminar productos')
+  } finally {
+    deletingBulk.value = false
+  }
+}
 
 const fetchProducts = async () => {
   loading.value = true
