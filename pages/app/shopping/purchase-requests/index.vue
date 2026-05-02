@@ -276,11 +276,6 @@
                 <th
                   class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                 >
-                  {{ t.request }}
-                </th>
-                <th
-                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
                   {{ t.customer }}
                 </th>
                 <th
@@ -318,11 +313,6 @@
                     @change="toggleSelection(req.id)"
                     class="h-4 w-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500 cursor-pointer"
                   />
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <span class="font-medium text-gray-900">{{
-                    req.request_number
-                  }}</span>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap">
                   <div class="text-sm text-gray-900 font-medium">
