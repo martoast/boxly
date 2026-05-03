@@ -144,13 +144,35 @@
                   />
                 </td>
                 <td class="px-4 py-3">
-                  <div class="flex items-center gap-3">
+                  <div class="flex items-start gap-3">
                     <div class="w-12 h-12 rounded-lg bg-gray-100 overflow-hidden shrink-0">
                       <img v-if="p.first_image_url" :src="p.first_image_url" alt="" class="w-full h-full object-cover" />
                     </div>
                     <div class="min-w-0">
                       <p class="font-medium text-gray-900 line-clamp-1">{{ p.name }}</p>
-                      <p class="text-xs text-gray-400 font-mono">{{ p.slug }}</p>
+                      <p class="text-xs text-gray-400 font-mono line-clamp-1">{{ p.slug }}</p>
+
+                      <!-- Variant summary -->
+                      <p v-if="p.variants_count > 0" class="text-xs text-gray-500 mt-1">
+                        <span class="font-semibold text-gray-700">{{ p.variants_count }}</span> {{ p.variants_count === 1 ? 'variante' : 'variantes' }}
+                        <template v-if="distinctColorCount(p) > 0">
+                          · {{ distinctColorCount(p) }} {{ distinctColorCount(p) === 1 ? 'color' : 'colores' }}
+                        </template>
+                        <template v-if="distinctSizeCount(p) > 0">
+                          · {{ distinctSizeCount(p) }} {{ distinctSizeCount(p) === 1 ? 'talla' : 'tallas' }}
+                        </template>
+                      </p>
+
+                      <!-- Categories -->
+                      <div v-if="(p.categories || []).length > 0" class="flex flex-wrap gap-1 mt-1.5">
+                        <span
+                          v-for="c in p.categories"
+                          :key="c.id"
+                          class="inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium bg-primary-50 text-primary-700 border border-primary-100"
+                        >
+                          {{ c.name }}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </td>
@@ -525,6 +547,19 @@ const statusColor = (s) => ({
   inactive: 'bg-red-50 text-red-700 border-red-100',
   sold_out: 'bg-amber-50 text-amber-700 border-amber-100',
 })[s] ?? 'bg-gray-50 text-gray-600 border-gray-100'
+
+// Distinct color/size counts derived from the eager-loaded variants.
+// Variants come back with just {id, product_id, size, color}.
+const distinctColorCount = (p) => {
+  const set = new Set()
+  for (const v of (p.variants || [])) if (v.color) set.add(v.color)
+  return set.size
+}
+const distinctSizeCount = (p) => {
+  const set = new Set()
+  for (const v of (p.variants || [])) if (v.size) set.add(v.size)
+  return set.size
+}
 
 watch(search, () => {
   if (searchTimer) clearTimeout(searchTimer)
