@@ -28,10 +28,12 @@
           <!-- Actions based on Status -->
           <div v-if="request" class="flex items-center gap-3">
             <!-- Pending Review -> Create Quote -->
-            <button 
+            <button
               v-if="request.status === 'pending_review'"
-              @click="showQuoteModal = true"
-              class="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm flex items-center gap-2"
+              @click="onCreateQuoteClick"
+              :disabled="isStorePR && !allItemsChecked"
+              :title="isStorePR && !allItemsChecked ? t.verifyAllFirst : ''"
+              class="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm flex items-center gap-2 disabled:bg-gray-300 disabled:cursor-not-allowed"
             >
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
               {{ t.createQuote }}
@@ -168,6 +170,17 @@
               <h3 class="font-semibold text-gray-900">{{ t.items }} ({{ request.items?.length || 0 }})</h3>
               <span class="text-sm text-gray-500">{{ t.estMerchandise }}: {{ formatCurrency(estimatedTotal) }}</span>
             </div>
+
+            <!-- Stock-check progress (store-source PRs in pending_review) -->
+            <div v-if="isStorePR && request.status === 'pending_review'" class="px-6 py-3 bg-blue-50 border-b border-blue-100 flex items-center justify-between text-sm">
+              <span class="text-blue-900">
+                <strong>{{ stockCheckedCount }}/{{ request.items?.length || 0 }}</strong> {{ t.itemsVerified }}
+                <span v-if="!allItemsChecked" class="text-blue-700">— {{ t.verifyEachItem }}</span>
+                <span v-else-if="availableCount > 0" class="text-green-700">— {{ t.readyToQuote }}</span>
+                <span v-else class="text-red-700">— {{ t.allUnavailable }}</span>
+              </span>
+            </div>
+
             <div class="divide-y divide-gray-100">
               <div v-for="(item, index) in request.items" :key="item.id" class="p-6 hover:bg-gray-50 transition-colors">
                 <div class="flex gap-4 items-start">
@@ -227,6 +240,62 @@
                     <div v-if="item.notes" class="text-sm bg-yellow-50 text-yellow-800 p-3 rounded border border-yellow-100">
                       <span class="font-bold text-xs uppercase block mb-1 text-yellow-600">{{ t.customerNotes }}</span>
                       {{ item.notes }}
+                    </div>
+
+                    <!-- Stock-status buttons (store PRs in pending_review only) -->
+                    <div v-if="isStorePR && request.status === 'pending_review'" class="mt-3 flex items-center gap-2 flex-wrap">
+                      <span class="text-xs text-gray-500 uppercase font-semibold">{{ t.stock }}:</span>
+                      <button
+                        type="button"
+                        @click="markStockStatus(item, 'available')"
+                        :disabled="stockUpdating[item.id]"
+                        :class="[
+                          'px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors flex items-center gap-1.5',
+                          item.stock_status === 'available'
+                            ? 'bg-green-600 text-white border-green-600'
+                            : 'bg-white text-green-700 border-green-300 hover:bg-green-50',
+                        ]"
+                      >
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                        {{ t.stockAvailable }}
+                      </button>
+                      <button
+                        type="button"
+                        @click="markStockStatus(item, 'unavailable')"
+                        :disabled="stockUpdating[item.id]"
+                        :class="[
+                          'px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors flex items-center gap-1.5',
+                          item.stock_status === 'unavailable'
+                            ? 'bg-red-600 text-white border-red-600'
+                            : 'bg-white text-red-700 border-red-300 hover:bg-red-50',
+                        ]"
+                      >
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+                        {{ t.stockUnavailable }}
+                      </button>
+                      <button
+                        v-if="item.stock_status && item.stock_status !== 'unverified'"
+                        type="button"
+                        @click="markStockStatus(item, 'unverified')"
+                        :disabled="stockUpdating[item.id]"
+                        class="px-2 py-1.5 text-xs text-gray-500 hover:text-gray-800 underline"
+                      >
+                        {{ t.resetStock }}
+                      </button>
+                    </div>
+
+                    <!-- Stock-status badge once locked (PR no longer in pending_review) -->
+                    <div v-else-if="isStorePR && item.stock_status && item.stock_status !== 'unverified'" class="mt-3">
+                      <span
+                        :class="[
+                          'inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full border',
+                          item.stock_status === 'available'
+                            ? 'bg-green-50 text-green-700 border-green-200'
+                            : 'bg-red-50 text-red-700 border-red-200',
+                        ]"
+                      >
+                        {{ item.stock_status === 'available' ? t.stockAvailable : t.stockUnavailable }}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -559,6 +628,18 @@ const translations = {
   confirmPaymentTitle: { es: 'Confirmar Pago', en: 'Confirm Payment' },
   confirmPaymentSubtitle: { es: '¿Recibiste la transferencia?', en: 'Did you receive the transfer?' },
   confirmPaymentDesc: { es: 'Confirma que recibiste el pago por transferencia bancaria en la cuenta NU.', en: 'Confirm that you received the bank transfer payment to the NU account.' },
+  // Stock-verification UI (store-source PRs)
+  stock: { es: 'Stock', en: 'Stock' },
+  stockAvailable: { es: 'Disponible', en: 'Available' },
+  stockUnavailable: { es: 'No disponible', en: 'Unavailable' },
+  resetStock: { es: 'Restablecer', en: 'Reset' },
+  itemsVerified: { es: 'productos verificados', en: 'items verified' },
+  verifyEachItem: { es: 'verifica cada producto antes de cotizar', en: 'verify each item before quoting' },
+  readyToQuote: { es: 'listo para cotizar', en: 'ready to quote' },
+  allUnavailable: { es: 'todos no disponibles — no se puede cotizar', en: 'all unavailable — cannot quote' },
+  verifyAllFirst: { es: 'Verifica el stock de cada producto primero', en: 'Verify each item\'s stock first' },
+  storeQuoteConfirm: { es: 'Crear cotización Stripe por', en: 'Create Stripe invoice for' },
+  storeQuoteConfirmSuffix: { es: '— solo productos disponibles', en: '— available items only' },
   confirmPaymentAmount: { es: 'Monto esperado', en: 'Expected amount' },
   yesPaymentReceived: { es: 'Sí, Pago Recibido', en: 'Yes, Payment Received' },
   deleteConfirmTitle: { es: 'Eliminar Solicitud', en: 'Delete Request' },
@@ -647,17 +728,86 @@ const truncateUrl = (url) => {
   }
 };
 
+// ---- Source-aware (store vs assisted) ----
+
+const isStorePR = computed(() => request.value?.source === 'store');
+
+const stockCheckedCount = computed(() =>
+  (request.value?.items || []).filter(i => i.stock_status && i.stock_status !== 'unverified').length,
+);
+
+const allItemsChecked = computed(() => {
+  const items = request.value?.items || [];
+  if (items.length === 0) return false;
+  return items.every(i => i.stock_status && i.stock_status !== 'unverified');
+});
+
+const availableCount = computed(() =>
+  (request.value?.items || []).filter(i => i.stock_status === 'available').length,
+);
+
+const availableSubtotalMxn = computed(() =>
+  (request.value?.items || [])
+    .filter(i => i.stock_status === 'available')
+    .reduce((sum, i) => sum + parseFloat(i.price) * i.quantity, 0)
+    .toFixed(2),
+);
+
+const stockUpdating = ref({});
+
+const markStockStatus = async (item, stockStatus) => {
+  if (stockUpdating.value[item.id]) return;
+  stockUpdating.value[item.id] = true;
+  try {
+    const resp = await $customFetch(
+      `/shopping/purchase-requests/${request.value.id}/items/${item.id}/stock-status`,
+      { method: 'PUT', body: { stock_status: stockStatus } },
+    );
+    const next = resp?.data || resp;
+    const idx = request.value.items.findIndex(x => x.id === item.id);
+    if (idx >= 0 && next) {
+      request.value.items[idx] = { ...request.value.items[idx], ...next };
+    }
+  } catch (e) {
+    console.error(e);
+    $toast.error(e?.data?.message || 'No se pudo actualizar el stock');
+  } finally {
+    stockUpdating.value[item.id] = false;
+  }
+};
+
+const onCreateQuoteClick = async () => {
+  if (!isStorePR.value) {
+    showQuoteModal.value = true;
+    return;
+  }
+  const total = availableSubtotalMxn.value;
+  const msg = `${t.value.storeQuoteConfirm} $${total} MXN ${t.value.storeQuoteConfirmSuffix} (${availableCount.value} ${t.value.items.toLowerCase()})`;
+  if (!confirm(msg)) return;
+  try {
+    const response = await $customFetch(`/shopping/purchase-requests/${request.value.id}/quote`, {
+      method: 'POST',
+      body: {},
+    });
+    request.value = response.data || response;
+    $toast.success('Cotización creada y enviada al cliente');
+  } catch (e) {
+    console.error(e);
+    $toast.error(e?.data?.message || 'Error al crear la cotización');
+  }
+};
+
 const handleCreateQuote = async (quoteData) => {
   try {
     const response = await $customFetch(`/shopping/purchase-requests/${request.value.id}/quote`, {
       method: 'POST',
       body: quoteData
     });
-    
+
     request.value = response.data || response;
-    
+
     showQuoteModal.value = false;
-    
+
     if (quoteData.payment_method === 'manual_deposit') {
       $toast.success('Quote created - Bank transfer instructions sent');
     } else {

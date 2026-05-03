@@ -74,16 +74,16 @@ const { t: createTranslations } = useLanguage()
 const toast = useToast()
 
 const t = createTranslations({
-  title:             { es: 'Finalizar compra', en: 'Checkout' },
+  title:             { es: 'Crear solicitud', en: 'Create request' },
   emptyCart:         { es: 'Tu carrito está vacío', en: 'Your cart is empty' },
   backToShop:        { es: 'Volver a la Tienda', en: 'Back to Shop' },
   orderSummary:      { es: 'Resumen del pedido', en: 'Order summary' },
   qty:               { es: 'Cant', en: 'Qty' },
-  total:             { es: 'Total a pagar ahora', en: 'Total to pay now' },
-  shippingNote:      { es: 'El envío se cotiza después, cuando Boxly consolida tu caja.', en: 'Shipping is quoted later, when Boxly consolidates your box.' },
-  payProducts:       { es: 'Pagar productos', en: 'Pay for products' },
-  redirecting:       { es: 'Redirigiendo...', en: 'Redirecting...' },
-  poweredBy:         { es: 'Pago seguro con Stripe', en: 'Secure payment by Stripe' },
+  total:             { es: 'Total estimado', en: 'Estimated total' },
+  shippingNote:      { es: 'Velonie verificará disponibilidad en cada tienda. Si todo está disponible, te enviará un link de pago. El envío se cotiza después, cuando Boxly consolida tu caja.', en: 'Velonie will verify availability at each store. If everything is in stock, she will send you a payment link. Shipping is quoted later, when Boxly consolidates your box.' },
+  payProducts:       { es: 'Crear solicitud', en: 'Create request' },
+  redirecting:       { es: 'Creando solicitud...', en: 'Creating request...' },
+  poweredBy:         { es: 'Sin cargos hasta que Velonie confirme stock.', en: 'No charge until Velonie confirms stock.' },
 })
 
 const { items, cartSubtotalCents, clear } = useStoreCart()
@@ -112,15 +112,19 @@ const startCheckout = async () => {
       },
     })
 
-    if (res?.checkout_url) {
+    if (res?.purchase_request_id) {
       clear()
-      window.location.href = res.checkout_url
+      // Land on the customer's PR detail page; they'll see "pending review"
+      // status and the per-item list. Once Velonie quotes, the same page
+      // surfaces the Stripe payment link.
+      const target = res.redirect_url || `/app/purchase-requests/${res.purchase_request_id}`
+      await navigateTo(`${target}?created=1`)
     } else {
-      throw new Error('No checkout URL returned')
+      throw new Error('No purchase request returned')
     }
   } catch (err) {
     console.error('Checkout failed', err)
-    error.value = err?.data?.message ?? err?.message ?? 'No se pudo procesar el pago.'
+    error.value = err?.data?.message ?? err?.message ?? 'No se pudo crear la solicitud.'
     toast.error(error.value)
   } finally {
     loading.value = false

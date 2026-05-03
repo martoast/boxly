@@ -250,6 +250,22 @@
                       <span class="font-medium block text-xs uppercase tracking-wide mb-1 text-yellow-600">{{ t.notes }}</span>
                       {{ item.notes }}
                     </div>
+
+                    <!-- Stock status (visible once Velonie has checked the item) -->
+                    <div v-if="item.stock_status && item.stock_status !== 'unverified'" class="mt-2">
+                      <span
+                        :class="[
+                          'inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full border',
+                          item.stock_status === 'available'
+                            ? 'bg-green-50 text-green-700 border-green-200'
+                            : 'bg-red-50 text-red-700 border-red-200',
+                        ]"
+                      >
+                        <svg v-if="item.stock_status === 'available'" class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+                        <svg v-else class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg>
+                        {{ item.stock_status === 'available' ? 'Disponible' : 'No disponible' }}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>

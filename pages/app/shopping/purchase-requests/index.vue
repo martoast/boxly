@@ -217,6 +217,16 @@
               <option value="purchased">{{ t.purchased }}</option>
               <option value="rejected">{{ t.rejected }}</option>
             </select>
+
+            <!-- Source Filter -->
+            <select
+              v-model="sourceFilter"
+              class="w-full sm:w-44 px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            >
+              <option value="">{{ t.allSources }}</option>
+              <option value="store">{{ t.sourceStore }}</option>
+              <option value="assisted">{{ t.sourceAssisted }}</option>
+            </select>
           </div>
         </div>
       </div>
@@ -678,11 +688,17 @@ const translations = {
   },
 };
 
-const t = createTranslations(translations);
+const t = createTranslations({
+  ...translations,
+  allSources: { es: "Todos los orígenes", en: "All sources" },
+  sourceStore: { es: "Tienda Boxly", en: "Boxly Store" },
+  sourceAssisted: { es: "Asistido", en: "Assisted" },
+});
 const requests = ref([]);
 const loading = ref(true);
 const searchQuery = ref("");
 const statusFilter = ref("");
+const sourceFilter = ref("");
 const searchDebounce = ref(null);
 const pagination = ref({
   currentPage: 1,
@@ -727,6 +743,7 @@ const fetchRequests = async (page = 1) => {
         page,
         search: searchQuery.value || undefined,
         status: statusFilter.value || undefined,
+        source: sourceFilter.value || undefined,
       },
     });
     requests.value = data.data;
@@ -851,6 +868,11 @@ watch(searchQuery, () => {
 });
 
 watch(statusFilter, () => {
+  fetchRequests(1);
+  clearSelection();
+});
+
+watch(sourceFilter, () => {
   fetchRequests(1);
   clearSelection();
 });

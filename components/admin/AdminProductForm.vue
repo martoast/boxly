@@ -163,17 +163,6 @@
         </div>
       </div>
 
-      <!-- Stock check status (read-only display) -->
-      <div v-if="existingProduct?.stock_check_status" class="mt-4 flex items-center gap-2 text-xs">
-        <span class="text-gray-400 uppercase tracking-wider font-semibold">Estado en fuente:</span>
-        <span :class="stockCheckBadgeClass">
-          <span :class="stockCheckDotClass" class="h-1.5 w-1.5 rounded-full"></span>
-          {{ stockCheckLabel }}
-        </span>
-        <span v-if="existingProduct.last_stock_check_at" class="text-gray-400">
-          (revisado {{ formatRelativeTime(existingProduct.last_stock_check_at) }})
-        </span>
-      </div>
     </div>
 
     <!-- Physical -->
@@ -220,7 +209,7 @@
         Se crearán <strong>{{ variantPreview.length }}</strong> variantes:
       </p>
 
-      <!-- Existing variants (in edit mode) — show stock check status per variant -->
+      <!-- Existing variants (in edit mode) -->
       <div v-if="(existingProduct?.variants ?? []).length > 0" class="space-y-1.5 mb-3">
         <div
           v-for="v in existingProduct.variants"
@@ -231,10 +220,6 @@
             <span v-if="v.size">Talla: {{ v.size }}</span>
             <span v-if="v.size && v.color"> · </span>
             <span v-if="v.color">Color: {{ v.color }}</span>
-          </span>
-          <span :class="variantStatusBadge(v.stock_check_status)" class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold border">
-            <span :class="variantStatusDot(v.stock_check_status)" class="h-1.5 w-1.5 rounded-full"></span>
-            {{ variantStatusLabel(v.stock_check_status) }}
           </span>
         </div>
       </div>
@@ -355,36 +340,6 @@ watch(() => [form.value.cost_cents, form.value.markup_percent], () => {
   }
 })
 
-// Stock check display helpers
-const stockCheckLabel = computed(() => ({
-  in_stock: 'En stock',
-  out_of_stock: 'Agotado en fuente',
-  unknown: 'Sin verificar',
-}[props.existingProduct?.stock_check_status] ?? '—'))
-
-const stockCheckBadgeClass = computed(() => ({
-  in_stock:     'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-100 font-semibold',
-  out_of_stock: 'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-100 font-semibold',
-  unknown:      'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-gray-50 text-gray-600 border border-gray-100 font-semibold',
-}[props.existingProduct?.stock_check_status] ?? ''))
-
-const stockCheckDotClass = computed(() => ({
-  in_stock: 'bg-green-500',
-  out_of_stock: 'bg-red-500',
-  unknown: 'bg-gray-400',
-}[props.existingProduct?.stock_check_status] ?? 'bg-gray-400'))
-
-const formatRelativeTime = (iso) => {
-  if (!iso) return ''
-  const diffMs = Date.now() - new Date(iso).getTime()
-  const mins = Math.floor(diffMs / 60000)
-  if (mins < 60) return `hace ${mins} min`
-  const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `hace ${hrs}h`
-  const days = Math.floor(hrs / 24)
-  return `hace ${days}d`
-}
-
 // Image state — both new files and previews
 const newImageFiles = ref([])
 const newImagePreviews = ref([])
@@ -424,23 +379,6 @@ function uniqueAxis(variants, axis) {
   return out
 }
 
-const variantStatusLabel = (s) => ({
-  in_stock: 'En stock',
-  out_of_stock: 'Agotado',
-  unknown: 'Sin verificar',
-}[s] ?? '—')
-
-const variantStatusBadge = (s) => ({
-  in_stock:     'bg-green-50 text-green-700 border-green-100',
-  out_of_stock: 'bg-red-50 text-red-700 border-red-100',
-  unknown:      'bg-gray-50 text-gray-600 border-gray-100',
-}[s] ?? 'bg-gray-50 text-gray-600 border-gray-100')
-
-const variantStatusDot = (s) => ({
-  in_stock: 'bg-green-500',
-  out_of_stock: 'bg-red-500',
-  unknown: 'bg-gray-400',
-}[s] ?? 'bg-gray-400')
 
 function formatDateTimeLocal(d) {
   if (!d) return ''

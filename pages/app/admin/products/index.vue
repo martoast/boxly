@@ -125,7 +125,6 @@
                 </th>
                 <th class="px-4 py-3">Producto</th>
                 <th class="px-4 py-3 text-right">Precio</th>
-                <th class="px-4 py-3">Disponibilidad</th>
                 <th class="px-4 py-3">Estado</th>
                 <th class="px-4 py-3"></th>
               </tr>
@@ -156,13 +155,6 @@
                   </div>
                 </td>
                 <td class="px-4 py-3 text-right font-semibold text-gray-900">${{ formatPrice(p.price_cents) }}</td>
-                <td class="px-4 py-3">
-                  <span :class="stockColor(p.stock_check_status)" class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold border">
-                    <span :class="stockDot(p.stock_check_status)" class="w-1.5 h-1.5 rounded-full"></span>
-                    {{ stockLabel(p.stock_check_status) }}
-                  </span>
-                  <p v-if="p.last_stock_check_at" class="text-[11px] text-gray-400 mt-1">{{ formatCheckedAt(p.last_stock_check_at) }}</p>
-                </td>
                 <td class="px-4 py-3">
                   <span :class="statusColor(p.status)" class="inline-flex px-2 py-0.5 rounded-full text-xs font-semibold border">
                     {{ statusLabel(p.status) }}
@@ -534,34 +526,6 @@ const statusColor = (s) => ({
   sold_out: 'bg-amber-50 text-amber-700 border-amber-100',
 })[s] ?? 'bg-gray-50 text-gray-600 border-gray-100'
 
-const stockLabel = (s) => ({
-  in_stock:     'En stock',
-  out_of_stock: 'Agotado',
-  unknown:      'Sin verificar',
-})[s] ?? 'Sin verificar'
-
-const stockColor = (s) => ({
-  in_stock:     'bg-green-50 text-green-700 border-green-100',
-  out_of_stock: 'bg-red-50 text-red-700 border-red-100',
-  unknown:      'bg-gray-50 text-gray-500 border-gray-100',
-})[s] ?? 'bg-gray-50 text-gray-500 border-gray-100'
-
-const stockDot = (s) => ({
-  in_stock:     'bg-green-500',
-  out_of_stock: 'bg-red-500',
-  unknown:      'bg-gray-400',
-})[s] ?? 'bg-gray-400'
-
-const formatCheckedAt = (iso) => {
-  const d = new Date(iso)
-  const diffMin = Math.round((Date.now() - d.getTime()) / 60000)
-  if (diffMin < 1) return 'hace segundos'
-  if (diffMin < 60) return `hace ${diffMin} min`
-  const diffH = Math.round(diffMin / 60)
-  if (diffH < 24) return `hace ${diffH}h`
-  const diffD = Math.round(diffH / 24)
-  return `hace ${diffD}d`
-}
 
 watch(search, () => {
   if (searchTimer) clearTimeout(searchTimer)
