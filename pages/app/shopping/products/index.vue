@@ -3,19 +3,20 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
 
       <!-- Header -->
-      <div class="flex items-center justify-between gap-4 mb-6">
-        <div>
-          <h1 class="text-2xl sm:text-3xl font-extrabold text-gray-900">Productos de la Tienda</h1>
-          <p class="text-sm text-gray-500 mt-1">Catálogo de Boxly Store</p>
+      <div class="flex items-center justify-between gap-3 mb-6">
+        <div class="min-w-0">
+          <h1 class="text-xl sm:text-3xl font-extrabold text-gray-900">Productos de la Tienda</h1>
+          <p class="text-xs sm:text-sm text-gray-500 mt-1">Catálogo de Boxly Store</p>
         </div>
         <NuxtLink
           to="/app/shopping/products/create"
-          class="inline-flex items-center gap-2 px-4 py-2.5 bg-primary-500 hover:bg-primary-600 text-white font-semibold rounded-xl shadow-lg shadow-primary-500/20 transition-colors"
+          class="shrink-0 inline-flex items-center gap-2 p-2.5 sm:px-4 sm:py-2.5 bg-primary-500 hover:bg-primary-600 text-white font-semibold rounded-xl shadow-lg shadow-primary-500/20 transition-colors"
+          aria-label="Crear producto"
         >
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
           </svg>
-          Crear producto
+          <span class="hidden sm:inline">Crear producto</span>
         </NuxtLink>
       </div>
 
@@ -117,109 +118,147 @@
         <p class="text-gray-400 text-sm mt-1">Crea tu primer producto para empezar.</p>
       </div>
 
-      <div v-else class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div class="overflow-x-auto">
-          <table class="w-full text-sm">
-            <thead class="bg-gray-50 border-b border-gray-100">
-              <tr class="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                <th class="px-4 py-3 w-10">
-                  <input
-                    type="checkbox"
-                    :checked="allOnPageSelected"
-                    :indeterminate.prop="someOnPageSelected && !allOnPageSelected"
-                    @change="toggleSelectAll"
-                    class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
-                  />
-                </th>
-                <th class="px-4 py-3">Producto</th>
-                <th class="px-4 py-3 text-right">Precio</th>
-                <th class="px-4 py-3">Estado</th>
-                <th class="px-4 py-3"></th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-100">
-              <tr
-                v-for="p in products"
-                :key="p.id"
-                :class="[isSelected(p.id) ? 'bg-primary-50/40' : 'hover:bg-gray-50', 'transition-colors']"
-              >
-                <td class="px-4 py-3">
-                  <input
-                    type="checkbox"
-                    :checked="isSelected(p.id)"
-                    @change="toggleSelection(p.id)"
-                    class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
-                  />
-                </td>
-                <td class="px-4 py-3">
-                  <div class="flex items-start gap-3">
-                    <div class="w-12 h-12 rounded-lg bg-gray-100 overflow-hidden shrink-0">
-                      <img v-if="p.first_image_url" :src="p.first_image_url" alt="" class="w-full h-full object-cover" />
-                    </div>
-                    <div class="min-w-0">
-                      <p class="font-medium text-gray-900 line-clamp-1">{{ p.name }}</p>
-                      <p class="text-xs text-gray-400 font-mono line-clamp-1">{{ p.slug }}</p>
-
-                      <!-- Variant summary -->
-                      <p v-if="p.variants_count > 0" class="text-xs text-gray-500 mt-1">
-                        <span class="font-semibold text-gray-700">{{ p.variants_count }}</span> {{ p.variants_count === 1 ? 'variante' : 'variantes' }}
-                        <template v-if="distinctColorCount(p) > 0">
-                          · {{ distinctColorCount(p) }} {{ distinctColorCount(p) === 1 ? 'color' : 'colores' }}
-                        </template>
-                        <template v-if="distinctSizeCount(p) > 0">
-                          · {{ distinctSizeCount(p) }} {{ distinctSizeCount(p) === 1 ? 'talla' : 'tallas' }}
-                        </template>
-                      </p>
-
-                      <!-- Categories -->
-                      <div v-if="(p.categories || []).length > 0" class="flex flex-wrap gap-1 mt-1.5">
-                        <span
-                          v-for="c in p.categories"
-                          :key="c.id"
-                          class="inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium bg-primary-50 text-primary-700 border border-primary-100"
-                        >
-                          {{ c.name }}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </td>
-                <td class="px-4 py-3 text-right font-semibold text-gray-900">${{ formatPrice(p.price_cents) }}</td>
-                <td class="px-4 py-3">
-                  <span :class="statusColor(p.status)" class="inline-flex px-2 py-0.5 rounded-full text-xs font-semibold border">
+      <div v-else>
+        <!-- Mobile: stacked cards -->
+        <div class="sm:hidden space-y-3">
+          <div
+            v-for="p in products"
+            :key="p.id"
+            :class="[
+              'bg-white rounded-2xl border shadow-sm p-3 transition-colors',
+              isSelected(p.id) ? 'border-primary-300 ring-2 ring-primary-100' : 'border-gray-100',
+            ]"
+          >
+            <div class="flex gap-3 items-start">
+              <input
+                type="checkbox"
+                :checked="isSelected(p.id)"
+                @change="toggleSelection(p.id)"
+                class="mt-1 h-5 w-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer shrink-0"
+              />
+              <div class="w-16 h-16 rounded-lg bg-gray-100 overflow-hidden shrink-0">
+                <img v-if="p.first_image_url" :src="p.first_image_url" alt="" class="w-full h-full object-cover" />
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-start justify-between gap-2 mb-1">
+                  <p class="font-semibold text-gray-900 leading-snug">{{ p.name }}</p>
+                  <span :class="statusColor(p.status)" class="shrink-0 inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold border">
                     {{ statusLabel(p.status) }}
                   </span>
-                </td>
-                <td class="px-4 py-3 text-right whitespace-nowrap">
-                  <button
-                    v-if="p.status === 'inactive'"
-                    @click="restoreOne(p.id)"
-                    class="text-green-600 font-medium hover:text-green-700 text-sm mr-3"
-                  >
-                    Restaurar
-                  </button>
-                  <button
-                    v-if="p.status === 'inactive'"
-                    @click="confirmForceDeleteOne(p)"
-                    class="text-red-700 font-medium hover:text-red-800 text-sm mr-3"
-                  >
-                    Eliminar permanente
-                  </button>
-                  <NuxtLink :to="`/app/shopping/products/${p.id}/edit`" class="text-primary-600 font-medium hover:text-primary-700 text-sm">Editar</NuxtLink>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                </div>
+                <p class="text-[11px] text-gray-400 font-mono line-clamp-1 mb-2">{{ p.slug }}</p>
+
+                <p class="text-base font-bold text-gray-900 mb-2">${{ formatPrice(p.price_cents) }} <span class="text-[10px] font-medium text-gray-500">MXN</span></p>
+
+                <p v-if="p.variants_count > 0" class="text-xs text-gray-500 mb-2">
+                  <span class="font-semibold text-gray-700">{{ p.variants_count }}</span> {{ p.variants_count === 1 ? 'variante' : 'variantes' }}
+                  <template v-if="distinctColorCount(p) > 0">· {{ distinctColorCount(p) }} {{ distinctColorCount(p) === 1 ? 'color' : 'colores' }}</template>
+                  <template v-if="distinctSizeCount(p) > 0">· {{ distinctSizeCount(p) }} {{ distinctSizeCount(p) === 1 ? 'talla' : 'tallas' }}</template>
+                </p>
+
+                <div v-if="(p.categories || []).length > 0" class="flex flex-wrap gap-1 mb-3">
+                  <span
+                    v-for="c in p.categories"
+                    :key="c.id"
+                    class="inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium bg-primary-50 text-primary-700 border border-primary-100"
+                  >{{ c.name }}</span>
+                </div>
+
+                <div class="flex items-center gap-3 pt-2 border-t border-gray-100">
+                  <NuxtLink :to="`/app/shopping/products/${p.id}/edit`" class="text-primary-600 font-medium text-sm">Editar</NuxtLink>
+                  <button v-if="p.status === 'inactive'" @click="restoreOne(p.id)" class="text-green-600 font-medium text-sm">Restaurar</button>
+                  <button v-if="p.status === 'inactive'" @click="confirmForceDeleteOne(p)" class="text-red-700 font-medium text-sm">Eliminar</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Desktop: table -->
+        <div class="hidden sm:block bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="bg-gray-50 border-b border-gray-100">
+                <tr class="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  <th class="px-4 py-3 w-10">
+                    <input
+                      type="checkbox"
+                      :checked="allOnPageSelected"
+                      :indeterminate.prop="someOnPageSelected && !allOnPageSelected"
+                      @change="toggleSelectAll"
+                      class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
+                    />
+                  </th>
+                  <th class="px-4 py-3">Producto</th>
+                  <th class="px-4 py-3 text-right">Precio</th>
+                  <th class="px-4 py-3">Estado</th>
+                  <th class="px-4 py-3"></th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100">
+                <tr
+                  v-for="p in products"
+                  :key="p.id"
+                  :class="[isSelected(p.id) ? 'bg-primary-50/40' : 'hover:bg-gray-50', 'transition-colors']"
+                >
+                  <td class="px-4 py-3">
+                    <input
+                      type="checkbox"
+                      :checked="isSelected(p.id)"
+                      @change="toggleSelection(p.id)"
+                      class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
+                    />
+                  </td>
+                  <td class="px-4 py-3">
+                    <div class="flex items-start gap-3">
+                      <div class="w-12 h-12 rounded-lg bg-gray-100 overflow-hidden shrink-0">
+                        <img v-if="p.first_image_url" :src="p.first_image_url" alt="" class="w-full h-full object-cover" />
+                      </div>
+                      <div class="min-w-0">
+                        <p class="font-medium text-gray-900 line-clamp-1">{{ p.name }}</p>
+                        <p class="text-xs text-gray-400 font-mono line-clamp-1">{{ p.slug }}</p>
+
+                        <p v-if="p.variants_count > 0" class="text-xs text-gray-500 mt-1">
+                          <span class="font-semibold text-gray-700">{{ p.variants_count }}</span> {{ p.variants_count === 1 ? 'variante' : 'variantes' }}
+                          <template v-if="distinctColorCount(p) > 0">· {{ distinctColorCount(p) }} {{ distinctColorCount(p) === 1 ? 'color' : 'colores' }}</template>
+                          <template v-if="distinctSizeCount(p) > 0">· {{ distinctSizeCount(p) }} {{ distinctSizeCount(p) === 1 ? 'talla' : 'tallas' }}</template>
+                        </p>
+
+                        <div v-if="(p.categories || []).length > 0" class="flex flex-wrap gap-1 mt-1.5">
+                          <span
+                            v-for="c in p.categories"
+                            :key="c.id"
+                            class="inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium bg-primary-50 text-primary-700 border border-primary-100"
+                          >{{ c.name }}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="px-4 py-3 text-right font-semibold text-gray-900">${{ formatPrice(p.price_cents) }}</td>
+                  <td class="px-4 py-3">
+                    <span :class="statusColor(p.status)" class="inline-flex px-2 py-0.5 rounded-full text-xs font-semibold border">
+                      {{ statusLabel(p.status) }}
+                    </span>
+                  </td>
+                  <td class="px-4 py-3 text-right whitespace-nowrap">
+                    <button v-if="p.status === 'inactive'" @click="restoreOne(p.id)" class="text-green-600 font-medium hover:text-green-700 text-sm mr-3">Restaurar</button>
+                    <button v-if="p.status === 'inactive'" @click="confirmForceDeleteOne(p)" class="text-red-700 font-medium hover:text-red-800 text-sm mr-3">Eliminar permanente</button>
+                    <NuxtLink :to="`/app/shopping/products/${p.id}/edit`" class="text-primary-600 font-medium hover:text-primary-700 text-sm">Editar</NuxtLink>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
       <!-- Pagination -->
-      <div v-if="lastPage > 1" class="flex items-center justify-center gap-2 mt-6">
-        <button :disabled="currentPage === 1" @click="goToPage(currentPage - 1)" class="px-4 py-2 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40">
+      <div v-if="lastPage > 1" class="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 mt-6">
+        <button :disabled="currentPage === 1" @click="goToPage(currentPage - 1)" class="px-4 py-2 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40 w-full sm:w-auto">
           ← Prev
         </button>
-        <span class="text-sm text-gray-500">Página {{ currentPage }} de {{ lastPage }} · {{ total }} productos</span>
-        <button :disabled="currentPage === lastPage" @click="goToPage(currentPage + 1)" class="px-4 py-2 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40">
+        <span class="text-xs sm:text-sm text-gray-500 text-center order-first sm:order-none">Página {{ currentPage }} de {{ lastPage }} · {{ total }} productos</span>
+        <button :disabled="currentPage === lastPage" @click="goToPage(currentPage + 1)" class="px-4 py-2 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40 w-full sm:w-auto">
           Next →
         </button>
       </div>
