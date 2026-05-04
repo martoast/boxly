@@ -437,7 +437,16 @@ const handleLogin = async () => {
 }
 
 const handleSocialLogin = async (provider) => {
-  window.location.href = `${runtimeConfig.public.apiUrl}/auth/google/redirect`
+  // Pack the post-login redirect target into the OAuth state so the
+  // API callback can land the user back where they were (e.g. /checkout
+  // when auth middleware bounced them mid-cart). Without this, social
+  // login always falls back to the role-based dashboard.
+  const route = useRoute()
+  const redirectTo = typeof route.query.redirect === 'string' && route.query.redirect.startsWith('/')
+    ? route.query.redirect
+    : null
+  const state = btoa(JSON.stringify({ redirect: redirectTo }))
+  window.location.href = `${runtimeConfig.public.apiUrl}/auth/${provider}/redirect?state=${encodeURIComponent(state)}`
 }
 
 // Watch email changes for validation
