@@ -235,12 +235,12 @@
                   v-model.number="qty"
                   type="number"
                   min="1"
-                  :max="product.stock"
+                  max="99"
                   class="w-12 text-center font-semibold focus:outline-none"
                 />
                 <button
-                  @click="qty = Math.min(product.stock, qty + 1)"
-                  :disabled="qty >= product.stock"
+                  @click="qty = Math.min(99, qty + 1)"
+                  :disabled="qty >= 99"
                   class="px-4 py-3 text-gray-500 hover:bg-gray-50 disabled:opacity-30 transition-colors"
                   type="button"
                 >+</button>
@@ -365,8 +365,8 @@
           >−</button>
           <span class="w-7 text-center font-semibold text-sm">{{ qty }}</span>
           <button
-            @click="qty = Math.min(product.stock, qty + 1)"
-            :disabled="qty >= product.stock"
+            @click="qty = Math.min(99, qty + 1)"
+            :disabled="qty >= 99"
             class="px-3 py-2.5 text-gray-500 hover:bg-gray-50 disabled:opacity-30"
             type="button"
             aria-label="Aumentar cantidad"

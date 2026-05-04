@@ -123,7 +123,7 @@
       <input v-model="form.source_url" type="url" placeholder="https://..." class="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
     </div>
 
-    <!-- Pricing & stock -->
+    <!-- Pricing -->
     <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
       <h2 class="font-bold text-gray-900 mb-1">Precio</h2>
       <p class="text-xs text-gray-400 mb-4">Costo y margen son visibles solo para admin. El cliente solo ve el precio final.</p>
@@ -166,18 +166,13 @@
         </div>
       </div>
 
-      <div class="grid sm:grid-cols-3 gap-4 mt-4">
-        <div>
-          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Stock *</label>
-          <input v-model.number="form.stock" type="number" min="0" required class="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
-        </div>
+      <div class="grid sm:grid-cols-2 gap-4 mt-4">
         <div>
           <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Estado</label>
           <select v-model="form.status" class="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
             <option value="draft">Borrador</option>
             <option value="active">Activo</option>
             <option value="inactive">Inactivo</option>
-            <option value="sold_out">Agotado</option>
           </select>
         </div>
         <div>
@@ -288,7 +283,6 @@ const form = ref({
   price_cents: props.existingProduct?.price_cents ?? 0,
   cost_cents: props.existingProduct?.cost_cents ?? null,
   markup_percent: Number(props.existingProduct?.markup_percent ?? 8),
-  stock: props.existingProduct?.stock ?? 0,
   status: props.existingProduct?.status ?? 'draft',
   available_until: formatDateTimeLocal(props.existingProduct?.available_until),
   weight_kg: props.existingProduct?.weight_kg ?? null,
