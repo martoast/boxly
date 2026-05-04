@@ -12,6 +12,14 @@ export default defineNuxtRouteMiddleware(async (to) => {
           await $retriveUser()
         }
 
+        // Honor ?redirect=/path if it points back into the app — lets any
+        // logged-in role (admin, shopping, customer) complete a customer
+        // flow they were sent into (e.g. /checkout from the cart).
+        const redirectTo = to.query.redirect
+        if (typeof redirectTo === 'string' && redirectTo.startsWith('/') && !redirectTo.startsWith('//')) {
+          return navigateTo(redirectTo)
+        }
+
         // Route by role+team so employees don't bounce off the customer middleware
         const u = userState.value
         if (u?.role === 'admin') return navigateTo('/app/admin/dashboard')

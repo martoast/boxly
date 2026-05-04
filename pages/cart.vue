@@ -97,35 +97,7 @@
                 <span>{{ t.subtotal }} ({{ totalItems }} {{ totalItems === 1 ? t.item : t.items }})</span>
                 <span class="font-medium text-gray-900">${{ formatPrice(cartSubtotalCents) }}</span>
               </div>
-              <div class="flex justify-between text-gray-600">
-                <span>{{ t.weight }}</span>
-                <span class="font-medium text-gray-900">{{ cartWeightKg.toFixed(2) }} kg</span>
-              </div>
             </div>
-
-            <!-- Box estimate -->
-            <div v-if="estimatedBox && estimatedBox !== 'over_50'" class="mb-4 p-3 bg-gray-50 rounded-xl">
-              <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">{{ t.boxEstimate }}</p>
-              <div class="flex items-center justify-between mb-2">
-                <span class="text-sm text-gray-700">{{ t.estBox }} <strong>{{ estimatedBox }}</strong></span>
-                <span class="text-sm text-gray-500">~${{ formatPrice(estimatedShippingCents) }}</span>
-              </div>
-              <div class="h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                <div class="h-full bg-primary-500 rounded-full transition-all duration-500" :style="{ width: fillPercent + '%' }"></div>
-              </div>
-              <p v-if="nextBoxThresholdKg && nextBoxThresholdKg > 0" class="text-xs text-gray-500 mt-2">
-                + {{ nextBoxThresholdKg.toFixed(1) }} kg {{ t.toNextBox }}
-              </p>
-            </div>
-
-            <div v-else-if="estimatedBox === 'over_50'" class="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl">
-              <p class="text-xs text-amber-800">{{ t.over50 }}</p>
-            </div>
-
-            <!-- Disclaimer -->
-            <p class="text-xs text-gray-400 leading-relaxed mb-4">
-              <strong class="text-gray-700">{{ t.disclaimerTitle }}</strong> {{ t.disclaimerBody }}
-            </p>
 
             <!-- Total -->
             <div class="flex items-baseline justify-between mb-5">
@@ -166,13 +138,6 @@ const t = createTranslations({
   subtotal:            { es: 'Subtotal', en: 'Subtotal' },
   item:                { es: 'producto', en: 'item' },
   items:               { es: 'productos', en: 'items' },
-  weight:              { es: 'Peso total', en: 'Total weight' },
-  boxEstimate:         { es: 'Estimación de caja', en: 'Box estimate' },
-  estBox:              { es: 'Cabría en caja', en: 'Would fit in box' },
-  toNextBox:           { es: 'para llenar la siguiente caja', en: 'to fill the next box' },
-  over50:              { es: 'Tu envío pasa los 50 kg. Cuando pidas envío, lo dividiremos en dos cajas.', en: 'Your shipment exceeds 50 kg. When you request shipment, we\'ll split it into two boxes.' },
-  disclaimerTitle:     { es: 'Sin cargos todavía.', en: 'No charge yet.' },
-  disclaimerBody:      { es: 'Velonie verifica disponibilidad en cada tienda y te manda un link de pago. El envío se cotiza después, cuando Boxly consolida tu caja en San Diego.', en: 'Velonie checks availability at each store and sends you a payment link. Shipping is quoted later, when Boxly consolidates your box in San Diego.' },
   payNow:              { es: 'Total productos:', en: 'Products total:' },
   checkout:            { es: 'Crear solicitud', en: 'Create request' },
 })
@@ -180,12 +145,7 @@ const t = createTranslations({
 const {
   items,
   totalItems,
-  cartWeightKg,
   cartSubtotalCents,
-  estimatedBox,
-  estimatedShippingCents,
-  fillPercent,
-  nextBoxThresholdKg,
   setQuantity,
   remove,
   lineKey,
