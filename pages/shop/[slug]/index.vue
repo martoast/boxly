@@ -46,14 +46,15 @@
           <!-- MOBILE: full-bleed carousel -->
           <div class="lg:hidden relative bg-white">
             <div
-              v-if="(product.images?.length ?? 0) > 0"
+              v-if="displayedImages.length > 0"
               ref="mobileCarousel"
+              :key="`mobile-${selectedColor || 'all'}`"
               class="flex overflow-x-auto snap-x snap-mandatory scrollbar-none"
               @scroll.passive="onMobileScroll"
             >
               <div
-                v-for="(img, i) in product.images"
-                :key="i"
+                v-for="(img, i) in displayedImages"
+                :key="img.url"
                 class="shrink-0 w-full snap-center aspect-square flex items-center justify-center bg-white"
               >
                 <img
@@ -67,7 +68,7 @@
             </div>
 
             <!-- Empty state -->
-            <div v-if="(product.images?.length ?? 0) === 0" class="aspect-square flex items-center justify-center text-gray-300 bg-white">
+            <div v-if="displayedImages.length === 0" class="aspect-square flex items-center justify-center text-gray-300 bg-white">
               <svg class="w-20 h-20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
               </svg>
@@ -79,14 +80,14 @@
             </div>
 
             <!-- Image counter pill (top-right) -->
-            <div v-if="(product.images?.length ?? 0) > 1" class="absolute top-3 right-3 bg-black/55 text-white text-[10px] font-semibold px-2 py-0.5 rounded-full backdrop-blur-sm z-10">
-              {{ activeIndex + 1 }} / {{ product.images.length }}
+            <div v-if="displayedImages.length > 1" class="absolute top-3 right-3 bg-black/55 text-white text-[10px] font-semibold px-2 py-0.5 rounded-full backdrop-blur-sm z-10">
+              {{ activeIndex + 1 }} / {{ displayedImages.length }}
             </div>
 
             <!-- Dots indicator -->
-            <div v-if="(product.images?.length ?? 0) > 1" class="absolute bottom-3 inset-x-0 flex justify-center gap-1.5 z-10">
+            <div v-if="displayedImages.length > 1" class="absolute bottom-3 inset-x-0 flex justify-center gap-1.5 z-10">
               <button
-                v-for="(_, i) in product.images"
+                v-for="(_, i) in displayedImages"
                 :key="i"
                 @click="goToImage(i)"
                 :class="[
@@ -118,10 +119,10 @@
               </div>
             </div>
 
-            <div v-if="(product.images?.length ?? 0) > 1" class="flex gap-2 overflow-x-auto pb-1 snap-x snap-mandatory scrollbar-thin">
+            <div v-if="displayedImages.length > 1" class="flex gap-2 overflow-x-auto pb-1 snap-x snap-mandatory scrollbar-thin">
               <button
-                v-for="(img, i) in product.images"
-                :key="i"
+                v-for="(img, i) in displayedImages"
+                :key="img.url"
                 @click="activeIndex = i"
                 :class="[
                   activeIndex === i ? 'border-primary-500 ring-2 ring-primary-200' : 'border-gray-200 hover:border-gray-400',
@@ -470,9 +471,29 @@ const goToImage = (i) => {
   if (el) el.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' })
 }
 
+// Images shown in the gallery — filtered to the selected color when one is
+// picked. Falls back to the full list if (a) no color is picked yet, or
+// (b) no image on this product has that color tagged (legacy products from
+// before per-color images existed).
+const displayedImages = computed(() => {
+  const all = product.value?.images ?? []
+  if (!selectedColor.value) return all
+  const want = selectedColor.value.trim().toLowerCase()
+  const matching = all.filter((img) => (img.color || '').trim().toLowerCase() === want)
+  return matching.length > 0 ? matching : all
+})
+
 const activeImage = computed(() => {
-  const imgs = product.value?.images ?? []
-  return imgs[activeIndex.value]?.url ?? null
+  return displayedImages.value[activeIndex.value]?.url ?? null
+})
+
+// When the customer picks a different color, snap the gallery back to the
+// first image of that color (mobile carousel + desktop main image).
+watch(selectedColor, () => {
+  activeIndex.value = 0
+  if (mobileCarousel.value) {
+    mobileCarousel.value.scrollTo({ left: 0, behavior: 'smooth' })
+  }
 })
 
 // Variants — list of all variants for this product (may be empty for products without variants)

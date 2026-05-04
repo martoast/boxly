@@ -84,10 +84,10 @@ const fetchProduct = async () => {
   }
 }
 
-const onSubmit = async ({ fields, images, variants }) => {
+const onSubmit = async ({ fields, images, imageColors, variants }) => {
   saving.value = true
   try {
-    // 1. Update fields
+    // 1. Update fields (incl. images[] payload if color tags were edited)
     const updateRes = await $customFetch(`/admin/products/${product.value.id}`, {
       method: 'PUT',
       body: fields,
@@ -103,11 +103,12 @@ const onSubmit = async ({ fields, images, variants }) => {
       product.value = vRes.data
     }
 
-    // 3. If there are new images, upload them
+    // 3. If there are new images, upload them — parallel colors[] tags each
     if (images && images.length > 0) {
       const compressed = await Promise.all(images.map(f => compressImage(f)))
       const fd = new FormData()
       compressed.forEach(f => fd.append('images[]', f))
+      ;(imageColors ?? []).forEach(c => fd.append('colors[]', c ?? ''))
       const imgRes = await $customFetch(`/admin/products/${product.value.id}/images`, {
         method: 'POST',
         body: fd,
