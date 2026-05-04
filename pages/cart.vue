@@ -46,12 +46,15 @@
               </NuxtLink>
 
               <!-- Variant chips -->
-              <div v-if="item.size || item.color" class="flex flex-wrap gap-1.5 mt-1.5">
+              <div v-if="item.size || item.color || item.length" class="flex flex-wrap gap-1.5 mt-1.5">
                 <span v-if="item.size" class="inline-flex items-center px-2 py-0.5 bg-gray-100 text-gray-700 text-xs font-medium rounded-md">
                   {{ t.size }}: <strong class="ml-1">{{ item.size }}</strong>
                 </span>
                 <span v-if="item.color" class="inline-flex items-center px-2 py-0.5 bg-gray-100 text-gray-700 text-xs font-medium rounded-md">
                   {{ t.color }}: <strong class="ml-1">{{ item.color }}</strong>
+                </span>
+                <span v-if="item.length" class="inline-flex items-center px-2 py-0.5 bg-gray-100 text-gray-700 text-xs font-medium rounded-md">
+                  {{ t.length }}: <strong class="ml-1">{{ item.length }}</strong>
                 </span>
               </div>
 
@@ -134,6 +137,7 @@ const t = createTranslations({
   remove:              { es: 'Quitar', en: 'Remove' },
   size:                { es: 'Talla', en: 'Size' },
   color:                { es: 'Color', en: 'Color' },
+  length:              { es: 'Largo', en: 'Length' },
   summary:             { es: 'Resumen', en: 'Summary' },
   subtotal:            { es: 'Subtotal', en: 'Subtotal' },
   item:                { es: 'producto', en: 'item' },

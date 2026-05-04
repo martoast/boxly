@@ -16,6 +16,7 @@ export interface CartItem {
   image_url: string | null
   size: string | null
   color: string | null
+  length: string | null
   quantity: number
 }
 

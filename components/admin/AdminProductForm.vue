@@ -209,17 +209,21 @@
 
     <!-- Variants -->
     <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-      <h2 class="font-bold text-gray-900 mb-1">Variantes (talla × color)</h2>
-      <p class="text-xs text-gray-400 mb-4">Define las tallas y colores. El sistema crea la matriz automáticamente. Si solo hay tallas o solo colores, déjalo así.</p>
+      <h2 class="font-bold text-gray-900 mb-1">Variantes</h2>
+      <p class="text-xs text-gray-400 mb-4">Define tallas, colores y largos. El sistema crea la matriz automáticamente. Deja vacío lo que no aplique. Largo solo aplica a productos con varios largos (ej: leggings Lululemon 25" / 28").</p>
 
-      <div class="grid sm:grid-cols-2 gap-4 mb-4">
+      <div class="grid sm:grid-cols-3 gap-4 mb-4">
         <div>
-          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Tallas (separadas por coma)</label>
+          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Tallas (coma)</label>
           <input v-model="sizesInput" type="text" placeholder="S, M, L, XL" class="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
         </div>
         <div>
-          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Colores (separados por coma)</label>
+          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Colores (coma)</label>
           <input v-model="colorsInput" type="text" placeholder="Black, Olive, Brown" class="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Largos (coma)</label>
+          <input v-model="lengthsInput" type="text" placeholder='25", 28"' class="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
         </div>
       </div>
 
@@ -238,6 +242,8 @@
             <span v-if="v.size">Talla: {{ v.size }}</span>
             <span v-if="v.size && v.color"> · </span>
             <span v-if="v.color">Color: {{ v.color }}</span>
+            <span v-if="(v.size || v.color) && v.length"> · </span>
+            <span v-if="v.length">Largo: {{ v.length }}</span>
           </span>
         </div>
       </div>
@@ -385,26 +391,45 @@ watch(() => props.existingProduct?.images, (imgs) => {
 }, { deep: true })
 
 // Variants — pre-fill from existing product so admin sees current matrix
-const sizesInput  = ref(uniqueAxis(props.existingProduct?.variants ?? [], 'size').join(', '))
-const colorsInput = ref(uniqueAxis(props.existingProduct?.variants ?? [], 'color').join(', '))
+const sizesInput   = ref(uniqueAxis(props.existingProduct?.variants ?? [], 'size').join(', '))
+const colorsInput  = ref(uniqueAxis(props.existingProduct?.variants ?? [], 'color').join(', '))
+const lengthsInput = ref(uniqueAxis(props.existingProduct?.variants ?? [], 'length').join(', '))
 
-const parsedSizes  = computed(() => sizesInput.value.split(',').map(s => s.trim()).filter(Boolean))
-const parsedColors = computed(() => colorsInput.value.split(',').map(s => s.trim()).filter(Boolean))
+const parsedSizes   = computed(() => sizesInput.value.split(',').map(s => s.trim()).filter(Boolean))
+const parsedColors  = computed(() => colorsInput.value.split(',').map(s => s.trim()).filter(Boolean))
+const parsedLengths = computed(() => lengthsInput.value.split(',').map(s => s.trim()).filter(Boolean))
 
-const hasInputs = computed(() => parsedSizes.value.length > 0 || parsedColors.value.length > 0)
+const hasInputs = computed(() => parsedSizes.value.length > 0 || parsedColors.value.length > 0 || parsedLengths.value.length > 0)
 
+// Build the cartesian product of whichever axes are populated. Each axis
+// with N values multiplies the matrix by N; an empty axis is skipped.
+// Order: outer loop colors → sizes → lengths so the variant list reads
+// left-to-right naturally for the admin.
 const variantPreview = computed(() => {
-  const sizes = parsedSizes.value
-  const colors = parsedColors.value
-  if (sizes.length === 0 && colors.length === 0) return []
-  if (sizes.length > 0 && colors.length > 0) {
-    const out = []
-    let order = 0
-    for (const c of colors) for (const s of sizes) out.push({ size: s, color: c, display_order: order++ })
-    return out
+  const sizes   = parsedSizes.value
+  const colors  = parsedColors.value
+  const lengths = parsedLengths.value
+  if (sizes.length === 0 && colors.length === 0 && lengths.length === 0) return []
+
+  // Treat empty axes as a single "no value" placeholder so the loop still runs once
+  const colorIter  = colors.length  ? colors  : [null]
+  const sizeIter   = sizes.length   ? sizes   : [null]
+  const lengthIter = lengths.length ? lengths : [null]
+
+  const out = []
+  let order = 0
+  for (const c of colorIter) {
+    for (const s of sizeIter) {
+      for (const l of lengthIter) {
+        const row = { display_order: order++ }
+        if (s !== null) row.size   = s
+        if (c !== null) row.color  = c
+        if (l !== null) row.length = l
+        out.push(row)
+      }
+    }
   }
-  if (sizes.length > 0) return sizes.map((s, i) => ({ size: s, display_order: i }))
-  return colors.map((c, i) => ({ color: c, display_order: i }))
+  return out
 })
 
 function uniqueAxis(variants, axis) {

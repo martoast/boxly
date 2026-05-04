@@ -199,6 +199,26 @@
               </div>
             </div>
 
+            <!-- Length selector (only when product has length variants — Lululemon tights, denim inseam) -->
+            <div v-if="availableLengths.length > 0" class="mb-5">
+              <p class="text-[11px] sm:text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                {{ t.length }}<span v-if="selectedLength" class="text-gray-900 normal-case ml-1.5 tracking-normal font-bold">— {{ selectedLength }}</span>
+              </p>
+              <div class="flex flex-wrap gap-2">
+                <button
+                  v-for="len in availableLengths"
+                  :key="len.value"
+                  @click="selectLength(len.value)"
+                  :class="[
+                    selectedLength === len.value
+                      ? 'border-gray-900 text-gray-900 bg-gray-50'
+                      : 'border-gray-200 text-gray-700 hover:border-gray-400 active:border-gray-900',
+                    'px-3.5 py-2 rounded-xl border text-sm font-medium transition-colors'
+                  ]"
+                >{{ len.value }}</button>
+              </div>
+            </div>
+
             <!-- Size selector -->
             <div v-if="availableSizes.length > 0" class="mb-6">
               <p class="text-[11px] sm:text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
@@ -430,7 +450,8 @@ const t = createTranslations({
   buyNow:         { es: 'Comprar ahora', en: 'Buy now' },
   size:           { es: 'Talla', en: 'Size' },
   color:          { es: 'Color', en: 'Color' },
-  pickVariant:    { es: 'Elige talla y color para continuar', en: 'Pick size and color to continue' },
+  length:         { es: 'Largo', en: 'Length' },
+  pickVariant:    { es: 'Elige todas las opciones para continuar', en: 'Pick every option to continue' },
   specs:          { es: 'Especificaciones', en: 'Specifications' },
   weight:         { es: 'Peso', en: 'Weight' },
   dimensions:     { es: 'Dimensiones', en: 'Dimensions' },
@@ -455,6 +476,7 @@ const lightboxOpen = ref(false)
 const added = ref(false)
 const selectedSize = ref(null)
 const selectedColor = ref(null)
+const selectedLength = ref(null)
 const mobileCarousel = ref(null)
 
 // Update activeIndex while the user swipes through the mobile carousel
@@ -525,21 +547,37 @@ const availableSizes = computed(() => {
   return out
 })
 
-// Find the selected variant given current size/color picks
+// Third axis — only renders when at least one variant has a length value.
+// Lululemon Wunder Train (25" / 28"), denim inseam, etc.
+const availableLengths = computed(() => {
+  const seen = new Set()
+  const out = []
+  for (const v of variants.value) {
+    if (!v.length || seen.has(v.length)) continue
+    seen.add(v.length)
+    out.push({ value: v.length })
+  }
+  return out
+})
+
+// Find the selected variant given current size/color/length picks
 const selectedVariant = computed(() => {
   if (!hasVariants.value) return null
   return variants.value.find(v =>
-    (v.size ?? null) === (selectedSize.value ?? null)
-    && (v.color ?? null) === (selectedColor.value ?? null)
+    (v.size   ?? null) === (selectedSize.value   ?? null)
+    && (v.color  ?? null) === (selectedColor.value  ?? null)
+    && (v.length ?? null) === (selectedLength.value ?? null)
   ) ?? null
 })
 
 const canAddToCart = computed(() => {
   if (!hasVariants.value) return true
-  const colorRequired = availableColors.value.length > 0
-  const sizeRequired = availableSizes.value.length > 0
-  if (colorRequired && !selectedColor.value) return false
-  if (sizeRequired && !selectedSize.value) return false
+  const colorRequired  = availableColors.value.length  > 0
+  const sizeRequired   = availableSizes.value.length   > 0
+  const lengthRequired = availableLengths.value.length > 0
+  if (colorRequired  && !selectedColor.value)  return false
+  if (sizeRequired   && !selectedSize.value)   return false
+  if (lengthRequired && !selectedLength.value) return false
   return !!selectedVariant.value
 })
 
@@ -548,6 +586,9 @@ const selectColor = (c) => {
 }
 const selectSize = (s) => {
   selectedSize.value = selectedSize.value === s ? null : s
+}
+const selectLength = (l) => {
+  selectedLength.value = selectedLength.value === l ? null : l
 }
 
 const formatPrice = (cents) => (cents / 100).toLocaleString('es-MX', {
@@ -611,9 +652,10 @@ const addToCart = () => {
     image_url:   product.value.first_image_url,
     size:        v?.size ?? null,
     color:       v?.color ?? null,
+    length:      v?.length ?? null,
   }, qty.value)
   added.value = true
-  const variantSuffix = v ? ` (${[v.size, v.color].filter(Boolean).join(' / ')})` : ''
+  const variantSuffix = v ? ` (${[v.size, v.color, v.length].filter(Boolean).join(' / ')})` : ''
   toast.success(`${product.value.name}${variantSuffix} agregado al carrito`)
   setTimeout(() => { added.value = false }, 2000)
 }
