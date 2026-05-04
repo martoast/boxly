@@ -548,11 +548,12 @@ const fetchProducts = async () => {
 const fetchFilterData = async () => {
   try {
     const [cats, sts] = await Promise.all([
-      $customFetch('/shopping/categories', { query: { active_only: true } }),
-      $customFetch('/shopping/stores', { query: { active_only: true } }),
+      $customFetch('/shopping/categories', { query: { active_only: true, per_page: 200 } }),
+      $customFetch('/shopping/stores', { query: { active_only: true, per_page: 200 } }),
     ])
-    categories.value = cats?.data ?? []
-    stores.value = sts?.data ?? []
+    // Both endpoints return a paginated wrapper: { data: { data: [...] } }
+    categories.value = cats?.data?.data ?? cats?.data ?? []
+    stores.value = sts?.data?.data ?? sts?.data ?? []
   } catch (err) {
     console.error('Failed to load filter data', err)
   }
