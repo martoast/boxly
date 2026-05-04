@@ -1,28 +1,29 @@
 <template>
-  <section class="min-h-screen bg-gray-50 pt-20">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+  <section class="min-h-screen bg-gray-50 pt-16 sm:pt-20 pb-24 lg:pb-12">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-6">
 
-      <!-- Breadcrumbs -->
-      <nav class="mb-4 text-sm text-gray-500 flex items-center gap-2">
-        <NuxtLink to="/shop" class="hover:text-primary-600 transition-colors">{{ t.shop }}</NuxtLink>
-        <span>/</span>
-        <NuxtLink v-if="product?.store" :to="`/shop?store_id=${product.store.id}`" class="text-gray-700 hover:text-primary-600">{{ product.store.name }}</NuxtLink>
-        <span v-if="product?.store">/</span>
+      <!-- Breadcrumbs (compact on mobile) -->
+      <nav class="mb-3 sm:mb-5 text-xs sm:text-sm text-gray-500 flex items-center gap-1.5 sm:gap-2 overflow-hidden">
+        <NuxtLink to="/shop" class="hover:text-primary-600 transition-colors shrink-0">{{ t.shop }}</NuxtLink>
+        <span class="text-gray-300 shrink-0">/</span>
+        <NuxtLink v-if="product?.store" :to="`/shop?store_id=${product.store.id}`" class="text-gray-700 hover:text-primary-600 shrink-0 hidden sm:inline">{{ product.store.name }}</NuxtLink>
+        <span v-if="product?.store" class="text-gray-300 shrink-0 hidden sm:inline">/</span>
         <span class="text-gray-900 font-medium truncate">{{ product?.name ?? '...' }}</span>
       </nav>
 
-      <!-- Loading -->
-      <div v-if="loading" class="bg-white rounded-2xl border border-gray-100 p-8 animate-pulse grid lg:grid-cols-2 gap-8">
-        <div class="aspect-square bg-gray-200 rounded-xl"></div>
-        <div class="space-y-4">
-          <div class="h-8 bg-gray-200 rounded w-3/4"></div>
+      <!-- Loading skeleton — matches the real layout -->
+      <div v-if="loading" class="grid lg:grid-cols-2 gap-6 lg:gap-10 animate-pulse">
+        <div class="aspect-[4/5] bg-gray-200 rounded-2xl"></div>
+        <div class="space-y-4 py-2">
           <div class="h-6 bg-gray-200 rounded w-1/3"></div>
-          <div class="h-32 bg-gray-100 rounded"></div>
+          <div class="h-9 bg-gray-200 rounded w-3/4"></div>
+          <div class="h-10 bg-gray-200 rounded w-1/2 mt-2"></div>
+          <div class="h-32 bg-gray-100 rounded mt-6"></div>
         </div>
       </div>
 
       <!-- 404 -->
-      <div v-else-if="!product" class="text-center py-16 bg-white rounded-2xl border border-gray-100">
+      <div v-else-if="!product" class="text-center py-20 bg-white rounded-2xl border border-gray-100">
         <p class="text-gray-700 font-semibold">{{ t.notFound }}</p>
         <NuxtLink to="/shop" class="mt-4 inline-block text-primary-600 font-medium hover:text-primary-700">
           ← {{ t.backToShop }}
@@ -30,52 +31,68 @@
       </div>
 
       <!-- Detail -->
-      <div v-else class="grid lg:grid-cols-2 gap-8">
+      <div v-else class="grid lg:grid-cols-[minmax(0,1fr)_minmax(0,420px)] xl:grid-cols-[minmax(0,1fr)_minmax(0,460px)] gap-6 lg:gap-10">
 
-        <!-- Gallery -->
+        <!-- ────────────────────────────────────────────────
+             Gallery — left on desktop, top on mobile
+             ──────────────────────────────────────────────── -->
         <div class="space-y-3">
-          <div class="aspect-square bg-white rounded-2xl border border-gray-100 overflow-hidden relative group">
+          <!-- Main image: 4:5 aspect (taller than wide, classic product/fashion ratio).
+               object-contain so we don't crop the product; bg-white card holds it cleanly. -->
+          <div class="relative aspect-[4/5] bg-white rounded-2xl border border-gray-100 overflow-hidden group">
             <img
               v-if="activeImage"
               :src="activeImage"
               :alt="product.name"
-              class="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105 cursor-zoom-in"
+              class="w-full h-full object-contain p-2 sm:p-4 transition-transform duration-300 group-hover:scale-[1.02] cursor-zoom-in"
               @click="lightboxOpen = true"
             />
             <div v-else class="w-full h-full flex items-center justify-center text-gray-300">
-              <svg class="w-24 h-24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-20 h-20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
               </svg>
             </div>
 
-            <div v-if="expiringSoonLabel" class="absolute top-3 left-3 bg-amber-500 text-white text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded-full">
+            <!-- Expiring soon ribbon -->
+            <div v-if="expiringSoonLabel" class="absolute top-3 left-3 bg-amber-500 text-white text-[10px] sm:text-xs font-bold uppercase tracking-wider px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full shadow">
               {{ expiringSoonLabel }}
+            </div>
+
+            <!-- Image counter (mobile, when multi-image) -->
+            <div v-if="(product.images?.length ?? 0) > 1" class="absolute bottom-3 right-3 bg-black/55 text-white text-[10px] font-semibold px-2 py-0.5 rounded-full backdrop-blur-sm">
+              {{ activeIndex + 1 }} / {{ product.images.length }}
             </div>
           </div>
 
-          <!-- Thumbnails -->
-          <div v-if="product.images?.length > 1" class="flex gap-2 overflow-x-auto">
+          <!-- Thumbnails (horizontal scroll on mobile, wrap on desktop) -->
+          <div v-if="(product.images?.length ?? 0) > 1" class="flex gap-2 overflow-x-auto -mx-1 px-1 pb-1 snap-x snap-mandatory scrollbar-thin">
             <button
               v-for="(img, i) in product.images"
               :key="i"
               @click="activeIndex = i"
               :class="[
                 activeIndex === i ? 'border-primary-500 ring-2 ring-primary-200' : 'border-gray-200 hover:border-gray-400',
-                'h-20 w-20 rounded-xl overflow-hidden border-2 shrink-0 transition-colors'
+                'h-16 w-16 sm:h-20 sm:w-20 rounded-xl overflow-hidden border-2 shrink-0 snap-start transition-colors bg-white'
               ]"
             >
-              <img :src="img.url" alt="" class="w-full h-full object-cover" />
+              <img :src="img.url" alt="" class="w-full h-full object-contain p-1" />
             </button>
           </div>
         </div>
 
-        <!-- Info column -->
-        <div class="lg:sticky lg:top-24 lg:self-start">
-          <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+        <!-- ────────────────────────────────────────────────
+             Info column — right on desktop, below on mobile
+             ──────────────────────────────────────────────── -->
+        <div class="lg:sticky lg:top-24 lg:self-start space-y-4">
+          <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-6">
 
             <!-- Store + Categories -->
-            <div class="flex flex-wrap items-center gap-2 mb-2">
-              <NuxtLink v-if="product.store" :to="`/shop?store_id=${product.store.id}`" class="inline-flex items-center gap-1.5 text-xs text-gray-700 font-semibold uppercase tracking-widest hover:text-primary-600">
+            <div class="flex flex-wrap items-center gap-x-2 gap-y-1 mb-2">
+              <NuxtLink
+                v-if="product.store"
+                :to="`/shop?store_id=${product.store.id}`"
+                class="inline-flex items-center gap-1.5 text-[11px] sm:text-xs text-gray-700 font-semibold uppercase tracking-widest hover:text-primary-600"
+              >
                 <img v-if="product.store.logo_url" :src="product.store.logo_url" alt="" class="h-4 w-4 rounded-full object-cover" />
                 {{ product.store.name }}
               </NuxtLink>
@@ -84,153 +101,154 @@
                 v-for="cat in (product.categories ?? [])"
                 :key="cat.id"
                 :to="`/shop?category_id=${cat.id}`"
-                class="text-xs text-primary-600 font-semibold uppercase tracking-widest hover:text-primary-700"
+                class="text-[11px] sm:text-xs text-primary-600 font-semibold uppercase tracking-widest hover:text-primary-700"
               >
                 {{ cat.name }}
               </NuxtLink>
             </div>
 
             <!-- Title -->
-            <h1 class="text-2xl md:text-3xl font-bold text-gray-900 leading-tight mb-3">
+            <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 leading-tight mb-2 sm:mb-3">
               {{ product.name }}
             </h1>
 
             <!-- Price -->
-            <div class="flex items-baseline gap-2 mb-5">
-              <p class="text-3xl font-extrabold text-gray-900">
+            <div class="flex items-baseline gap-2 mb-5 sm:mb-6">
+              <p class="text-2xl sm:text-3xl font-extrabold text-gray-900">
                 ${{ formatPrice(product.price_cents) }}
               </p>
-              <span class="text-sm font-semibold text-gray-500">MXN</span>
+              <span class="text-xs sm:text-sm font-semibold text-gray-500">MXN</span>
             </div>
 
-            <!-- Variant selectors + Quantity + Add to Cart -->
-            <template>
-              <!-- Color selector -->
-              <div v-if="availableColors.length > 0" class="mb-4">
-                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                  {{ t.color }}<span v-if="selectedColor" class="text-gray-900 normal-case ml-1.5 tracking-normal">— {{ selectedColor }}</span>
-                </p>
-                <div class="flex flex-wrap gap-2">
-                  <button
-                    v-for="color in availableColors"
-                    :key="color.value"
-                    @click="selectColor(color.value)"
-                    :disabled="!color.hasStock"
-                    :class="[
-                      selectedColor === color.value
-                        ? 'border-primary-500 ring-2 ring-primary-200 text-primary-700 bg-primary-50'
-                        : 'border-gray-200 text-gray-700 hover:border-gray-400',
-                      !color.hasStock ? 'opacity-40 line-through cursor-not-allowed' : '',
-                      'px-3.5 py-2 rounded-xl border-2 text-sm font-medium transition-colors min-w-12'
-                    ]"
-                  >{{ color.value }}</button>
-                </div>
-              </div>
-
-              <!-- Size selector -->
-              <div v-if="availableSizes.length > 0" class="mb-5">
-                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                  {{ t.size }}<span v-if="selectedSize" class="text-gray-900 normal-case ml-1.5 tracking-normal">— {{ selectedSize }}</span>
-                </p>
-                <div class="flex flex-wrap gap-2">
-                  <button
-                    v-for="size in availableSizes"
-                    :key="size.value"
-                    @click="selectSize(size.value)"
-                    :disabled="!size.hasStock"
-                    :class="[
-                      selectedSize === size.value
-                        ? 'border-primary-500 ring-2 ring-primary-200 text-primary-700 bg-primary-50'
-                        : 'border-gray-200 text-gray-700 hover:border-gray-400',
-                      !size.hasStock ? 'opacity-40 line-through cursor-not-allowed' : '',
-                      'min-w-12 px-4 py-2 rounded-xl border-2 text-sm font-semibold transition-colors'
-                    ]"
-                  >{{ size.value }}</button>
-                </div>
-                <p v-if="hasVariants && !selectedVariant" class="text-xs text-amber-600 mt-2">{{ t.pickVariant }}</p>
-              </div>
-
-              <div class="flex items-center gap-3 mb-4">
-                <div class="flex items-center border border-gray-200 rounded-xl overflow-hidden">
-                  <button
-                    @click="qty = Math.max(1, qty - 1)"
-                    :disabled="qty <= 1"
-                    class="px-4 py-3 text-gray-500 hover:bg-gray-50 disabled:opacity-30 transition-colors"
-                    type="button"
-                  >−</button>
-                  <input
-                    v-model.number="qty"
-                    type="number"
-                    min="1"
-                    :max="product.stock"
-                    class="w-14 text-center font-semibold focus:outline-none"
-                  />
-                  <button
-                    @click="qty = Math.min(product.stock, qty + 1)"
-                    :disabled="qty >= product.stock"
-                    class="px-4 py-3 text-gray-500 hover:bg-gray-50 disabled:opacity-30 transition-colors"
-                    type="button"
-                  >+</button>
-                </div>
-
+            <!-- Color selector -->
+            <div v-if="availableColors.length > 0" class="mb-4">
+              <p class="text-[11px] sm:text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                {{ t.color }}<span v-if="selectedColor" class="text-gray-900 normal-case ml-1.5 tracking-normal font-bold">— {{ selectedColor }}</span>
+              </p>
+              <div class="flex flex-wrap gap-2">
                 <button
-                  @click="addToCart"
-                  :disabled="added || !canAddToCart"
-                  class="flex-1 inline-flex items-center justify-center gap-2 py-3 px-6 bg-primary-500 hover:bg-primary-600 active:bg-primary-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold rounded-xl shadow-lg shadow-primary-500/20 transition-colors"
-                >
-                  <svg v-if="added" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
-                  </svg>
-                  <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
-                  </svg>
-                  {{ added ? t.added : t.addToCart }}
-                </button>
+                  v-for="color in availableColors"
+                  :key="color.value"
+                  @click="selectColor(color.value)"
+                  :disabled="!color.hasStock"
+                  :class="[
+                    selectedColor === color.value
+                      ? 'border-primary-500 ring-2 ring-primary-200 text-primary-700 bg-primary-50'
+                      : 'border-gray-200 text-gray-700 hover:border-gray-400 active:border-primary-500',
+                    !color.hasStock ? 'opacity-40 line-through cursor-not-allowed' : '',
+                    'px-3 sm:px-3.5 py-2 rounded-xl border-2 text-sm font-medium transition-colors'
+                  ]"
+                >{{ color.value }}</button>
               </div>
+            </div>
 
-              <!-- Buy Now (go to cart) -->
+            <!-- Size selector -->
+            <div v-if="availableSizes.length > 0" class="mb-5">
+              <p class="text-[11px] sm:text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                {{ t.size }}<span v-if="selectedSize" class="text-gray-900 normal-case ml-1.5 tracking-normal font-bold">— {{ selectedSize }}</span>
+              </p>
+              <div class="grid grid-cols-4 sm:flex sm:flex-wrap gap-2">
+                <button
+                  v-for="size in availableSizes"
+                  :key="size.value"
+                  @click="selectSize(size.value)"
+                  :disabled="!size.hasStock"
+                  :class="[
+                    selectedSize === size.value
+                      ? 'border-primary-500 ring-2 ring-primary-200 text-primary-700 bg-primary-50'
+                      : 'border-gray-200 text-gray-700 hover:border-gray-400 active:border-primary-500',
+                    !size.hasStock ? 'opacity-40 line-through cursor-not-allowed' : '',
+                    'min-w-12 px-3 sm:px-4 py-2.5 rounded-xl border-2 text-sm font-semibold transition-colors text-center'
+                  ]"
+                >{{ size.value }}</button>
+              </div>
+              <p v-if="hasVariants && !selectedVariant" class="text-xs text-amber-600 mt-2 font-medium">{{ t.pickVariant }}</p>
+            </div>
+
+            <!-- Quantity + Add to Cart (desktop / tablet inline; mobile uses the sticky bottom bar below) -->
+            <div class="hidden sm:flex items-center gap-3 mb-3">
+              <div class="flex items-center border border-gray-200 rounded-xl overflow-hidden shrink-0">
+                <button
+                  @click="qty = Math.max(1, qty - 1)"
+                  :disabled="qty <= 1"
+                  class="px-4 py-3 text-gray-500 hover:bg-gray-50 disabled:opacity-30 transition-colors"
+                  type="button"
+                >−</button>
+                <input
+                  v-model.number="qty"
+                  type="number"
+                  min="1"
+                  :max="product.stock"
+                  class="w-12 text-center font-semibold focus:outline-none"
+                />
+                <button
+                  @click="qty = Math.min(product.stock, qty + 1)"
+                  :disabled="qty >= product.stock"
+                  class="px-4 py-3 text-gray-500 hover:bg-gray-50 disabled:opacity-30 transition-colors"
+                  type="button"
+                >+</button>
+              </div>
               <button
-                @click="buyNow"
-                :disabled="!canAddToCart"
-                class="w-full py-3 bg-amber-400 hover:bg-amber-500 active:bg-amber-600 disabled:bg-gray-200 disabled:cursor-not-allowed text-amber-900 font-bold rounded-xl shadow transition-colors mb-5"
+                @click="addToCart"
+                :disabled="added || !canAddToCart"
+                class="flex-1 inline-flex items-center justify-center gap-2 py-3 px-6 bg-primary-500 hover:bg-primary-600 active:bg-primary-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold rounded-xl shadow-lg shadow-primary-500/20 transition-colors"
               >
-                {{ t.buyNow }}
+                <svg v-if="added" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+                </svg>
+                <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
+                </svg>
+                {{ added ? t.added : t.addToCart }}
               </button>
-            </template>
+            </div>
+
+            <button
+              @click="buyNow"
+              :disabled="!canAddToCart"
+              class="hidden sm:block w-full py-3 bg-amber-400 hover:bg-amber-500 active:bg-amber-600 disabled:bg-gray-200 disabled:cursor-not-allowed text-amber-900 font-bold rounded-xl shadow transition-colors mb-5"
+            >
+              {{ t.buyNow }}
+            </button>
 
             <!-- Trust signals -->
-            <div class="space-y-2 pb-5 mb-5 border-b border-gray-100">
+            <div class="space-y-2 pt-4 sm:pt-0 sm:pb-5 sm:mb-5 border-t sm:border-t-0 sm:border-b border-gray-100">
               <div class="flex items-start gap-3 text-sm">
                 <svg class="w-5 h-5 text-primary-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
                 </svg>
-                <p class="text-gray-700">{{ t.trustQuality }}</p>
+                <p class="text-gray-700 leading-snug">{{ t.trustQuality }}</p>
               </div>
               <div class="flex items-start gap-3 text-sm">
                 <svg class="w-5 h-5 text-primary-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
                 </svg>
-                <p class="text-gray-700">{{ t.trustConsolidation }}</p>
+                <p class="text-gray-700 leading-snug">{{ t.trustConsolidation }}</p>
               </div>
               <div class="flex items-start gap-3 text-sm">
                 <svg class="w-5 h-5 text-primary-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                 </svg>
-                <p class="text-gray-700">{{ t.trustShippingLater }}</p>
+                <p class="text-gray-700 leading-snug">{{ t.trustShippingLater }}</p>
               </div>
             </div>
 
-            <!-- Specs -->
-            <div>
-              <h3 class="font-semibold text-gray-900 mb-3 text-sm uppercase tracking-wider">{{ t.specs }}</h3>
-              <dl class="space-y-2 text-sm">
+            <!-- Specs (collapsible on mobile, always-open on desktop via the open attribute) -->
+            <details class="mt-5 sm:mt-0 border-t sm:border-t-0 border-gray-100 pt-4 sm:pt-0 group" open>
+              <summary class="font-semibold text-gray-900 mb-3 text-xs sm:text-sm uppercase tracking-wider cursor-pointer sm:cursor-default list-none flex items-center justify-between sm:block">
+                <span>{{ t.specs }}</span>
+                <svg class="w-4 h-4 text-gray-400 sm:hidden transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+              </summary>
+              <dl class="space-y-1.5 text-sm">
                 <div class="flex justify-between py-1.5">
                   <dt class="text-gray-500">{{ t.weight }}</dt>
                   <dd class="text-gray-900 font-medium">{{ Number(product.weight_kg).toFixed(2) }} kg</dd>
                 </div>
                 <div class="flex justify-between py-1.5">
                   <dt class="text-gray-500">{{ t.dimensions }}</dt>
-                  <dd class="text-gray-900 font-medium">
+                  <dd class="text-gray-900 font-medium text-right">
                     {{ Number(product.length_cm).toFixed(1) }} × {{ Number(product.width_cm).toFixed(1) }} × {{ Number(product.height_cm).toFixed(1) }} cm
                   </dd>
                 </div>
@@ -244,26 +262,67 @@
                 </div>
                 <div v-if="(product.categories ?? []).length" class="flex justify-between py-1.5">
                   <dt class="text-gray-500">{{ t.categories }}</dt>
-                  <dd class="text-gray-900 font-medium">{{ product.categories.map(c => c.name).join(', ') }}</dd>
+                  <dd class="text-gray-900 font-medium text-right">{{ product.categories.map(c => c.name).join(', ') }}</dd>
                 </div>
               </dl>
-            </div>
+            </details>
           </div>
         </div>
       </div>
 
       <!-- Description (full-width below) -->
-      <div v-if="product?.description" class="mt-8 bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-        <h2 class="font-bold text-gray-900 text-xl mb-3">{{ t.aboutThis }}</h2>
+      <div v-if="product?.description" class="mt-6 sm:mt-10 bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-6">
+        <h2 class="font-bold text-gray-900 text-lg sm:text-xl mb-3">{{ t.aboutThis }}</h2>
         <div class="prose prose-sm max-w-none text-gray-700 whitespace-pre-line leading-relaxed">{{ product.description }}</div>
       </div>
 
       <!-- Related products -->
-      <div v-if="related.length > 0" class="mt-12">
-        <h2 class="font-bold text-gray-900 text-2xl mb-5">{{ t.related }}</h2>
-        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+      <div v-if="related.length > 0" class="mt-10 sm:mt-14">
+        <h2 class="font-bold text-gray-900 text-xl sm:text-2xl mb-4 sm:mb-5">{{ t.related }}</h2>
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
           <ProductCard v-for="r in related" :key="r.id" :product="r" />
         </div>
+      </div>
+    </div>
+
+    <!-- ────────────────────────────────────────────────
+         Sticky bottom bar (mobile only) — Add to Cart always reachable
+         ──────────────────────────────────────────────── -->
+    <div
+      v-if="product"
+      class="sm:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur-sm border-t border-gray-200 px-4 py-3 shadow-[0_-4px_20px_rgba(0,0,0,0.08)]"
+    >
+      <div class="flex items-center gap-3">
+        <div class="flex items-center border border-gray-200 rounded-xl overflow-hidden shrink-0">
+          <button
+            @click="qty = Math.max(1, qty - 1)"
+            :disabled="qty <= 1"
+            class="px-3 py-2.5 text-gray-500 hover:bg-gray-50 disabled:opacity-30"
+            type="button"
+            aria-label="Disminuir cantidad"
+          >−</button>
+          <span class="w-7 text-center font-semibold text-sm">{{ qty }}</span>
+          <button
+            @click="qty = Math.min(product.stock, qty + 1)"
+            :disabled="qty >= product.stock"
+            class="px-3 py-2.5 text-gray-500 hover:bg-gray-50 disabled:opacity-30"
+            type="button"
+            aria-label="Aumentar cantidad"
+          >+</button>
+        </div>
+        <button
+          @click="addToCart"
+          :disabled="added || !canAddToCart"
+          class="flex-1 inline-flex items-center justify-center gap-2 py-3 px-4 bg-primary-500 active:bg-primary-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold rounded-xl shadow-lg shadow-primary-500/20 transition-colors text-sm"
+        >
+          <svg v-if="added" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+          </svg>
+          <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
+          </svg>
+          <span class="truncate">{{ added ? t.added : t.addToCart }} · ${{ formatPrice(product.price_cents * qty) }}</span>
+        </button>
       </div>
     </div>
 
