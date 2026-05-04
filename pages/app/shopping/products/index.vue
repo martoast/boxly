@@ -75,7 +75,7 @@
 
       <!-- Filters -->
       <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-5">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3">
           <div class="relative">
             <svg class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
@@ -86,6 +86,14 @@
               class="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
             />
           </div>
+          <select v-model="categoryFilter" class="px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+            <option value="">Todas las categorías</option>
+            <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
+          </select>
+          <select v-model="storeFilter" class="px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+            <option value="">Todas las tiendas</option>
+            <option v-for="s in stores" :key="s.id" :value="s.id">{{ s.name }}</option>
+          </select>
           <select v-model="statusFilter" class="px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
             <option value="">Todos (sin inactivos)</option>
             <option value="active">Activos</option>
@@ -359,11 +367,17 @@ const products = ref([])
 const loading = ref(true)
 const search = ref('')
 const statusFilter = ref('')
+const categoryFilter = ref('')
+const storeFilter = ref('')
 const perPage = ref(20)
 const currentPage = ref(1)
 const lastPage = ref(1)
 const total = ref(0)
 let searchTimer = null
+
+// Reference data for the filter dropdowns — fetched once on mount.
+const categories = ref([])
+const stores = ref([])
 
 // Bulk selection
 const selectedIds = ref([])
@@ -515,6 +529,8 @@ const fetchProducts = async () => {
         per_page: perPage.value,
         search: search.value || undefined,
         status: statusFilter.value || undefined,
+        category_id: categoryFilter.value || undefined,
+        store_id: storeFilter.value || undefined,
       },
     })
     products.value = res.data?.data ?? []
@@ -524,6 +540,21 @@ const fetchProducts = async () => {
     console.error(err)
   } finally {
     loading.value = false
+  }
+}
+
+// One-shot fetch for the dropdown reference data. Cheap (small lists)
+// and we want them ready before the user touches the filters.
+const fetchFilterData = async () => {
+  try {
+    const [cats, sts] = await Promise.all([
+      $customFetch('/shopping/categories', { query: { active_only: true } }),
+      $customFetch('/shopping/stores', { query: { active_only: true } }),
+    ])
+    categories.value = cats?.data ?? []
+    stores.value = sts?.data ?? []
+  } catch (err) {
+    console.error('Failed to load filter data', err)
   }
 }
 
@@ -567,7 +598,12 @@ watch(search, () => {
 })
 
 watch(statusFilter, () => { currentPage.value = 1; fetchProducts() })
+watch(categoryFilter, () => { currentPage.value = 1; fetchProducts() })
+watch(storeFilter, () => { currentPage.value = 1; fetchProducts() })
 watch(perPage, () => { currentPage.value = 1; fetchProducts() })
 
-onMounted(fetchProducts)
+onMounted(() => {
+  fetchFilterData()
+  fetchProducts()
+})
 </script>
