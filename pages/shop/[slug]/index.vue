@@ -1,92 +1,148 @@
 <template>
-  <section class="min-h-screen bg-gray-50 pt-16 sm:pt-20 pb-24 lg:pb-12">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-6">
+  <section class="min-h-screen bg-white lg:bg-gray-50 pt-14 sm:pt-20 pb-24 lg:pb-12">
 
-      <!-- Breadcrumbs (compact on mobile) -->
-      <nav class="mb-3 sm:mb-5 text-xs sm:text-sm text-gray-500 flex items-center gap-1.5 sm:gap-2 overflow-hidden">
-        <NuxtLink to="/shop" class="hover:text-primary-600 transition-colors shrink-0">{{ t.shop }}</NuxtLink>
-        <span class="text-gray-300 shrink-0">/</span>
-        <NuxtLink v-if="product?.store" :to="`/shop?store_id=${product.store.id}`" class="text-gray-700 hover:text-primary-600 shrink-0 hidden sm:inline">{{ product.store.name }}</NuxtLink>
-        <span v-if="product?.store" class="text-gray-300 shrink-0 hidden sm:inline">/</span>
-        <span class="text-gray-900 font-medium truncate">{{ product?.name ?? '...' }}</span>
-      </nav>
+    <!-- Breadcrumbs (hidden on mobile — Shopify-style, the back arrow lives in the navbar) -->
+    <nav class="hidden sm:flex max-w-7xl mx-auto px-6 lg:px-8 pt-2 pb-4 text-sm text-gray-500 items-center gap-2 overflow-hidden">
+      <NuxtLink to="/shop" class="hover:text-primary-600 transition-colors shrink-0">{{ t.shop }}</NuxtLink>
+      <span class="text-gray-300 shrink-0">/</span>
+      <NuxtLink v-if="product?.store" :to="`/shop?store_id=${product.store.id}`" class="text-gray-700 hover:text-primary-600 shrink-0">{{ product.store.name }}</NuxtLink>
+      <span v-if="product?.store" class="text-gray-300 shrink-0">/</span>
+      <span class="text-gray-900 font-medium truncate">{{ product?.name ?? '...' }}</span>
+    </nav>
 
-      <!-- Loading skeleton — matches the real layout -->
-      <div v-if="loading" class="grid lg:grid-cols-2 gap-6 lg:gap-10 animate-pulse">
-        <div class="aspect-[4/5] bg-gray-200 rounded-2xl"></div>
-        <div class="space-y-4 py-2">
+    <!-- Loading skeleton -->
+    <div v-if="loading" class="max-w-7xl mx-auto sm:px-6 lg:px-8 sm:py-2">
+      <div class="grid lg:grid-cols-2 gap-6 lg:gap-10 animate-pulse">
+        <div class="aspect-square sm:aspect-[4/5] bg-gray-200 sm:rounded-2xl"></div>
+        <div class="space-y-4 px-4 sm:px-0 py-4 sm:py-2">
           <div class="h-6 bg-gray-200 rounded w-1/3"></div>
           <div class="h-9 bg-gray-200 rounded w-3/4"></div>
           <div class="h-10 bg-gray-200 rounded w-1/2 mt-2"></div>
           <div class="h-32 bg-gray-100 rounded mt-6"></div>
         </div>
       </div>
+    </div>
 
-      <!-- 404 -->
-      <div v-else-if="!product" class="text-center py-20 bg-white rounded-2xl border border-gray-100">
+    <!-- 404 -->
+    <div v-else-if="!product" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div class="text-center py-20 bg-white rounded-2xl border border-gray-100">
         <p class="text-gray-700 font-semibold">{{ t.notFound }}</p>
         <NuxtLink to="/shop" class="mt-4 inline-block text-primary-600 font-medium hover:text-primary-700">
           ← {{ t.backToShop }}
         </NuxtLink>
       </div>
+    </div>
 
-      <!-- Detail -->
-      <div v-else class="grid lg:grid-cols-[minmax(0,1fr)_minmax(0,420px)] xl:grid-cols-[minmax(0,1fr)_minmax(0,460px)] gap-6 lg:gap-10">
+    <!-- Product detail -->
+    <div v-else class="max-w-7xl mx-auto lg:px-8">
+      <div class="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,420px)] xl:grid-cols-[minmax(0,1fr)_minmax(0,460px)] lg:gap-10">
 
         <!-- ────────────────────────────────────────────────
-             Gallery — left on desktop, top on mobile
+             GALLERY
+             Mobile (< lg): edge-to-edge swipeable carousel + dots
+             Desktop (lg+): big main image card + thumbnail strip
              ──────────────────────────────────────────────── -->
-        <div class="space-y-3">
-          <!-- Main image: 4:5 aspect (taller than wide, classic product/fashion ratio).
-               object-contain so we don't crop the product; bg-white card holds it cleanly. -->
-          <div class="relative aspect-[4/5] bg-white rounded-2xl border border-gray-100 overflow-hidden group">
-            <img
-              v-if="activeImage"
-              :src="activeImage"
-              :alt="product.name"
-              class="w-full h-full object-contain p-2 sm:p-4 transition-transform duration-300 group-hover:scale-[1.02] cursor-zoom-in"
-              @click="lightboxOpen = true"
-            />
-            <div v-else class="w-full h-full flex items-center justify-center text-gray-300">
+        <div>
+          <!-- MOBILE: full-bleed carousel -->
+          <div class="lg:hidden relative bg-white">
+            <div
+              v-if="(product.images?.length ?? 0) > 0"
+              ref="mobileCarousel"
+              class="flex overflow-x-auto snap-x snap-mandatory scrollbar-none"
+              @scroll.passive="onMobileScroll"
+            >
+              <div
+                v-for="(img, i) in product.images"
+                :key="i"
+                class="shrink-0 w-full snap-center aspect-square flex items-center justify-center bg-white"
+              >
+                <img
+                  :src="img.url"
+                  :alt="product.name"
+                  class="w-full h-full object-contain cursor-zoom-in"
+                  @click="lightboxOpen = true"
+                  loading="lazy"
+                />
+              </div>
+            </div>
+
+            <!-- Empty state -->
+            <div v-if="(product.images?.length ?? 0) === 0" class="aspect-square flex items-center justify-center text-gray-300 bg-white">
               <svg class="w-20 h-20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
               </svg>
             </div>
 
-            <!-- Expiring soon ribbon -->
-            <div v-if="expiringSoonLabel" class="absolute top-3 left-3 bg-amber-500 text-white text-[10px] sm:text-xs font-bold uppercase tracking-wider px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full shadow">
+            <!-- Expiring soon ribbon (overlay) -->
+            <div v-if="expiringSoonLabel" class="absolute top-3 left-3 bg-amber-500 text-white text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full shadow z-10">
               {{ expiringSoonLabel }}
             </div>
 
-            <!-- Image counter (mobile, when multi-image) -->
-            <div v-if="(product.images?.length ?? 0) > 1" class="absolute bottom-3 right-3 bg-black/55 text-white text-[10px] font-semibold px-2 py-0.5 rounded-full backdrop-blur-sm">
+            <!-- Image counter pill (top-right) -->
+            <div v-if="(product.images?.length ?? 0) > 1" class="absolute top-3 right-3 bg-black/55 text-white text-[10px] font-semibold px-2 py-0.5 rounded-full backdrop-blur-sm z-10">
               {{ activeIndex + 1 }} / {{ product.images.length }}
+            </div>
+
+            <!-- Dots indicator -->
+            <div v-if="(product.images?.length ?? 0) > 1" class="absolute bottom-3 inset-x-0 flex justify-center gap-1.5 z-10">
+              <button
+                v-for="(_, i) in product.images"
+                :key="i"
+                @click="goToImage(i)"
+                :class="[
+                  activeIndex === i ? 'bg-gray-900 w-5' : 'bg-gray-400/70 w-1.5',
+                  'h-1.5 rounded-full transition-all'
+                ]"
+                :aria-label="`Imagen ${i + 1}`"
+              ></button>
             </div>
           </div>
 
-          <!-- Thumbnails (horizontal scroll on mobile, wrap on desktop) -->
-          <div v-if="(product.images?.length ?? 0) > 1" class="flex gap-2 overflow-x-auto -mx-1 px-1 pb-1 snap-x snap-mandatory scrollbar-thin">
-            <button
-              v-for="(img, i) in product.images"
-              :key="i"
-              @click="activeIndex = i"
-              :class="[
-                activeIndex === i ? 'border-primary-500 ring-2 ring-primary-200' : 'border-gray-200 hover:border-gray-400',
-                'h-16 w-16 sm:h-20 sm:w-20 rounded-xl overflow-hidden border-2 shrink-0 snap-start transition-colors bg-white'
-              ]"
-            >
-              <img :src="img.url" alt="" class="w-full h-full object-contain p-1" />
-            </button>
+          <!-- DESKTOP: big card image + thumbnail strip -->
+          <div class="hidden lg:block space-y-3 lg:sticky lg:top-24">
+            <div class="relative aspect-[4/5] bg-white rounded-2xl border border-gray-100 overflow-hidden group">
+              <img
+                v-if="activeImage"
+                :src="activeImage"
+                :alt="product.name"
+                class="w-full h-full object-contain p-4 transition-transform duration-300 group-hover:scale-[1.02] cursor-zoom-in"
+                @click="lightboxOpen = true"
+              />
+              <div v-else class="w-full h-full flex items-center justify-center text-gray-300">
+                <svg class="w-20 h-20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                </svg>
+              </div>
+              <div v-if="expiringSoonLabel" class="absolute top-3 left-3 bg-amber-500 text-white text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded-full shadow">
+                {{ expiringSoonLabel }}
+              </div>
+            </div>
+
+            <div v-if="(product.images?.length ?? 0) > 1" class="flex gap-2 overflow-x-auto pb-1 snap-x snap-mandatory scrollbar-thin">
+              <button
+                v-for="(img, i) in product.images"
+                :key="i"
+                @click="activeIndex = i"
+                :class="[
+                  activeIndex === i ? 'border-primary-500 ring-2 ring-primary-200' : 'border-gray-200 hover:border-gray-400',
+                  'h-20 w-20 rounded-xl overflow-hidden border-2 shrink-0 snap-start transition-colors bg-white'
+                ]"
+              >
+                <img :src="img.url" alt="" class="w-full h-full object-contain p-1" />
+              </button>
+            </div>
           </div>
         </div>
 
         <!-- ────────────────────────────────────────────────
-             Info column — right on desktop, below on mobile
+             INFO COLUMN
+             Mobile: padded text below the gallery
+             Desktop: sticky card on the right
              ──────────────────────────────────────────────── -->
-        <div class="lg:sticky lg:top-24 lg:self-start space-y-4">
-          <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-6">
+        <div class="px-4 sm:px-6 lg:px-0 pt-5 lg:pt-0">
+          <div class="lg:bg-white lg:rounded-2xl lg:border lg:border-gray-100 lg:shadow-sm lg:p-6">
 
-            <!-- Store + Categories -->
+            <!-- Store + Categories chips -->
             <div class="flex flex-wrap items-center gap-x-2 gap-y-1 mb-2">
               <NuxtLink
                 v-if="product.store"
@@ -108,12 +164,12 @@
             </div>
 
             <!-- Title -->
-            <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 leading-tight mb-2 sm:mb-3">
+            <h1 class="text-2xl sm:text-2xl lg:text-3xl font-bold text-gray-900 leading-tight mb-2 sm:mb-3">
               {{ product.name }}
             </h1>
 
             <!-- Price -->
-            <div class="flex items-baseline gap-2 mb-5 sm:mb-6">
+            <div class="flex items-baseline gap-2 mb-6">
               <p class="text-2xl sm:text-3xl font-extrabold text-gray-900">
                 ${{ formatPrice(product.price_cents) }}
               </p>
@@ -121,7 +177,7 @@
             </div>
 
             <!-- Color selector -->
-            <div v-if="availableColors.length > 0" class="mb-4">
+            <div v-if="availableColors.length > 0" class="mb-5">
               <p class="text-[11px] sm:text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
                 {{ t.color }}<span v-if="selectedColor" class="text-gray-900 normal-case ml-1.5 tracking-normal font-bold">— {{ selectedColor }}</span>
               </p>
@@ -133,21 +189,21 @@
                   :disabled="!color.hasStock"
                   :class="[
                     selectedColor === color.value
-                      ? 'border-primary-500 ring-2 ring-primary-200 text-primary-700 bg-primary-50'
-                      : 'border-gray-200 text-gray-700 hover:border-gray-400 active:border-primary-500',
+                      ? 'border-gray-900 text-gray-900 bg-gray-50'
+                      : 'border-gray-200 text-gray-700 hover:border-gray-400 active:border-gray-900',
                     !color.hasStock ? 'opacity-40 line-through cursor-not-allowed' : '',
-                    'px-3 sm:px-3.5 py-2 rounded-xl border-2 text-sm font-medium transition-colors'
+                    'px-3.5 py-2 rounded-full border text-sm font-medium transition-colors'
                   ]"
                 >{{ color.value }}</button>
               </div>
             </div>
 
             <!-- Size selector -->
-            <div v-if="availableSizes.length > 0" class="mb-5">
+            <div v-if="availableSizes.length > 0" class="mb-6">
               <p class="text-[11px] sm:text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
                 {{ t.size }}<span v-if="selectedSize" class="text-gray-900 normal-case ml-1.5 tracking-normal font-bold">— {{ selectedSize }}</span>
               </p>
-              <div class="grid grid-cols-4 sm:flex sm:flex-wrap gap-2">
+              <div class="grid grid-cols-4 sm:grid-cols-5 gap-2">
                 <button
                   v-for="size in availableSizes"
                   :key="size.value"
@@ -155,18 +211,18 @@
                   :disabled="!size.hasStock"
                   :class="[
                     selectedSize === size.value
-                      ? 'border-primary-500 ring-2 ring-primary-200 text-primary-700 bg-primary-50'
-                      : 'border-gray-200 text-gray-700 hover:border-gray-400 active:border-primary-500',
+                      ? 'border-gray-900 text-gray-900 bg-gray-50'
+                      : 'border-gray-200 text-gray-700 hover:border-gray-400 active:border-gray-900',
                     !size.hasStock ? 'opacity-40 line-through cursor-not-allowed' : '',
-                    'min-w-12 px-3 sm:px-4 py-2.5 rounded-xl border-2 text-sm font-semibold transition-colors text-center'
+                    'h-11 px-3 rounded-lg border text-sm font-semibold transition-colors text-center'
                   ]"
                 >{{ size.value }}</button>
               </div>
               <p v-if="hasVariants && !selectedVariant" class="text-xs text-amber-600 mt-2 font-medium">{{ t.pickVariant }}</p>
             </div>
 
-            <!-- Quantity + Add to Cart (desktop / tablet inline; mobile uses the sticky bottom bar below) -->
-            <div class="hidden sm:flex items-center gap-3 mb-3">
+            <!-- Inline CTAs (desktop / tablet only — mobile uses sticky bottom bar) -->
+            <div class="hidden lg:flex items-center gap-3 mb-3">
               <div class="flex items-center border border-gray-200 rounded-xl overflow-hidden shrink-0">
                 <button
                   @click="qty = Math.max(1, qty - 1)"
@@ -206,13 +262,13 @@
             <button
               @click="buyNow"
               :disabled="!canAddToCart"
-              class="hidden sm:block w-full py-3 bg-amber-400 hover:bg-amber-500 active:bg-amber-600 disabled:bg-gray-200 disabled:cursor-not-allowed text-amber-900 font-bold rounded-xl shadow transition-colors mb-5"
+              class="hidden lg:block w-full py-3 bg-amber-400 hover:bg-amber-500 active:bg-amber-600 disabled:bg-gray-200 disabled:cursor-not-allowed text-amber-900 font-bold rounded-xl shadow transition-colors mb-5"
             >
               {{ t.buyNow }}
             </button>
 
             <!-- Trust signals -->
-            <div class="space-y-2 pt-4 sm:pt-0 sm:pb-5 sm:mb-5 border-t sm:border-t-0 sm:border-b border-gray-100">
+            <div class="space-y-2 pt-4 lg:pt-0 lg:pb-5 lg:mb-5 border-t lg:border-t-0 lg:border-b border-gray-100">
               <div class="flex items-start gap-3 text-sm">
                 <svg class="w-5 h-5 text-primary-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
@@ -233,11 +289,22 @@
               </div>
             </div>
 
-            <!-- Specs (collapsible on mobile, always-open on desktop via the open attribute) -->
-            <details class="mt-5 sm:mt-0 border-t sm:border-t-0 border-gray-100 pt-4 sm:pt-0 group" open>
-              <summary class="font-semibold text-gray-900 mb-3 text-xs sm:text-sm uppercase tracking-wider cursor-pointer sm:cursor-default list-none flex items-center justify-between sm:block">
+            <!-- Description (collapsible on mobile) -->
+            <details v-if="product.description" class="mt-4 lg:mt-5 border-t lg:border-t-0 border-gray-100 pt-4 lg:pt-0 group" :open="false">
+              <summary class="font-semibold text-gray-900 mb-2 text-xs sm:text-sm uppercase tracking-wider cursor-pointer list-none flex items-center justify-between">
+                <span>{{ t.aboutThis }}</span>
+                <svg class="w-4 h-4 text-gray-400 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+              </summary>
+              <div class="prose prose-sm max-w-none text-gray-700 whitespace-pre-line leading-relaxed pt-2">{{ product.description }}</div>
+            </details>
+
+            <!-- Specs (collapsible on mobile, open on desktop) -->
+            <details class="mt-4 border-t border-gray-100 pt-4 group" :open="true">
+              <summary class="font-semibold text-gray-900 mb-3 text-xs sm:text-sm uppercase tracking-wider cursor-pointer list-none flex items-center justify-between">
                 <span>{{ t.specs }}</span>
-                <svg class="w-4 h-4 text-gray-400 sm:hidden transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-4 h-4 text-gray-400 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                 </svg>
               </summary>
@@ -270,14 +337,8 @@
         </div>
       </div>
 
-      <!-- Description (full-width below) -->
-      <div v-if="product?.description" class="mt-6 sm:mt-10 bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-6">
-        <h2 class="font-bold text-gray-900 text-lg sm:text-xl mb-3">{{ t.aboutThis }}</h2>
-        <div class="prose prose-sm max-w-none text-gray-700 whitespace-pre-line leading-relaxed">{{ product.description }}</div>
-      </div>
-
       <!-- Related products -->
-      <div v-if="related.length > 0" class="mt-10 sm:mt-14">
+      <div v-if="related.length > 0" class="px-4 sm:px-6 lg:px-0 mt-10 sm:mt-14">
         <h2 class="font-bold text-gray-900 text-xl sm:text-2xl mb-4 sm:mb-5">{{ t.related }}</h2>
         <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
           <ProductCard v-for="r in related" :key="r.id" :product="r" />
@@ -290,7 +351,7 @@
          ──────────────────────────────────────────────── -->
     <div
       v-if="product"
-      class="sm:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur-sm border-t border-gray-200 px-4 py-3 shadow-[0_-4px_20px_rgba(0,0,0,0.08)]"
+      class="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur-sm border-t border-gray-200 px-4 py-3 shadow-[0_-4px_20px_rgba(0,0,0,0.08)]"
     >
       <div class="flex items-center gap-3">
         <div class="flex items-center border border-gray-200 rounded-xl overflow-hidden shrink-0">
@@ -393,6 +454,21 @@ const lightboxOpen = ref(false)
 const added = ref(false)
 const selectedSize = ref(null)
 const selectedColor = ref(null)
+const mobileCarousel = ref(null)
+
+// Update activeIndex while the user swipes through the mobile carousel
+const onMobileScroll = (e) => {
+  const el = e.target
+  const idx = Math.round(el.scrollLeft / el.clientWidth)
+  if (idx !== activeIndex.value) activeIndex.value = idx
+}
+
+// Click a dot → scroll the carousel to that image
+const goToImage = (i) => {
+  activeIndex.value = i
+  const el = mobileCarousel.value
+  if (el) el.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' })
+}
 
 const activeImage = computed(() => {
   const imgs = product.value?.images ?? []
@@ -534,4 +610,10 @@ onMounted(fetchProduct)
 <style scoped>
 .fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
+
+/* Hide scrollbars on the mobile gallery carousel + desktop thumbnail strip
+   while keeping the swipe/scroll behavior. */
+.scrollbar-none::-webkit-scrollbar,
+.scrollbar-thin::-webkit-scrollbar { display: none; }
+.scrollbar-none, .scrollbar-thin { -ms-overflow-style: none; scrollbar-width: none; }
 </style>

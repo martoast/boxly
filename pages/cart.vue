@@ -171,10 +171,10 @@ const t = createTranslations({
   estBox:              { es: 'Cabría en caja', en: 'Would fit in box' },
   toNextBox:           { es: 'para llenar la siguiente caja', en: 'to fill the next box' },
   over50:              { es: 'Tu envío pasa los 50 kg. Cuando pidas envío, lo dividiremos en dos cajas.', en: 'Your shipment exceeds 50 kg. When you request shipment, we\'ll split it into two boxes.' },
-  disclaimerTitle:     { es: 'Pagas productos ahora.', en: 'You pay for products now.' },
-  disclaimerBody:      { es: 'El envío se cotiza después, cuando Boxly consolida tu caja en San Diego.', en: 'Shipping is quoted later, when Boxly consolidates your box in San Diego.' },
-  payNow:              { es: 'A pagar ahora:', en: 'Paying now:' },
-  checkout:            { es: 'Ir a pagar', en: 'Checkout' },
+  disclaimerTitle:     { es: 'Sin cargos todavía.', en: 'No charge yet.' },
+  disclaimerBody:      { es: 'Velonie verifica disponibilidad en cada tienda y te manda un link de pago. El envío se cotiza después, cuando Boxly consolida tu caja en San Diego.', en: 'Velonie checks availability at each store and sends you a payment link. Shipping is quoted later, when Boxly consolidates your box in San Diego.' },
+  payNow:              { es: 'Total productos:', en: 'Products total:' },
+  checkout:            { es: 'Crear solicitud', en: 'Create request' },
 })
 
 const {
