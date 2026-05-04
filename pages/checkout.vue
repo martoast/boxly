@@ -80,10 +80,10 @@ const t = createTranslations({
   orderSummary:      { es: 'Resumen del pedido', en: 'Order summary' },
   qty:               { es: 'Cant', en: 'Qty' },
   total:             { es: 'Total estimado', en: 'Estimated total' },
-  shippingNote:      { es: 'Velonie verificará disponibilidad en cada tienda. Si todo está disponible, te enviará un link de pago. El envío se cotiza después, cuando Boxly consolida tu caja.', en: 'Velonie will verify availability at each store. If everything is in stock, she will send you a payment link. Shipping is quoted later, when Boxly consolidates your box.' },
+  shippingNote:      { es: 'Boxly verificará disponibilidad en cada tienda. Si todo está disponible, te enviaremos un link de pago. El envío se cotiza después, cuando consolidamos tu caja.', en: 'Boxly will verify availability at each store. If everything is in stock, we\'ll send you a payment link. Shipping is quoted later, when we consolidate your box.' },
   payProducts:       { es: 'Crear solicitud', en: 'Create request' },
   redirecting:       { es: 'Creando solicitud...', en: 'Creating request...' },
-  poweredBy:         { es: 'Sin cargos hasta que Velonie confirme stock.', en: 'No charge until Velonie confirms stock.' },
+  poweredBy:         { es: 'Sin cargos hasta que Boxly confirme stock.', en: 'No charge until Boxly confirms stock.' },
 })
 
 const { items, cartSubtotalCents, clear } = useStoreCart()
