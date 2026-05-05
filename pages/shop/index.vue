@@ -1,8 +1,5 @@
 <template>
   <div>
-    <!-- Always-visible category strip just under the main navbar -->
-    <ShopCategoryNav :categories="categories" />
-
     <!-- LANDING MODE — bare /shop with no filters/view applied -->
     <template v-if="isLandingMode">
       <ShopLandingHeroBanner />
@@ -128,7 +125,7 @@
 import ProductCard from '~/components/store/ProductCard.vue'
 
 definePageMeta({
-  layout: 'default',
+  layout: 'shop',
 })
 
 const { $customFetch } = useNuxtApp()

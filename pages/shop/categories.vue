@@ -1,8 +1,5 @@
 <template>
   <div>
-    <!-- Same sticky pill nav as /shop so users can jump anywhere -->
-    <ShopCategoryNav :categories="categories" />
-
     <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 lg:py-14">
       <div class="mb-8">
         <p class="text-xs font-bold text-primary-600 uppercase tracking-widest mb-2">Tienda Boxly</p>
@@ -44,7 +41,7 @@
 </template>
 
 <script setup>
-definePageMeta({ layout: 'default' })
+definePageMeta({ layout: 'shop' })
 
 const { $customFetch } = useNuxtApp()
 

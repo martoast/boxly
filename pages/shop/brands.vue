@@ -1,7 +1,5 @@
 <template>
   <div>
-    <ShopCategoryNav :categories="categories" />
-
     <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 lg:py-14">
       <div class="mb-8">
         <p class="text-xs font-bold text-primary-600 uppercase tracking-widest mb-2">Tienda Boxly</p>
@@ -45,7 +43,7 @@
 </template>
 
 <script setup>
-definePageMeta({ layout: 'default' })
+definePageMeta({ layout: 'shop' })
 
 const { $customFetch } = useNuxtApp()
 
@@ -55,12 +53,6 @@ useHead({
     { name: 'description', content: 'Compra de tus marcas favoritas en Estados Unidos: Lululemon, Alo Yoga, Stanley, YoungLA y más.' },
   ],
 })
-
-// Sticky nav uses categories — fetch them too
-const { data: catsRaw } = await useAsyncData('shop-categories', () =>
-  $customFetch('/store/categories').catch(() => null)
-)
-const categories = computed(() => catsRaw.value?.data ?? [])
 
 // Brand backgrounds we've generated. Same lookup the BrandShowcase
 // component uses on the landing — keeps imagery consistent.

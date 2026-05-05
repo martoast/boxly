@@ -384,7 +384,7 @@
 import ProductCard from '~/components/store/ProductCard.vue'
 
 definePageMeta({
-  layout: 'default',
+  layout: 'shop',
 })
 
 const { $customFetch } = useNuxtApp()
