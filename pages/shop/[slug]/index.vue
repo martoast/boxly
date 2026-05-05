@@ -403,7 +403,7 @@ const t = createTranslations({
   size:           { es: 'Talla', en: 'Size' },
   color:          { es: 'Color', en: 'Color' },
   length:         { es: 'Largo', en: 'Length' },
-  pickVariant:    { es: 'Elige todas las opciones para continuar', en: 'Pick every option to continue' },
+  pickVariant:    { es: 'Selecciona talla', en: 'Select size' },
   aboutThis:      { es: 'Acerca de este producto', en: 'About this product' },
   related:        { es: 'Productos relacionados', en: 'Related products' },
 })
