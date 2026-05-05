@@ -3,12 +3,25 @@
     <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
 
       <div class="flex items-center gap-3 mb-6">
-        <NuxtLink to="/app/shopping/products" class="p-2 rounded-full hover:bg-gray-100 transition-colors">
+        <NuxtLink to="/app/shopping/products" class="p-2 rounded-full hover:bg-gray-100 transition-colors shrink-0">
           <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
           </svg>
         </NuxtLink>
-        <h1 class="text-2xl font-extrabold text-gray-900 truncate">{{ product?.name ?? 'Cargando...' }}</h1>
+        <h1 class="text-2xl font-extrabold text-gray-900 truncate flex-1 min-w-0">{{ product?.name ?? 'Cargando...' }}</h1>
+        <a
+          v-if="product?.slug"
+          :href="`/shop/${product.slug}`"
+          target="_blank"
+          rel="noopener"
+          class="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 hover:border-primary-300 hover:bg-primary-50 text-sm font-semibold text-gray-700 hover:text-primary-700 rounded-xl transition-colors"
+          title="Abrir la página pública en otra pestaña"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+          </svg>
+          <span class="hidden sm:inline">Ver pública</span>
+        </a>
       </div>
 
       <div v-if="loading" class="text-center py-12 text-gray-400">Cargando...</div>
