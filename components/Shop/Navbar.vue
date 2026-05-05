@@ -5,9 +5,8 @@
 
         <!-- Logo + brand -->
         <div class="flex items-center gap-6">
-          <NuxtLink to="/shop" class="flex items-center gap-2 shrink-0">
-            <img src="/logo.svg" class="h-8 w-8" alt="Boxly" />
-            <span class="hidden sm:inline font-extrabold text-gray-900 tracking-tight text-lg">Boxly</span>
+          <NuxtLink to="/shop" class="flex items-center shrink-0" aria-label="Tienda Boxly">
+            <img src="/logo.svg" class="h-8 w-auto" alt="Boxly" />
           </NuxtLink>
 
           <!-- Desktop nav -->
@@ -28,8 +27,21 @@
           </nav>
         </div>
 
-        <!-- Right side — cart + account + lang -->
+        <!-- Right side — exit, cart, account -->
         <div class="flex items-center gap-2 sm:gap-3">
+          <!-- Exit-shop link — small, ghost, takes the user back to the
+               main Boxly marketing site. Hidden on mobile (lives in
+               the hamburger sheet there). -->
+          <NuxtLink
+            to="/"
+            class="hidden lg:inline-flex items-center gap-1 px-3 h-10 rounded-full text-xs font-semibold text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+            </svg>
+            Salir de la tienda
+          </NuxtLink>
+
           <NuxtLink
             to="/cart"
             class="relative inline-flex items-center justify-center h-10 w-10 rounded-full text-gray-700 hover:text-gray-900 hover:bg-gray-100 transition-colors"
@@ -116,7 +128,7 @@
                   to="/"
                   @click="mobileOpen = false"
                   class="block px-4 py-3 mt-1 rounded-xl text-gray-500 hover:bg-gray-50 text-sm"
-                >← Volver a Boxly</NuxtLink>
+                >← Salir de la tienda</NuxtLink>
               </div>
             </nav>
           </div>
