@@ -4,40 +4,38 @@
        page; this component just renders whatever's active. Falls back
        to a clean image-only banner when no campaign is configured. -->
 
-  <!-- Active campaign — split layout, copy + CTA on the left -->
-  <section
-    v-if="hero"
-    class="relative w-full overflow-hidden bg-gradient-to-br from-primary-50 via-white to-amber-50"
-  >
-    <div class="grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] items-center gap-8 max-w-7xl mx-auto px-6 lg:px-12 pt-16 pb-12 lg:py-24">
-      <div class="text-center lg:text-left">
-        <h1 class="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-extrabold text-gray-900 leading-[1.05] tracking-tight">
-          {{ hero.title }}
-        </h1>
-        <p v-if="hero.subtitle" class="mt-5 text-lg sm:text-xl text-gray-600 max-w-xl mx-auto lg:mx-0">
-          {{ hero.subtitle }}
-        </p>
-        <div class="mt-8">
-          <NuxtLink
-            :to="hero.cta_link || '/shop?view=all'"
-            class="inline-flex items-center gap-2 px-6 py-3.5 bg-gray-900 hover:bg-gray-800 text-white font-semibold rounded-full transition-all duration-200 hover:scale-105 shadow-lg shadow-gray-900/10"
-          >
-            {{ hero.cta_label || 'Comprar' }}
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-          </NuxtLink>
+  <!-- Active campaign — full-bleed image with copy + CTA overlaid on the lower-left -->
+  <section v-if="hero" class="relative w-full bg-gray-900 overflow-hidden">
+    <NuxtLink
+      :to="hero.cta_link || '/shop?view=all'"
+      class="group block relative w-full aspect-[4/5] sm:aspect-[16/10] lg:aspect-[21/9] max-h-[85vh]"
+    >
+      <img
+        :src="hero.image_url || '/images/shop-hero.png'"
+        :alt="hero.title"
+        class="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.02]"
+      />
+      <!-- Legibility gradients: stronger on the left where copy lives,
+           plus a soft bottom fade on tall mobile shots. -->
+      <div class="absolute inset-0 bg-gradient-to-r from-black/60 via-black/25 to-transparent"></div>
+      <div class="absolute inset-0 sm:hidden bg-gradient-to-t from-black/50 via-transparent to-transparent"></div>
+
+      <div class="absolute inset-0 flex">
+        <div class="w-full max-w-7xl mx-auto px-6 sm:px-10 lg:px-12 flex flex-col justify-end pb-10 sm:pb-14 lg:pb-20">
+          <h1 class="text-white text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-extrabold tracking-tight leading-[1.02] drop-shadow-2xl max-w-3xl">
+            {{ hero.title }}
+          </h1>
+          <p v-if="hero.subtitle" class="mt-3 sm:mt-4 text-white/95 text-base sm:text-lg lg:text-xl max-w-xl drop-shadow">
+            {{ hero.subtitle }}
+          </p>
+          <div class="mt-6 sm:mt-8">
+            <span class="inline-flex items-center px-6 py-3 bg-white text-gray-900 text-sm font-semibold rounded-full shadow-lg group-hover:bg-gray-100 transition-colors">
+              {{ hero.cta_label || 'Comprar' }}
+            </span>
+          </div>
         </div>
       </div>
-
-      <NuxtLink :to="hero.cta_link || '/shop?view=all'" class="block group">
-        <div class="relative rounded-3xl overflow-hidden shadow-2xl shadow-primary-900/10 aspect-[4/3] lg:aspect-[5/4]">
-          <img
-            :src="hero.image_url || '/images/shop-hero.png'"
-            :alt="hero.title"
-            class="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.03]"
-          />
-        </div>
-      </NuxtLink>
-    </div>
+    </NuxtLink>
   </section>
 
   <!-- Fallback — clean image-only banner with a subtle "Ver todo" chip -->

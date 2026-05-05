@@ -294,7 +294,7 @@
             <button
               @click="buyNow"
               :disabled="!canAddToCart"
-              class="hidden lg:block w-full py-3 bg-amber-400 hover:bg-amber-500 active:bg-amber-600 disabled:bg-gray-200 disabled:cursor-not-allowed text-amber-900 font-bold rounded-xl shadow transition-colors mb-5"
+              class="w-full py-3 bg-amber-400 hover:bg-amber-500 active:bg-amber-600 disabled:bg-gray-200 disabled:cursor-not-allowed text-amber-900 font-bold rounded-xl shadow transition-colors mb-5"
             >
               {{ t.buyNow }}
             </button>
