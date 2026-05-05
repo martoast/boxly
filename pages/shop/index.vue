@@ -361,6 +361,11 @@ const fetchProducts = async () => {
     lastPage.value = res.data?.last_page ?? 1
     total.value = res.data?.total ?? 0
 
+    // Keep view=all in the URL whenever we're in catalog mode with no
+    // other filters set — otherwise the smart-switch on /shop reads
+    // an empty query as "landing mode" and bounces the user back to
+    // the hero. This is the empty-filters catalog state.
+    const hasFilter = !! search.value || !! selectedCategory.value || !! selectedStore.value
     router.replace({
       query: {
         ...(currentPage.value > 1 ? { page: currentPage.value } : {}),
@@ -368,7 +373,7 @@ const fetchProducts = async () => {
         ...(selectedCategory.value ? { category_id: selectedCategory.value } : {}),
         ...(selectedStore.value ? { store_id: selectedStore.value } : {}),
         ...(sort.value !== 'newest' ? { sort: sort.value } : {}),
-        ...(route.query.view === 'all' && !selectedCategory.value && !selectedStore.value ? { view: 'all' } : {}),
+        ...(! hasFilter ? { view: 'all' } : {}),
       },
     })
   } catch (err) {
