@@ -107,50 +107,21 @@
       <input v-model="form.source_url" type="url" placeholder="https://..." class="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
     </div>
 
-    <!-- Pricing -->
+    <!-- Pricing — source-store USD only. Tax / shipping / commission
+         are NOT here; Velonie applies those per-PR at quote time. -->
     <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
       <h2 class="font-bold text-gray-900 mb-1">Precio</h2>
-      <p class="text-xs text-gray-400 mb-4">Costo y margen son visibles solo para admin. El cliente solo ve el precio final.</p>
+      <p class="text-xs text-gray-400 mb-4">El precio original en USD que la tienda muestra. Esto es lo que ve el cliente en la página pública.</p>
 
       <div class="grid sm:grid-cols-3 gap-4">
-        <!-- Cost (admin-only) -->
         <div>
-          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-            Costo MXN <span class="text-gray-300 font-normal">— solo admin</span>
-          </label>
+          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Precio USD *</label>
           <div class="relative">
             <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">$</span>
-            <input v-model.number="costDisplay" type="number" min="0" step="0.01" placeholder="Lo que pagamos" class="w-full pl-8 pr-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
+            <input v-model.number="priceDisplay" type="number" min="0" step="0.01" required class="w-full pl-8 pr-12 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-primary-500" />
+            <span class="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-400">USD</span>
           </div>
         </div>
-
-        <!-- Markup -->
-        <div>
-          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Margen %</label>
-          <div class="relative">
-            <input v-model.number="form.markup_percent" type="number" min="0" step="0.01" class="w-full pl-4 pr-8 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
-            <span class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">%</span>
-          </div>
-        </div>
-
-        <!-- Final price (auto-calc, overridable) -->
-        <div>
-          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-            Precio final MXN *
-            <button v-if="canSuggestPrice && !priceMatchesSuggested" type="button" @click="useSuggestedPrice" class="ml-1 text-primary-600 font-semibold hover:underline">(usar sugerido)</button>
-          </label>
-          <div class="relative">
-            <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">$</span>
-            <input v-model.number="priceDisplay" type="number" min="0" step="0.01" required class="w-full pl-8 pr-4 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-primary-500" />
-          </div>
-          <p v-if="canSuggestPrice" class="text-xs text-gray-400 mt-1">
-            Sugerido: <strong>${{ suggestedPrice.toFixed(2) }}</strong>
-            <span v-if="actualMargin !== null"> · margen actual: <strong :class="actualMargin >= 0 ? 'text-green-600' : 'text-red-600'">{{ actualMargin.toFixed(2) }}%</strong></span>
-          </p>
-        </div>
-      </div>
-
-      <div class="grid sm:grid-cols-2 gap-4 mt-4">
         <div>
           <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Estado</label>
           <select v-model="form.status" class="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
@@ -162,31 +133,6 @@
         <div>
           <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Disponible hasta</label>
           <input v-model="form.available_until" type="datetime-local" class="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
-        </div>
-      </div>
-
-    </div>
-
-    <!-- Physical -->
-    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-      <h2 class="font-bold text-gray-900 mb-1">Peso y dimensiones <span class="text-xs font-normal text-red-500">(requerido)</span></h2>
-      <p class="text-xs text-gray-400 mb-3">Por unidad. Boxly los usa para estimar la caja del cliente.</p>
-      <div class="grid sm:grid-cols-4 gap-4">
-        <div>
-          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Peso (kg) *</label>
-          <input v-model.number="form.weight_kg" type="number" min="0.01" max="50" step="0.01" required class="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
-        </div>
-        <div>
-          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Largo (cm) *</label>
-          <input v-model.number="form.length_cm" type="number" min="0.1" step="0.1" required class="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
-        </div>
-        <div>
-          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Ancho (cm) *</label>
-          <input v-model.number="form.width_cm" type="number" min="0.1" step="0.1" required class="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
-        </div>
-        <div>
-          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Alto (cm) *</label>
-          <input v-model.number="form.height_cm" type="number" min="0.1" step="0.1" required class="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
         </div>
       </div>
     </div>
@@ -266,14 +212,8 @@ const form = ref({
   store_id: props.existingProduct?.store_id ?? null,
   category_ids: (props.existingProduct?.categories ?? []).map(c => c.id),
   price_cents: props.existingProduct?.price_cents ?? 0,
-  cost_cents: props.existingProduct?.cost_cents ?? null,
-  markup_percent: Number(props.existingProduct?.markup_percent ?? 8),
   status: props.existingProduct?.status ?? 'draft',
   available_until: formatDateTimeLocal(props.existingProduct?.available_until),
-  weight_kg: props.existingProduct?.weight_kg ?? null,
-  length_cm: props.existingProduct?.length_cm ?? null,
-  width_cm: props.existingProduct?.width_cm ?? null,
-  height_cm: props.existingProduct?.height_cm ?? null,
 })
 
 // Stores + categories for the dropdown / checkbox group
@@ -292,54 +232,11 @@ onMounted(async () => {
   }
 })
 
+// price_cents stores USD cents directly (source-store price). The
+// dollar-display computed exposes it as $X.XX for the input.
 const priceDisplay = computed({
   get: () => (form.value.price_cents ?? 0) / 100,
   set: (val) => { form.value.price_cents = Math.round(Number(val || 0) * 100) },
-})
-
-const costDisplay = computed({
-  get: () => form.value.cost_cents == null ? null : form.value.cost_cents / 100,
-  set: (val) => {
-    if (val === '' || val === null || val === undefined) {
-      form.value.cost_cents = null
-      return
-    }
-    form.value.cost_cents = Math.round(Number(val) * 100)
-  },
-})
-
-// Auto-suggest final price based on cost + markup, but admin can override
-const canSuggestPrice = computed(() => form.value.cost_cents != null && form.value.cost_cents > 0)
-
-const suggestedPrice = computed(() => {
-  if (! canSuggestPrice.value) return 0
-  const markup = Number(form.value.markup_percent ?? 0) / 100
-  return Math.round((form.value.cost_cents * (1 + markup))) / 100
-})
-
-const priceMatchesSuggested = computed(() => {
-  if (! canSuggestPrice.value) return true
-  return Math.abs(priceDisplay.value - suggestedPrice.value) < 0.01
-})
-
-const actualMargin = computed(() => {
-  if (! canSuggestPrice.value) return null
-  if (form.value.price_cents <= 0) return null
-  return ((form.value.price_cents - form.value.cost_cents) / form.value.cost_cents) * 100
-})
-
-const useSuggestedPrice = () => {
-  if (! canSuggestPrice.value) return
-  form.value.price_cents = Math.round(form.value.cost_cents * (1 + Number(form.value.markup_percent) / 100))
-}
-
-// Auto-fill price when cost is set for the first time (no override yet)
-watch(() => [form.value.cost_cents, form.value.markup_percent], () => {
-  if (! canSuggestPrice.value) return
-  // Only auto-fill if the price is currently empty/zero
-  if (! form.value.price_cents || form.value.price_cents === 0) {
-    useSuggestedPrice()
-  }
 })
 
 // Image state — new files + previews. Color now lives at the product
