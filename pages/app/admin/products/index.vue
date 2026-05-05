@@ -62,6 +62,16 @@
           </button>
           <button
             v-if="statusFilter !== 'inactive'"
+            @click="confirmBulkCategorize"
+            class="inline-flex items-center px-4 py-2 bg-primary-500 text-white text-sm font-medium rounded-lg hover:bg-primary-600 transition-all"
+          >
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z"/>
+            </svg>
+            Asignar a categoría
+          </button>
+          <button
+            v-if="statusFilter !== 'inactive'"
             @click="confirmBulkDelete"
             :disabled="deletingBulk"
             class="inline-flex items-center px-4 py-2 bg-red-500 text-white text-sm font-medium rounded-lg hover:bg-red-600 disabled:opacity-50 transition-all"
@@ -352,6 +362,51 @@
       </div>
     </Teleport>
 
+    <!-- Bulk Categorize Modal -->
+    <Teleport to="body">
+      <div v-if="showCategorizeModal" class="fixed inset-0 z-50 overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 sm:p-0">
+          <div class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" @click="showCategorizeModal = false"></div>
+          <div class="relative inline-block overflow-hidden text-left align-bottom transition-all transform bg-white rounded-2xl shadow-xl sm:my-8 sm:align-middle sm:max-w-lg sm:w-full p-6">
+            <h3 class="text-lg font-medium leading-6 text-gray-900 mb-1">Asignar a categoría</h3>
+            <p class="text-sm text-gray-500 mb-4">
+              {{ selectedIds.length }} producto(s) seleccionado(s). Elige una o más categorías.
+            </p>
+
+            <div class="max-h-64 overflow-y-auto border border-gray-200 rounded-xl p-3 mb-4 space-y-1">
+              <p v-if="categories.length === 0" class="text-sm text-gray-400">No hay categorías disponibles.</p>
+              <label v-for="c in categories" :key="c.id" class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-50 cursor-pointer">
+                <input type="checkbox" :value="c.id" v-model="categorizeIds" class="rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
+                <span class="text-sm text-gray-700">{{ c.name }}</span>
+              </label>
+            </div>
+
+            <label class="flex items-center gap-2 mb-5 text-sm text-gray-600">
+              <input type="checkbox" v-model="categorizeReplace" class="rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
+              <span>Reemplazar categorías existentes (en vez de sumar a las que ya tienen)</span>
+            </label>
+
+            <div class="sm:flex sm:flex-row-reverse gap-3">
+              <button
+                @click="bulkCategorize"
+                :disabled="categorizing || categorizeIds.length === 0"
+                class="inline-flex justify-center w-full px-4 py-2 text-base font-medium text-white bg-primary-600 border border-transparent rounded-lg shadow-sm hover:bg-primary-700 sm:w-auto sm:text-sm disabled:opacity-50"
+              >
+                {{ categorizing ? 'Asignando...' : 'Asignar' }}
+              </button>
+              <button
+                @click="showCategorizeModal = false"
+                :disabled="categorizing"
+                class="inline-flex justify-center w-full px-4 py-2 mt-3 text-base font-medium text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 sm:mt-0 sm:w-auto sm:text-sm"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
     <!-- Confirm Bulk Delete Modal -->
     <Teleport to="body">
       <div v-if="showDeleteModal" class="fixed inset-0 z-50 overflow-y-auto">
@@ -429,6 +484,12 @@ const forceDeletingBulk = ref(false)
 const forceTarget = ref(null) // 'single' | 'bulk'
 const forceProduct = ref(null)
 
+// Bulk categorize
+const showCategorizeModal = ref(false)
+const categorizing = ref(false)
+const categorizeIds = ref([])         // category ids to assign
+const categorizeReplace = ref(false)  // false = additive (default), true = overwrite
+
 const isSelected = (id) => selectedIds.value.includes(id)
 const toggleSelection = (id) => {
   const idx = selectedIds.value.indexOf(id)
@@ -458,6 +519,37 @@ const clearSelection = () => { selectedIds.value = [] }
 
 const confirmBulkDelete = () => {
   if (selectedIds.value.length > 0) showDeleteModal.value = true
+}
+
+const confirmBulkCategorize = () => {
+  if (selectedIds.value.length === 0) return
+  categorizeIds.value = []
+  categorizeReplace.value = false
+  showCategorizeModal.value = true
+}
+
+const bulkCategorize = async () => {
+  if (categorizeIds.value.length === 0) return
+  categorizing.value = true
+  try {
+    const res = await $customFetch('/admin/products/bulk-categorize', {
+      method: 'POST',
+      body: {
+        ids: selectedIds.value,
+        category_ids: categorizeIds.value,
+        mode: categorizeReplace.value ? 'replace' : 'add',
+      },
+    })
+    $toast?.success?.(res?.message ?? 'Productos categorizados')
+    showCategorizeModal.value = false
+    selectedIds.value = []
+    await fetchProducts()
+  } catch (err) {
+    console.error(err)
+    $toast?.error?.(err?.data?.message ?? 'Error al categorizar productos')
+  } finally {
+    categorizing.value = false
+  }
 }
 
 const bulkDelete = async () => {
