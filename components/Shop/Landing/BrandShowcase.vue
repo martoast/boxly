@@ -1,9 +1,18 @@
 <template>
-  <section id="brands" class="bg-white py-16 lg:py-24">
+  <section v-if="brandTiles.length > 0" id="brands" class="bg-white py-16 lg:py-24">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <h2 class="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight mb-6">Marcas</h2>
+      <div class="flex items-end justify-between mb-6">
+        <h2 class="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight">Marcas</h2>
+        <NuxtLink
+          to="/shop/brands"
+          class="hidden sm:inline-flex items-center gap-1 text-sm font-semibold text-gray-600 hover:text-gray-900 transition-colors"
+        >
+          Ver todas
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
+        </NuxtLink>
+      </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-6">
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-x-4 gap-y-6">
         <NuxtLink
           v-for="b in brandTiles"
           :key="b.id"
@@ -27,6 +36,18 @@
           </div>
         </NuxtLink>
       </div>
+
+      <!-- Mobile-only "Ver todas" link below the grid (the header link
+           is hidden on small screens to keep the heading row tight). -->
+      <div class="mt-6 sm:hidden">
+        <NuxtLink
+          to="/shop/brands"
+          class="inline-flex items-center gap-1 text-sm font-semibold text-gray-700"
+        >
+          Ver todas las marcas
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
+        </NuxtLink>
+      </div>
     </div>
   </section>
 </template>
@@ -45,8 +66,14 @@ const COVER_MAP = {
 }
 const coverFor = (s) => s.cover_image_url || COVER_MAP[(s.name || '').trim().toLowerCase()] || null
 
+// Server-side fetch of just the landing-curated brands (capped at 5
+// — admin toggles `show_on_landing` per store via the edit form). The
+// /shop/brands page is what users hit via "Ver todas" for the full
+// list, so no need to over-fetch here.
 const { data } = await useAsyncData('shop-landing-brands', async () => {
-  const res = await $customFetch('/store/stores').catch(() => null)
+  const res = await $customFetch('/store/stores', {
+    query: { on_landing: 1, limit: 5 },
+  }).catch(() => null)
   return res?.data ?? []
 })
 

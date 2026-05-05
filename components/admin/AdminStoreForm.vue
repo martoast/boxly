@@ -57,10 +57,17 @@
         <textarea v-model="form.description" rows="3" class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"></textarea>
       </div>
 
-      <div class="grid grid-cols-2 gap-4">
+      <div class="space-y-3">
         <label class="flex items-center gap-2 text-sm">
           <input type="checkbox" v-model="form.is_active" class="rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
           <span class="font-semibold text-gray-900">Activa</span>
+        </label>
+        <label class="flex items-start gap-2 text-sm">
+          <input type="checkbox" v-model="form.show_on_landing" class="mt-0.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
+          <span>
+            <span class="font-semibold text-gray-900 block">Mostrar en página principal</span>
+            <span class="text-xs text-gray-500">Aparece en el showcase de marcas en /shop. Recomendado: 5 marcas máximo.</span>
+          </span>
         </label>
         <div>
           <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Sort order</label>
@@ -99,6 +106,7 @@ const form = ref({
   cover_image_url: '',
   description: '',
   is_active: true,
+  show_on_landing: false,
   sort_order: 0,
 })
 
@@ -112,6 +120,7 @@ watch(() => props.existingStore, (s) => {
       cover_image_url: s.cover_image_url ?? '',
       description: s.description ?? '',
       is_active: s.is_active ?? true,
+      show_on_landing: s.show_on_landing ?? false,
       sort_order: s.sort_order ?? 0,
     }
   }
