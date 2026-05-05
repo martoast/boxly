@@ -306,39 +306,6 @@
               <div class="prose prose-sm max-w-none text-gray-700 whitespace-pre-line leading-relaxed pt-2">{{ product.description }}</div>
             </details>
 
-            <!-- Specs (collapsible on mobile, open on desktop) -->
-            <details class="mt-4 border-t border-gray-100 pt-4 group" :open="true">
-              <summary class="font-semibold text-gray-900 mb-3 text-xs sm:text-sm uppercase tracking-wider cursor-pointer list-none flex items-center justify-between">
-                <span>{{ t.specs }}</span>
-                <svg class="w-4 h-4 text-gray-400 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                </svg>
-              </summary>
-              <dl class="space-y-1.5 text-sm">
-                <div class="flex justify-between py-1.5">
-                  <dt class="text-gray-500">{{ t.weight }}</dt>
-                  <dd class="text-gray-900 font-medium">{{ Number(product.weight_kg).toFixed(2) }} kg</dd>
-                </div>
-                <div class="flex justify-between py-1.5">
-                  <dt class="text-gray-500">{{ t.dimensions }}</dt>
-                  <dd class="text-gray-900 font-medium text-right">
-                    {{ Number(product.length_cm).toFixed(1) }} × {{ Number(product.width_cm).toFixed(1) }} × {{ Number(product.height_cm).toFixed(1) }} cm
-                  </dd>
-                </div>
-                <div v-if="product.sku" class="flex justify-between py-1.5">
-                  <dt class="text-gray-500">SKU</dt>
-                  <dd class="text-gray-900 font-medium font-mono text-xs">{{ product.sku }}</dd>
-                </div>
-                <div v-if="product.store" class="flex justify-between py-1.5">
-                  <dt class="text-gray-500">{{ t.brand }}</dt>
-                  <dd class="text-gray-900 font-medium">{{ product.store.name }}</dd>
-                </div>
-                <div v-if="(product.categories ?? []).length" class="flex justify-between py-1.5">
-                  <dt class="text-gray-500">{{ t.categories }}</dt>
-                  <dd class="text-gray-900 font-medium text-right">{{ product.categories.map(c => c.name).join(', ') }}</dd>
-                </div>
-              </dl>
-            </details>
           </div>
         </div>
       </div>
@@ -437,12 +404,6 @@ const t = createTranslations({
   color:          { es: 'Color', en: 'Color' },
   length:         { es: 'Largo', en: 'Length' },
   pickVariant:    { es: 'Elige todas las opciones para continuar', en: 'Pick every option to continue' },
-  specs:          { es: 'Especificaciones', en: 'Specifications' },
-  weight:         { es: 'Peso', en: 'Weight' },
-  dimensions:     { es: 'Dimensiones', en: 'Dimensions' },
-  category:       { es: 'Categoría', en: 'Category' },
-  categories:     { es: 'Categorías', en: 'Categories' },
-  brand:          { es: 'Tienda', en: 'Store' },
   aboutThis:      { es: 'Acerca de este producto', en: 'About this product' },
   related:        { es: 'Productos relacionados', en: 'Related products' },
 })
