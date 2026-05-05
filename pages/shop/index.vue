@@ -17,49 +17,179 @@
           <p v-if="total > 0" class="text-gray-500 mt-1 text-sm">{{ total }} {{ total === 1 ? 'producto' : 'productos' }}</p>
         </div>
 
-        <!-- Search + sort + store pills -->
-        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-6">
-          <div class="flex flex-col md:flex-row gap-3">
-            <div class="relative flex-1">
-              <svg class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-              </svg>
-              <input
-                v-model="search"
-                type="text"
-                :placeholder="t.searchPlaceholder"
-                class="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              />
-            </div>
-            <select
-              v-model="sort"
-              class="px-4 py-3 border border-gray-200 rounded-xl bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-            >
-              <option value="newest">{{ t.sortNewest }}</option>
-              <option value="price_asc">{{ t.sortPriceAsc }}</option>
-              <option value="price_desc">{{ t.sortPriceDesc }}</option>
-            </select>
-          </div>
+        <!-- Slim toolbar — Show Filters · Sort · active filter chips -->
+        <div class="flex items-center justify-between gap-3 mb-2 flex-wrap">
+          <button
+            type="button"
+            @click="filtersOpen = true"
+            class="inline-flex items-center gap-2 text-sm font-semibold text-gray-900 hover:text-primary-600 transition-colors"
+          >
+            <span>{{ t.showFilters }}</span>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 4h18M6 12h12m-9 8h6"/>
+            </svg>
+          </button>
 
-          <div v-if="stores.length > 0" class="flex flex-wrap items-center gap-2 mt-4">
-            <span class="text-xs uppercase tracking-wider text-gray-400 font-semibold mr-1">{{ t.storesLabel }}</span>
-            <button
-              @click="setStore(null)"
-              :class="[!selectedStore ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400',
-                'px-3 py-1 rounded-full border text-xs font-medium transition-colors']"
-            >{{ t.all }}</button>
-            <button
-              v-for="s in stores"
-              :key="s.id"
-              @click="setStore(s.id)"
-              :class="[selectedStore === s.id ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400',
-                'inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-medium transition-colors']"
-            >
-              <img v-if="s.logo_url" :src="s.logo_url" alt="" class="h-4 w-4 rounded-full object-cover" />
-              {{ s.name }}
-            </button>
-          </div>
+          <select
+            v-model="sort"
+            class="text-sm font-semibold text-gray-700 bg-transparent border border-gray-200 rounded-full pl-3 pr-8 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
+          >
+            <option value="newest">{{ t.sortNewest }}</option>
+            <option value="price_asc">{{ t.sortPriceAsc }}</option>
+            <option value="price_desc">{{ t.sortPriceDesc }}</option>
+          </select>
         </div>
+
+        <!-- Active filter chips -->
+        <div v-if="hasActiveFilters" class="flex flex-wrap items-center gap-2 mb-6">
+          <span
+            v-if="search"
+            class="inline-flex items-center gap-1.5 pl-3 pr-1 py-1 rounded-full border border-gray-200 bg-white text-xs font-medium text-gray-700"
+          >
+            {{ t.searchPlaceholder.replace('...', '') }}: <strong class="font-semibold">{{ search }}</strong>
+            <button type="button" @click="clearSearch" class="ml-1 inline-flex items-center justify-center h-5 w-5 rounded-full hover:bg-gray-100">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          </span>
+          <span
+            v-if="selectedStoreObj"
+            class="inline-flex items-center gap-1.5 pl-3 pr-1 py-1 rounded-full border border-gray-200 bg-white text-xs font-medium text-gray-700"
+          >
+            {{ t.storesLabel.replace(':','') }}: <strong class="font-semibold">{{ selectedStoreObj.name }}</strong>
+            <button type="button" @click="setStore(null)" class="ml-1 inline-flex items-center justify-center h-5 w-5 rounded-full hover:bg-gray-100">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          </span>
+          <span
+            v-if="selectedCategoryObj"
+            class="inline-flex items-center gap-1.5 pl-3 pr-1 py-1 rounded-full border border-gray-200 bg-white text-xs font-medium text-gray-700"
+          >
+            {{ t.categoryLabel.replace(':','') }}: <strong class="font-semibold">{{ selectedCategoryObj.name }}</strong>
+            <button type="button" @click="setCategory(null)" class="ml-1 inline-flex items-center justify-center h-5 w-5 rounded-full hover:bg-gray-100">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          </span>
+          <button
+            type="button"
+            @click="clearAllFilters"
+            class="text-xs text-gray-500 hover:text-gray-900 font-semibold underline ml-1"
+          >{{ t.clearAll }}</button>
+        </div>
+
+        <!-- Filters drawer -->
+        <Teleport to="body">
+          <Transition
+            enter-active-class="transition-opacity duration-200"
+            enter-from-class="opacity-0"
+            enter-to-class="opacity-100"
+            leave-active-class="transition-opacity duration-200"
+            leave-from-class="opacity-100"
+            leave-to-class="opacity-0"
+          >
+            <div v-if="filtersOpen" class="fixed inset-0 z-50 bg-black/40" @click="filtersOpen = false">
+              <div
+                class="absolute left-0 top-0 h-full w-full sm:w-96 max-w-[100vw] bg-white shadow-2xl flex flex-col"
+                @click.stop
+              >
+                <div class="flex items-center justify-between p-4 border-b border-gray-100">
+                  <button
+                    type="button"
+                    @click="filtersOpen = false"
+                    class="inline-flex items-center gap-2 text-sm font-semibold text-gray-900 hover:text-primary-600 transition-colors"
+                  >
+                    <span>{{ t.hideFilters }}</span>
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M3 4h18M6 12h12m-9 8h6"/>
+                    </svg>
+                  </button>
+                  <button
+                    @click="filtersOpen = false"
+                    class="h-9 w-9 inline-flex items-center justify-center rounded-full hover:bg-gray-100"
+                    aria-label="Cerrar"
+                  >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                  </button>
+                </div>
+
+                <div class="flex-1 overflow-y-auto p-5 space-y-6">
+                  <!-- Search -->
+                  <div>
+                    <label class="block text-xs font-bold text-gray-900 uppercase tracking-wider mb-2">{{ t.searchPlaceholder.replace('...','') }}</label>
+                    <div class="relative">
+                      <svg class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                      <input
+                        v-model="search"
+                        type="text"
+                        :placeholder="t.searchPlaceholder"
+                        class="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      />
+                    </div>
+                  </div>
+
+                  <!-- Tienda -->
+                  <details v-if="stores.length > 0" open class="group">
+                    <summary class="flex items-center justify-between cursor-pointer list-none py-2 border-t border-gray-100">
+                      <span class="text-sm font-bold text-gray-900 uppercase tracking-wider">{{ t.storesLabel.replace(':','') }}</span>
+                      <svg class="w-4 h-4 text-gray-500 transition-transform group-open:rotate-45" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m-8-8h16"/></svg>
+                    </summary>
+                    <div class="space-y-1 pt-2">
+                      <button
+                        type="button"
+                        @click="setStore(null)"
+                        :class="[!selectedStore ? 'text-gray-900 font-semibold' : 'text-gray-600 hover:text-gray-900', 'block w-full text-left text-sm py-1.5']"
+                      >{{ t.all }}</button>
+                      <button
+                        v-for="s in stores"
+                        :key="s.id"
+                        type="button"
+                        @click="setStore(s.id)"
+                        :class="[selectedStore === s.id ? 'text-gray-900 font-semibold' : 'text-gray-600 hover:text-gray-900', 'flex items-center gap-2 w-full text-left text-sm py-1.5']"
+                      >
+                        <img v-if="s.logo_url" :src="s.logo_url" alt="" class="h-5 w-5 rounded-full object-cover" />
+                        {{ s.name }}
+                      </button>
+                    </div>
+                  </details>
+
+                  <!-- Categoría -->
+                  <details v-if="categories.length > 0" open class="group">
+                    <summary class="flex items-center justify-between cursor-pointer list-none py-2 border-t border-gray-100">
+                      <span class="text-sm font-bold text-gray-900 uppercase tracking-wider">{{ t.categoryLabel.replace(':','') }}</span>
+                      <svg class="w-4 h-4 text-gray-500 transition-transform group-open:rotate-45" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m-8-8h16"/></svg>
+                    </summary>
+                    <div class="space-y-1 pt-2">
+                      <button
+                        type="button"
+                        @click="setCategory(null)"
+                        :class="[!selectedCategory ? 'text-gray-900 font-semibold' : 'text-gray-600 hover:text-gray-900', 'block w-full text-left text-sm py-1.5']"
+                      >{{ t.all }}</button>
+                      <button
+                        v-for="c in categories"
+                        :key="c.id"
+                        type="button"
+                        @click="setCategory(c.id)"
+                        :class="[selectedCategory === c.id ? 'text-gray-900 font-semibold' : 'text-gray-600 hover:text-gray-900', 'block w-full text-left text-sm py-1.5']"
+                      >{{ c.name }}</button>
+                    </div>
+                  </details>
+                </div>
+
+                <div class="border-t border-gray-100 p-4 flex items-center justify-between gap-3">
+                  <button
+                    type="button"
+                    @click="clearAllFilters"
+                    class="text-sm font-semibold text-gray-500 hover:text-gray-900 underline"
+                  >{{ t.clearAll }}</button>
+                  <button
+                    type="button"
+                    @click="filtersOpen = false"
+                    class="px-5 py-2.5 rounded-full bg-gray-900 text-white text-sm font-semibold hover:bg-gray-800 transition-colors"
+                  >Ver {{ total }} {{ total === 1 ? 'producto' : 'productos' }}</button>
+                </div>
+              </div>
+            </div>
+          </Transition>
+        </Teleport>
 
         <!-- Loading skeleton -->
         <div v-if="loading" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 auto-rows-fr">
@@ -144,6 +274,10 @@ const t = createTranslations({
   prev:              { es: 'Anterior', en: 'Prev' },
   next:              { es: 'Siguiente', en: 'Next' },
   storesLabel:       { es: 'Tienda:', en: 'Store:' },
+  categoryLabel:     { es: 'Categoría:', en: 'Category:' },
+  showFilters:       { es: 'Mostrar filtros', en: 'Show filters' },
+  hideFilters:       { es: 'Ocultar filtros', en: 'Hide filters' },
+  clearAll:          { es: 'Limpiar todo', en: 'Clear all' },
 })
 
 // Bare /shop with no query params → landing mode. Any filter or
@@ -252,6 +386,34 @@ const setCategory = (catId) => {
 
 const setStore = (storeId) => {
   selectedStore.value = storeId
+  currentPage.value = 1
+  fetchProducts()
+}
+
+// Filters drawer
+const filtersOpen = ref(false)
+
+// Resolve display objects for the active filter chips
+const selectedStoreObj = computed(() =>
+  selectedStore.value ? stores.value.find((s) => s.id === selectedStore.value) ?? null : null
+)
+const selectedCategoryObj = computed(() =>
+  selectedCategory.value ? categories.value.find((c) => c.id === selectedCategory.value) ?? null : null
+)
+
+const hasActiveFilters = computed(() =>
+  !! search.value || !! selectedStore.value || !! selectedCategory.value
+)
+
+const clearSearch = () => {
+  search.value = ''
+  // search ref's watcher will re-fetch + update URL
+}
+
+const clearAllFilters = () => {
+  search.value = ''
+  selectedStore.value = null
+  selectedCategory.value = null
   currentPage.value = 1
   fetchProducts()
 }
