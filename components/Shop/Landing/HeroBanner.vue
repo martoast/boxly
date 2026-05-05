@@ -4,24 +4,34 @@
        page; this component just renders whatever's active. Falls back
        to a clean image-only banner when no campaign is configured. -->
 
-  <!-- Active campaign — full-bleed image with copy + CTA overlaid on the lower-left -->
+  <!-- Active campaign — full-bleed image. Mobile uses a portrait crop
+       with copy/CTA centered (better for phone framing); desktop uses
+       the cinematic landscape crop with copy pinned to the lower-left. -->
   <section v-if="hero" class="relative w-full bg-gray-900 overflow-hidden">
     <NuxtLink
       :to="hero.cta_link || '/shop?view=all'"
       class="group block relative w-full aspect-[4/5] sm:aspect-[16/10] lg:aspect-[21/9] max-h-[85vh]"
     >
+      <!-- Mobile image (uses desktop image as a fallback if no mobile crop is set) -->
+      <img
+        :src="hero.mobile_image_url || hero.image_url || '/images/shop-hero.png'"
+        :alt="hero.title"
+        class="sm:hidden absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.02]"
+      />
+      <!-- Desktop image -->
       <img
         :src="hero.image_url || '/images/shop-hero.png'"
         :alt="hero.title"
-        class="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.02]"
+        class="hidden sm:block absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.02]"
       />
-      <!-- Legibility gradients: stronger on the left where copy lives,
-           plus a soft bottom fade on tall mobile shots. -->
-      <div class="absolute inset-0 bg-gradient-to-r from-black/60 via-black/25 to-transparent"></div>
-      <div class="absolute inset-0 sm:hidden bg-gradient-to-t from-black/50 via-transparent to-transparent"></div>
+      <!-- Legibility overlays: mobile gets a uniform darken so centered
+           copy is readable anywhere on the frame; desktop gets the
+           left-side gradient. -->
+      <div class="absolute inset-0 sm:hidden bg-black/35"></div>
+      <div class="absolute inset-0 hidden sm:block bg-gradient-to-r from-black/60 via-black/25 to-transparent"></div>
 
       <div class="absolute inset-0 flex">
-        <div class="w-full max-w-7xl mx-auto px-6 sm:px-10 lg:px-12 flex flex-col justify-end pb-10 sm:pb-14 lg:pb-20">
+        <div class="w-full max-w-7xl mx-auto px-6 sm:px-10 lg:px-12 flex flex-col justify-center items-center text-center sm:justify-end sm:items-start sm:text-left pb-0 sm:pb-14 lg:pb-20">
           <h1 class="text-white text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-extrabold tracking-tight leading-[1.02] drop-shadow-2xl max-w-3xl">
             {{ hero.title }}
           </h1>

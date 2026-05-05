@@ -54,25 +54,48 @@
       </div>
 
       <form @submit.prevent="onSubmit" class="space-y-6">
-        <!-- Image -->
+        <!-- Images — desktop + mobile crops -->
         <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-          <h2 class="font-bold text-gray-900 mb-1">Imagen</h2>
-          <p class="text-xs text-gray-400 mb-4">Foto editorial del campaign. Sube la versión final que generamos juntos.</p>
+          <h2 class="font-bold text-gray-900 mb-1">Imágenes</h2>
+          <p class="text-xs text-gray-400 mb-4">Sube las versiones para escritorio (horizontal) y celular (vertical). Las dos se muestran según el dispositivo del cliente.</p>
 
-          <div v-if="previewImage" class="mb-4 relative aspect-[16/9] rounded-xl overflow-hidden bg-gray-100">
-            <img :src="previewImage" alt="" class="absolute inset-0 w-full h-full object-cover" />
-          </div>
-
-          <label class="block w-full cursor-pointer">
-            <input ref="fileInput" type="file" accept="image/*" class="hidden" @change="onFileChange" />
-            <div class="border-2 border-dashed border-gray-200 hover:border-primary-300 hover:bg-primary-50/40 transition-colors rounded-xl py-6 text-center">
-              <svg class="h-10 w-10 mx-auto text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-              </svg>
-              <p class="text-sm font-medium text-gray-700">{{ previewImage ? 'Reemplazar imagen' : 'Subir imagen' }}</p>
-              <p class="text-xs text-gray-400 mt-0.5">JPG, PNG, WebP · max 10MB · idealmente 1600×1200</p>
+          <div class="grid sm:grid-cols-2 gap-5">
+            <!-- Desktop crop -->
+            <div>
+              <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Escritorio · 21:9</p>
+              <div v-if="previewImage" class="mb-3 relative aspect-[16/9] rounded-xl overflow-hidden bg-gray-100">
+                <img :src="previewImage" alt="" class="absolute inset-0 w-full h-full object-cover" />
+              </div>
+              <label class="block w-full cursor-pointer">
+                <input ref="fileInput" type="file" accept="image/*" class="hidden" @change="onFileChange" />
+                <div class="border-2 border-dashed border-gray-200 hover:border-primary-300 hover:bg-primary-50/40 transition-colors rounded-xl py-5 text-center">
+                  <svg class="h-8 w-8 mx-auto text-gray-400 mb-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                  </svg>
+                  <p class="text-sm font-medium text-gray-700">{{ previewImage ? 'Reemplazar' : 'Subir imagen' }}</p>
+                  <p class="text-[11px] text-gray-400 mt-0.5">JPG, PNG, WebP · max 10MB · 1920×820 ideal</p>
+                </div>
+              </label>
             </div>
-          </label>
+
+            <!-- Mobile crop -->
+            <div>
+              <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Celular · 4:5</p>
+              <div v-if="previewMobileImage" class="mb-3 relative aspect-[4/5] rounded-xl overflow-hidden bg-gray-100 max-w-[200px]">
+                <img :src="previewMobileImage" alt="" class="absolute inset-0 w-full h-full object-cover" />
+              </div>
+              <label class="block w-full cursor-pointer">
+                <input ref="mobileFileInput" type="file" accept="image/*" class="hidden" @change="onMobileFileChange" />
+                <div class="border-2 border-dashed border-gray-200 hover:border-primary-300 hover:bg-primary-50/40 transition-colors rounded-xl py-5 text-center">
+                  <svg class="h-8 w-8 mx-auto text-gray-400 mb-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                  </svg>
+                  <p class="text-sm font-medium text-gray-700">{{ previewMobileImage ? 'Reemplazar' : 'Subir imagen' }}</p>
+                  <p class="text-[11px] text-gray-400 mt-0.5">JPG, PNG, WebP · max 10MB · 1080×1350 ideal</p>
+                </div>
+              </label>
+            </div>
+          </div>
         </div>
 
         <!-- Copy -->
@@ -162,11 +185,15 @@ const hero = ref(null)
 const newImageFile = ref(null)
 const newImagePreview = ref(null)
 const fileInput = ref(null)
+const newMobileImageFile = ref(null)
+const newMobileImagePreview = ref(null)
+const mobileFileInput = ref(null)
 const saving = ref(false)
 const stores = ref([])
 const categories = ref([])
 
 const previewImage = computed(() => newImagePreview.value || hero.value?.image_url || null)
+const previewMobileImage = computed(() => newMobileImagePreview.value || hero.value?.mobile_image_url || null)
 
 const fetchHero = async () => {
   try {
@@ -204,6 +231,22 @@ const onFileChange = (e) => {
   reader.readAsDataURL(file)
 }
 
+const onMobileFileChange = (e) => {
+  const file = e.target.files?.[0]
+  if (! file) return
+  newMobileImageFile.value = file
+  const reader = new FileReader()
+  reader.onload = (ev) => { newMobileImagePreview.value = ev.target.result }
+  reader.readAsDataURL(file)
+}
+
+const uploadVariant = async (file, variant) => {
+  const fd = new FormData()
+  fd.append('image', file)
+  fd.append('variant', variant)
+  await $customFetch('/shopping/store-hero/image', { method: 'POST', body: fd })
+}
+
 const onSubmit = async () => {
   saving.value = true
   try {
@@ -213,17 +256,18 @@ const onSubmit = async () => {
       body: form.value,
     })
 
-    // 2. If a new image is staged, upload it (replaces the previous)
+    // 2. Upload any staged images (desktop, then mobile)
     if (newImageFile.value) {
-      const fd = new FormData()
-      fd.append('image', newImageFile.value)
-      await $customFetch('/shopping/store-hero/image', {
-        method: 'POST',
-        body: fd,
-      })
+      await uploadVariant(newImageFile.value, 'desktop')
       newImageFile.value = null
       newImagePreview.value = null
       if (fileInput.value) fileInput.value.value = ''
+    }
+    if (newMobileImageFile.value) {
+      await uploadVariant(newMobileImageFile.value, 'mobile')
+      newMobileImageFile.value = null
+      newMobileImagePreview.value = null
+      if (mobileFileInput.value) mobileFileInput.value.value = ''
     }
 
     await fetchHero()
