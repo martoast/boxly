@@ -2,7 +2,16 @@
 export default defineNuxtConfig({
   compatibilityDate: '2025-05-15',
   devtools: { enabled: false },
+  // Hybrid rendering — keep the app SPA-first but server-render the
+  // public marketing/storefront pages so social share previews and
+  // SEO indexing work natively. Private dashboards under /app/** stay
+  // SPA-only (no SEO need, less risk of hydration mismatches).
   ssr: false,
+  routeRules: {
+    '/':        { ssr: true },
+    '/shop':    { ssr: true },
+    '/shop/**': { ssr: true },
+  },
   app: {
     head: {
       charset: 'utf-8',

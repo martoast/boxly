@@ -449,9 +449,24 @@ const t = createTranslations({
 
 const { add } = useStoreCart()
 
-const product = ref(null)
-const related = ref([])
-const loading = ref(true)
+// useAsyncData = data fetched on the SERVER for SSR-enabled routes
+// (we set /shop/** to ssr: true via routeRules), then re-used on the
+// client during hydration. This is what makes social-share previews
+// and SEO indexing work natively — the product's title, image, and
+// description are baked into the initial HTML the crawler sees.
+const { data: pageData, pending, refresh } = await useAsyncData(
+  () => `shop-product-${route.params.slug}`,
+  () => $customFetch(`/store/products/${route.params.slug}`).catch((err) => {
+    if (err?.response?.status === 404) return null
+    throw err
+  }),
+  { watch: [() => route.params.slug] },
+)
+
+const product = computed(() => pageData.value?.data?.product ?? null)
+const related = computed(() => pageData.value?.data?.related ?? [])
+const loading = computed(() => pending.value)
+
 const qty = ref(1)
 const activeIndex = ref(0)
 const lightboxOpen = ref(false)
@@ -459,6 +474,47 @@ const added = ref(false)
 const selectedSize = ref(null)
 const selectedLength = ref(null)
 const mobileCarousel = ref(null)
+
+// Reset gallery + variant pickers when navigating between products
+watch(() => route.params.slug, () => {
+  activeIndex.value = 0
+  selectedSize.value = null
+  selectedLength.value = null
+  qty.value = 1
+})
+
+// SEO meta — driven by computed product so it auto-refreshes when the
+// route changes. useHead is reactive in Nuxt 3 when given functions /
+// refs / computeds, and runs both server-side (for crawlers) and
+// client-side (for in-app navigation tab titles).
+useHead(() => {
+  const p = product.value
+  if (!p) return { title: 'Tienda Boxly' }
+  const colorSuffix = p.color ? ` - ${p.color}` : ''
+  const title = `${p.name}${colorSuffix} — Tienda Boxly`
+  const description = (p.description || `${p.name} en la Tienda Boxly`).trim().slice(0, 200)
+  const image = p.first_image_url || 'https://boxly.mx/logo.jpeg'
+  const fullUrl = `https://boxly.mx/shop/${p.slug}`
+  return {
+    title,
+    meta: [
+      { name: 'description', content: description },
+      { property: 'og:type', content: 'product' },
+      { property: 'og:url', content: fullUrl },
+      { property: 'og:title', content: title },
+      { property: 'og:description', content: description },
+      { property: 'og:image', content: image },
+      { property: 'og:image:alt', content: p.name },
+      { property: 'og:locale', content: 'es_MX' },
+      { property: 'og:site_name', content: 'Boxly' },
+      { name: 'twitter:card', content: 'summary_large_image' },
+      { name: 'twitter:title', content: title },
+      { name: 'twitter:description', content: description },
+      { name: 'twitter:image', content: image },
+    ],
+    link: [{ rel: 'canonical', href: fullUrl }],
+  }
+})
 
 // Update activeIndex while the user swipes through the mobile carousel
 const onMobileScroll = (e) => {
@@ -551,54 +607,6 @@ const expiringSoonLabel = computed(() => {
   return `${days} días restantes`
 })
 
-const fetchProduct = async () => {
-  loading.value = true
-  try {
-    const res = await $customFetch(`/store/products/${route.params.slug}`)
-    product.value = res.data?.product ?? null
-    related.value = res.data?.related ?? []
-    activeIndex.value = 0
-
-    // In-app meta — updates browser tab + history when navigating between
-    // products. Social crawlers don't see this (the app is `ssr: false`),
-    // so the heavy lifting for share previews lives in
-    // server/middleware/og-shop.ts which intercepts crawler UAs.
-    if (product.value) {
-      const p = product.value
-      const colorSuffix = p.color ? ` - ${p.color}` : ''
-      const title = `${p.name}${colorSuffix} — Tienda Boxly`
-      const description = (p.description || `${p.name} en la Tienda Boxly`).trim().slice(0, 200)
-      const image = p.first_image_url || 'https://boxly.mx/logo.jpeg'
-      const fullUrl = `https://boxly.mx/shop/${p.slug}`
-      useHead({
-        title,
-        meta: [
-          { name: 'description', content: description },
-          { property: 'og:type', content: 'product' },
-          { property: 'og:url', content: fullUrl },
-          { property: 'og:title', content: title },
-          { property: 'og:description', content: description },
-          { property: 'og:image', content: image },
-          { property: 'og:image:alt', content: p.name },
-          { name: 'twitter:card', content: 'summary_large_image' },
-          { name: 'twitter:title', content: title },
-          { name: 'twitter:description', content: description },
-          { name: 'twitter:image', content: image },
-        ],
-        link: [{ rel: 'canonical', href: fullUrl }],
-      })
-    }
-  } catch (err) {
-    if (err?.response?.status === 404) {
-      product.value = null
-    } else {
-      console.error('Failed to load product', err)
-    }
-  } finally {
-    loading.value = false
-  }
-}
-
 const addToCart = () => {
   if (!product.value || !canAddToCart.value) return
   const v = selectedVariant.value
@@ -628,9 +636,6 @@ const buyNow = () => {
   addToCart()
   setTimeout(() => router.push('/cart'), 250)
 }
-
-watch(() => route.params.slug, fetchProduct)
-onMounted(fetchProduct)
 </script>
 
 <style scoped>

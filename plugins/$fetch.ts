@@ -33,7 +33,7 @@ export default defineNuxtPlugin(async (nuxtApp) => {
   const initializeCsrf = async () => {
     // Check if we already have a CSRF token
     const existingToken = useCookie("XSRF-TOKEN");
-    
+
     // Only fetch if we don't have a token
     if (!existingToken.value) {
       await useFetch(`${runtimeConfig.public.apiUrl}/csrf-cookie`, {
@@ -41,17 +41,21 @@ export default defineNuxtPlugin(async (nuxtApp) => {
       });
     }
   };
-  
-  // Initialize CSRF on first load if needed
-  await initializeCsrf();
-  
-  // Only refresh CSRF token on navigation if we don't have one
-  nuxtApp.hook("page:finish", async () => {
-    const csrfCookie = useCookie("XSRF-TOKEN");
-    if (!csrfCookie.value) {
-      await initializeCsrf();
-    }
-  });
+
+  // CSRF tokens are a browser-session concept — there's nothing meaningful
+  // for the server to do with /csrf-cookie during SSR (the cookie belongs
+  // to the visiting browser, not the render). Gating to client-only also
+  // keeps SSR-rendered routes from paying that extra round-trip on every
+  // page load.
+  if (import.meta.client) {
+    await initializeCsrf();
+    nuxtApp.hook("page:finish", async () => {
+      const csrfCookie = useCookie("XSRF-TOKEN");
+      if (!csrfCookie.value) {
+        await initializeCsrf();
+      }
+    });
+  }
   
   return {
     provide: {
