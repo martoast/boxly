@@ -97,6 +97,20 @@
                 :aria-label="`Imagen ${i + 1}`"
               ></button>
             </div>
+
+            <!-- Next-image button (Lululemon-style) — bottom-right circle.
+                 Hints that swiping is possible AND gives non-swipe users a way
+                 to advance. Wraps back to image 0 when at the end. -->
+            <button
+              v-if="displayedImages.length > 1"
+              @click="goToImage((activeIndex + 1) % displayedImages.length)"
+              class="absolute bottom-3 right-3 z-10 h-10 w-10 flex items-center justify-center bg-white/95 hover:bg-white shadow-md rounded-full text-gray-900 active:scale-95 transition-transform"
+              aria-label="Siguiente imagen"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+              </svg>
+            </button>
           </div>
 
           <!-- DESKTOP: big card image + thumbnail strip.
@@ -374,7 +388,7 @@
           <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
           </svg>
-          <span class="truncate">{{ added ? t.added : t.addToCart }} · ${{ formatPrice(product.price_cents * qty) }}</span>
+          <span class="truncate">{{ added ? t.added : t.addToCart }} · ${{ formatPrice(product.price_cents * qty) }} MXN</span>
         </button>
       </div>
     </div>
