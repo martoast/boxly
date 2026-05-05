@@ -99,9 +99,13 @@
             </div>
           </div>
 
-          <!-- DESKTOP: big card image + thumbnail strip -->
-          <div class="hidden lg:block space-y-3 lg:sticky lg:top-24">
-            <div class="relative aspect-[4/5] bg-white rounded-2xl border border-gray-100 overflow-hidden group">
+          <!-- DESKTOP: big card image + thumbnail strip.
+               max-w cap keeps the gallery from filling a wide column on
+               large monitors — without it, a square-ish product like a
+               tumbler renders ~900px tall on a 1600px screen and pushes
+               the thumbnail strip below the fold. -->
+          <div class="hidden lg:block space-y-3 lg:sticky lg:top-24 max-w-[460px]">
+            <div class="relative aspect-square bg-white rounded-2xl border border-gray-100 overflow-hidden group">
               <img
                 v-if="activeImage"
                 :src="activeImage"
@@ -276,27 +280,6 @@
               {{ t.buyNow }}
             </button>
 
-            <!-- Trust signals -->
-            <div class="space-y-2 pt-4 lg:pt-0 lg:pb-5 lg:mb-5 border-t lg:border-t-0 lg:border-b border-gray-100">
-              <div class="flex items-start gap-3 text-sm">
-                <svg class="w-5 h-5 text-primary-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
-                </svg>
-                <p class="text-gray-700 leading-snug">{{ t.trustQuality }}</p>
-              </div>
-              <div class="flex items-start gap-3 text-sm">
-                <svg class="w-5 h-5 text-primary-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
-                </svg>
-                <p class="text-gray-700 leading-snug">{{ t.trustConsolidation }}</p>
-              </div>
-              <div class="flex items-start gap-3 text-sm">
-                <svg class="w-5 h-5 text-primary-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                </svg>
-                <p class="text-gray-700 leading-snug">{{ t.trustShippingLater }}</p>
-              </div>
-            </div>
 
             <!-- Description (collapsible on mobile) -->
             <details v-if="product.description" class="mt-4 lg:mt-5 border-t lg:border-t-0 border-gray-100 pt-4 lg:pt-0 group" :open="false">
@@ -448,9 +431,6 @@ const t = createTranslations({
   brand:          { es: 'Tienda', en: 'Store' },
   aboutThis:      { es: 'Acerca de este producto', en: 'About this product' },
   related:        { es: 'Productos relacionados', en: 'Related products' },
-  trustQuality:   { es: 'Producto verificado por Boxly', en: 'Quality verified by Boxly' },
-  trustConsolidation: { es: 'Se consolida con tu envío actual', en: 'Consolidated with your current shipment' },
-  trustShippingLater: { es: 'El envío se cotiza al consolidar', en: 'Shipping quoted at consolidation' },
 })
 
 const { add } = useStoreCart()
