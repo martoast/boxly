@@ -24,11 +24,8 @@
         :alt="hero.title"
         class="hidden sm:block absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.02]"
       />
-      <!-- Legibility overlays: mobile gets a uniform darken so centered
-           copy is readable anywhere on the frame; desktop gets the
-           left-side gradient. -->
-      <div class="absolute inset-0 sm:hidden bg-black/35"></div>
-      <div class="absolute inset-0 hidden sm:block bg-gradient-to-r from-black/60 via-black/25 to-transparent"></div>
+      <!-- No legibility overlay — the uploaded image is expected to
+           be composed for the copy area (dark left/bottom). -->
 
       <div class="absolute inset-0 flex">
         <div class="w-full max-w-7xl mx-auto px-6 sm:px-10 lg:px-12 flex flex-col justify-center items-center text-center sm:justify-end sm:items-start sm:text-left pb-0 sm:pb-14 lg:pb-20">
