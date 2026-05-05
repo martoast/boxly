@@ -1,7 +1,7 @@
 <template>
-  <section id="brands" class="bg-gray-950 py-16 lg:py-24">
+  <section id="brands" class="bg-white py-16 lg:py-24">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <h2 class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight mb-6">Marcas</h2>
+      <h2 class="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight mb-6">Marcas</h2>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <NuxtLink

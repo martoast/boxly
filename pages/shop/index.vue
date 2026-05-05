@@ -3,8 +3,8 @@
     <!-- LANDING MODE — bare /shop with no filters/view applied -->
     <template v-if="isLandingMode">
       <ShopLandingHeroBanner />
-      <ShopLandingBrandShowcase />
       <ShopLandingFeaturedProducts />
+      <ShopLandingBrandShowcase />
     </template>
 
     <!-- CATALOG MODE — any filter (category, store, search) or ?view=all -->
