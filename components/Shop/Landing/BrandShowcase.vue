@@ -12,7 +12,7 @@
         </NuxtLink>
       </div>
 
-      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-x-4 gap-y-6">
+      <div :class="['grid gap-x-4 gap-y-6', gridColsClass]">
         <NuxtLink
           v-for="b in brandTiles"
           :key="b.id"
@@ -80,4 +80,17 @@ const { data } = await useAsyncData('shop-landing-brands', async () => {
 const brandTiles = computed(() =>
   (data.value ?? []).map((s) => ({ ...s, cover: coverFor(s) }))
 )
+
+// Adapt the desktop column count to however many brands are actually
+// flagged for the landing — 4 brands → 4 columns, not 5 with a hole.
+// Tailwind needs full class strings to land in the build, so we use a
+// static map (don't generate `lg:grid-cols-${n}` dynamically).
+const gridColsClass = computed(() => {
+  const n = brandTiles.value.length
+  if (n <= 1) return 'grid-cols-1'
+  if (n === 2) return 'grid-cols-2'
+  if (n === 3) return 'grid-cols-2 sm:grid-cols-3'
+  if (n === 4) return 'grid-cols-2 sm:grid-cols-2 lg:grid-cols-4'
+  return 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5'
+})
 </script>
