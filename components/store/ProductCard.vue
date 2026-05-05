@@ -3,13 +3,15 @@
     :to="`/shop/${product.slug}`"
     class="group block bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 relative"
   >
-    <!-- Image -->
-    <div class="relative aspect-square bg-gray-100 overflow-hidden">
+    <!-- Image — object-contain so horizontal product shots (bags, shoes
+         from above) aren't cropped. White background + padding gives all
+         orientations a clean, uniform look. -->
+    <div class="relative aspect-square bg-white overflow-hidden">
       <img
         v-if="product.first_image_url"
         :src="product.first_image_url"
         :alt="product.name"
-        class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+        class="w-full h-full object-contain p-3 transition-transform duration-300 group-hover:scale-105"
         loading="lazy"
       />
       <div v-else class="w-full h-full flex items-center justify-center text-gray-300">
@@ -25,16 +27,18 @@
     </div>
 
     <!-- Body -->
-    <div class="p-4">
-      <h3 class="font-semibold text-gray-900 text-sm leading-snug line-clamp-2 mb-2 min-h-[2.5em]">
+    <div class="p-4 border-t border-gray-50">
+      <h3 class="font-semibold text-gray-900 text-sm leading-snug line-clamp-2 mb-1 min-h-[2.5em]">
         {{ product.name }}
       </h3>
+
+      <p v-if="product.color" class="text-xs text-gray-500 mb-2 line-clamp-1">
+        {{ product.color }}
+      </p>
 
       <p class="text-lg font-bold text-gray-900">
         ${{ formatPrice(product.price_cents) }} <span class="text-xs font-medium text-gray-500">MXN</span>
       </p>
-
-      <p class="text-xs text-gray-400 mt-1">{{ Number(product.weight_kg).toFixed(2) }} kg</p>
     </div>
   </NuxtLink>
 </template>

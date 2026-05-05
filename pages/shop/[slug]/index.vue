@@ -165,15 +165,19 @@
             </div>
 
             <!-- Title -->
-            <h1 class="text-2xl sm:text-2xl lg:text-3xl font-bold text-gray-900 leading-tight mb-2 sm:mb-3">
+            <h1 class="text-2xl sm:text-2xl lg:text-3xl font-bold text-gray-900 leading-tight mb-2">
               {{ product.name }}
             </h1>
 
-            <!-- Color label (each Boxly product is one color — not selectable) -->
-            <p v-if="product.color" class="text-sm text-gray-600 mb-3">
-              <span class="font-semibold text-gray-500 uppercase tracking-wider text-[11px] sm:text-xs">{{ t.color }}:</span>
-              <span class="ml-1.5 text-gray-900 font-medium">{{ product.color }}</span>
-            </p>
+            <!-- Color — primary attribute of this product. Each Boxly product
+                 represents one specific color of the source-store SKU group, so
+                 we show it prominently right under the name. -->
+            <div v-if="product.color" class="flex items-center gap-2 mb-4">
+              <span class="text-[11px] sm:text-xs font-semibold text-gray-500 uppercase tracking-wider">{{ t.color }}</span>
+              <span class="inline-flex items-center px-3 py-1 rounded-full bg-gray-900 text-white text-sm font-medium">
+                {{ product.color }}
+              </span>
+            </div>
 
             <!-- Price -->
             <div class="flex items-baseline gap-2 mb-6">
