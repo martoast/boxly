@@ -559,15 +559,33 @@ const fetchProduct = async () => {
     related.value = res.data?.related ?? []
     activeIndex.value = 0
 
-    // SEO
+    // In-app meta — updates browser tab + history when navigating between
+    // products. Social crawlers don't see this (the app is `ssr: false`),
+    // so the heavy lifting for share previews lives in
+    // server/middleware/og-shop.ts which intercepts crawler UAs.
     if (product.value) {
+      const p = product.value
+      const colorSuffix = p.color ? ` - ${p.color}` : ''
+      const title = `${p.name}${colorSuffix} — Tienda Boxly`
+      const description = (p.description || `${p.name} en la Tienda Boxly`).trim().slice(0, 200)
+      const image = p.first_image_url || 'https://boxly.mx/logo.jpeg'
+      const fullUrl = `https://boxly.mx/shop/${p.slug}`
       useHead({
-        title: `${product.value.name} — Tienda Boxly`,
+        title,
         meta: [
-          { name: 'description', content: product.value.description?.slice(0, 160) ?? `${product.value.name} en la Tienda Boxly` },
-          { property: 'og:title', content: product.value.name },
-          { property: 'og:image', content: product.value.first_image_url ?? '' },
+          { name: 'description', content: description },
+          { property: 'og:type', content: 'product' },
+          { property: 'og:url', content: fullUrl },
+          { property: 'og:title', content: title },
+          { property: 'og:description', content: description },
+          { property: 'og:image', content: image },
+          { property: 'og:image:alt', content: p.name },
+          { name: 'twitter:card', content: 'summary_large_image' },
+          { name: 'twitter:title', content: title },
+          { name: 'twitter:description', content: description },
+          { name: 'twitter:image', content: image },
         ],
+        link: [{ rel: 'canonical', href: fullUrl }],
       })
     }
   } catch (err) {
