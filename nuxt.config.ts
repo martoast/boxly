@@ -2,15 +2,17 @@
 export default defineNuxtConfig({
   compatibilityDate: '2025-05-15',
   devtools: { enabled: false },
-  // Hybrid rendering — keep the app SPA-first but server-render the
-  // public marketing/storefront pages so social share previews and
-  // SEO indexing work natively. Private dashboards under /app/** stay
-  // SPA-only (no SEO need, less risk of hydration mismatches).
-  ssr: false,
+  // SSR is on by default so public marketing/storefront pages get
+  // proper server-rendered HTML — required for social share previews
+  // (WhatsApp / Facebook / Twitter / iMessage all read the initial
+  // HTML, never the JS-injected meta) and clean SEO. Private
+  // dashboards under /app/** opt out via routeRules below — they're
+  // JS-heavy auth-gated screens with no SEO need, no upside from SSR.
+  ssr: true,
   routeRules: {
-    '/':        { ssr: true },
-    '/shop':    { ssr: true },
-    '/shop/**': { ssr: true },
+    '/app/**':   { ssr: false },
+    '/login':    { ssr: false },
+    '/register': { ssr: false },
   },
   app: {
     head: {
