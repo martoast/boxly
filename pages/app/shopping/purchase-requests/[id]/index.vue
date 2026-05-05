@@ -242,46 +242,97 @@
                       {{ item.notes }}
                     </div>
 
-                    <!-- Stock-status buttons (store PRs in pending_review only) -->
-                    <div v-if="isStorePR && request.status === 'pending_review'" class="mt-3 flex items-center gap-2 flex-wrap">
-                      <span class="text-xs text-gray-500 uppercase font-semibold">{{ t.stock }}:</span>
-                      <button
-                        type="button"
-                        @click="markStockStatus(item, 'available')"
-                        :disabled="stockUpdating[item.id]"
-                        :class="[
-                          'px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors flex items-center gap-1.5',
-                          item.stock_status === 'available'
-                            ? 'bg-green-600 text-white border-green-600'
-                            : 'bg-white text-green-700 border-green-300 hover:bg-green-50',
-                        ]"
-                      >
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-                        {{ t.stockAvailable }}
-                      </button>
-                      <button
-                        type="button"
-                        @click="markStockStatus(item, 'unavailable')"
-                        :disabled="stockUpdating[item.id]"
-                        :class="[
-                          'px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors flex items-center gap-1.5',
-                          item.stock_status === 'unavailable'
-                            ? 'bg-red-600 text-white border-red-600'
-                            : 'bg-white text-red-700 border-red-300 hover:bg-red-50',
-                        ]"
-                      >
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
-                        {{ t.stockUnavailable }}
-                      </button>
-                      <button
-                        v-if="item.stock_status && item.stock_status !== 'unverified'"
-                        type="button"
-                        @click="markStockStatus(item, 'unverified')"
-                        :disabled="stockUpdating[item.id]"
-                        class="px-2 py-1.5 text-xs text-gray-500 hover:text-gray-800 underline"
-                      >
-                        {{ t.resetStock }}
-                      </button>
+                    <!-- Cost breakdown form (store PRs in pending_review only) —
+                         Velonie enters source-store tax/shipping + commission %
+                         after she runs the actual checkout. Submitting flips
+                         the item to "available" and persists the line total. -->
+                    <div v-if="isStorePR && request.status === 'pending_review'" class="mt-3">
+                      <div class="bg-gray-50 border border-gray-200 rounded-lg p-3 space-y-2.5">
+                        <div class="flex items-center justify-between">
+                          <span class="text-xs text-gray-500 uppercase font-semibold">{{ t.costBreakdownTitle }}</span>
+                          <span v-if="item.stock_status === 'available'" class="inline-flex items-center gap-1 text-xs font-semibold text-green-700">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                            {{ t.stockAvailable }}
+                          </span>
+                          <span v-else-if="item.stock_status === 'unavailable'" class="inline-flex items-center gap-1 text-xs font-semibold text-red-700">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+                            {{ t.stockUnavailable }}
+                          </span>
+                        </div>
+
+                        <div v-if="item.stock_status !== 'unavailable'" class="grid grid-cols-3 gap-2">
+                          <div>
+                            <label class="block text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-0.5">{{ t.tax }} USD</label>
+                            <input
+                              type="number" step="0.01" min="0"
+                              :value="costForm[item.id]?.tax_usd ?? item.tax_usd ?? ''"
+                              @input="setCostField(item.id, 'tax_usd', $event.target.value)"
+                              :placeholder="'0.00'"
+                              class="w-full text-sm px-2 py-1.5 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                            />
+                          </div>
+                          <div>
+                            <label class="block text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-0.5">{{ t.shipping }} USD</label>
+                            <input
+                              type="number" step="0.01" min="0"
+                              :value="costForm[item.id]?.shipping_usd ?? item.shipping_usd ?? ''"
+                              @input="setCostField(item.id, 'shipping_usd', $event.target.value)"
+                              :placeholder="'0.00'"
+                              class="w-full text-sm px-2 py-1.5 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                            />
+                          </div>
+                          <div>
+                            <label class="block text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-0.5">{{ t.commission }} %</label>
+                            <input
+                              type="number" step="0.1" min="0" max="100"
+                              :value="costForm[item.id]?.commission_percent ?? item.commission_percent ?? defaultCommissionPercent"
+                              @input="setCostField(item.id, 'commission_percent', $event.target.value)"
+                              class="w-full text-sm px-2 py-1.5 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                            />
+                          </div>
+                        </div>
+
+                        <div v-if="item.stock_status !== 'unavailable' && computedItemFinal(item) !== null" class="flex items-baseline justify-between text-xs pt-1 border-t border-gray-200">
+                          <span class="text-gray-500">{{ t.itemFinalUsd }}</span>
+                          <span class="font-semibold text-gray-900">${{ computedItemFinal(item).toFixed(2) }} USD</span>
+                        </div>
+
+                        <div class="flex gap-2 pt-1">
+                          <button
+                            v-if="item.stock_status !== 'unavailable'"
+                            type="button"
+                            @click="saveCostBreakdown(item)"
+                            :disabled="stockUpdating[item.id] || !canSaveCostFor(item)"
+                            class="flex-1 px-3 py-1.5 text-xs font-semibold rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1.5"
+                          >
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                            {{ stockUpdating[item.id] ? '…' : t.markAvailable }}
+                          </button>
+                          <button
+                            type="button"
+                            @click="markStockStatus(item, 'unavailable')"
+                            :disabled="stockUpdating[item.id]"
+                            :class="[
+                              'flex-1 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors flex items-center justify-center gap-1.5',
+                              item.stock_status === 'unavailable'
+                                ? 'bg-red-600 text-white border-red-600'
+                                : 'bg-white text-red-700 border-red-300 hover:bg-red-50',
+                            ]"
+                          >
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+                            {{ t.markUnavailable }}
+                          </button>
+                          <button
+                            v-if="item.stock_status && item.stock_status !== 'unverified'"
+                            type="button"
+                            @click="markStockStatus(item, 'unverified')"
+                            :disabled="stockUpdating[item.id]"
+                            class="px-2 py-1.5 text-xs text-gray-500 hover:text-gray-800 underline"
+                          >
+                            {{ t.resetStock }}
+                          </button>
+                        </div>
+                      </div>
                     </div>
 
                     <!-- Stock-status badge once locked (PR no longer in pending_review) -->
@@ -632,6 +683,13 @@ const translations = {
   stock: { es: 'Stock', en: 'Stock' },
   stockAvailable: { es: 'Disponible', en: 'Available' },
   stockUnavailable: { es: 'No disponible', en: 'Unavailable' },
+  costBreakdownTitle: { es: 'Costo de checkout (USD)', en: 'Checkout cost (USD)' },
+  tax: { es: 'Impuestos', en: 'Tax' },
+  shipping: { es: 'Envío', en: 'Shipping' },
+  commission: { es: 'Comisión', en: 'Commission' },
+  itemFinalUsd: { es: 'Total del producto:', en: 'Item total:' },
+  markAvailable: { es: 'Disponible', en: 'Available' },
+  markUnavailable: { es: 'No disponible', en: 'Unavailable' },
   resetStock: { es: 'Restablecer', en: 'Reset' },
   itemsVerified: { es: 'productos verificados', en: 'items verified' },
   verifyEachItem: { es: 'verifica cada producto antes de cotizar', en: 'verify each item before quoting' },
@@ -746,14 +804,93 @@ const availableCount = computed(() =>
   (request.value?.items || []).filter(i => i.stock_status === 'available').length,
 );
 
-const availableSubtotalMxn = computed(() =>
-  (request.value?.items || [])
-    .filter(i => i.stock_status === 'available')
-    .reduce((sum, i) => sum + parseFloat(i.price) * i.quantity, 0)
-    .toFixed(2),
-);
+// Sum of available items' computed final_usd (or live preview when the
+// breakdown isn't saved yet). This is the number Velonie sees as the
+// pre-FX total before clicking "Crear cotización".
+const availableSubtotalUsd = computed(() => {
+  const items = (request.value?.items || []).filter(i => i.stock_status === 'available');
+  let sum = 0;
+  for (const it of items) {
+    const finalUsd = computedItemFinal(it);
+    if (finalUsd !== null) sum += finalUsd;
+    else if (it.final_usd != null) sum += parseFloat(it.final_usd);
+  }
+  return sum.toFixed(2);
+});
+
+// Legacy alias kept in case any template binding still references it
+const availableSubtotalMxn = availableSubtotalUsd;
 
 const stockUpdating = ref({});
+
+// Default Boxly commission % — pre-fills the per-item input. Eventually
+// pulled from /me or a config endpoint; hardcoded to 8 to match
+// services.commission.default_percent on the API for now.
+const defaultCommissionPercent = 8;
+
+// Per-item draft state for the cost-breakdown form. Keyed by item.id;
+// fields override the persisted item.* values until saved.
+const costForm = ref({});
+const setCostField = (id, key, value) => {
+  if (! costForm.value[id]) costForm.value[id] = {};
+  costForm.value[id][key] = value;
+};
+
+// Read whatever's in the draft, falling back to the persisted item.
+const getCostFor = (item) => {
+  const draft = costForm.value[item.id] || {};
+  return {
+    tax_usd: draft.tax_usd ?? item.tax_usd ?? '',
+    shipping_usd: draft.shipping_usd ?? item.shipping_usd ?? '',
+    commission_percent: draft.commission_percent ?? item.commission_percent ?? defaultCommissionPercent,
+  };
+};
+
+// Live preview of the line total: (price + tax + ship) × (1 + commission/100) × qty
+const computedItemFinal = (item) => {
+  const c = getCostFor(item);
+  const tax = parseFloat(c.tax_usd);
+  const ship = parseFloat(c.shipping_usd);
+  const comm = parseFloat(c.commission_percent);
+  if (! Number.isFinite(tax) || ! Number.isFinite(ship) || ! Number.isFinite(comm)) return null;
+  const unit = parseFloat(item.price) || 0;
+  const qty = parseInt(item.quantity, 10) || 1;
+  return Math.round((unit + tax + ship) * (1 + comm / 100) * qty * 100) / 100;
+};
+
+const canSaveCostFor = (item) => computedItemFinal(item) !== null;
+
+const saveCostBreakdown = async (item) => {
+  if (! canSaveCostFor(item)) return;
+  if (stockUpdating.value[item.id]) return;
+  stockUpdating.value[item.id] = true;
+  try {
+    const c = getCostFor(item);
+    const resp = await $customFetch(
+      `/shopping/purchase-requests/${request.value.id}/items/${item.id}/cost-breakdown`,
+      {
+        method: 'PUT',
+        body: {
+          tax_usd: parseFloat(c.tax_usd),
+          shipping_usd: parseFloat(c.shipping_usd),
+          commission_percent: parseFloat(c.commission_percent),
+        },
+      },
+    );
+    const next = resp?.data || resp;
+    const idx = request.value.items.findIndex(x => x.id === item.id);
+    if (idx >= 0 && next) {
+      request.value.items[idx] = { ...request.value.items[idx], ...next };
+    }
+    // Clear the draft now that it's persisted
+    delete costForm.value[item.id];
+  } catch (e) {
+    console.error(e);
+    $toast.error(e?.data?.message || 'No se pudo guardar el costo');
+  } finally {
+    stockUpdating.value[item.id] = false;
+  }
+};
 
 const markStockStatus = async (item, stockStatus) => {
   if (stockUpdating.value[item.id]) return;
@@ -781,8 +918,8 @@ const onCreateQuoteClick = async () => {
     showQuoteModal.value = true;
     return;
   }
-  const total = availableSubtotalMxn.value;
-  const msg = `${t.value.storeQuoteConfirm} $${total} MXN ${t.value.storeQuoteConfirmSuffix} (${availableCount.value} ${t.value.items.toLowerCase()})`;
+  const total = availableSubtotalUsd.value;
+  const msg = `${t.value.storeQuoteConfirm} $${total} USD ${t.value.storeQuoteConfirmSuffix} (${availableCount.value} ${t.value.items.toLowerCase()})`;
   if (!confirm(msg)) return;
   try {
     const response = await $customFetch(`/shopping/purchase-requests/${request.value.id}/quote`, {

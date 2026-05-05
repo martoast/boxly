@@ -40,7 +40,7 @@
       </p>
 
       <p class="mt-auto pt-3 text-lg font-bold text-gray-900">
-        ${{ formatPrice(product.price_cents) }} <span class="text-xs font-medium text-gray-500">MXN</span>
+        ${{ formatPrice(product.price_cents) }} <span class="text-xs font-medium text-gray-500">USD</span>
       </p>
     </div>
   </NuxtLink>

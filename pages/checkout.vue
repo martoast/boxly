@@ -33,7 +33,7 @@
           <div class="pt-4 border-t border-gray-100">
             <div class="flex justify-between items-baseline">
               <p class="font-semibold text-gray-700">{{ t.total }}</p>
-              <p class="text-2xl font-extrabold text-gray-900">${{ formatPrice(cartSubtotalCents) }} <span class="text-xs font-medium text-gray-500">MXN</span></p>
+              <p class="text-2xl font-extrabold text-gray-900">${{ formatPrice(cartSubtotalCents) }} <span class="text-xs font-medium text-gray-500">USD</span></p>
             </div>
             <p class="text-xs text-gray-400 mt-2">{{ t.shippingNote }}</p>
           </div>

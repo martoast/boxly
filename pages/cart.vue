@@ -105,7 +105,7 @@
             <!-- Total -->
             <div class="flex items-baseline justify-between mb-5">
               <span class="font-semibold text-gray-700">{{ t.payNow }}</span>
-              <span class="text-2xl font-extrabold text-gray-900">${{ formatPrice(cartSubtotalCents) }} <span class="text-xs font-medium text-gray-500">MXN</span></span>
+              <span class="text-2xl font-extrabold text-gray-900">${{ formatPrice(cartSubtotalCents) }} <span class="text-xs font-medium text-gray-500">USD</span></span>
             </div>
 
             <NuxtLink
@@ -142,7 +142,7 @@ const t = createTranslations({
   subtotal:            { es: 'Subtotal', en: 'Subtotal' },
   item:                { es: 'producto', en: 'item' },
   items:               { es: 'productos', en: 'items' },
-  payNow:              { es: 'Total productos:', en: 'Products total:' },
+  payNow:              { es: 'Subtotal:', en: 'Subtotal:' },
   checkout:            { es: 'Crear solicitud', en: 'Create request' },
 })
 
