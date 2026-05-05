@@ -6,7 +6,7 @@
     <!-- LANDING MODE — bare /shop with no filters/view applied -->
     <template v-if="isLandingMode">
       <ShopLandingHeroBanner />
-      <ShopLandingCategoriesCallout />
+      <ShopLandingBrandsCallout />
       <ShopLandingBrandShowcase />
       <ShopLandingFeaturedProducts />
     </template>
