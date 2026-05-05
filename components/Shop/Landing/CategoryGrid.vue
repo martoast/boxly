@@ -1,11 +1,6 @@
 <template>
   <section id="categories" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 lg:py-24">
-    <div class="flex items-end justify-between gap-4 mb-8">
-      <div>
-        <p class="text-xs font-bold text-primary-600 uppercase tracking-widest mb-2">Categorías</p>
-        <h2 class="text-3xl sm:text-4xl font-extrabold text-gray-900 tracking-tight">Compra por categoría</h2>
-      </div>
-    </div>
+    <h2 class="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight mb-6">Categorías</h2>
 
     <div v-if="categoriesWithCovers.length === 0" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
       <div v-for="i in 8" :key="i" class="aspect-[4/5] rounded-2xl bg-gray-100 animate-pulse" />

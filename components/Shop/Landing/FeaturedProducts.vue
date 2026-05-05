@@ -1,13 +1,10 @@
 <template>
   <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 lg:py-24">
-    <div class="flex items-end justify-between gap-4 mb-8">
-      <div>
-        <p class="text-xs font-bold text-primary-600 uppercase tracking-widest mb-2">Recién agregados</p>
-        <h2 class="text-3xl sm:text-4xl font-extrabold text-gray-900 tracking-tight">Lo nuevo</h2>
-      </div>
+    <div class="flex items-baseline justify-between gap-4 mb-6">
+      <h2 class="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight">Lo nuevo</h2>
       <NuxtLink
         to="/shop?sort=newest&view=all"
-        class="hidden sm:inline-flex items-center gap-1.5 text-sm font-semibold text-gray-700 hover:text-primary-600 transition-colors"
+        class="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-700 hover:text-primary-600 transition-colors"
       >
         Ver todos
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>

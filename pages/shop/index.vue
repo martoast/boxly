@@ -9,7 +9,6 @@
       <ShopLandingCategoryGrid />
       <ShopLandingBrandShowcase />
       <ShopLandingFeaturedProducts />
-      <ShopLandingValueProps />
     </template>
 
     <!-- CATALOG MODE — any filter (category, store, search) or ?view=all -->

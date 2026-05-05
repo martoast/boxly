@@ -1,12 +1,7 @@
 <template>
   <section id="brands" class="bg-gray-950 py-16 lg:py-24">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="flex items-end justify-between gap-4 mb-8">
-        <div>
-          <p class="text-xs font-bold text-primary-300 uppercase tracking-widest mb-2">Marcas</p>
-          <h2 class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">Tus marcas favoritas</h2>
-        </div>
-      </div>
+      <h2 class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight mb-6">Marcas</h2>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <NuxtLink
