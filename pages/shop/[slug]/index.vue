@@ -1,5 +1,5 @@
 <template>
-  <section class="min-h-screen bg-white lg:bg-gray-50 pt-14 sm:pt-20 pb-24 lg:pb-12">
+  <section class="min-h-screen bg-white lg:bg-gray-50 pt-14 sm:pt-20 pb-12">
 
     <!-- Breadcrumbs (hidden on mobile — Shopify-style, the back arrow lives in the navbar) -->
     <nav class="hidden sm:flex max-w-7xl mx-auto px-6 lg:px-8 pt-2 pb-4 text-sm text-gray-500 items-center gap-2 overflow-hidden">
@@ -248,9 +248,8 @@
               <p v-if="hasVariants && !selectedVariant" class="text-xs text-amber-600 mt-2 font-medium">{{ t.pickVariant }}</p>
             </div>
 
-            <!-- Quantity (mobile only — desktop has it inline with Add to Cart below.
-                 We keep the sticky bar to just the Add to Cart button so it's not cramped). -->
-            <div class="lg:hidden mb-6">
+            <!-- Quantity stepper -->
+            <div class="mb-4">
               <p class="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-2">{{ t.quantity }}</p>
               <div class="inline-flex items-center border border-gray-200 rounded-xl overflow-hidden">
                 <button
@@ -277,43 +276,20 @@
               </div>
             </div>
 
-            <!-- Inline CTAs (desktop / tablet only — mobile uses sticky bottom bar) -->
-            <div class="hidden lg:flex items-center gap-3 mb-3">
-              <div class="flex items-center border border-gray-200 rounded-xl overflow-hidden shrink-0">
-                <button
-                  @click="qty = Math.max(1, qty - 1)"
-                  :disabled="qty <= 1"
-                  class="px-4 py-3 text-gray-500 hover:bg-gray-50 disabled:opacity-30 transition-colors"
-                  type="button"
-                >−</button>
-                <input
-                  v-model.number="qty"
-                  type="number"
-                  min="1"
-                  max="99"
-                  class="w-12 text-center font-semibold focus:outline-none"
-                />
-                <button
-                  @click="qty = Math.min(99, qty + 1)"
-                  :disabled="qty >= 99"
-                  class="px-4 py-3 text-gray-500 hover:bg-gray-50 disabled:opacity-30 transition-colors"
-                  type="button"
-                >+</button>
-              </div>
-              <button
-                @click="addToCart"
-                :disabled="added || !canAddToCart"
-                class="flex-1 inline-flex items-center justify-center gap-2 py-3 px-6 bg-primary-500 hover:bg-primary-600 active:bg-primary-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold rounded-xl shadow-lg shadow-primary-500/20 transition-colors"
-              >
-                <svg v-if="added" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
-                </svg>
-                <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
-                </svg>
-                {{ added ? t.added : t.addToCart }}
-              </button>
-            </div>
+            <!-- Add to Cart -->
+            <button
+              @click="addToCart"
+              :disabled="added || !canAddToCart"
+              class="w-full inline-flex items-center justify-center gap-2 py-3.5 px-6 bg-primary-500 hover:bg-primary-600 active:bg-primary-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold rounded-xl shadow-lg shadow-primary-500/20 transition-colors mb-3"
+            >
+              <svg v-if="added" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+              </svg>
+              <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
+              </svg>
+              {{ added ? t.added : t.addToCart }}
+            </button>
 
             <button
               @click="buyNow"
@@ -346,28 +322,6 @@
           <ProductCard v-for="r in related" :key="r.id" :product="r" />
         </div>
       </div>
-    </div>
-
-    <!-- ────────────────────────────────────────────────
-         Sticky bottom bar (mobile only) — Add to Cart always reachable
-         ──────────────────────────────────────────────── -->
-    <div
-      v-if="product"
-      class="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur-sm border-t border-gray-200 px-4 py-3 shadow-[0_-4px_20px_rgba(0,0,0,0.08)]"
-    >
-      <button
-        @click="addToCart"
-        :disabled="added || !canAddToCart"
-        class="w-full inline-flex items-center justify-center gap-2 py-3.5 px-4 bg-primary-500 active:bg-primary-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold rounded-xl shadow-lg shadow-primary-500/20 transition-colors text-sm"
-      >
-        <svg v-if="added" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
-        </svg>
-        <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
-        </svg>
-        <span class="truncate">{{ added ? t.added : t.addToCart }} · ${{ formatPrice(product.price_cents * qty) }} USD</span>
-      </button>
     </div>
 
     <!-- Lightbox -->
