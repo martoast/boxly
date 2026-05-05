@@ -354,75 +354,10 @@
           </div>
         </div>
 
-        <!-- Sidebar: Financials -->
+        <!-- Sidebar: Customer Info (Finanzas card removed — the
+             "Crear cotización" action lives in the page header above
+             and the quote totals are persisted on the PR itself). -->
         <div class="lg:col-span-1 space-y-6">
-          <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div class="flex justify-between items-center mb-4 border-b pb-2">
-              <h3 class="font-semibold text-gray-900">{{ t.financials }}</h3>
-              <span class="px-2 py-1 rounded text-xs font-bold bg-gray-100 text-gray-700 border border-gray-200">
-                {{ currencyLabel }}
-              </span>
-            </div>
-            
-            <!-- If pending, showing estimate -->
-            <div v-if="request.status === 'pending_review'" class="text-center py-4">
-              <div class="bg-gray-100 rounded-lg p-3 mb-3">
-                <span class="text-gray-500 text-sm block">{{ t.estMerchandise }}</span>
-                <span class="text-xl font-bold text-gray-900">{{ formatCurrency(estimatedTotal) }}</span>
-              </div>
-              <button 
-                @click="showQuoteModal = true"
-                class="w-full py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
-              >
-                {{ t.calculateQuote }}
-              </button>
-            </div>
-
-            <!-- If quoted/paid/purchased, show breakdown -->
-            <div v-else class="space-y-3 text-sm">
-              <div class="flex justify-between">
-                <span class="text-gray-600">{{ t.yourCost }}</span>
-                <span class="font-medium">{{ formatCurrency(request.items_total) }}</span>
-              </div>
-              <div class="flex justify-between text-green-600">
-                <span>{{ t.yourMargin }}</span>
-                <span class="font-medium">{{ formatCurrency(request.processing_fee) }} ({{ marginPercent }}%)</span>
-              </div>
-              <div class="flex justify-between pt-3 border-t border-gray-200 text-lg font-bold text-gray-900">
-                <span>{{ t.customerPays }}</span>
-                <span>{{ formatCurrency(request.total_amount) }}</span>
-              </div>
-              
-              <!-- Payment Method Badge -->
-              <div class="mt-4 pt-4 border-t border-gray-100">
-                <p class="text-xs text-gray-500 mb-2">{{ t.paymentMethod }}</p>
-                <div v-if="request.payment_method === 'stripe'" class="flex items-center gap-2 bg-indigo-50 border border-indigo-100 px-3 py-2 rounded-lg">
-                  <svg class="w-5 h-5 text-indigo-600" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.858 6.09 1.631l.89-5.494C18.252.975 15.697 0 12.165 0 9.667 0 7.589.654 6.104 1.872 4.56 3.147 3.757 4.992 3.757 7.218c0 4.039 2.467 5.76 6.476 7.219 2.585.92 3.445 1.574 3.445 2.583 0 .98-.84 1.545-2.354 1.545-1.875 0-4.965-.921-6.99-2.109l-.9 5.555C5.175 22.99 8.385 24 11.714 24c2.641 0 4.843-.624 6.328-1.813 1.664-1.305 2.525-3.236 2.525-5.732 0-4.128-2.524-5.851-6.591-7.305z"/>
-                  </svg>
-                  <span class="font-medium text-indigo-700">Stripe Invoice</span>
-                </div>
-                <div v-else class="flex items-center gap-2 bg-purple-50 border border-purple-100 px-3 py-2 rounded-lg">
-                  <img 
-                    src="https://upload.wikimedia.org/wikipedia/commons/thumb/f/f7/Nubank_logo_2021.svg/2560px-Nubank_logo_2021.svg.png" 
-                    alt="NU" 
-                    class="w-5 h-5 object-contain"
-                  >
-                  <span class="font-medium text-purple-700">NU Bank Transfer</span>
-                </div>
-              </div>
-
-              <!-- Payment Info -->
-              <div v-if="request.payment_link" class="mt-4 pt-4 border-t border-gray-100">
-                <p class="text-xs text-gray-500 mb-1">{{ t.stripeLink }}</p>
-                <a :href="request.payment_link" target="_blank" class="text-blue-600 hover:underline truncate block text-xs">
-                  {{ request.payment_link }}
-                </a>
-              </div>
-            </div>
-          </div>
-
-          <!-- Customer Info -->
           <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
              <h3 class="font-semibold text-gray-900 mb-4 border-b pb-2">{{ t.customerInfo }}</h3>
              <div class="space-y-2 text-sm">
