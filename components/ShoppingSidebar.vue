@@ -211,6 +211,7 @@ import {
   ChevronDoubleLeftIcon,
   ChevronDoubleRightIcon,
   ArrowRightOnRectangleIcon,
+  PhotoIcon,
 } from '@heroicons/vue/24/outline';
 
 const { $customFetch } = useNuxtApp();
@@ -224,6 +225,7 @@ const t = createTranslations({
   storeProducts:    { es: 'Productos Tienda',       en: 'Store Products' },
   storeBrands:      { es: 'Tiendas',                en: 'Stores' },
   storeCategories:  { es: 'Categorías',             en: 'Categories' },
+  storeHero:        { es: 'Hero Tienda',            en: 'Store Hero' },
   storeSales:       { es: 'Ventas Tienda',          en: 'Store Sales' },
   campaigns:        { es: 'Campañas',               en: 'Campaigns' },
   shoppingRole:     { es: 'Compras',                en: 'Shopping' },
@@ -235,6 +237,7 @@ const navItems = computed(() => [
   { route: '/app/shopping/products',          icon: ArchiveBoxIcon,          label: t.value.storeProducts },
   { route: '/app/shopping/stores',            icon: BuildingStorefrontIcon,  label: t.value.storeBrands },
   { route: '/app/shopping/categories',        icon: TagIcon,                 label: t.value.storeCategories },
+  { route: '/app/shopping/store-hero',        icon: PhotoIcon,               label: t.value.storeHero },
   { route: '/app/shopping/store-sales',       icon: ChartBarIcon,            label: t.value.storeSales },
   { route: '/app/shopping/campaigns',         icon: MegaphoneIcon,           label: t.value.campaigns },
 ]);
