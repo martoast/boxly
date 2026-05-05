@@ -4,6 +4,8 @@
 
         <CustomerNavbar/>
       <slot />
+
+      <Toast />
     </div>
   </template>
   

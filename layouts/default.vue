@@ -24,6 +24,8 @@
 
     <!-- Page Content -->
     <slot />
+
+    <Toast />
   </div>
 </template>
   
