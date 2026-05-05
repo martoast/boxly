@@ -54,8 +54,8 @@ useHead({
   ],
 })
 
-// Brand backgrounds we've generated. Same lookup the BrandShowcase
-// component uses on the landing — keeps imagery consistent.
+// Fallback map for stores without a custom cover_image_url uploaded yet.
+// As soon as a store has its own cover, that wins.
 const COVER_MAP = {
   'alo yoga':   '/images/shop-brand-alo.png',
   'alo':        '/images/shop-brand-alo.png',
@@ -63,7 +63,7 @@ const COVER_MAP = {
   'stanley':    '/images/shop-brand-stanley.png',
   'youngla':    '/images/shop-brand-youngla.png',
 }
-const coverFor = (s) => COVER_MAP[(s.name || '').trim().toLowerCase()] || null
+const coverFor = (s) => s.cover_image_url || COVER_MAP[(s.name || '').trim().toLowerCase()] || null
 
 const { data: storesRaw } = await useAsyncData('shop-brands-page', () =>
   $customFetch('/store/stores').catch(() => null)

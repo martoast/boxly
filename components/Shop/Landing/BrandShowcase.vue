@@ -40,9 +40,8 @@
 <script setup>
 const { $customFetch } = useNuxtApp()
 
-// Map a store's slug/name to the matching shop-brand-*.png we generated.
-// Falls back to null (which renders the dark plate) for stores we don't
-// have a custom image for yet — the layout still looks clean.
+// Fallback map for stores without a custom cover_image_url uploaded yet.
+// As soon as a store has its own cover, that wins.
 const COVER_MAP = {
   'alo yoga':   '/images/shop-brand-alo.png',
   'alo':        '/images/shop-brand-alo.png',
@@ -50,7 +49,7 @@ const COVER_MAP = {
   'stanley':    '/images/shop-brand-stanley.png',
   'youngla':    '/images/shop-brand-youngla.png',
 }
-const coverFor = (s) => COVER_MAP[(s.name || '').trim().toLowerCase()] || null
+const coverFor = (s) => s.cover_image_url || COVER_MAP[(s.name || '').trim().toLowerCase()] || null
 
 const { data } = await useAsyncData('shop-landing-brands', async () => {
   const res = await $customFetch('/store/stores').catch(() => null)

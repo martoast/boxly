@@ -59,13 +59,17 @@ const { data: catsRaw } = await useAsyncData('shop-categories', () =>
 )
 const categories = computed(() => catsRaw.value?.data ?? [])
 
-// Per-category cover image (first product). Done server-side too so
-// the grid doesn't flash gradients before populating.
+// Per-category cover image. Prefer the admin-uploaded image_url
+// (managed by Velonie via the categories admin form); fall back to
+// the first product's image so categories without a configured cover
+// still render something. Done server-side so the grid is fully
+// baked into the SSR'd HTML.
 const { data: covers } = await useAsyncData('shop-categories-covers', async () => {
   const list = catsRaw.value?.data ?? []
   if (! list.length) return []
   return Promise.all(
     list.map(async (c) => {
+      if (c.image_url) return { ...c, cover_image: c.image_url }
       try {
         const res = await $customFetch('/store/products', { query: { category_id: c.id, per_page: 1 } })
         return { ...c, cover_image: res?.data?.data?.[0]?.first_image_url ?? null }
