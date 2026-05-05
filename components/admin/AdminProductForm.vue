@@ -10,6 +10,11 @@
           <input v-model="form.name" type="text" required class="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
         </div>
         <div>
+          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Color</label>
+          <input v-model="form.color" type="text" placeholder='Ej: Steel Blue' class="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
+          <p class="text-xs text-gray-400 mt-1">Cada producto en Boxly representa un solo color. Si quieres listar otra variante de color, créalo como producto separado.</p>
+        </div>
+        <div>
           <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Slug (URL) <span class="text-gray-300 font-normal">— opcional</span></label>
           <input v-model="form.slug" type="text" placeholder="se genera del nombre" class="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary-500" />
         </div>
@@ -43,63 +48,42 @@
     <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
       <h2 class="font-bold text-gray-900 mb-1">Imágenes</h2>
       <p class="text-xs text-gray-400 mb-4">
-        Sube varias fotos. La primera será la principal.
-        <span v-if="parsedColors.length > 0" class="font-medium text-gray-600">Asigna un color a cada imagen para que se muestre cuando el cliente seleccione ese color.</span>
+        Sube varias fotos. La primera será la principal. Todas pertenecen al color de este producto.
       </p>
 
-      <!-- Existing images (edit mode) — wrapper holds image + color picker -->
-      <div v-if="editingImages.length > 0" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mb-4">
+      <!-- Existing images (edit mode) -->
+      <div v-if="(existingProduct?.images ?? []).length > 0" class="grid grid-cols-3 sm:grid-cols-4 gap-3 mb-4">
         <div
-          v-for="(img, i) in editingImages"
-          :key="`existing-${img.url}`"
-          class="space-y-1.5"
+          v-for="(img, i) in existingProduct.images"
+          :key="`existing-${i}`"
+          class="relative aspect-square bg-gray-100 rounded-xl overflow-hidden group"
         >
-          <div class="relative aspect-square bg-gray-100 rounded-xl overflow-hidden group">
-            <img :src="img.url" alt="" class="w-full h-full object-cover" />
-            <span class="absolute top-1 left-1 bg-white/90 text-[10px] font-bold text-gray-600 px-1.5 py-0.5 rounded">{{ i + 1 }}</span>
-            <button
-              type="button"
-              @click="$emit('delete-image', i)"
-              class="absolute top-1.5 right-1.5 h-7 w-7 bg-red-500 hover:bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-sm"
-              title="Eliminar"
-            >✕</button>
-          </div>
-          <select
-            v-if="parsedColors.length > 0"
-            v-model="img.color"
-            class="w-full text-xs rounded-lg border border-gray-200 px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-500"
-          >
-            <option value="">— sin color —</option>
-            <option v-for="c in parsedColors" :key="c" :value="c">{{ c }}</option>
-          </select>
+          <img :src="img.url" alt="" class="w-full h-full object-cover" />
+          <span class="absolute top-1 left-1 bg-white/90 text-[10px] font-bold text-gray-600 px-1.5 py-0.5 rounded">{{ i + 1 }}</span>
+          <button
+            type="button"
+            @click="$emit('delete-image', i)"
+            class="absolute top-1.5 right-1.5 h-7 w-7 bg-red-500 hover:bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-sm"
+            title="Eliminar"
+          >✕</button>
         </div>
       </div>
 
       <!-- New images to upload (preview before submit) -->
-      <div v-if="newImagePreviews.length > 0" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mb-4">
+      <div v-if="newImagePreviews.length > 0" class="grid grid-cols-3 sm:grid-cols-4 gap-3 mb-4">
         <div
           v-for="(preview, i) in newImagePreviews"
           :key="`new-${i}`"
-          class="space-y-1.5"
+          class="relative aspect-square bg-gray-100 rounded-xl overflow-hidden group ring-2 ring-primary-200"
         >
-          <div class="relative aspect-square bg-gray-100 rounded-xl overflow-hidden group ring-2 ring-primary-200">
-            <img :src="preview" alt="" class="w-full h-full object-cover" />
-            <span class="absolute top-1 left-1 bg-primary-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">Nueva</span>
-            <button
-              type="button"
-              @click="removeNewImage(i)"
-              class="absolute top-1.5 right-1.5 h-7 w-7 bg-red-500 hover:bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-sm"
-              title="Quitar"
-            >✕</button>
-          </div>
-          <select
-            v-if="parsedColors.length > 0"
-            v-model="newImageColors[i]"
-            class="w-full text-xs rounded-lg border border-gray-200 px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-500"
-          >
-            <option value="">— sin color —</option>
-            <option v-for="c in parsedColors" :key="c" :value="c">{{ c }}</option>
-          </select>
+          <img :src="preview" alt="" class="w-full h-full object-cover" />
+          <span class="absolute top-1 left-1 bg-primary-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">Nueva</span>
+          <button
+            type="button"
+            @click="removeNewImage(i)"
+            class="absolute top-1.5 right-1.5 h-7 w-7 bg-red-500 hover:bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-sm"
+            title="Quitar"
+          >✕</button>
         </div>
       </div>
 
@@ -210,16 +194,12 @@
     <!-- Variants -->
     <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
       <h2 class="font-bold text-gray-900 mb-1">Variantes</h2>
-      <p class="text-xs text-gray-400 mb-4">Define tallas, colores y largos. El sistema crea la matriz automáticamente. Deja vacío lo que no aplique. Largo solo aplica a productos con varios largos (ej: leggings Lululemon 25" / 28").</p>
+      <p class="text-xs text-gray-400 mb-4">Tallas y largos para este color. Si el producto no tiene tallas o largos, déjalo en blanco.</p>
 
-      <div class="grid sm:grid-cols-3 gap-4 mb-4">
+      <div class="grid sm:grid-cols-2 gap-4 mb-4">
         <div>
           <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Tallas (coma)</label>
           <input v-model="sizesInput" type="text" placeholder="S, M, L, XL" class="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
-        </div>
-        <div>
-          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Colores (coma)</label>
-          <input v-model="colorsInput" type="text" placeholder="Black, Olive, Brown" class="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
         </div>
         <div>
           <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Largos (coma)</label>
@@ -240,9 +220,7 @@
         >
           <span class="font-medium text-gray-900">
             <span v-if="v.size">Talla: {{ v.size }}</span>
-            <span v-if="v.size && v.color"> · </span>
-            <span v-if="v.color">Color: {{ v.color }}</span>
-            <span v-if="(v.size || v.color) && v.length"> · </span>
+            <span v-if="v.size && v.length"> · </span>
             <span v-if="v.length">Largo: {{ v.length }}</span>
           </span>
         </div>
@@ -281,6 +259,7 @@ const emit = defineEmits(['submit', 'delete-image'])
 
 const form = ref({
   name: props.existingProduct?.name ?? '',
+  color: props.existingProduct?.color ?? '',
   slug: props.existingProduct?.slug ?? '',
   description: props.existingProduct?.description ?? '',
   source_url: props.existingProduct?.source_url ?? '',
@@ -363,70 +342,40 @@ watch(() => [form.value.cost_cents, form.value.markup_percent], () => {
   }
 })
 
-// Image state — both new files and previews. editingImages mirrors
-// existingProduct.images so the admin can re-tag colors inline; on submit
-// we send the whole array back via PUT so server replaces the JSON.
+// Image state — new files + previews. Color now lives at the product
+// level so per-image color tagging is gone.
 const newImageFiles = ref([])
 const newImagePreviews = ref([])
-const newImageColors = ref([])  // parallel to newImageFiles — '' means untagged
 const fileInput = ref(null)
-const editingImages = ref(
-  (props.existingProduct?.images ?? []).map((img) => ({
-    path:  img.path,
-    url:   img.url,
-    order: img.order ?? 0,
-    color: img.color ?? '',
-  }))
-)
 
-// If the parent reloads existingProduct (e.g. after image upload), re-sync.
-watch(() => props.existingProduct?.images, (imgs) => {
-  if (! imgs) return
-  editingImages.value = imgs.map((img) => ({
-    path:  img.path,
-    url:   img.url,
-    order: img.order ?? 0,
-    color: img.color ?? '',
-  }))
-}, { deep: true })
-
-// Variants — pre-fill from existing product so admin sees current matrix
+// Variants — pre-fill from existing product. Color is product-level
+// (form.color) so the variant axes are size + length only.
 const sizesInput   = ref(uniqueAxis(props.existingProduct?.variants ?? [], 'size').join(', '))
-const colorsInput  = ref(uniqueAxis(props.existingProduct?.variants ?? [], 'color').join(', '))
 const lengthsInput = ref(uniqueAxis(props.existingProduct?.variants ?? [], 'length').join(', '))
 
 const parsedSizes   = computed(() => sizesInput.value.split(',').map(s => s.trim()).filter(Boolean))
-const parsedColors  = computed(() => colorsInput.value.split(',').map(s => s.trim()).filter(Boolean))
 const parsedLengths = computed(() => lengthsInput.value.split(',').map(s => s.trim()).filter(Boolean))
 
-const hasInputs = computed(() => parsedSizes.value.length > 0 || parsedColors.value.length > 0 || parsedLengths.value.length > 0)
+const hasInputs = computed(() => parsedSizes.value.length > 0 || parsedLengths.value.length > 0)
 
-// Build the cartesian product of whichever axes are populated. Each axis
-// with N values multiplies the matrix by N; an empty axis is skipped.
-// Order: outer loop colors → sizes → lengths so the variant list reads
-// left-to-right naturally for the admin.
+// Cartesian product of size × length. Empty axis = single null placeholder
+// so the loop still runs once (e.g. a product with sizes but no length).
 const variantPreview = computed(() => {
   const sizes   = parsedSizes.value
-  const colors  = parsedColors.value
   const lengths = parsedLengths.value
-  if (sizes.length === 0 && colors.length === 0 && lengths.length === 0) return []
+  if (sizes.length === 0 && lengths.length === 0) return []
 
-  // Treat empty axes as a single "no value" placeholder so the loop still runs once
-  const colorIter  = colors.length  ? colors  : [null]
   const sizeIter   = sizes.length   ? sizes   : [null]
   const lengthIter = lengths.length ? lengths : [null]
 
   const out = []
   let order = 0
-  for (const c of colorIter) {
-    for (const s of sizeIter) {
-      for (const l of lengthIter) {
-        const row = { display_order: order++ }
-        if (s !== null) row.size   = s
-        if (c !== null) row.color  = c
-        if (l !== null) row.length = l
-        out.push(row)
-      }
+  for (const s of sizeIter) {
+    for (const l of lengthIter) {
+      const row = { display_order: order++ }
+      if (s !== null) row.size   = s
+      if (l !== null) row.length = l
+      out.push(row)
     }
   }
   return out
@@ -455,7 +404,6 @@ const onFiles = (e) => {
   const files = Array.from(e.target.files ?? [])
   files.forEach(f => {
     newImageFiles.value.push(f)
-    newImageColors.value.push('')   // new uploads default to untagged
     const reader = new FileReader()
     reader.onload = (ev) => newImagePreviews.value.push(ev.target.result)
     reader.readAsDataURL(f)
@@ -466,37 +414,16 @@ const onFiles = (e) => {
 const removeNewImage = (i) => {
   newImageFiles.value.splice(i, 1)
   newImagePreviews.value.splice(i, 1)
-  newImageColors.value.splice(i, 1)
 }
-
-// Did the admin change any color tag on an existing image? If yes we
-// include the full images array in the PUT payload; otherwise we skip it
-// to avoid touching the JSON unnecessarily.
-const existingImageColorsChanged = computed(() => {
-  const orig = props.existingProduct?.images ?? []
-  if (orig.length !== editingImages.value.length) return true
-  for (let i = 0; i < orig.length; i++) {
-    const a = (orig[i].color ?? '').trim()
-    const b = (editingImages.value[i].color ?? '').trim()
-    if (a !== b) return true
-  }
-  return false
-})
 
 const submit = () => {
   const payload = { ...form.value }
   if (!payload.slug) delete payload.slug
   if (!payload.available_until) payload.available_until = null
-
-  if (existingImageColorsChanged.value) {
-    payload.images = editingImages.value
-  }
-
   emit('submit', {
-    fields:       payload,
-    images:       newImageFiles.value,
-    imageColors:  newImageColors.value,
-    variants:     variantPreview.value,
+    fields:   payload,
+    images:   newImageFiles.value,
+    variants: variantPreview.value,
   })
 }
 </script>

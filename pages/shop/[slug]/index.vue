@@ -169,34 +169,18 @@
               {{ product.name }}
             </h1>
 
+            <!-- Color label (each Boxly product is one color — not selectable) -->
+            <p v-if="product.color" class="text-sm text-gray-600 mb-3">
+              <span class="font-semibold text-gray-500 uppercase tracking-wider text-[11px] sm:text-xs">{{ t.color }}:</span>
+              <span class="ml-1.5 text-gray-900 font-medium">{{ product.color }}</span>
+            </p>
+
             <!-- Price -->
             <div class="flex items-baseline gap-2 mb-6">
               <p class="text-2xl sm:text-3xl font-extrabold text-gray-900">
                 ${{ formatPrice(product.price_cents) }}
               </p>
               <span class="text-xs sm:text-sm font-semibold text-gray-500">MXN</span>
-            </div>
-
-            <!-- Color selector -->
-            <div v-if="availableColors.length > 0" class="mb-5">
-              <p class="text-[11px] sm:text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                {{ t.color }}<span v-if="selectedColor" class="text-gray-900 normal-case ml-1.5 tracking-normal font-bold">— {{ selectedColor }}</span>
-              </p>
-              <div class="flex flex-wrap gap-2">
-                <button
-                  v-for="color in availableColors"
-                  :key="color.value"
-                  @click="selectColor(color.value)"
-                  :disabled="!color.hasStock"
-                  :class="[
-                    selectedColor === color.value
-                      ? 'border-gray-900 text-gray-900 bg-gray-50'
-                      : 'border-gray-200 text-gray-700 hover:border-gray-400 active:border-gray-900',
-                    !color.hasStock ? 'opacity-40 line-through cursor-not-allowed' : '',
-                    'px-3.5 py-2 rounded-full border text-sm font-medium transition-colors'
-                  ]"
-                >{{ color.value }}</button>
-              </div>
             </div>
 
             <!-- Length selector (only when product has length variants — Lululemon tights, denim inseam) -->
@@ -475,7 +459,6 @@ const activeIndex = ref(0)
 const lightboxOpen = ref(false)
 const added = ref(false)
 const selectedSize = ref(null)
-const selectedColor = ref(null)
 const selectedLength = ref(null)
 const mobileCarousel = ref(null)
 
@@ -493,48 +476,16 @@ const goToImage = (i) => {
   if (el) el.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' })
 }
 
-// Images shown in the gallery — filtered to the selected color when one is
-// picked. Falls back to the full list if (a) no color is picked yet, or
-// (b) no image on this product has that color tagged (legacy products from
-// before per-color images existed).
-const displayedImages = computed(() => {
-  const all = product.value?.images ?? []
-  if (!selectedColor.value) return all
-  const want = selectedColor.value.trim().toLowerCase()
-  const matching = all.filter((img) => (img.color || '').trim().toLowerCase() === want)
-  return matching.length > 0 ? matching : all
-})
+// All images belong to this product's single color, so no filtering.
+const displayedImages = computed(() => product.value?.images ?? [])
 
 const activeImage = computed(() => {
   return displayedImages.value[activeIndex.value]?.url ?? null
 })
 
-// When the customer picks a different color, snap the gallery back to the
-// first image of that color (mobile carousel + desktop main image).
-watch(selectedColor, () => {
-  activeIndex.value = 0
-  if (mobileCarousel.value) {
-    mobileCarousel.value.scrollTo({ left: 0, behavior: 'smooth' })
-  }
-})
-
 // Variants — list of all variants for this product (may be empty for products without variants)
 const variants = computed(() => product.value?.variants ?? [])
 const hasVariants = computed(() => variants.value.length > 0)
-
-// Unique colors / sizes drawn from variants. Source-store availability is
-// no longer pre-checked; Velonie verifies per-PR after the customer creates
-// the request. So every variant is shown as a valid pick here.
-const availableColors = computed(() => {
-  const seen = new Set()
-  const out = []
-  for (const v of variants.value) {
-    if (!v.color || seen.has(v.color)) continue
-    seen.add(v.color)
-    out.push({ value: v.color, hasStock: true })
-  }
-  return out
-})
 
 const availableSizes = computed(() => {
   const seen = new Set()
@@ -560,30 +511,26 @@ const availableLengths = computed(() => {
   return out
 })
 
-// Find the selected variant given current size/color/length picks
+// Find the selected variant given current size/length picks. Color is
+// product-level now (one Boxly product = one color), so it's not part
+// of variant matching.
 const selectedVariant = computed(() => {
   if (!hasVariants.value) return null
   return variants.value.find(v =>
     (v.size   ?? null) === (selectedSize.value   ?? null)
-    && (v.color  ?? null) === (selectedColor.value  ?? null)
     && (v.length ?? null) === (selectedLength.value ?? null)
   ) ?? null
 })
 
 const canAddToCart = computed(() => {
   if (!hasVariants.value) return true
-  const colorRequired  = availableColors.value.length  > 0
   const sizeRequired   = availableSizes.value.length   > 0
   const lengthRequired = availableLengths.value.length > 0
-  if (colorRequired  && !selectedColor.value)  return false
   if (sizeRequired   && !selectedSize.value)   return false
   if (lengthRequired && !selectedLength.value) return false
   return !!selectedVariant.value
 })
 
-const selectColor = (c) => {
-  selectedColor.value = selectedColor.value === c ? null : c
-}
 const selectSize = (s) => {
   selectedSize.value = selectedSize.value === s ? null : s
 }
@@ -651,11 +598,11 @@ const addToCart = () => {
     weight_kg:   Number(product.value.weight_kg),
     image_url:   product.value.first_image_url,
     size:        v?.size ?? null,
-    color:       v?.color ?? null,
     length:      v?.length ?? null,
+    color:       product.value.color ?? null,
   }, qty.value)
   added.value = true
-  const variantSuffix = v ? ` (${[v.size, v.color, v.length].filter(Boolean).join(' / ')})` : ''
+  const variantSuffix = ` (${[product.value.color, v?.size, v?.length].filter(Boolean).join(' / ')})`
   toast.success(`${product.value.name}${variantSuffix} agregado al carrito`)
   setTimeout(() => { added.value = false }, 2000)
 }
