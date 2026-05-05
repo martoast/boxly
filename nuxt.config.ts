@@ -51,18 +51,15 @@ export default defineNuxtConfig({
           property: 'og:description', 
           content: 'Compra en cualquier tienda del mundo y recíbelo en México. Te damos un domicilio en USA, consolidamos tus paquetes y enviamos a todo México al mejor precio.'
         },
-        { 
-          property: 'og:image', 
+        {
+          property: 'og:image',
           content: 'https://boxly.mx/logo.jpeg'
         },
-        { 
-          property: 'og:image:width', 
-          content: '1200'
-        },
-        { 
-          property: 'og:image:height', 
-          content: '630'
-        },
+        // Intentionally NOT setting og:image:width/height globally —
+        // page-level useHead calls (e.g. /shop/<slug>) override og:image
+        // with photos of all aspect ratios, and asserting fixed
+        // dimensions globally was producing wrong values for those
+        // pages. Platforms auto-detect dimensions from the image itself.
         // Twitter
         { 
           name: 'twitter:card', 

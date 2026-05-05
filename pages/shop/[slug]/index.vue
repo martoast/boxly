@@ -487,12 +487,26 @@ watch(() => route.params.slug, () => {
 // route changes. useHead is reactive in Nuxt 3 when given functions /
 // refs / computeds, and runs both server-side (for crawlers) and
 // client-side (for in-app navigation tab titles).
+// Trim a string to ≤ max characters, breaking at the last whitespace
+// before the limit and appending an ellipsis. Avoids the ugly mid-word
+// cuts you get from a plain .slice() (e.g. "splash-resistant slider lid
+// and premium silico").
+const truncateOnWord = (s, max) => {
+  if (!s || s.length <= max) return s
+  const cut = s.slice(0, max)
+  const lastSpace = cut.lastIndexOf(' ')
+  return (lastSpace > max * 0.6 ? cut.slice(0, lastSpace) : cut).trimEnd() + '…'
+}
+
 useHead(() => {
   const p = product.value
   if (!p) return { title: 'Tienda Boxly' }
   const colorSuffix = p.color ? ` - ${p.color}` : ''
   const title = `${p.name}${colorSuffix} — Tienda Boxly`
-  const description = (p.description || `${p.name} en la Tienda Boxly`).trim().slice(0, 200)
+  const description = truncateOnWord(
+    (p.description || `${p.name} en la Tienda Boxly`).replace(/\s+/g, ' ').trim(),
+    200
+  )
   const image = p.first_image_url || 'https://boxly.mx/logo.jpeg'
   const fullUrl = `https://boxly.mx/shop/${p.slug}`
   return {
@@ -504,6 +518,7 @@ useHead(() => {
       { property: 'og:title', content: title },
       { property: 'og:description', content: description },
       { property: 'og:image', content: image },
+      { property: 'og:image:secure_url', content: image },
       { property: 'og:image:alt', content: p.name },
       { property: 'og:locale', content: 'es_MX' },
       { property: 'og:site_name', content: 'Boxly' },
