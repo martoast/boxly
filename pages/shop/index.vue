@@ -71,9 +71,9 @@
       </div>
 
       <!-- Loading skeleton -->
-      <div v-if="loading" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+      <div v-if="loading" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 auto-rows-fr">
         <div v-for="i in 8" :key="i" class="bg-white rounded-2xl border border-gray-100 animate-pulse">
-          <div class="aspect-square bg-gray-200 rounded-t-2xl"></div>
+          <div class="aspect-[4/5] bg-gray-200 rounded-t-2xl"></div>
           <div class="p-4 space-y-2">
             <div class="h-4 bg-gray-200 rounded w-3/4"></div>
             <div class="h-4 bg-gray-200 rounded w-1/2"></div>
@@ -92,8 +92,9 @@
         <p class="text-gray-400 text-sm mt-1">{{ t.tryAdjusting }}</p>
       </div>
 
-      <!-- Product grid -->
-      <div v-else class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+      <!-- Product grid — auto-rows-fr keeps every card in a row the same height
+           regardless of how many lines the title wraps to. -->
+      <div v-else class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 auto-rows-fr">
         <ProductCard v-for="product in products" :key="product.id" :product="product" />
       </div>
 

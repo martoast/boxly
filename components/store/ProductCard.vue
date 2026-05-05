@@ -1,12 +1,13 @@
 <template>
   <NuxtLink
     :to="`/shop/${product.slug}`"
-    class="group block bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 relative"
+    class="group flex flex-col h-full bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 relative"
   >
-    <!-- Image — object-contain so horizontal product shots (bags, shoes
-         from above) aren't cropped. White background + padding gives all
-         orientations a clean, uniform look. -->
-    <div class="relative aspect-square bg-white overflow-hidden">
+    <!-- Image — fixed 4:5 portrait aspect (Shopify-Dawn standard for fashion).
+         object-contain on a neutral background handles every orientation
+         consistently: model shots fill the frame; bags/shoes/accessories sit
+         centered with breathing room. Same height in every card = clean grid. -->
+    <div class="relative aspect-[4/5] bg-gray-50 overflow-hidden shrink-0">
       <img
         v-if="product.first_image_url"
         :src="product.first_image_url"
@@ -26,17 +27,19 @@
       </div>
     </div>
 
-    <!-- Body -->
-    <div class="p-4 border-t border-gray-50">
-      <h3 class="font-semibold text-gray-900 text-sm leading-snug line-clamp-2 mb-1 min-h-[2.5em]">
+    <!-- Body — flex column so price always pins to the bottom regardless of
+         how many lines the title wraps. Combined with auto-rows-fr on the
+         parent grid, every card in a row ends at the same vertical position. -->
+    <div class="flex flex-col flex-1 p-4">
+      <h3 class="font-semibold text-gray-900 text-sm leading-snug line-clamp-2 mb-1">
         {{ product.name }}
       </h3>
 
-      <p v-if="product.color" class="text-xs text-gray-500 mb-2 line-clamp-1">
+      <p v-if="product.color" class="text-xs text-gray-500 line-clamp-1">
         {{ product.color }}
       </p>
 
-      <p class="text-lg font-bold text-gray-900">
+      <p class="mt-auto pt-3 text-lg font-bold text-gray-900">
         ${{ formatPrice(product.price_cents) }} <span class="text-xs font-medium text-gray-500">MXN</span>
       </p>
     </div>
