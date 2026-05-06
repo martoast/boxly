@@ -114,6 +114,8 @@
             >
               {{ t.checkout }} →
             </NuxtLink>
+
+            <p class="mt-4 text-xs text-gray-500 leading-relaxed">{{ t.shippingNote }}</p>
           </div>
         </div>
       </div>
@@ -144,6 +146,10 @@ const t = createTranslations({
   items:               { es: 'productos', en: 'items' },
   payNow:              { es: 'Subtotal:', en: 'Subtotal:' },
   checkout:            { es: 'Crear solicitud', en: 'Create request' },
+  shippingNote:        {
+    es: 'Boxly verificará disponibilidad en cada tienda. Si todo está disponible, te enviaremos un link de pago. El envío se cotiza después, cuando consolidamos tu caja.',
+    en: 'Boxly will verify availability at each store. If everything is in stock, we\'ll send you a payment link. Shipping is quoted later, when we consolidate your box.',
+  },
 })
 
 const {
