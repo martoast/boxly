@@ -12,9 +12,11 @@
     </div>
 
     <div v-if="products.length === 0" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
-      <div v-for="i in 5" :key="i" class="aspect-[4/5] rounded-2xl bg-gray-100 animate-pulse" />
+      <div v-for="i in 10" :key="i" class="aspect-[4/5] rounded-2xl bg-gray-100 animate-pulse" />
     </div>
 
+    <!-- 2 rows on desktop (5 cols × 2 = 10) so customers see more
+         drops in one scroll. Smaller breakpoints stack naturally. -->
     <div v-else class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 auto-rows-fr">
       <ProductCard v-for="p in products" :key="p.id" :product="p" />
     </div>
@@ -28,7 +30,7 @@ const { $customFetch } = useNuxtApp()
 
 const { data } = await useAsyncData('shop-landing-featured', async () => {
   const res = await $customFetch('/store/products', {
-    query: { per_page: 5, sort: 'newest' },
+    query: { per_page: 10, sort: 'newest' },
   }).catch(() => null)
   return res?.data?.data ?? []
 })
