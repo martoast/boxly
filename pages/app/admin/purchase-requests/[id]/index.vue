@@ -138,6 +138,47 @@
         </div>
       </div>
 
+      <!-- Stripe payment link banner — once a Stripe invoice has been
+           created, surface the link here so the operator can re-share
+           it or open it to verify the invoice on Stripe's hosted page. -->
+      <div v-if="request.payment_link && request.payment_method === 'stripe'" class="bg-indigo-50 border border-indigo-200 rounded-xl p-4 flex items-start gap-4">
+        <div class="w-12 h-12 bg-white rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm border border-indigo-100">
+          <svg class="w-7 h-7 text-indigo-600" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.858 6.09 1.631l.89-5.494C18.252.975 15.697 0 12.165 0 9.667 0 7.589.654 6.104 1.872 4.56 3.147 3.757 4.992 3.757 7.218c0 4.039 2.467 5.76 6.476 7.219 2.585.92 3.445 1.574 3.445 2.583 0 .98-.84 1.545-2.354 1.545-1.875 0-4.965-.921-6.99-2.109l-.9 5.555C5.175 22.99 8.385 24 11.714 24c2.641 0 4.843-.624 6.328-1.813 1.664-1.305 2.525-3.236 2.525-5.732 0-4.128-2.524-5.851-6.591-7.305z"/>
+          </svg>
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="font-semibold text-indigo-900">{{ t.stripeLinkReady }}</p>
+          <p class="text-sm text-indigo-700 mt-0.5">{{ t.stripeLinkReadyDesc }}</p>
+          <div class="mt-3 flex items-stretch gap-2">
+            <a
+              :href="request.payment_link"
+              target="_blank"
+              rel="noopener"
+              class="flex-1 min-w-0 truncate px-3 py-2 rounded-lg bg-white border border-indigo-100 text-xs text-indigo-700 font-mono hover:underline self-stretch flex items-center"
+              :title="request.payment_link"
+            >{{ request.payment_link }}</a>
+            <button
+              type="button"
+              @click="copyPaymentLink"
+              class="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-indigo-200 hover:bg-indigo-100 text-indigo-700 text-sm font-medium rounded-lg transition-colors flex-shrink-0"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+              {{ t.copy }}
+            </button>
+            <a
+              :href="request.payment_link"
+              target="_blank"
+              rel="noopener"
+              class="inline-flex items-center gap-1.5 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors flex-shrink-0"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+              {{ t.openLink }}
+            </a>
+          </div>
+        </div>
+      </div>
+
       <!-- Manual Deposit Awaiting Payment Banner -->
       <div v-if="request.status === 'quoted' && request.payment_method === 'manual_deposit'" class="bg-purple-50 border border-purple-200 rounded-xl p-4 flex items-start gap-4">
         <div class="w-12 h-12 bg-white rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm border border-purple-100">
@@ -591,6 +632,14 @@ const translations = {
   customerPays: { es: 'Cliente Paga', en: 'Customer Pays' },
   paymentMethod: { es: 'Método de Pago', en: 'Payment Method' },
   stripeLink: { es: 'Enlace de Pago Stripe', en: 'Stripe Payment Link' },
+  stripeLinkReady: { es: 'Cotización Stripe enviada', en: 'Stripe invoice sent' },
+  stripeLinkReadyDesc: {
+    es: 'El cliente recibió un email con el enlace de pago. Aquí está por si necesitas reenviarlo o verificarlo.',
+    en: 'Customer received an email with the payment link. Here it is if you need to resend or verify it.',
+  },
+  openLink: { es: 'Abrir', en: 'Open' },
+  copy: { es: 'Copiar', en: 'Copy' },
+  copied: { es: 'Copiado', en: 'Copied' },
   customerInfo: { es: 'Cliente', en: 'Customer Info' },
   name: { es: 'Nombre', en: 'Name' },
   email: { es: 'Email', en: 'Email' },
@@ -847,6 +896,17 @@ const markStockStatus = async (item, stockStatus) => {
 
 // Store PRs skip the cost/shipping/tax modal — they go straight to a confirm dialog
 // and POST the quote with no body params. Assisted PRs use the existing modal.
+const copyPaymentLink = async () => {
+  const link = request.value?.payment_link;
+  if (!link) return;
+  try {
+    await navigator.clipboard.writeText(link);
+    $toast.success(t.value.copied);
+  } catch (e) {
+    $toast.error('No se pudo copiar');
+  }
+};
+
 const onCreateQuoteClick = async () => {
   if (!isStorePR.value) {
     showQuoteModal.value = true;
