@@ -32,24 +32,24 @@
         <NuxtLink
           to="/shop"
           class="relative w-full rounded-3xl overflow-hidden block group shadow-lg shadow-black/5 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300"
-          style="min-height: 200px"
         >
           <img
             src="/images/shop-hero.png"
             alt="Tienda Boxly"
             class="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.03]"
           />
-          <div class="absolute inset-0 bg-gradient-to-r from-black/70 via-black/30 to-transparent" />
-          <div class="absolute inset-0 flex items-center px-6 sm:px-10">
-            <div class="max-w-md">
-              <p class="text-white/70 text-xs font-bold uppercase tracking-widest mb-2">Tienda Boxly</p>
-              <h2 class="text-white font-extrabold text-2xl sm:text-3xl leading-tight mb-2">Productos curados, listos para enviar</h2>
-              <p class="text-white/80 text-sm mb-4">Marcas de Estados Unidos seleccionadas a mano. Compra y nosotros consolidamos.</p>
-              <span class="inline-flex items-center gap-2 bg-white text-gray-900 font-semibold text-sm px-5 py-2.5 rounded-full shadow-lg group-hover:bg-gray-100 transition-colors">
-                Explorar tienda
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
-              </span>
-            </div>
+          <!-- Heavier gradient on the left for legibility, fading to clear on the right where the photo carries the design. -->
+          <div class="absolute inset-0 bg-gradient-to-r from-black/75 via-black/40 to-transparent" />
+          <!-- Content drives the banner's natural height — keeps padding
+               consistent across breakpoints without min-height tricks. -->
+          <div class="relative max-w-md sm:max-w-lg lg:max-w-2xl p-6 sm:p-8 lg:p-12">
+            <p class="text-white/70 text-[10px] sm:text-xs font-bold uppercase tracking-widest mb-2">Tienda Boxly</p>
+            <h2 class="text-white font-extrabold text-xl sm:text-2xl lg:text-4xl leading-tight mb-2 sm:mb-3">Productos curados, listos para enviar</h2>
+            <p class="hidden sm:block text-white/80 text-sm lg:text-base mb-4 lg:mb-5 max-w-md lg:max-w-lg">Marcas de Estados Unidos seleccionadas a mano. Compra y nosotros consolidamos.</p>
+            <span class="inline-flex items-center gap-2 bg-white text-gray-900 font-semibold text-xs sm:text-sm px-4 sm:px-5 py-2 sm:py-2.5 rounded-full shadow-lg group-hover:bg-gray-100 transition-colors">
+              Explorar tienda
+              <svg class="h-3.5 w-3.5 sm:h-4 sm:w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
+            </span>
           </div>
         </NuxtLink>
       </div>
