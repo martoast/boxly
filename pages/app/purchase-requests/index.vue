@@ -27,71 +27,31 @@
         </div>
       </div>
   
-      <!-- Personal Shopping Hero Card -->
+      <!-- Tienda Boxly CTA — replaces the old Personal Shopping/WhatsApp banner. -->
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
-        <a
-          href="https://wa.me/16195591910?text=Hola%21+Me+gustar%C3%ADa+agendar+un+personal+shopping+en+Las+Americas+Premium+Outlets"
-          target="_blank"
-          rel="noopener"
-          class="relative w-full rounded-3xl overflow-hidden cursor-pointer group shadow-xl shadow-black/10 hover:shadow-2xl hover:shadow-black/20 transition-all duration-300 hover:-translate-y-0.5 block"
-          style="min-height: 280px"
+        <NuxtLink
+          to="/shop"
+          class="relative w-full rounded-3xl overflow-hidden block group shadow-lg shadow-black/5 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300"
+          style="min-height: 200px"
         >
-          <!-- Background photo -->
           <img
-            src="/outlet.jpeg"
-            alt="Las Americas Premium Outlets"
+            src="/images/shop-hero.png"
+            alt="Tienda Boxly"
             class="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.03]"
           />
-          <!-- Gradient overlay -->
-          <div class="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/10" />
-
-          <!-- "Nuevo" badge -->
-          <div class="absolute top-4 left-4">
-            <span class="inline-flex items-center gap-1.5 bg-white/15 backdrop-blur-md border border-white/20 text-white text-xs font-semibold px-3 py-1.5 rounded-full">
-              <span class="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              Nuevo servicio
-            </span>
-          </div>
-
-          <!-- Content anchored to bottom -->
-          <div class="absolute bottom-0 left-0 right-0 px-5 pb-5">
-
-            <!-- Location -->
-            <div class="flex items-center gap-1.5 mb-2.5">
-              <svg class="h-3.5 w-3.5 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
-              </svg>
-              <span class="text-white/60 text-xs font-medium">Las Americas Premium Outlets · San Ysidro, CA</span>
-            </div>
-
-            <!-- Headline -->
-            <h2 class="text-white font-extrabold text-2xl sm:text-3xl leading-tight mb-1">Personal Shopping</h2>
-            <p class="text-white/75 text-sm mb-4">Compramos por ti en tiendas oficiales de San Diego</p>
-
-            <!-- Brands strip -->
-            <div class="flex items-center gap-2 overflow-x-auto no-scrollbar mb-4">
-              <span v-for="brand in brands" :key="brand"
-                class="shrink-0 bg-white/15 backdrop-blur-sm border border-white/20 text-white/90 text-xs font-semibold px-3 py-1.5 rounded-full">
-                {{ brand }}
+          <div class="absolute inset-0 bg-gradient-to-r from-black/70 via-black/30 to-transparent" />
+          <div class="absolute inset-0 flex items-center px-6 sm:px-10">
+            <div class="max-w-md">
+              <p class="text-white/70 text-xs font-bold uppercase tracking-widest mb-2">Tienda Boxly</p>
+              <h2 class="text-white font-extrabold text-2xl sm:text-3xl leading-tight mb-2">Productos curados, listos para enviar</h2>
+              <p class="text-white/80 text-sm mb-4">Marcas de Estados Unidos seleccionadas a mano. Compra y nosotros consolidamos.</p>
+              <span class="inline-flex items-center gap-2 bg-white text-gray-900 font-semibold text-sm px-5 py-2.5 rounded-full shadow-lg group-hover:bg-gray-100 transition-colors">
+                Explorar tienda
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
               </span>
             </div>
-
-            <!-- Bottom row: chips + CTA -->
-            <div class="flex items-center gap-3">
-              <div class="flex items-center gap-2">
-                <span class="bg-white/15 backdrop-blur-sm border border-white/20 text-white text-xs font-semibold px-3 py-1.5 rounded-full">8% comisión</span>
-                <span class="bg-white/15 backdrop-blur-sm border border-white/20 text-white text-xs font-semibold px-3 py-1.5 rounded-full">mín. $600 USD</span>
-              </div>
-              <div class="ml-auto shrink-0">
-                <div class="inline-flex items-center gap-2 bg-white text-gray-900 font-bold text-sm px-4 py-2.5 rounded-2xl shadow-lg group-hover:bg-primary-500 group-hover:text-white transition-colors duration-200">
-                  Agendar
-                  <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
-                </div>
-              </div>
-            </div>
           </div>
-        </a>
+        </NuxtLink>
       </div>
 
       <!-- Main Content -->
@@ -128,30 +88,27 @@
               </div>
             </NuxtLink>
 
-            <!-- Personal shopping path -->
-            <a
-              href="https://wa.me/16195591910?text=Hola%21+Me+gustar%C3%ADa+agendar+un+personal+shopping+en+Las+Americas+Premium+Outlets"
-              target="_blank"
-              rel="noopener"
+            <!-- Tienda Boxly path — replaces the old WhatsApp / outlet flow. -->
+            <NuxtLink
+              to="/shop"
               class="group flex flex-col gap-3 p-5 bg-white rounded-2xl border-2 border-gray-100 hover:border-amber-200 hover:shadow-md active:scale-[0.99] transition-all duration-200 shadow-sm text-left"
             >
               <div class="h-12 w-12 rounded-2xl bg-amber-100 flex items-center justify-center group-hover:bg-amber-200 transition-colors">
                 <svg class="h-6 w-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
                 </svg>
               </div>
               <div>
-                <h3 class="font-bold text-gray-900 text-base mb-1">Personal Shopping</h3>
-                <p class="text-sm text-gray-500 leading-snug">Vamos físicamente a Las Americas Outlets en San Diego a comprar por ti.</p>
+                <h3 class="font-bold text-gray-900 text-base mb-1">Tienda Boxly</h3>
+                <p class="text-sm text-gray-500 leading-snug">Productos ya curados de marcas como Lululemon, Alo y Stanley — listos para enviar.</p>
               </div>
               <div class="mt-auto flex items-center justify-between">
-                <span class="text-xs font-semibold text-amber-600 bg-amber-50 border border-amber-100 px-2.5 py-1 rounded-full">mín. $600 USD</span>
+                <span class="text-xs font-semibold text-amber-600 bg-amber-50 border border-amber-100 px-2.5 py-1 rounded-full">Sin comisión</span>
                 <svg class="h-4 w-4 text-gray-300 group-hover:text-amber-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                 </svg>
               </div>
-            </a>
+            </NuxtLink>
 
           </div>
         </div>
@@ -255,8 +212,6 @@
   const loading = ref(true);
   const pagination = ref({ currentPage: 1, lastPage: 1 });
   const showOnboarding = ref(false);
-
-  const brands = ['Nike', 'Coach', 'Michael Kors', 'Hugo Boss', 'Karl Lagerfeld', 'Calvin Klein'];
 
   // Use Nuxt's useCookie for SSR-friendly persistent storage
   const onboardingDismissed = useCookie('boxly_assisted_purchase_onboarding_dismissed', {
