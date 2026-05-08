@@ -4,27 +4,18 @@
     class="group flex flex-col h-full bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 relative"
   >
     <!-- Image — fixed 4:5 portrait aspect (Shopify-Dawn standard for fashion).
-         Two layers: a blurred copy of the same image as a backdrop that
-         fills the frame with the product's own colors (so studio whites
-         blend into white cards, lifestyle shots blend into their own
-         tones), plus a sharp object-contain foreground so the product
-         is never cropped. Browsers cache the second request so the cost
-         is one HTTP fetch + one extra paint. -->
+         object-contain on a neutral surface lets every product fit cleanly
+         no matter the source crop (square sneakers, tall bottles, model
+         shots) without any cropping. p-3 keeps a small breathing margin
+         so nothing kisses the edge of the card. -->
     <div class="relative aspect-[4/5] bg-gray-50 overflow-hidden shrink-0">
-      <template v-if="product.first_image_url">
-        <img
-          :src="product.first_image_url"
-          aria-hidden="true"
-          class="absolute inset-0 w-full h-full object-cover scale-125 blur-2xl opacity-60 z-0"
-          loading="lazy"
-        />
-        <img
-          :src="product.first_image_url"
-          :alt="product.name"
-          class="relative w-full h-full object-contain transition-transform duration-300 group-hover:scale-105 z-10"
-          loading="lazy"
-        />
-      </template>
+      <img
+        v-if="product.first_image_url"
+        :src="product.first_image_url"
+        :alt="product.name"
+        class="w-full h-full object-contain p-3 transition-transform duration-300 group-hover:scale-105"
+        loading="lazy"
+      />
       <div v-else class="w-full h-full flex items-center justify-center text-gray-300">
         <svg class="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
@@ -32,7 +23,7 @@
       </div>
 
       <!-- Expiring soon badge -->
-      <div v-if="expiringSoon" class="absolute top-2 left-2 z-20 bg-amber-500 text-white text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full">
+      <div v-if="expiringSoon" class="absolute top-2 left-2 bg-amber-500 text-white text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full">
         {{ expiringLabel }}
       </div>
     </div>
@@ -41,6 +32,10 @@
          how many lines the title wraps. Combined with auto-rows-fr on the
          parent grid, every card in a row ends at the same vertical position. -->
     <div class="flex flex-col flex-1 p-4">
+      <p v-if="product.store?.name" class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5">
+        {{ product.store.name }}
+      </p>
+
       <h3 class="font-semibold text-gray-900 text-sm leading-snug line-clamp-2 mb-1">
         {{ product.name }}
       </h3>
