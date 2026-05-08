@@ -512,6 +512,20 @@ const availableLengths = computed(() => {
   return out
 })
 
+// Auto-select when there's only one option — saves users a pointless click
+// before Add to Cart on single-variant products (e.g. a bottle that comes
+// in one size). Fires on first load and whenever the user navigates to a
+// new product (the slug watcher above resets the picks first).
+watch([availableSizes, availableLengths], () => {
+  if (!selectedSize.value && availableSizes.value.length === 1) {
+    const only = availableSizes.value[0]
+    if (only.hasStock !== false) selectedSize.value = only.value
+  }
+  if (!selectedLength.value && availableLengths.value.length === 1) {
+    selectedLength.value = availableLengths.value[0].value
+  }
+}, { immediate: true })
+
 // Find the selected variant given current size/length picks. Color is
 // product-level now (one Boxly product = one color), so it's not part
 // of variant matching.
