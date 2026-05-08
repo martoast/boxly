@@ -203,19 +203,27 @@
         </div>
 
         <!-- Empty state -->
-        <div v-else-if="products.length === 0" class="text-center py-16 bg-white rounded-2xl border border-gray-100">
-          <div class="h-16 w-16 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center text-gray-300">
-            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
-            </svg>
+        <div v-else-if="products.length === 0" class="space-y-4">
+          <div class="text-center py-16 bg-white rounded-2xl border border-gray-100">
+            <div class="h-16 w-16 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center text-gray-300">
+              <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
+              </svg>
+            </div>
+            <p class="text-gray-700 font-semibold">{{ t.noResults }}</p>
+            <p class="text-gray-400 text-sm mt-1">{{ t.tryAdjusting }}</p>
           </div>
-          <p class="text-gray-700 font-semibold">{{ t.noResults }}</p>
-          <p class="text-gray-400 text-sm mt-1">{{ t.tryAdjusting }}</p>
+          <RequestProductCTA variant="banner" />
         </div>
 
         <!-- Product grid -->
         <div v-else class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 auto-rows-fr">
           <ProductCard v-for="product in products" :key="product.id" :product="product" />
+        </div>
+
+        <!-- "Can't find it? Request it" CTA — only shown when products are listed -->
+        <div v-if="!loading && products.length > 0" class="mt-10">
+          <RequestProductCTA variant="banner" />
         </div>
 
         <!-- Pagination -->
@@ -253,6 +261,7 @@
 
 <script setup>
 import ProductCard from '~/components/store/ProductCard.vue'
+import RequestProductCTA from '~/components/store/RequestProductCTA.vue'
 
 definePageMeta({
   layout: 'shop',

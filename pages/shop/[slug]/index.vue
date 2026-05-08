@@ -315,6 +315,11 @@
         </div>
       </div>
 
+      <!-- "Looking for something else?" CTA -->
+      <div class="px-4 sm:px-6 lg:px-0 mt-8 sm:mt-10">
+        <RequestProductCTA variant="inline" />
+      </div>
+
       <!-- Related products -->
       <div v-if="related.length > 0" class="px-4 sm:px-6 lg:px-0 mt-10 sm:mt-14">
         <h2 class="font-bold text-gray-900 text-xl sm:text-2xl mb-4 sm:mb-5">{{ t.related }}</h2>
@@ -346,6 +351,7 @@
 
 <script setup>
 import ProductCard from '~/components/store/ProductCard.vue'
+import RequestProductCTA from '~/components/store/RequestProductCTA.vue'
 
 definePageMeta({
   layout: 'shop',
