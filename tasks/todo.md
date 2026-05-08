@@ -90,3 +90,44 @@ All four tasks complete. Five files touched as planned — no surprises.
 **Out of scope:** forgot-password → reset-password drops the redirect (`reset-password.vue:373` hardcodes `/app`). Flagged for later per user.
 
 **Manual browser test still pending** — the user should walk through the flow once: shop catalog → click banner CTA → bounced to login → log in (or register, or use Google) → land on `/shop/request` → add an item with image → submit → see PR appear in `/app/purchase-requests`.
+
+---
+
+# Shop personal-shopping help line — `/shop/help`
+
+## Goal
+
+Surface a clean WhatsApp help line on `/shop` and `/shop/[slug]` so shoppers can reach Boxly's personal-shopping number `+1 (619) 493-7969` for shopping help. Keep the product UI uncluttered.
+
+## Approach
+
+- New public page `pages/shop/help.vue` (shop layout, no auth) with:
+  - Big WhatsApp CTA → `https://wa.me/16194937969?text=…` with a pre-filled greeting
+  - Tap-to-call `tel:+16194937969`
+  - Short "what we help with" bullets + hours
+- Single navbar entry in `components/Shop/Navbar.vue` ("Ayuda") on desktop nav and in the mobile sheet, pointing to `/shop/help`. This is the only CTA on `/shop` and `/shop/[slug]` — keeps product pages clean.
+- Number used elsewhere (`+1 619 559-1910` for general support) is untouched. The new `493-7969` is the personal-shopping line only.
+
+## Todos
+
+- [x] Create `pages/shop/help.vue`
+- [x] Add "Ayuda" link to `components/Shop/Navbar.vue` (desktop + mobile)
+- [x] Verify dev server renders both routes and WhatsApp deep-link works
+
+## Review
+
+**Files changed**
+
+- `pages/shop/help.vue` (new) — single-page WhatsApp help line. Big green WhatsApp CTA → `wa.me/16194937969` with a pre-filled greeting (ES/EN), tap-to-call link, "what we help with" bullets, and support hours. Uses the shop layout so it picks up `ShopNavbar` + `FooterSection` automatically.
+- `components/Shop/Navbar.vue` — added one entry to `navItems`: `{ to: '/shop/help', label: 'Ayuda' }`. Because the mobile sheet renders the same `navItems` array, the link shows up automatically in both desktop nav and the hamburger sheet — no other edits to the navbar were needed.
+
+**Verification**
+
+- Dev server boots clean. `GET /shop` → 200, `GET /shop/help` → 200.
+- `/shop` HTML contains `/shop/help` (navbar link is there).
+- `/shop/help` HTML title is `Ayuda · Personal Shopping — Tienda Boxly` and embeds `wa.me/16194937969`.
+- Existing footer/help-center number `+1 (619) 559-1910` is left untouched — only the new personal-shopping line `+1 (619) 493-7969` is added.
+
+**Why this approach**
+
+The user offered "maybe a /shop/help page" and confirmed the navbar-link approach. This keeps `/shop` and `/shop/[slug]` clean — no FAB, no extra inline cards, no clutter on the product UI. Discoverability comes from the persistent nav item; the help page itself follows the established WhatsApp-card pattern from `pages/help-center.vue` so it feels native to the rest of the platform.

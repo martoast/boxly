@@ -151,6 +151,7 @@ const navItems = [
   { to: '/shop?view=all',   label: 'Productos',  match: (r) => r.path === '/shop' && (r.query.view === 'all' || !!r.query.category_id || !!r.query.store_id || !!r.query.search) },
   { to: '/shop/categories', label: 'Categorías', match: (r) => r.path === '/shop/categories' },
   { to: '/shop/brands',     label: 'Marcas',     match: (r) => r.path === '/shop/brands' },
+  { to: '/shop/help',       label: 'Ayuda',      match: (r) => r.path === '/shop/help' },
 ]
 
 const isActive = (item) => item.match(route)
