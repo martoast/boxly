@@ -56,10 +56,11 @@ export const useShopLandingPrefetch = () => {
       return res?.data?.data ?? []
     })
 
-    // Taxonomy (genders + categories + brands) — also used by /shop
-    // catalog filter drawer and navbar dropdowns. Same composable, so
-    // calling it pre-populates the same key.
-    useShopMenuData()
+    // Taxonomy (genders + categories + brands) for the navbar
+    // dropdown + filter drawer. The composable's auto-trigger waits
+    // for browser idle, but here we have explicit user intent
+    // (hover/focus on a /shop link) so fire it eagerly.
+    useShopMenuData().ensureLoaded()
   }
 
   return { prefetch }

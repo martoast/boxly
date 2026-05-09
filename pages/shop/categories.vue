@@ -51,12 +51,16 @@ useHead({
   ],
 })
 
-// Categories come from the shared shop-menu composable — single SSR
-// fetch, deduped across navbar / filter drawer / this page. The
-// backend already backfills image_url with a representative product
-// image for categories without an admin-uploaded cover, so no extra
-// per-category fetches needed here anymore.
-const { categories } = useShopMenuData()
+const { $customFetch } = useNuxtApp()
+
+// This page renders categories above the fold, so we SSR-fetch them
+// directly rather than going through the (client-only) shared menu
+// composable. The backend backfills image_url with a representative
+// product image for categories without an admin-uploaded cover.
+const { data: catsData } = await useAsyncData('shop-categories-grid', () =>
+  $customFetch('/store/categories').catch(() => null),
+)
+const categories = computed(() => catsData.value?.data ?? [])
 
 // Categories with images first — keeps imageless ones at the bottom
 // where their gradient placeholder won't fight the curated cover

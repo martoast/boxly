@@ -373,12 +373,15 @@ const isMobileActive = (item) => {
   return false
 }
 
-// Mega-menu data — pulled from the shared shop-menu composable so it's
-// SSR-fetched once per session and reused across the navbar, the catalog
-// filter drawer, /shop/categories, and /shop/brands. By the time the
-// user hovers a dropdown the data is already in memory — no spinner,
-// no flash, no fetch on hover.
-const { genders, categories, brands } = useShopMenuData()
+// Mega-menu data — pulled from the shared shop-menu composable.
+// Composable is client-only and deferred so it doesn't block /shop's
+// SSR. After hydration, it auto-fetches on browser idle. We ALSO
+// fire ensureLoaded() on first hover/click of either dropdown
+// trigger as a belt-and-suspenders for slow connections — by the
+// time the user actually opens a dropdown, the data is ready.
+const { genders, categories, brands, ensureLoaded: ensureMenuData } = useShopMenuData()
+
+watch(openMenu, (val) => { if (val) ensureMenuData() })
 
 // Cap categories shown in the dropdown — full list lives on /shop/categories
 const topCategories = computed(() => categories.value.slice(0, 8))

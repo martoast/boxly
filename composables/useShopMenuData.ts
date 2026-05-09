@@ -1,55 +1,70 @@
-// Shared shop-wide taxonomy data — genders, categories, brands.
+// Shop-wide taxonomy (genders, categories, brands) for the navbar
+// dropdowns + the catalog filter drawer.
 //
-// Fetched ONCE per session via useAsyncData with a stable key, so Nuxt
-// dedupes automatically across:
-//   - The navbar mega-menu (first paint, before any hover)
-//   - The shop catalog filter drawer
-//   - /shop/categories grid
-//   - /shop/brands grid
-//   - The product create form (in /app/admin/...) when an admin browses there
+// CLIENT-ONLY, deferred to idle. None of this data is visible on first
+// paint — the dropdowns are behind hover, the filter drawer is behind
+// a button. So we don't pay for the fetch during SSR, which keeps
+// /shop's cold-cache TTFB lower. After hydration, when the browser
+// is idle, we hit the three /store endpoints in parallel and stash
+// the result in useState so every consumer reads the same data.
 //
-// The data is baked into the SSR payload, so client-side it's instant —
-// no waterfall, no spinner on hover, no flash of empty drawer.
-//
-// Subsequent SPA navigations within the shop reuse the cached data; new
-// fetches only happen on full page refresh or session start.
-//
-// Returns reactive computed refs (always defined as arrays) so callers
-// can render directly without null guards.
+// Pages that DO need the taxonomy server-rendered (e.g. the
+// /shop/categories grid) should do their own useAsyncData fetch
+// rather than rely on this composable.
 
 export const useShopMenuData = () => {
   const { $customFetch } = useNuxtApp()
 
-  const { data } = useAsyncData(
-    'shop-menu-data',
-    async () => {
-      // Parallel fetch — three small public endpoints, cacheable on
-      // the API side (planned in tasks/todo.md T1.2). Failures are
-      // swallowed per-endpoint so a single down endpoint doesn't take
-      // the whole menu offline.
+  // useState gives us SSR-safe, cross-component shared state. Default
+  // is empty arrays so consumers can render fallback UI (or simply
+  // hide their lists) until the fetch resolves.
+  const data = useState('shop-menu-data', () => ({
+    genders: [] as any[],
+    categories: [] as any[],
+    brands: [] as any[],
+  }))
+
+  // Idempotent fetcher. Safe to call from many places; only fires
+  // once per session. Skips if data is already populated (e.g. by
+  // a marketing-page prefetch that ran first).
+  const ensureLoaded = async () => {
+    if (! import.meta.client) return
+    if (data.value.genders.length || data.value.categories.length || data.value.brands.length) return
+
+    try {
       const [g, c, s] = await Promise.all([
         $customFetch('/store/genders').catch(() => null),
         $customFetch('/store/categories').catch(() => null),
         $customFetch('/store/stores').catch(() => null),
       ])
-      return {
+      data.value = {
         genders:    g?.data ?? [],
         categories: c?.data ?? [],
         brands:     s?.data ?? [],
       }
-    },
-    {
-      // Don't block page render on this — Nuxt will still wait for it
-      // server-side because useAsyncData is registered, but client-side
-      // navigations get the data lazily without holding the route up.
-      lazy: true,
-      default: () => ({ genders: [], categories: [], brands: [] }),
-    },
-  )
+    } catch {
+      // Swallow — leaves state empty so retry on next call.
+    }
+  }
+
+  // Auto-trigger on the first component that calls the composable —
+  // but defer to browser idle so we don't compete with LCP.
+  if (import.meta.client) {
+    onMounted(() => {
+      if ('requestIdleCallback' in window) {
+        requestIdleCallback(() => ensureLoaded(), { timeout: 3000 })
+      } else {
+        setTimeout(ensureLoaded, 500)
+      }
+    })
+  }
 
   return {
-    genders:    computed(() => data.value?.genders    ?? []),
-    categories: computed(() => data.value?.categories ?? []),
-    brands:     computed(() => data.value?.brands     ?? []),
+    genders:    computed(() => data.value.genders),
+    categories: computed(() => data.value.categories),
+    brands:     computed(() => data.value.brands),
+    // Exposed so callers can fire the fetch eagerly (e.g. on hover
+    // of a /shop link from the marketing site, before SPA navigation).
+    ensureLoaded,
   }
 }
