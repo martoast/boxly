@@ -13,7 +13,7 @@
     <!-- Loading skeleton -->
     <div v-if="loading" class="max-w-7xl mx-auto sm:px-6 lg:px-8 sm:py-2">
       <div class="grid lg:grid-cols-2 gap-6 lg:gap-10 animate-pulse">
-        <div class="aspect-square sm:aspect-[4/5] bg-gray-200 sm:rounded-2xl"></div>
+        <div class="aspect-[1/1] sm:aspect-[4/5] bg-gray-200 sm:rounded-2xl"></div>
         <div class="space-y-4 px-4 sm:px-0 py-4 sm:py-2">
           <div class="h-6 bg-gray-200 rounded w-1/3"></div>
           <div class="h-9 bg-gray-200 rounded w-3/4"></div>
@@ -55,7 +55,7 @@
               <div
                 v-for="(img, i) in displayedImages"
                 :key="img.url"
-                class="relative shrink-0 w-full snap-center aspect-square flex items-center justify-center bg-white"
+                class="relative shrink-0 w-full snap-center aspect-[1/1] flex items-center justify-center bg-white"
                 @click="lightboxOpen = true"
               >
                 <StoreImage
@@ -68,7 +68,7 @@
             </div>
 
             <!-- Empty state -->
-            <div v-if="displayedImages.length === 0" class="aspect-square flex items-center justify-center text-gray-300 bg-white">
+            <div v-if="displayedImages.length === 0" class="aspect-[1/1] flex items-center justify-center text-gray-300 bg-white">
               <svg class="w-20 h-20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
               </svg>
@@ -120,7 +120,7 @@
                the thumbnail strip below the fold. -->
           <div class="hidden lg:block space-y-3 lg:sticky lg:top-24 max-w-[460px]">
             <div
-              class="relative aspect-square bg-white rounded-2xl border border-gray-100 overflow-hidden group"
+              class="relative aspect-[1/1] bg-white rounded-2xl border border-gray-100 overflow-hidden group"
               @click="activeImage && (lightboxOpen = true)"
             >
               <StoreImage

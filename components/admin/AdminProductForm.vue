@@ -63,7 +63,7 @@
         <div
           v-for="(img, i) in existingProduct.images"
           :key="`existing-${i}`"
-          class="relative aspect-square bg-gray-100 rounded-xl overflow-hidden group"
+          class="relative aspect-[1/1] bg-gray-100 rounded-xl overflow-hidden group"
         >
           <img :src="img.url" alt="" class="w-full h-full object-cover" />
           <span class="absolute top-1 left-1 bg-white/90 text-[10px] font-bold text-gray-600 px-1.5 py-0.5 rounded">{{ i + 1 }}</span>
@@ -81,7 +81,7 @@
         <div
           v-for="(preview, i) in newImagePreviews"
           :key="`new-${i}`"
-          class="relative aspect-square bg-gray-100 rounded-xl overflow-hidden group ring-2 ring-primary-200"
+          class="relative aspect-[1/1] bg-gray-100 rounded-xl overflow-hidden group ring-2 ring-primary-200"
         >
           <img :src="preview" alt="" class="w-full h-full object-cover" />
           <span class="absolute top-1 left-1 bg-primary-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">Nueva</span>

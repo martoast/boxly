@@ -46,7 +46,7 @@
 
           <!-- Product Image -->
           <div class="lg:col-span-4 relative">
-            <div class="aspect-[4/3] sm:aspect-square lg:aspect-auto lg:h-full bg-gray-50">
+            <div class="aspect-[4/3] sm:aspect-[1/1] lg:aspect-auto lg:h-full bg-gray-50">
               <img
                 v-if="packageItem.product_image_url"
                 :src="packageItem.product_image_url"
