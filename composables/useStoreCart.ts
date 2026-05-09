@@ -3,8 +3,17 @@
 // - Syncs across tabs via storage event
 // - Computes box estimate based on cart weight (each store checkout creates its
 //   own assisted Purchase Request; admins can merge later if box-fill is needed)
+//
+// Why we persist explicitly inside every mutation instead of via watch:
+// previously initOnce() registered watch(items, persist, { deep: true })
+// inside a component's setup(), which scoped the watcher to that component.
+// When the component unmounted (any SPA navigation away from the page that
+// first instantiated the cart), the watcher was disposed. Subsequent mutations
+// in other pages updated the in-memory ref but never persisted to localStorage,
+// so a hard refresh / new tab read stale data. Calling persist() inline from
+// every mutation function decouples persistence from component lifecycle.
 
-import { computed, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 
 export interface CartItem {
   product_id: number
@@ -47,7 +56,10 @@ function rehydrate() {
   if (typeof window === 'undefined') return
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) items.value = JSON.parse(raw)
+    // Explicit clear when storage is empty/absent — without this, an
+    // externally-cleared localStorage would leave the in-memory ref
+    // holding a stale snapshot.
+    items.value = raw ? JSON.parse(raw) : []
   } catch {
     items.value = []
   }
@@ -59,10 +71,12 @@ function initOnce() {
   rehydrate()
 
   if (typeof window !== 'undefined') {
+    // Cross-tab sync: another tab adding/removing items fires `storage`
+    // here so this tab refreshes from the new state. Same-tab mutations
+    // are handled by the explicit persist() calls inside add/remove/etc.
     window.addEventListener('storage', (e) => {
       if (e.key === STORAGE_KEY) rehydrate()
     })
-    watch(items, () => persist(), { deep: true })
   }
 }
 
@@ -123,6 +137,7 @@ export function useStoreCart() {
     } else {
       items.value.push({ ...product, quantity: qty })
     }
+    persist()
   }
 
   function setQuantity(productId: number, variantId: number | null, qty: number) {
@@ -135,6 +150,7 @@ export function useStoreCart() {
     } else {
       items.value[idx].quantity = qty
     }
+    persist()
   }
 
   function remove(productId: number, variantId: number | null = null) {
@@ -142,10 +158,12 @@ export function useStoreCart() {
       i => i.product_id === productId && i.variant_id === variantId
     )
     if (idx >= 0) items.value.splice(idx, 1)
+    persist()
   }
 
   function clear() {
     items.value = []
+    persist()
   }
 
   return {
