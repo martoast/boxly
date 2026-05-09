@@ -41,7 +41,16 @@
           <div class="order-1 lg:order-2">
             <div class="relative max-w-lg mx-auto lg:max-w-none">
               <div class="relative rounded-2xl overflow-hidden shadow-2xl">
-                <img src="/register.jpeg" alt="Get your US address" class="w-full h-full object-cover" />
+                <picture>
+                  <source srcset="/register.webp" type="image/webp" />
+                  <img
+                    src="/register.jpeg"
+                    alt="Get your US address"
+                    width="1408" height="768"
+                    loading="lazy" decoding="async"
+                    class="w-full h-full object-cover"
+                  />
+                </picture>
               </div>
             </div>
           </div>
@@ -53,7 +62,16 @@
           <div class="order-1">
             <div class="relative max-w-lg mx-auto lg:max-w-none">
               <div class="relative rounded-2xl overflow-hidden shadow-2xl">
-                <img src="/shopping.jpeg" alt="Shop from any store" class="w-full h-full object-cover" />
+                <picture>
+                  <source srcset="/shopping.webp" type="image/webp" />
+                  <img
+                    src="/shopping.jpeg"
+                    alt="Shop from any store"
+                    width="1408" height="768"
+                    loading="lazy" decoding="async"
+                    class="w-full h-full object-cover"
+                  />
+                </picture>
               </div>
               <!-- Floating Store Logos -->
               <div class="absolute -top-4 -left-4 bg-white rounded-xl shadow-xl p-3 flex items-center gap-2">
@@ -172,11 +190,16 @@
               <div class="order-1 lg:order-2">
                 <div class="relative">
                   <div class="rounded-2xl overflow-hidden shadow-2xl">
-                    <img
-                      src="/digitalpersonalshopping.jpg"
-                      alt="Personal shopping assistant"
-                      class="w-full h-auto object-cover"
-                    />
+                    <picture>
+                      <source srcset="/digitalpersonalshopping.webp" type="image/webp" />
+                      <img
+                        src="/digitalpersonalshopping.jpg"
+                        alt="Personal shopping assistant"
+                        width="2560" height="1708"
+                        loading="lazy" decoding="async"
+                        class="w-full h-auto object-cover"
+                      />
+                    </picture>
                   </div>
                   <!-- Floating 8% badge -->
                   <div class="absolute -bottom-3 -right-3 md:-bottom-4 md:-right-4 bg-amber-500 text-white rounded-full px-4 py-2 md:px-5 md:py-3 shadow-xl">
@@ -227,7 +250,16 @@
           <div class="order-1 lg:order-2">
             <div class="relative max-w-lg mx-auto lg:max-w-none">
               <div class="relative rounded-2xl overflow-hidden shadow-2xl">
-                <img src="/order.jpeg" alt="Register your purchases" class="w-full h-full object-cover" />
+                <picture>
+                  <source srcset="/order.webp" type="image/webp" />
+                  <img
+                    src="/order.jpeg"
+                    alt="Register your purchases"
+                    width="1408" height="768"
+                    loading="lazy" decoding="async"
+                    class="w-full h-full object-cover"
+                  />
+                </picture>
               </div>
               <!-- Floating "Easy" Badge -->
               <div class="absolute -top-4 -right-4 bg-primary-600 text-white rounded-full px-6 py-3 shadow-xl transform -rotate-12">
@@ -244,7 +276,16 @@
           <div class="order-1">
             <div class="relative max-w-lg mx-auto lg:max-w-none">
               <div class="relative rounded-2xl overflow-hidden shadow-2xl">
-                <img src="/consolidation.jpeg" alt="Package Consolidation" class="w-full h-full object-cover" />
+                <picture>
+                  <source srcset="/consolidation.webp" type="image/webp" />
+                  <img
+                    src="/consolidation.jpeg"
+                    alt="Package Consolidation"
+                    width="1408" height="768"
+                    loading="lazy" decoding="async"
+                    class="w-full h-full object-cover"
+                  />
+                </picture>
               </div>
               <!-- Floating Badge -->
               <div class="absolute -top-4 -left-4 bg-green-600 text-white rounded-full px-6 py-3 shadow-xl transform -rotate-12">
@@ -301,7 +342,16 @@
           <div class="order-1 lg:order-2">
             <div class="relative max-w-lg mx-auto lg:max-w-none">
               <div class="relative rounded-2xl overflow-hidden shadow-2xl">
-                <img src="/shipping.jpeg" alt="Shipping to Mexico" class="w-full h-full object-cover" />
+                <picture>
+                  <source srcset="/shipping.webp" type="image/webp" />
+                  <img
+                    src="/shipping.jpeg"
+                    alt="Shipping to Mexico"
+                    width="1408" height="768"
+                    loading="lazy" decoding="async"
+                    class="w-full h-full object-cover"
+                  />
+                </picture>
               </div>
             </div>
           </div>

@@ -42,12 +42,21 @@ export default defineNuxtConfig({
     head: {
       charset: 'utf-8',
       viewport: 'width=device-width, initial-scale=1',
+      // <html lang="es"> — primary audience is Mexican Spanish, and
+      // setting it satisfies the WCAG 3.1.1 a11y rule. Frontend has
+      // a language toggle that swaps copy strings client-side; the
+      // root html lang stays es as the canonical default for
+      // screen-readers, search engines, and translation tools.
+      htmlAttrs: { lang: 'es' },
       title: 'Boxly - Compra en cualquier parte del mundo y recibe en México',
       meta: [
         // Essential SEO tags
         {
           name: 'viewport',
-          content: 'width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1'
+          // Dropped maximum-scale=1 — that disables pinch-zoom and is
+          // an accessibility regression for low-vision users. Keep
+          // viewport-fit=cover for iPhone notch handling.
+          content: 'width=device-width, initial-scale=1, viewport-fit=cover'
         },
         { 
           name: 'description', 

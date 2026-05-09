@@ -7,7 +7,7 @@
         <div class="flex items-center">
           <NuxtLink to="/" class="flex items-center group">
             <!-- Logo -->
-          <img src="/logo.svg" class="h-20 w-20 inline-flex items-center justify-center">
+          <img src="/logo.svg" alt="Boxly" width="80" height="80" class="h-20 w-20 inline-flex items-center justify-center">
             
           </NuxtLink>
         </div>

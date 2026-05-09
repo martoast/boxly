@@ -1,0 +1,28 @@
+# Netlify Cache-Control rules.
+# Anything Nuxt fingerprints (under /_nuxt/) is content-addressed by hash —
+# safe to cache forever. Static images in public/ live at the root and don't
+# get hashes, but their filenames don't change either; cache for a year and
+# bust by renaming the file or appending ?v= when we want a refresh.
+# The HTML itself is governed by the per-page cache headers in nuxt.config
+# (routeRules) so it stays current.
+
+/_nuxt/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Root-level images (the marketing landing pulls these from /public/)
+/*.jpeg
+  Cache-Control: public, max-age=31536000, immutable
+/*.jpg
+  Cache-Control: public, max-age=31536000, immutable
+/*.png
+  Cache-Control: public, max-age=31536000, immutable
+/*.webp
+  Cache-Control: public, max-age=31536000, immutable
+/*.svg
+  Cache-Control: public, max-age=31536000, immutable
+/*.ico
+  Cache-Control: public, max-age=31536000, immutable
+
+# Fonts (when we add custom fonts later, this is ready)
+/fonts/*
+  Cache-Control: public, max-age=31536000, immutable
