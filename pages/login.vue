@@ -355,9 +355,9 @@ const isFormValid = computed(() => {
 const registerLink = computed(() => {
   const route = useRoute()
   const redirectTo = route.query.redirect
-  
-  if (redirectTo) {
-    return `/register?redirect=${redirectTo}`
+
+  if (redirectTo && typeof redirectTo === 'string') {
+    return `/register?redirect=${encodeURIComponent(redirectTo)}`
   }
   return '/register'
 })
