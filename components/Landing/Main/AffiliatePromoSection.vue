@@ -102,11 +102,16 @@
         <!-- Right Visual - Image -->
         <div class="order-1 md:order-2 relative flex justify-center">
           <div class="relative">
-            <img
-              src="/affiliate-marketing.png"
-              alt="Affiliate marketing program"
-              class="w-full max-w-sm md:max-w-md rounded-3xl shadow-2xl"
-            />
+            <picture>
+              <source srcset="/affiliate-marketing.webp" type="image/webp" />
+              <img
+                src="/affiliate-marketing.png"
+                alt="Affiliate marketing program"
+                width="2500" height="1311"
+                loading="lazy" decoding="async"
+                class="w-full max-w-sm md:max-w-md rounded-3xl shadow-2xl"
+              />
+            </picture>
           </div>
         </div>
       </div>

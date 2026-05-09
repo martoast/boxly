@@ -17,19 +17,37 @@
           :key="index"
           class="absolute inset-0 w-full h-full"
         >
-          <!-- Desktop Background Image -->
-          <img
-            :src="slide.image"
-            :alt="slide.title"
-            class="hidden md:block absolute inset-0 w-full h-full object-cover"
-          />
-          
+          <!-- Desktop Background Image — modern browsers get the WebP
+               variant (60-80% smaller). First slide is the LCP element
+               so it's eager + high fetchpriority; subsequent slides
+               are lazy. Explicit dimensions reserve space and prevent
+               any layout shift. -->
+          <picture class="hidden md:block">
+            <source :srcset="webpFor(slide.image)" type="image/webp" />
+            <img
+              :src="slide.image"
+              :alt="slide.title"
+              width="1600" height="768"
+              :loading="index === 0 ? 'eager' : 'lazy'"
+              :fetchpriority="index === 0 ? 'high' : undefined"
+              decoding="async"
+              class="absolute inset-0 w-full h-full object-cover"
+            />
+          </picture>
+
           <!-- Mobile Background Image -->
-          <img
-            :src="slide.mobileImage"
-            :alt="slide.title"
-            class="md:hidden absolute inset-0 w-full h-full object-cover"
-          />
+          <picture class="md:hidden">
+            <source :srcset="webpFor(slide.mobileImage)" type="image/webp" />
+            <img
+              :src="slide.mobileImage"
+              :alt="slide.title"
+              width="1009" height="1414"
+              :loading="index === 0 ? 'eager' : 'lazy'"
+              :fetchpriority="index === 0 ? 'high' : undefined"
+              decoding="async"
+              class="absolute inset-0 w-full h-full object-cover"
+            />
+          </picture>
           
           <!-- Gradient Overlay for better text readability -->
           <div class="absolute inset-0 bg-gradient-to-r from-black/50 via-black/30 to-transparent"></div>
@@ -159,6 +177,24 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+
+// Derive the .webp sibling path of a JPEG/PNG asset. We generate
+// these via cwebp at build/asset time and ship them next to the
+// originals; this lets us bind <source srcset> directly off the
+// existing slide.image / slide.mobileImage strings without extra
+// data fields.
+const webpFor = (path) => path ? path.replace(/\.(jpe?g|png)$/i, '.webp') : path
+
+// Preload the first slide's hero images — they're the LCP element of
+// the marketing landing. Two media-targeted preloads so each viewport
+// only downloads its variant. Browser parses these in <head> before
+// the slide markup is even processed.
+useHead({
+  link: [
+    { rel: 'preload', as: 'image', href: '/hero1.webp', type: 'image/webp', media: '(min-width: 768px)', fetchpriority: 'high' },
+    { rel: 'preload', as: 'image', href: '/mobilehero1test.webp', type: 'image/webp', media: '(max-width: 767px)', fetchpriority: 'high' },
+  ],
+})
 
 const { t: createTranslations, language } = useLanguage()
 const route = useRoute()

@@ -117,11 +117,16 @@
 
           <!-- Right Image -->
           <div class="hidden md:flex justify-center animate-fadeIn" style="animation-delay: 0.3s">
-            <img
-              src="/affiliate-marketing.png"
-              alt="Affiliate marketing"
-              class="w-full max-w-md rounded-3xl shadow-2xl"
-            />
+            <picture>
+              <source srcset="/affiliate-marketing.webp" type="image/webp" />
+              <img
+                src="/affiliate-marketing.png"
+                alt="Affiliate marketing"
+                width="2500" height="1311"
+                loading="lazy" decoding="async"
+                class="w-full max-w-md rounded-3xl shadow-2xl"
+              />
+            </picture>
           </div>
         </div>
       </div>

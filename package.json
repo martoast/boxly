@@ -21,12 +21,10 @@
     "@tailwindcss/typography": "^0.5.16",
     "canvas-confetti": "^1.9.3",
     "libphonenumber-js": "^1.12.24",
-    "mapbox-gl": "^3.14.0",
     "nuxt": "^3.17.6",
     "nuxt-meta-pixel": "^2.0.2",
     "pdf-lib": "^1.17.1",
     "pinia": "^3.0.3",
-    "three": "^0.173.0",
     "vue": "^3.5.17",
     "vue-router": "^4.5.1"
   },
