@@ -135,8 +135,30 @@
                     </div>
                   </div>
 
+                  <!-- Género — first filter, broadest cut. Closed by default. -->
+                  <details v-if="genders.length > 0" class="group">
+                    <summary class="flex items-center justify-between cursor-pointer list-none py-2 border-t border-gray-100">
+                      <span class="text-sm font-bold text-gray-900 uppercase tracking-wider">{{ t.genderLabel.replace(':','') }}</span>
+                      <svg class="w-4 h-4 text-gray-500 transition-transform group-open:rotate-45" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m-8-8h16"/></svg>
+                    </summary>
+                    <div class="space-y-1 pt-2">
+                      <button
+                        type="button"
+                        @click="setGender(null)"
+                        :class="[!selectedGender ? 'text-gray-900 font-semibold' : 'text-gray-600 hover:text-gray-900', 'block w-full text-left text-sm py-1.5']"
+                      >{{ t.all }}</button>
+                      <button
+                        v-for="g in genders"
+                        :key="g.id"
+                        type="button"
+                        @click="setGender(g.id)"
+                        :class="[selectedGender === g.id ? 'text-gray-900 font-semibold' : 'text-gray-600 hover:text-gray-900', 'block w-full text-left text-sm py-1.5']"
+                      >{{ g.name }}</button>
+                    </div>
+                  </details>
+
                   <!-- Categoría -->
-                  <details v-if="categories.length > 0" open class="group">
+                  <details v-if="categories.length > 0" class="group">
                     <summary class="flex items-center justify-between cursor-pointer list-none py-2 border-t border-gray-100">
                       <span class="text-sm font-bold text-gray-900 uppercase tracking-wider">{{ t.categoryLabel.replace(':','') }}</span>
                       <svg class="w-4 h-4 text-gray-500 transition-transform group-open:rotate-45" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m-8-8h16"/></svg>
@@ -158,7 +180,7 @@
                   </details>
 
                   <!-- Tienda -->
-                  <details v-if="stores.length > 0" open class="group">
+                  <details v-if="stores.length > 0" class="group">
                     <summary class="flex items-center justify-between cursor-pointer list-none py-2 border-t border-gray-100">
                       <span class="text-sm font-bold text-gray-900 uppercase tracking-wider">{{ t.storesLabel.replace(':','') }}</span>
                       <svg class="w-4 h-4 text-gray-500 transition-transform group-open:rotate-45" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m-8-8h16"/></svg>
@@ -179,28 +201,6 @@
                         <img v-if="s.logo_url" :src="s.logo_url" alt="" class="h-5 w-5 rounded-full object-cover" />
                         {{ s.name }}
                       </button>
-                    </div>
-                  </details>
-
-                  <!-- Género -->
-                  <details v-if="genders.length > 0" open class="group">
-                    <summary class="flex items-center justify-between cursor-pointer list-none py-2 border-t border-gray-100">
-                      <span class="text-sm font-bold text-gray-900 uppercase tracking-wider">{{ t.genderLabel.replace(':','') }}</span>
-                      <svg class="w-4 h-4 text-gray-500 transition-transform group-open:rotate-45" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m-8-8h16"/></svg>
-                    </summary>
-                    <div class="space-y-1 pt-2">
-                      <button
-                        type="button"
-                        @click="setGender(null)"
-                        :class="[!selectedGender ? 'text-gray-900 font-semibold' : 'text-gray-600 hover:text-gray-900', 'block w-full text-left text-sm py-1.5']"
-                      >{{ t.all }}</button>
-                      <button
-                        v-for="g in genders"
-                        :key="g.id"
-                        type="button"
-                        @click="setGender(g.id)"
-                        :class="[selectedGender === g.id ? 'text-gray-900 font-semibold' : 'text-gray-600 hover:text-gray-900', 'block w-full text-left text-sm py-1.5']"
-                      >{{ g.name }}</button>
                     </div>
                   </details>
                 </div>
