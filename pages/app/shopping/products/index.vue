@@ -72,6 +72,16 @@
           </button>
           <button
             v-if="statusFilter !== 'inactive'"
+            @click="confirmBulkGender"
+            class="inline-flex items-center px-4 py-2 bg-indigo-500 text-white text-sm font-medium rounded-lg hover:bg-indigo-600 transition-all"
+          >
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v11a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V4a2 2 0 114 0v2m-4 0a2 2 0 104 0"/>
+            </svg>
+            Asignar género
+          </button>
+          <button
+            v-if="statusFilter !== 'inactive'"
             @click="confirmBulkDelete"
             :disabled="deletingBulk"
             class="inline-flex items-center px-4 py-2 bg-red-500 text-white text-sm font-medium rounded-lg hover:bg-red-600 disabled:opacity-50 transition-all"
@@ -407,6 +417,50 @@
       </div>
     </Teleport>
 
+    <!-- Bulk Gender Modal -->
+    <Teleport to="body">
+      <div v-if="showGenderModal" class="fixed inset-0 z-50 overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 sm:p-0">
+          <div class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" @click="showGenderModal = false"></div>
+          <div class="relative inline-block overflow-hidden text-left align-bottom transition-all transform bg-white rounded-2xl shadow-xl sm:my-8 sm:align-middle sm:max-w-lg sm:w-full p-6">
+            <h3 class="text-lg font-medium leading-6 text-gray-900 mb-1">Asignar género</h3>
+            <p class="text-sm text-gray-500 mb-4">
+              {{ selectedIds.length }} producto(s) seleccionado(s). Cada producto pertenece a un solo género (o ninguno = unisex).
+            </p>
+
+            <div class="max-h-64 overflow-y-auto border border-gray-200 rounded-xl p-3 mb-5 space-y-1">
+              <p v-if="genders.length === 0" class="text-sm text-gray-400">No hay géneros disponibles.</p>
+              <label class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-50 cursor-pointer">
+                <input type="radio" name="bulk-gender" :value="null" v-model="genderId" class="border-gray-300 text-primary-600 focus:ring-primary-500" />
+                <span class="text-sm text-gray-700 italic">— Unisex / sin género —</span>
+              </label>
+              <label v-for="g in genders" :key="g.id" class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-50 cursor-pointer">
+                <input type="radio" name="bulk-gender" :value="g.id" v-model="genderId" class="border-gray-300 text-primary-600 focus:ring-primary-500" />
+                <span class="text-sm text-gray-700">{{ g.name }}</span>
+              </label>
+            </div>
+
+            <div class="sm:flex sm:flex-row-reverse gap-3">
+              <button
+                @click="bulkGender"
+                :disabled="genderingBulk"
+                class="inline-flex justify-center w-full px-4 py-2 text-base font-medium text-white bg-indigo-600 border border-transparent rounded-lg shadow-sm hover:bg-indigo-700 sm:w-auto sm:text-sm disabled:opacity-50"
+              >
+                {{ genderingBulk ? 'Asignando...' : 'Asignar' }}
+              </button>
+              <button
+                @click="showGenderModal = false"
+                :disabled="genderingBulk"
+                class="inline-flex justify-center w-full px-4 py-2 mt-3 text-base font-medium text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 sm:mt-0 sm:w-auto sm:text-sm"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
     <!-- Confirm Bulk Delete Modal -->
     <Teleport to="body">
       <div v-if="showDeleteModal" class="fixed inset-0 z-50 overflow-y-auto">
@@ -484,6 +538,12 @@ const forceDeletingBulk = ref(false)
 const forceTarget = ref(null) // 'single' | 'bulk'
 const forceProduct = ref(null)
 
+// Bulk gender
+const showGenderModal = ref(false)
+const genderingBulk = ref(false)
+const genderId = ref(null)
+const genders = ref([])
+
 // Bulk categorize
 const showCategorizeModal = ref(false)
 const categorizing = ref(false)
@@ -549,6 +609,34 @@ const bulkCategorize = async () => {
     $toast?.error?.(err?.data?.message ?? 'Error al categorizar productos')
   } finally {
     categorizing.value = false
+  }
+}
+
+const confirmBulkGender = () => {
+  if (selectedIds.value.length === 0) return
+  genderId.value = null
+  showGenderModal.value = true
+}
+
+const bulkGender = async () => {
+  genderingBulk.value = true
+  try {
+    const res = await $customFetch('/shopping/products/bulk-gender', {
+      method: 'POST',
+      body: {
+        ids: selectedIds.value,
+        gender_id: genderId.value,
+      },
+    })
+    $toast?.success?.(res?.message ?? 'Género asignado')
+    showGenderModal.value = false
+    selectedIds.value = []
+    await fetchProducts()
+  } catch (err) {
+    console.error(err)
+    $toast?.error?.(err?.data?.message ?? 'Error al asignar género')
+  } finally {
+    genderingBulk.value = false
   }
 }
 
@@ -678,13 +766,15 @@ const fetchProducts = async () => {
 // and we want them ready before the user touches the filters.
 const fetchFilterData = async () => {
   try {
-    const [cats, sts] = await Promise.all([
+    const [cats, sts, gns] = await Promise.all([
       $customFetch('/shopping/categories', { query: { active_only: true, per_page: 200 } }),
       $customFetch('/shopping/stores', { query: { active_only: true, per_page: 200 } }),
+      $customFetch('/shopping/genders', { query: { active_only: true, per_page: 200 } }),
     ])
-    // Both endpoints return a paginated wrapper: { data: { data: [...] } }
+    // Endpoints return a paginated wrapper: { data: { data: [...] } }
     categories.value = cats?.data?.data ?? cats?.data ?? []
     stores.value = sts?.data?.data ?? sts?.data ?? []
+    genders.value = gns?.data?.data ?? gns?.data ?? []
   } catch (err) {
     console.error('Failed to load filter data', err)
   }
