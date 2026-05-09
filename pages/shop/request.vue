@@ -551,13 +551,19 @@ const submitRequest = async () => {
       }
     });
 
-    await $customFetch('/purchase-requests', {
+    const res = await $customFetch('/purchase-requests', {
       method: 'POST',
       body: formData
     });
 
-    $toast.success(t.value.successMsg);
-    router.push('/app/purchase-requests');
+    // Pass the request_number to the success page if it came back so
+    // we can show the customer their reference. Falls through to the
+    // generic confirmation if the response shape differs.
+    const ref = res?.data?.request_number ?? res?.request_number ?? null;
+    const target = ref
+      ? `/shop/request/success?ref=${encodeURIComponent(ref)}`
+      : '/shop/request/success';
+    router.push(target);
   } catch (error) {
     console.error(error);
     $toast.error(t.value.errorMsg);
