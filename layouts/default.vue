@@ -75,6 +75,22 @@ useSeoMeta({
   twitterCard: 'summary_large_image',
 })
 
+// Resource hints — warm DNS + TLS to the API and the image CDN before
+// the user clicks anything that needs them. Big win for Mexico
+// connections where the handshake to a SF-based origin can cost
+// 200-300ms on first request. preconnect is the strong form (DNS +
+// TCP + TLS); dns-prefetch is the cheap fallback for browsers that
+// throttle preconnect counts. Both are a no-op once the browser is
+// already connected — safe to include on every page.
+useHead({
+  link: [
+    { rel: 'preconnect', href: 'https://api.boxly.mx', crossorigin: '' },
+    { rel: 'preconnect', href: 'https://envioscomercialestj.sfo3.digitaloceanspaces.com', crossorigin: '' },
+    { rel: 'dns-prefetch', href: 'https://api.boxly.mx' },
+    { rel: 'dns-prefetch', href: 'https://envioscomercialestj.sfo3.digitaloceanspaces.com' },
+  ],
+})
+
 // Initialize language and validate affiliate ref on client mount
 onMounted(() => {
   initializeLanguage()

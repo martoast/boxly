@@ -36,6 +36,9 @@
 
           <NuxtLink
             to="/shop"
+            @mouseenter="prefetchShop"
+            @focus="prefetchShop"
+            @touchstart.passive="prefetchShop"
             :class="[
               $route.path.startsWith('/shop')
                 ? 'text-primary-600 font-semibold'
@@ -236,6 +239,7 @@
           <NuxtLink
             to="/shop"
             @click="mobileMenuOpen = false"
+            @touchstart.passive="prefetchShop"
             class="flex items-center gap-2 px-3 py-2 rounded-md text-base font-medium"
             :class="[
               $route.path.startsWith('/shop')
@@ -329,6 +333,13 @@ const mobileMenuOpen = ref(false)
 
 // Cart count (Boxly Store)
 const { totalItems: cartCount } = useStoreCart()
+
+// Prefetch /shop's data + hero image when the user shows intent
+// (hover, focus, or first-touch on mobile). The composable is
+// idempotent — fires once per session, cached in Nuxt's payload
+// store, so when the user actually clicks the link the destination
+// page is already populated and renders ~instantly.
+const { prefetch: prefetchShop } = useShopLandingPrefetch()
 
 // Check if current route matches
 const isActiveRoute = (path) => {

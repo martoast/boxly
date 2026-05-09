@@ -13,6 +13,30 @@ export default defineNuxtConfig({
     '/app/**':   { ssr: false },
     '/login':    { ssr: false },
     '/register': { ssr: false },
+
+    // Edge-cache the shop landing's SSR'd HTML on Netlify. Browser
+    // gets a short cache (so logged-in nav state can refresh quickly
+    // on revisit), but the shared/CDN cache holds for 60s with a
+    // generous stale-while-revalidate window — repeat visitors during
+    // that window get HTML in ~30ms instead of paying the full SSR
+    // round-trip. The page is anonymous (no per-user data is rendered
+    // server-side; cart count + login state hydrate client-side from
+    // localStorage and the user composable), so this is safe.
+    '/shop': {
+      headers: {
+        'cache-control': 'public, max-age=30, s-maxage=60, stale-while-revalidate=600',
+      },
+    },
+    '/shop/categories': {
+      headers: {
+        'cache-control': 'public, max-age=60, s-maxage=300, stale-while-revalidate=3600',
+      },
+    },
+    '/shop/brands': {
+      headers: {
+        'cache-control': 'public, max-age=60, s-maxage=300, stale-while-revalidate=3600',
+      },
+    },
   },
   app: {
     head: {
