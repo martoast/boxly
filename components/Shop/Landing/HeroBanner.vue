@@ -16,12 +16,18 @@
       <img
         :src="hero.mobile_image_url || hero.image_url || '/images/shop-hero.png'"
         :alt="hero.title"
+        loading="eager"
+        fetchpriority="high"
+        decoding="async"
         class="sm:hidden absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.02]"
       />
       <!-- Desktop image -->
       <img
         :src="hero.image_url || '/images/shop-hero.png'"
         :alt="hero.title"
+        loading="eager"
+        fetchpriority="high"
+        decoding="async"
         class="hidden sm:block absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.02]"
       />
       <!-- No legibility overlay — the uploaded image is expected to
@@ -54,6 +60,9 @@
       <img
         src="/images/shop-hero.png"
         alt="Tienda Boxly"
+        loading="eager"
+        fetchpriority="high"
+        decoding="async"
         class="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.02]"
       />
       <div class="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent"></div>

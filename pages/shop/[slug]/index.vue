@@ -55,14 +55,14 @@
               <div
                 v-for="(img, i) in displayedImages"
                 :key="img.url"
-                class="shrink-0 w-full snap-center aspect-square flex items-center justify-center bg-white"
+                class="relative shrink-0 w-full snap-center aspect-square flex items-center justify-center bg-white"
+                @click="lightboxOpen = true"
               >
-                <img
+                <StoreImage
                   :src="img.url"
                   :alt="product.name"
-                  class="w-full h-full object-contain cursor-zoom-in"
-                  @click="lightboxOpen = true"
-                  loading="lazy"
+                  :priority="i === 0"
+                  class="absolute inset-0 w-full h-full object-contain cursor-zoom-in"
                 />
               </div>
             </div>
@@ -119,20 +119,17 @@
                tumbler renders ~900px tall on a 1600px screen and pushes
                the thumbnail strip below the fold. -->
           <div class="hidden lg:block space-y-3 lg:sticky lg:top-24 max-w-[460px]">
-            <div class="relative aspect-square bg-white rounded-2xl border border-gray-100 overflow-hidden group">
-              <img
-                v-if="activeImage"
+            <div
+              class="relative aspect-square bg-white rounded-2xl border border-gray-100 overflow-hidden group"
+              @click="activeImage && (lightboxOpen = true)"
+            >
+              <StoreImage
                 :src="activeImage"
                 :alt="product.name"
-                class="w-full h-full object-contain p-4 transition-transform duration-300 group-hover:scale-[1.02] cursor-zoom-in"
-                @click="lightboxOpen = true"
+                priority
+                class="absolute inset-0 w-full h-full object-contain p-4 transition-transform duration-300 group-hover:scale-[1.02] cursor-zoom-in"
               />
-              <div v-else class="w-full h-full flex items-center justify-center text-gray-300">
-                <svg class="w-20 h-20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-                </svg>
-              </div>
-              <div v-if="expiringSoonLabel" class="absolute top-3 left-3 bg-amber-500 text-white text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded-full shadow">
+              <div v-if="expiringSoonLabel" class="absolute top-3 left-3 bg-amber-500 text-white text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded-full shadow z-10">
                 {{ expiringSoonLabel }}
               </div>
             </div>
@@ -144,10 +141,14 @@
                 @click="activeIndex = i"
                 :class="[
                   activeIndex === i ? 'border-primary-500 ring-2 ring-primary-200' : 'border-gray-200 hover:border-gray-400',
-                  'h-20 w-20 rounded-xl overflow-hidden border-2 shrink-0 snap-start transition-colors bg-white'
+                  'relative h-20 w-20 rounded-xl overflow-hidden border-2 shrink-0 snap-start transition-colors bg-white'
                 ]"
               >
-                <img :src="img.url" alt="" class="w-full h-full object-contain p-1" />
+                <StoreImage
+                  :src="img.url"
+                  alt=""
+                  class="absolute inset-0 w-full h-full object-contain p-1"
+                />
               </button>
             </div>
           </div>
@@ -355,6 +356,7 @@
 <script setup>
 import ProductCard from '~/components/store/ProductCard.vue'
 import RequestProductCTA from '~/components/store/RequestProductCTA.vue'
+import StoreImage from '~/components/store/StoreImage.vue'
 
 definePageMeta({
   layout: 'shop',

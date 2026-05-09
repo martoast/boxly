@@ -20,17 +20,16 @@
           class="group block"
         >
           <div class="relative aspect-[4/5] rounded-2xl overflow-hidden bg-gray-100 transition-all duration-200 group-hover:-translate-y-1 group-hover:shadow-xl">
-            <img
+            <StoreImage
               v-if="b.cover"
               :src="b.cover"
               :alt="b.name"
               class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-              loading="lazy"
             />
           </div>
           <div class="mt-3 flex items-center gap-2.5">
-            <div v-if="b.logo_url" class="h-8 w-8 rounded-full bg-white border border-gray-100 p-1 flex items-center justify-center shrink-0">
-              <img :src="b.logo_url" :alt="b.name" class="max-w-full max-h-full object-contain" />
+            <div v-if="b.logo_url" class="relative h-8 w-8 rounded-full bg-white border border-gray-100 p-1 flex items-center justify-center shrink-0 overflow-hidden">
+              <StoreImage :src="b.logo_url" :alt="b.name" class="absolute inset-0 w-full h-full object-contain p-1" />
             </div>
             <h3 class="font-bold text-gray-900 tracking-tight text-base sm:text-lg">{{ b.name }}</h3>
           </div>
@@ -53,6 +52,8 @@
 </template>
 
 <script setup>
+import StoreImage from '~/components/store/StoreImage.vue'
+
 const { $customFetch } = useNuxtApp()
 
 // Fallback map for stores without a custom cover_image_url uploaded yet.

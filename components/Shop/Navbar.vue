@@ -148,8 +148,13 @@
                   @click="closeMenu"
                   class="flex items-center gap-3 p-2 -mx-2 rounded-lg hover:bg-gray-50 transition-colors group"
                 >
-                  <div class="h-10 w-10 rounded-full bg-gray-100 overflow-hidden flex items-center justify-center text-gray-400 shrink-0">
-                    <img v-if="g.image_url" :src="g.image_url" :alt="g.name" class="w-full h-full object-cover" />
+                  <div class="relative h-10 w-10 rounded-full bg-gray-100 overflow-hidden flex items-center justify-center text-gray-400 shrink-0">
+                    <StoreImage
+                      v-if="g.image_url"
+                      :src="g.image_url"
+                      :alt="g.name"
+                      class="absolute inset-0 w-full h-full object-cover"
+                    />
                     <span v-else class="text-sm font-bold">{{ g.name.charAt(0) }}</span>
                   </div>
                   <span class="font-semibold text-gray-900 group-hover:text-primary-600">{{ g.name }}</span>
@@ -178,8 +183,13 @@
                   @click="closeMenu"
                   class="flex items-center gap-3 p-2 -mx-2 rounded-lg hover:bg-gray-50 transition-colors group"
                 >
-                  <div class="h-9 w-9 rounded-lg bg-gray-100 overflow-hidden flex items-center justify-center text-gray-300 shrink-0">
-                    <img v-if="c.image_url" :src="c.image_url" :alt="c.name" class="w-full h-full object-cover" />
+                  <div class="relative h-9 w-9 rounded-lg bg-gray-100 overflow-hidden flex items-center justify-center text-gray-300 shrink-0">
+                    <StoreImage
+                      v-if="c.image_url"
+                      :src="c.image_url"
+                      :alt="c.name"
+                      class="absolute inset-0 w-full h-full object-cover"
+                    />
                     <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z"/></svg>
                   </div>
                   <span class="font-medium text-sm text-gray-900 group-hover:text-primary-600">{{ c.name }}</span>
@@ -228,8 +238,13 @@
                 @click="closeMenu"
                 class="group flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:border-primary-300 hover:shadow-md transition-all"
               >
-                <div class="h-12 w-12 rounded-lg bg-gray-50 overflow-hidden flex items-center justify-center shrink-0">
-                  <img v-if="s.logo_url" :src="s.logo_url" :alt="s.name" class="w-full h-full object-contain p-1" />
+                <div class="relative h-12 w-12 rounded-lg bg-gray-50 overflow-hidden flex items-center justify-center shrink-0">
+                  <StoreImage
+                    v-if="s.logo_url"
+                    :src="s.logo_url"
+                    :alt="s.name"
+                    class="absolute inset-0 w-full h-full object-contain p-1"
+                  />
                   <span v-else class="text-xs font-bold text-gray-500">{{ s.name.charAt(0) }}</span>
                 </div>
                 <span class="font-semibold text-sm text-gray-900 group-hover:text-primary-600 truncate">{{ s.name }}</span>
@@ -299,6 +314,8 @@
 </template>
 
 <script setup>
+import StoreImage from '~/components/store/StoreImage.vue'
+
 const { $customFetch } = useNuxtApp()
 const route = useRoute()
 const userState = useState('user')

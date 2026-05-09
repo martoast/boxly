@@ -18,12 +18,11 @@
           :to="`/shop?category_id=${cat.id}`"
           class="group relative block aspect-[4/5] rounded-2xl overflow-hidden bg-gray-100 transition-all duration-200 hover:-translate-y-1 hover:shadow-xl"
         >
-          <img
+          <StoreImage
             v-if="cat.cover_image"
             :src="cat.cover_image"
             :alt="cat.name"
             class="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-            loading="lazy"
           />
           <div v-else class="absolute inset-0 bg-gradient-to-br from-primary-500 to-primary-700"></div>
           <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent"></div>
@@ -41,6 +40,8 @@
 </template>
 
 <script setup>
+import StoreImage from '~/components/store/StoreImage.vue'
+
 definePageMeta({ layout: 'shop' })
 
 const { $customFetch } = useNuxtApp()
