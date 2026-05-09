@@ -198,10 +198,13 @@
             </div>
 
             <!-- Price -->
-            <div class="flex items-baseline gap-2 mb-6">
+            <div class="flex items-baseline gap-2 mb-6 flex-wrap">
               <p class="text-2xl sm:text-3xl font-extrabold text-gray-900">
                 ${{ formatPrice(product.price_cents) }}
               </p>
+              <span class="text-base sm:text-lg font-semibold text-gray-400 line-through">
+                ${{ formatPrice(compareAtCents) }}
+              </span>
               <span class="text-xs sm:text-sm font-semibold text-gray-500">USD</span>
             </div>
 
@@ -557,6 +560,13 @@ const formatPrice = (cents) => (cents / 100).toLocaleString('es-MX', {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 })
+
+// Anchor "compare at" price — purely visual. Inflates real price by 25%
+// so the actual price reads as a discount. Frontend-only, never sent
+// to backend or used in checkout math.
+const compareAtCents = computed(() =>
+  product.value ? Math.round(product.value.price_cents * 1.25) : 0
+)
 
 const expiringSoonLabel = computed(() => {
   if (!product.value?.available_until) return null

@@ -44,8 +44,10 @@
         {{ product.color }}
       </p>
 
-      <p class="mt-auto pt-3 text-lg font-bold text-gray-900">
-        ${{ formatPrice(product.price_cents) }} <span class="text-xs font-medium text-gray-500">USD</span>
+      <p class="mt-auto pt-3 flex items-baseline gap-2 flex-wrap">
+        <span class="text-lg font-bold text-gray-900">${{ formatPrice(product.price_cents) }}</span>
+        <span class="text-sm font-medium text-gray-400 line-through">${{ formatPrice(compareAtCents) }}</span>
+        <span class="text-xs font-medium text-gray-500">USD</span>
       </p>
     </div>
   </NuxtLink>
@@ -55,6 +57,11 @@
 const props = defineProps({
   product: { type: Object, required: true },
 })
+
+// Anchor "compare at" price — purely visual. Inflates real price by 25%
+// so the actual price reads as a discount. Frontend-only, never sent
+// to backend or used in checkout math.
+const compareAtCents = computed(() => Math.round(props.product.price_cents * 1.25))
 
 const formatPrice = (cents) => (cents / 100).toLocaleString('es-MX', {
   minimumFractionDigits: 2,
