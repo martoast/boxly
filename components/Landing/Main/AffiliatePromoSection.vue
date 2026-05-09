@@ -11,23 +11,23 @@
     <div class="hidden md:block absolute inset-0 overflow-hidden pointer-events-none select-none">
       <!-- Layer 1: Background (Small, Slow, Low Opacity) -->
       <div class="absolute top-[15%] left-[5%] opacity-20 animate-orbit-slow">
-        <img src="/box.svg" alt="" class="w-7 h-7 rotate-12" />
+        <img src="/box.svg" alt="" width="40" height="40" loading="lazy" decoding="async" aria-hidden="true" class="w-7 h-7 rotate-12" />
       </div>
       <div class="absolute bottom-[20%] right-[5%] opacity-15 animate-orbit-reverse-slow">
-        <img src="/box.svg" alt="" class="w-6 h-6 -rotate-12" />
+        <img src="/box.svg" alt="" width="40" height="40" loading="lazy" decoding="async" aria-hidden="true" class="w-6 h-6 -rotate-12" />
       </div>
 
       <!-- Layer 2: Mid-Range -->
       <div class="absolute top-[60%] left-[8%] opacity-30 animate-orbit-medium" style="animation-delay: -8s;">
-        <img src="/box.svg" alt="" class="w-10 h-10 rotate-45" />
+        <img src="/box.svg" alt="" width="40" height="40" loading="lazy" decoding="async" aria-hidden="true" class="w-10 h-10 rotate-45" />
       </div>
       <div class="absolute top-[10%] right-[15%] opacity-25 animate-orbit-reverse-medium">
-        <img src="/box.svg" alt="" class="w-9 h-9 -rotate-6" />
+        <img src="/box.svg" alt="" width="40" height="40" loading="lazy" decoding="async" aria-hidden="true" class="w-9 h-9 -rotate-6" />
       </div>
 
       <!-- Layer 3: Foreground -->
       <div class="absolute bottom-[30%] left-[3%] opacity-40 animate-float-horizontal" style="animation-delay: -3s;">
-        <img src="/box.svg" alt="" class="w-12 h-12 drop-shadow-lg rotate-12" />
+        <img src="/box.svg" alt="" width="40" height="40" loading="lazy" decoding="async" aria-hidden="true" class="w-12 h-12 drop-shadow-lg rotate-12" />
       </div>
 
       <!-- Floating Dollar Signs -->

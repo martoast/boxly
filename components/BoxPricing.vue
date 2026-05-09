@@ -75,7 +75,7 @@
                 >
                   <td class="px-6 py-5">
                     <div class="flex items-center gap-3">
-                      <img src="/box.svg" :alt="box.size" class="w-8 h-8" />
+                      <img src="/box.svg" :alt="box.size" width="40" height="40" loading="lazy" decoding="async" class="w-8 h-8" />
                       <div class="flex items-center gap-2">
                         <span class="text-2xl font-extrabold text-gray-900">{{
                           box.size
@@ -141,7 +141,7 @@
             >
               <div class="flex items-center justify-between mb-4">
                 <div class="flex items-center gap-3">
-                  <img src="/box.svg" :alt="box.size" class="w-10 h-10" />
+                  <img src="/box.svg" :alt="box.size" width="40" height="40" loading="lazy" decoding="async" class="w-10 h-10" />
                   <span class="text-3xl font-extrabold text-gray-900">{{
                     box.size
                   }}</span>

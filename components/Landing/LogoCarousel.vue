@@ -39,11 +39,14 @@
                 :key="`logo-${n}-${index}`"
                 class="flex-shrink-0"
               >
-                <img 
-                  :src="logo.src" 
+                <img
+                  :src="logo.src"
                   :alt="logo.alt"
+                  width="160"
+                  height="64"
                   class="h-16 lg:h-20 w-auto object-contain grayscale opacity-60 hover:grayscale-0 hover:opacity-100 transition-all duration-300 cursor-pointer hover:scale-105 select-none"
                   loading="lazy"
+                  decoding="async"
                   draggable="false"
                 >
               </div>

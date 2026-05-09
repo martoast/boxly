@@ -7,9 +7,11 @@
       title="Español"
       aria-label="Cambiar a Español"
     >
-      <img 
-        src="https://upload.wikimedia.org/wikipedia/commons/f/fc/Flag_of_Mexico.svg" 
-        alt="Bandera de México" 
+      <img
+        src="https://upload.wikimedia.org/wikipedia/commons/f/fc/Flag_of_Mexico.svg"
+        alt="Bandera de México"
+        width="24" height="24"
+        loading="lazy" decoding="async"
         class="w-6 h-6 rounded-full shadow-sm object-cover"
       >
     </button>
@@ -19,9 +21,11 @@
       title="English"
       aria-label="Switch to English"
     >
-      <img 
-        src="https://upload.wikimedia.org/wikipedia/commons/a/a4/Flag_of_the_United_States.svg" 
-        alt="United States Flag" 
+      <img
+        src="https://upload.wikimedia.org/wikipedia/commons/a/a4/Flag_of_the_United_States.svg"
+        alt="United States Flag"
+        width="24" height="24"
+        loading="lazy" decoding="async"
         class="w-6 h-6 rounded-full shadow-sm object-cover"
       >
     </button>
