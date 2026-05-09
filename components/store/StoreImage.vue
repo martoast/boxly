@@ -11,7 +11,7 @@
   <!-- Fallback for missing/broken images. Subtle gray photo glyph
        so a 404'd src doesn't render as the browser's broken-image icon. -->
   <div
-    v-else-if="errored"
+    v-if="errored"
     class="absolute inset-0 flex items-center justify-center bg-gray-50 text-gray-300"
     aria-hidden="true"
   >
@@ -20,11 +20,15 @@
     </svg>
   </div>
 
-  <!-- The actual image. Fades in via opacity transition once decoded.
-       Lazy by default; pass priority=true for above-fold images
-       (LCP candidates) to load eagerly with high fetch priority. -->
+  <!--
+    Image renders unhidden (no opacity transition) so cached/fast images
+    don't get stuck behind the shimmer when their load event fires before
+    Vue attaches its listener during hydration. The shimmer just sits
+    behind it via v-if and disappears on @load (or onMounted, for cached).
+  -->
   <img
-    v-if="src"
+    v-if="src && !errored"
+    ref="imgEl"
     :src="src"
     :alt="alt"
     :loading="priority ? 'eager' : 'lazy'"
@@ -32,7 +36,7 @@
     decoding="async"
     @load="onLoad"
     @error="onError"
-    :class="[$attrs.class, 'transition-opacity duration-500', loaded ? 'opacity-100' : 'opacity-0']"
+    :class="$attrs.class"
   />
 </template>
 
@@ -47,11 +51,25 @@ const props = defineProps({
   priority: { type: Boolean, default: false },
 })
 
+const imgEl = ref(null)
 const loaded = ref(false)
 const errored = ref(false)
 
 const onLoad = () => { loaded.value = true; errored.value = false }
 const onError = () => { errored.value = true; loaded.value = false }
+
+// Cached / SSR-already-decoded images may finish loading before Vue
+// attaches the @load listener during hydration. Catch that on mount
+// by checking imgEl.complete + naturalHeight (a complete img with
+// 0 natural height failed to load — treat as error).
+onMounted(() => {
+  const el = imgEl.value
+  if (! el) return
+  if (el.complete) {
+    if (el.naturalHeight > 0) onLoad()
+    else onError()
+  }
+})
 
 // Reset state when the source changes (e.g. carousel swap, variant change)
 watch(() => props.src, () => {

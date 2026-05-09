@@ -1,137 +1,228 @@
-# Add Gender CRUD + filter to the Shop
+# Boxly Storefront Performance — Roadmap
 
-## Goal
+**North star:** Mexican shopper on a slow LTE connection sees the catalog *instantly* — fonts and layout in <500ms, first products in <1s, full grid in <2s. Image-heavy pages feel like an app, not a website. Repeat visits are near-instant.
 
-Add a new top-level taxonomy — **Gender** — that sits alongside Categories and Stores. Each Product can optionally belong to one Gender (nullable FK; gender-neutral products stay blank). Admins and Velonie's shopping team can manage genders. Customers see Gender as a filter in the shop's filter drawer + active-chip bar, just like the existing Category and Store filters.
+---
 
-## Pattern we're mirroring
+## Audit findings (the why)
 
-**Gender ≈ Store**, not Category — Store uses a single direct FK on `products.store_id`, Category uses a many-to-many pivot. Gender is one-per-product, so we copy the Store wiring (FK pattern), but the form/UI/CRUD is closer to Category (single image, no cover image, no `show_on_landing`).
+I dug into the actual codebase + the live prod stack. Five things stood out — most are quick wins:
 
-## Backend (api/) — files to create
+### 1. Images are NOT going through the Spaces CDN
 
-### 1. Migration `2026_05_07_000000_create_genders_and_add_to_products.php`
-- `genders` table mirrors `categories`: `id`, `name`, `slug` (unique), `description` (text, nullable), `image_url` (string, nullable), `is_active` (bool, default true), `sort_order` (uint, default 0), `timestamps`, `index('is_active')`.
-- Add nullable FK to products: `$table->foreignId('gender_id')->nullable()->after('store_id')->constrained('genders')->nullOnDelete(); $table->index('gender_id');`
+Prod images are served from `envioscomercialestj.sfo3.digitaloceanspaces.com` — that's the **direct origin** in San Francisco. The CDN endpoint is `envioscomercialestj.sfo3.cdn.digitaloceanspaces.com` — same files, same auth, but DigitalOcean fronts it with **Cloudflare's global edge network**. I checked the DNS:
 
-### 2. Model `app/Models/Gender.php`
-- Fillable: `name`, `slug`, `description`, `image_url`, `is_active`, `sort_order`
-- Casts: `is_active=>boolean`, `sort_order=>integer`
-- `scopeActive`, `generateUniqueSlug` (copied from Category)
-- `products()` → HasMany (matches Store, since one-product-many-genders is wrong)
+```
+sfo3.digitaloceanspaces.com      → 138.68.34.161  (DO origin only)
+sfo3.cdn.digitaloceanspaces.com  → Cloudflare IPs (172.64.x, 104.18.x)
+```
 
-### 3. Update `app/Models/Product.php`
-- Add `gender_id` to `$fillable`
-- Add `gender()` → BelongsTo Gender
+For a Mexico shopper, every product image right now is going from CDMX → San Francisco and back (~120ms RTT minimum). Through the CDN, it'd hit a Cloudflare edge in **MEX, GDL, or QRO** (~10-30ms RTT) on cached requests. **Same files, just a different hostname.** This is the single biggest win available.
 
-### 4. Controller `app/Http/Controllers/Admin/AdminGenderController.php`
-- index/show/store/update/destroy/uploadImage — copy `AdminCategoryController` verbatim, swap `Category`→`Gender`, `categories`→`genders`. Image path: `genders/{slug}/img-{ts}.{ext}`.
+### 2. API responses say `Cache-Control: no-cache, private`
 
-### 5. Update `app/Http/Controllers/StoreProductController.php`
-- Add `gender_id` + `gender_slug` to `index()` validation and filter blocks (mirror category lines 51-63 but using direct `where('gender_id', ...)` instead of `whereHas`).
-- Add public `genders()` action that returns active genders for the shop filter.
-- Eager-load `gender` on product show + index responses.
+The prod API is *already behind Cloudflare* (`server: cloudflare`, `cf-cache-status: MISS`). But every response sets `cache-control: no-cache, private`, so Cloudflare's edge cache never engages. We're paying for the CDN and turning it off. `/store/products`, `/store/categories`, `/store/stores`, `/store/genders` are all public, change rarely, and would be perfect cache candidates.
 
-### 6. Update `app/Http/Controllers/Admin/AdminProductController.php`
-- `index()`: add `gender_id` to validation + filter (`where('gender_id', ...)`)
-- `store()`/`update()`: add `'gender_id' => 'nullable|integer|exists:genders,id'` and let it flow through `$validated` (no `unset` needed — it's a real product column).
-- Eager-load `gender` in responses.
+### 3. `three.js` is 600KB of dead weight
 
-### 7. Routes `routes/api.php`
-- Public: add `Route::get('/genders', [StoreProductController::class, 'genders']);` to the `store` group.
-- Admin: add the 6 genders routes inside the `admin` middleware group (mirror the `categories` block exactly).
-- Shopping: same 6 routes inside the `shopping` middleware group.
+`package.json` includes `three: ^0.173.0`. Grepping the entire codebase: **0 imports**. It's not used anywhere. That's ~600KB minified that ships in our deps.
 
-## Frontend (app/) — files to create + edit
+### 4. `pdf-lib` (~300KB) is loaded eagerly but only used for one tax form
 
-### 8. Form component `components/admin/AdminGenderForm.vue` (NEW)
-Copy `AdminCategoryForm.vue` line-for-line (name/slug/image/description/is_active/sort_order, image upload preview, `apiNs` computed for admin-vs-shopping route detection). No deltas other than the entity name.
+Used only in `composables/useForm1583.ts` for generating USPS Form 1583. Currently imported at the top of the file, so it bundles into anything that touches the composable. Should be a dynamic import — only ~5 customers per month need this.
 
-### 9. Six page files (NEW, all thin wrappers around AdminGenderForm)
-- `pages/app/admin/genders/index.vue`, `create.vue`, `[id]/edit.vue`
-- `pages/app/shopping/genders/index.vue`, `create.vue`, `[id]/edit.vue`
+### 5. Mapbox loads on every page including `/shop`
 
-Copy from the equivalent Category pages.
+`plugins/mapboxgl.js` imports `mapbox-gl` + its CSS at module level. Mapbox is only used in `/app/account/shipping-address.vue`, `/components/CustomPlacesAutoComplete.vue`, and `/components/CheckoutStep4.vue` — none of which run on the public storefront. This is ~450KB of JS + CSS shipping to every shop page for no reason.
 
-### 10. Sidebar nav links (EDIT)
-- `components/AdminSidebar.vue`: add `storeGenders` translation + nav item right after `storeCategories` (~line 290-300 area).
-- `components/ShoppingSidebar.vue`: same.
-- Icon: `UserGroupIcon` from `@heroicons/vue/24/outline` (semantically right for gender; not gender-emoji-loaded).
+### Other findings (less urgent but real)
 
-### 11. Product form (EDIT) `components/admin/AdminProductForm.vue`
-- Add a `gender_id` single-select dropdown right under the existing `store_id` select. "— Sin género —" as the null option.
-- Add `genders` ref, fetch on mount via `${apiNs}/genders` (or `/store/genders` — admin endpoint preferred for parity with stores).
-- Add `gender_id: null` to the form's initial state.
+- No `<link rel="preconnect">` for the API or image CDN. Each first request pays full DNS + TLS handshake (~150-300ms in Mexico).
+- `pages/shop/categories.vue` does an N+1: for each category without a configured cover, it fires a separate `/store/products?category_id=X&per_page=1` query. With 11 categories that's potentially 11 extra requests on the categories landing.
+- No PWA / service worker / offline support.
+- No image resizing pipeline — admins upload original-res photos (up to 10MB), customers download them at full size on mobile.
+- `<NuxtLink>` prefetching is on by default (good!), but we could go further with hover-prefetch for product cards.
+- Frontend is on Netlify (which has a Mexico edge in its CDN) but `cache-control: no-cache` is also set on the HTML, so even SSR'd pages aren't being edge-cached.
 
-### 12. Public shop filter (EDIT) `pages/shop/index.vue`
-Mirror exactly what's wired for `selectedStore` (since gender is a single-FK filter, same shape). Touchpoints:
-- `t` translations: `genderLabel`
-- `genders` ref + `loadGenders()` lazy-loader
-- `selectedGender` ref synced from `route.query.gender_id`
-- `selectedGenderObj` computed
-- `setGender(id)` method
-- `fetchProducts` query: add `gender_id`
-- `hasFilter` boolean: include `selectedGender`
-- `router.replace` query: include `gender_id`
-- `clearAllFilters`: reset `selectedGender`
-- Active-chip bar: chip for `selectedGenderObj`
-- Filters drawer: new `<details>` block — list of gender pills below the existing category/store sections
-- `watch(() => route.query, ...)` re-sync block: include `gender_id`
+---
 
-### 13. Public product detail page (NO CHANGE — for now)
-Don't surface gender in breadcrumbs. It's filter metadata, not a navigational hierarchy. Easy to add later.
+## The plan, ordered by **impact ÷ effort**
 
-### 14. CLI (EDIT)
-- `cli/commands/genders.js` (NEW) — copy `cli/commands/categories.js` verbatim, swap entity name. Endpoints: `/admin/genders/...`.
-- `cli/boxly.js` — add `import { registerGenders } from './commands/genders.js'` and `registerGenders(program)`.
+### Tier 1 — Free wins (ship this week)
 
-## Optional question: do you want a *more prominent* gender entry point?
+These are 1-line code changes or config tweaks that compound to a *massive* perceived improvement, especially for Mexico.
 
-The plan above puts Gender inside the filter drawer at the same prominence as Store/Category — three peer sections, three peer chips. That's the cleanest "main filter that is separate from categories and stores" interpretation.
+**T1.1 — Route images through the Spaces CDN** (≈2h)
+- Update `api/config/filesystems.php` `spaces.url` env to `https://envioscomercialestj.sfo3.cdn.digitaloceanspaces.com` (note the added `.cdn`).
+- One-shot artisan migration to rewrite existing image URLs in: `products.images` (JSON), `stores.logo_url`, `stores.cover_image_url`, `categories.image_url`, `genders.image_url`, `purchase_request_items.image_url`. Simple `str_replace` on each row.
+- New uploads will use the CDN URL automatically once the env var changes.
+- **Expected win:** -100 to -200ms per image for Mexico users on first load. Subsequent loads from Cloudflare edge cache are ~10ms (vs origin's ~150ms).
 
-If you want gender to be **more prominent** (e.g. a top-of-catalog "Hombre / Mujer / Ver todo" pill bar above the product grid, since it's a coarser cut than category), I can add that as a fourth touchpoint in `pages/shop/index.vue`. Tell me and I'll fold it in.
+**T1.2 — Make `/store/*` API responses cacheable** (≈3h)
+- Add a tiny middleware that sets `Cache-Control: public, max-age=300, s-maxage=3600, stale-while-revalidate=86400` on `/store/products`, `/store/products/{slug}`, `/store/categories`, `/store/stores`, `/store/genders`, `/store/hero`.
+- 5 min browser cache, 1 hour shared (Cloudflare) cache, 24 hour stale-while-revalidate window.
+- Add cache-busting on writes: when an admin updates a product/category/store/gender, hit the Cloudflare API to purge `/store/*`. (We have the Cloudflare zone already since the API is behind it.)
+- **Expected win:** Cold catalog page load drops from ~400ms (PHP+SQL roundtrip) to ~30ms (Cloudflare edge HIT). Repeat visitors don't even hit the network for 5 minutes.
 
-## Order of work (dependencies)
+**T1.3 — Add `preconnect` + `dns-prefetch` hints to the shop layout** (≈30min)
+- In `layouts/shop.vue`, add `useHead` with `<link rel="preconnect">` to:
+  - `https://api.boxly.mx`
+  - `https://envioscomercialestj.sfo3.cdn.digitaloceanspaces.com`
+- Plus `<link rel="dns-prefetch">` for the same hosts as a fallback.
+- Browser warms TLS + DNS in parallel with HTML parse instead of serially when the first image/api call fires.
+- **Expected win:** 100-200ms shaved off first image / first API call.
 
-1. Backend migration + model + product FK (must run on prod before frontend can call new endpoints)
-2. Backend controllers + routes
-3. Admin frontend (gender CRUD pages + sidebar links + product form gender field)
-4. Public shop filter wiring
-5. CLI commands
-6. End-to-end test: create "Hombre" + "Mujer" via admin → assign one to a product → confirm public catalog filter works
+**T1.4 — Drop `three.js` from `package.json`** (≈5min)
+- Confirmed unused. Remove the line, run `yarn install`.
+- **Expected win:** ~600KB off the dependency tree. Some of that may have been tree-shaken already, but the dev-time install is faster and the bundle analyzer no longer has to inspect it.
 
-Each layer is isolated enough to commit separately if you want incremental review, but I'll plan to commit as one feature unless you ask otherwise.
+**T1.5 — Lazy-load `pdf-lib`** (≈30min)
+- In `composables/useForm1583.ts`, change `import { PDFDocument } from 'pdf-lib'` to a dynamic `await import('pdf-lib')` inside the function that needs it.
+- The 1583 form runs maybe 5 times a month. No reason to bundle ~300KB into the storefront for it.
+- **Expected win:** ~300KB off any route that transitively imports useForm1583.
 
-## Files touched (count)
+**T1.6 — Make the mapbox plugin route-scoped** (≈1h)
+- Move the `import 'mapbox-gl/dist/mapbox-gl.css'` and `import mapboxgl from 'mapbox-gl'` out of `plugins/mapboxgl.js`.
+- Inline the imports inside `CustomPlacesAutoComplete.vue` and `CheckoutStep4.vue` as dynamic imports (`onMounted(async () => { const mb = await import('mapbox-gl'); ... })`).
+- Or: make the plugin a "client-side, conditional" plugin that only registers when navigating to a route that needs it.
+- **Expected win:** ~450KB off every shop page bundle. Mapbox doesn't load until checkout.
 
-- Backend: 1 migration + 1 model + 1 controller (NEW) + 3 controllers edited + 1 routes file edited = 7 files
-- Frontend: 1 form component + 6 page files (NEW) + 4 components edited + 1 page edited = 12 files
-- CLI: 1 command (NEW) + 1 entrypoint edited = 2 files
+**T1.7 — Cache the Netlify-served HTML for shop landings** (≈30min)
+- Add `routeRules` in nuxt.config:
+  ```ts
+  routeRules: {
+    '/shop':            { headers: { 'cache-control': 'public, max-age=60, stale-while-revalidate=600' } },
+    '/shop/categories': { headers: { 'cache-control': 'public, max-age=300, stale-while-revalidate=3600' } },
+    '/shop/brands':     { headers: { 'cache-control': 'public, max-age=300, stale-while-revalidate=3600' } },
+  }
+  ```
+- The catalog grid (`/shop?view=all`) is harder to cache since it's filter-dependent — leave it for now.
+- **Expected win:** Repeat visits to shop landing serve instantly from Netlify edge.
 
-Total: ~21 files. Big, but mechanical — everything maps one-to-one onto the existing Category/Store structure.
+**Tier 1 totals: ~7 hours of work, payoff is massive on Mexico-cellular.**
 
-## Open questions before I start
+---
 
-1. **Gender prominence** — peer-with-Category-and-Store in the filter drawer (current plan), or also a top-of-catalog pill bar above the grid?
-2. **Initial gender values** — should the migration seed "Hombre" and "Mujer" by default, or leave the table empty for you to create them via admin UI on first deploy?
-3. **Gender on product cards** — show a small "Hombre/Mujer" tag on the card itself, or keep cards as-is and let gender live only in filters?
-4. **Image upload field** — keep it (mirrors Category) for future flexibility, or strip it from the form since gender icons aren't really a thing? I'd default to keeping it; trivial to remove later.
-5. **Bundle into one PR or split** (backend + frontend + CLI as separate commits)?
+### Tier 2 — Big wins (ship over 1-2 weeks)
 
-## Tasks (will create after approval)
+**T2.1 — Image transformation pipeline** (≈2-3 days)
 
-1. Backend migration + model
-2. Backend AdminGenderController
-3. Backend StoreProductController + AdminProductController updates
-4. Backend routes
-5. Frontend AdminGenderForm component
-6. Frontend admin/shopping gender pages (6)
-7. Frontend sidebar nav links (admin + shopping)
-8. Frontend AdminProductForm gender field
-9. Frontend public shop filter wiring
-10. CLI gender command
-11. End-to-end smoke test
+Today's flow: admin uploads a 4MB iPhone photo → stored at full resolution → mobile shopper downloads 4MB. Two paths to fix:
 
-## Review
+**Option A — Cloudflare Images** (recommended, lowest effort)
+- $5/mo + $1 per 100K transformations.
+- Update image URLs from `sfo3.cdn.digitaloceanspaces.com/products/.../img.jpg` to `https://imagedelivery.net/{account}/{...}/public` style URLs.
+- Auto WebP/AVIF, auto-resize, edge-cached globally.
+- Migration: bulk-import existing Spaces images into Cloudflare Images, swap URLs in the DB.
 
-(filled in after implementation)
+**Option B — Server-side resize on upload** (more code, no recurring cost)
+- On admin upload, generate sm (400px), md (800px), lg (1200px), xl (original) variants.
+- Convert to WebP + keep original as fallback.
+- Store all variants in Spaces.
+- Return srcset-ready data: `{ url, url_sm, url_md, url_lg, blur }` per image.
+
+**Frontend** for either option: update `<StoreImage>` to render `<img srcset="... 400w, ... 800w, ... 1200w" sizes="(max-width: 768px) 50vw, 25vw">` so the browser picks the right size for the viewport.
+
+- **Expected win:** Mobile catalog page goes from ~5-15MB of images to ~500KB-1.5MB. This is the biggest single mobile-bandwidth win available.
+
+**T2.2 — LQIP (real blurry placeholders, not just shimmer)** (≈1 day, depends on T2.1)
+- On image upload (or as a one-shot job), generate a tiny ~24×24 px blurred preview, base64-encoded (~1KB).
+- Return it as a `blur` field on each image in API responses.
+- `<StoreImage>` renders the base64 blur as a CSS `background-image` while the real image loads. When real image loads, fade over.
+- This is what Spotify/Pinterest/Notion do — placeholder is an actual blurred preview of the real image, not a generic shimmer.
+- Pairs naturally with T2.1.
+- **Expected win:** Pages feel "loaded" the moment SSR HTML arrives, even before any image bytes have downloaded.
+
+**T2.3 — Hover-prefetch on product cards** (≈4h)
+- On `mouseenter` of a `ProductCard`, kick off a `$customFetch('/store/products/{slug}')` (cached by Nuxt's data cache).
+- When the user clicks, the detail page already has the data — instant transition.
+- Same trick for category links in nav, brand links.
+- Also intersection-prefetch the "next page" of the catalog grid when the user scrolls within 200px of the bottom.
+- **Expected win:** Click → render of product detail goes from ~600ms to ~50ms. Subjectively feels native-app fast.
+
+**T2.4 — Fix the N+1 on `/shop/categories`** (≈3h)
+- The categories page currently fires one `/store/products?category_id=X&per_page=1` request per category to fetch a cover image fallback.
+- Add a `cover_image_first_product_url` accessor on the Category model OR (better) pre-compute it as a `cover_image_url` column that gets refreshed when products are added/removed.
+- Backend change is small; frontend gets a clean single-fetch payload.
+- **Expected win:** /shop/categories first paint goes from ~12 round-trips to 1.
+
+**T2.5 — Service worker for offline-tolerant catalog** (≈2 days)
+- Add `@vite-pwa/nuxt` module, config it for cache-first on `/store/categories`, `/store/genders`, `/store/stores` (very stable data) and stale-while-revalidate on `/store/products`.
+- Cache hashed JS/CSS bundles forever.
+- Cache the last-visited product detail pages so going back through the browser is offline-safe.
+- App becomes browseable on an iffy LTE connection — even when the network drops mid-tap, the previous catalog is still there.
+- **Expected win:** Boxly becomes "installable" (Add to Home Screen). Repeat visits are essentially instant — cached HTML serves while we revalidate in the background.
+
+**Tier 2 totals: ~5-7 days of work, takes us from "fast" to "elite."**
+
+---
+
+### Tier 3 — Architectural plays (worth considering, weeks of work each)
+
+**T3.1 — Edge-rendered SSR**
+- The frontend is on Netlify. Netlify Edge Functions run Nuxt SSR at edge nodes (including Mexico).
+- Currently: Mexico shopper's HTML round-trip goes Mexico → Netlify origin (likely US-East) → back. ~150-300ms TTFB.
+- With edge SSR: Mexico → Netlify Mexico edge → back. ~30-50ms TTFB.
+- Configuration is `defineRouteRules({ swr: 60 })` plus deploying with `NITRO_PRESET=netlify_edge`.
+- **Expected win:** TTFB on shop landing drops by ~150ms for Mexico users. Material for above-fold paint.
+
+**T3.2 — Real User Monitoring (RUM)**
+- Add the `web-vitals` library (~3KB) to capture LCP, CLS, INP, FCP, TTFB on real user sessions.
+- Send to either:
+  - Cloudflare Web Analytics (free, simple, but limited filtering)
+  - A custom `/metrics` endpoint on the API that logs to a small Postgres table
+  - PostHog or Plausible (~$10-30/mo, much better dashboards)
+- Filter by country: we want to see Mexico-specific p75 numbers, not aggregate.
+- Without this, we're optimizing in the dark — we can't tell if T1/T2 actually helped real customers.
+- **Expected win:** We can prove (or disprove) every change empirically and prioritize the next round based on data.
+
+**T3.3 — Admin-side image optimizer** (paired with T2.1 Option B)
+- A queued job that watches for new uploads and runs `sharp` (Node) or `intervention/image` (PHP) to generate variants + WebP + AVIF + LQIP.
+- Runs in background — admin upload returns immediately, variants populate within a minute.
+- This is a nice-to-have if we go with Option B; not needed if we use Cloudflare Images.
+
+**T3.4 — Streaming SSR for the catalog**
+- Nuxt 3 supports streaming HTML — render the layout + above-fold immediately, then stream product cards in as they're queried.
+- Most useful when data fetching is slow. Less impactful if T1.2 (API caching) lands first.
+- File this as "consider after we measure."
+
+---
+
+## Recommended ship order
+
+I'd do it like this — measurable wins each week, no big-bang risk:
+
+**Week 1** (Free wins): T1.1, T1.2, T1.3, T1.4, T1.5, T1.6, T1.7 — the whole Tier 1 in one go. Maybe split into two PRs (frontend bundle cleanup + backend cache headers + image URL migration). After this, expect catalog page to feel ~2× snappier on Mexico mobile, and repeat-visit catalog to be near-instant.
+
+**Week 2** (Measurement): T3.2 RUM. Before we invest in the image pipeline, we want a baseline so we can prove the win. Pick PostHog or Cloudflare Web Analytics. Measure for 5-7 days.
+
+**Week 3** (Image pipeline): T2.1 (recommend Option A — Cloudflare Images, $5-15/mo is nothing for the win). T2.2 (LQIP) right after.
+
+**Week 4** (Polish): T2.3 (hover prefetch), T2.4 (N+1 fix), T2.5 (PWA).
+
+**Then evaluate:** T3.1 edge SSR, T3.4 streaming. By that point we'll have RUM data showing whether they're worth it.
+
+---
+
+## What I'd push back on
+
+A few things people typically suggest that I think aren't right for Boxly:
+
+- **Removing SSR entirely / going SPA.** Bad for SEO, bad for WhatsApp/social previews. SSR is keeping us on Google + getting the share-card right.
+- **Custom fonts.** We're using system fonts and they look fine. Adding a custom font means downloading 50-150KB of font files. Skip unless brand demands it.
+- **Heavy state libs (Vuex/Redux).** We're already on Pinia + composables. Tiny footprint. Don't change this.
+- **Aggressive code splitting per component.** Diminishing returns past the modal-level splits we've identified. Smaller bundles ≠ always faster — too many requests hurts on cellular.
+- **Replacing Tailwind.** It's already JIT-purged, the production CSS is tiny.
+
+---
+
+## TL;DR for the conversation
+
+**Three findings stand out:**
+1. We're not using the Spaces CDN. Same files, faster delivery, free. ~2 hour fix.
+2. We're paying for Cloudflare in front of the API but blocking it with `Cache-Control: no-cache`. ~3 hour fix.
+3. ~1.3MB of unused/misconfigured JS (three, pdf-lib, mapbox) ships on every shop page. ~2 hour fix.
+
+**Tier 1 alone** (a single week of work) gets us most of the way. **Tier 2** (image pipeline + LQIP + PWA) takes us from "fast" to "feels native." **Tier 3** is the cherry on top once we have RUM data to prove what's worth doing.
+
+I'm ready to start on T1.1–T1.7 the moment you give the word — they're independent enough that I can ship them as small focused PRs, easy to review.
