@@ -67,13 +67,13 @@ const COVER_MAP = {
 }
 const coverFor = (s) => s.cover_image_url || COVER_MAP[(s.name || '').trim().toLowerCase()] || null
 
-// Server-side fetch of just the landing-curated brands (capped at 5
-// — admin toggles `show_on_landing` per store via the edit form). The
-// /shop/brands page is what users hit via "Ver todas" for the full
-// list, so no need to over-fetch here.
+// Server-side fetch of landing-curated brands (capped at 10 — fills two
+// rows of 5 on desktop). Admin toggles `show_on_landing` per store via
+// the edit form. The /shop/brands page is what users hit via "Ver todas"
+// for the full list, so no need to over-fetch here.
 const { data } = await useAsyncData('shop-landing-brands', async () => {
   const res = await $customFetch('/store/stores', {
-    query: { on_landing: 1, limit: 5 },
+    query: { on_landing: 1, limit: 10 },
   }).catch(() => null)
   return res?.data ?? []
 })
