@@ -69,6 +69,15 @@
               <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
           </span>
+          <span
+            v-if="selectedGenderObj"
+            class="inline-flex items-center gap-1.5 pl-3 pr-1 py-1 rounded-full border border-gray-200 bg-white text-xs font-medium text-gray-700"
+          >
+            {{ t.genderLabel.replace(':','') }}: <strong class="font-semibold">{{ selectedGenderObj.name }}</strong>
+            <button type="button" @click="setGender(null)" class="ml-1 inline-flex items-center justify-center h-5 w-5 rounded-full hover:bg-gray-100">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          </span>
           <button
             type="button"
             @click="clearAllFilters"
@@ -170,6 +179,28 @@
                         <img v-if="s.logo_url" :src="s.logo_url" alt="" class="h-5 w-5 rounded-full object-cover" />
                         {{ s.name }}
                       </button>
+                    </div>
+                  </details>
+
+                  <!-- Género -->
+                  <details v-if="genders.length > 0" open class="group">
+                    <summary class="flex items-center justify-between cursor-pointer list-none py-2 border-t border-gray-100">
+                      <span class="text-sm font-bold text-gray-900 uppercase tracking-wider">{{ t.genderLabel.replace(':','') }}</span>
+                      <svg class="w-4 h-4 text-gray-500 transition-transform group-open:rotate-45" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m-8-8h16"/></svg>
+                    </summary>
+                    <div class="space-y-1 pt-2">
+                      <button
+                        type="button"
+                        @click="setGender(null)"
+                        :class="[!selectedGender ? 'text-gray-900 font-semibold' : 'text-gray-600 hover:text-gray-900', 'block w-full text-left text-sm py-1.5']"
+                      >{{ t.all }}</button>
+                      <button
+                        v-for="g in genders"
+                        :key="g.id"
+                        type="button"
+                        @click="setGender(g.id)"
+                        :class="[selectedGender === g.id ? 'text-gray-900 font-semibold' : 'text-gray-600 hover:text-gray-900', 'block w-full text-left text-sm py-1.5']"
+                      >{{ g.name }}</button>
                     </div>
                   </details>
                 </div>
@@ -284,6 +315,7 @@ const t = createTranslations({
   next:              { es: 'Siguiente', en: 'Next' },
   storesLabel:       { es: 'Tienda:', en: 'Store:' },
   categoryLabel:     { es: 'Categoría:', en: 'Category:' },
+  genderLabel:       { es: 'Género:', en: 'Gender:' },
   showFilters:       { es: 'Mostrar filtros', en: 'Show filters' },
   hideFilters:       { es: 'Ocultar filtros', en: 'Hide filters' },
   clearAll:          { es: 'Limpiar todo', en: 'Clear all' },
@@ -328,12 +360,23 @@ const loadStores = async () => {
   } catch {}
 }
 
+// Genders — same lazy pattern as stores. Filter peer to category/store.
+const genders = ref([])
+const loadGenders = async () => {
+  if (genders.value.length) return
+  try {
+    const res = await $customFetch('/store/genders')
+    genders.value = res?.data ?? []
+  } catch {}
+}
+
 // Catalog state — only used in catalog mode
 const products = ref([])
 const loading = ref(false)
 const search = ref(route.query.search?.toString() ?? '')
 const selectedCategory = ref(route.query.category_id ? Number(route.query.category_id) : null)
 const selectedStore = ref(route.query.store_id ? Number(route.query.store_id) : null)
+const selectedGender = ref(route.query.gender_id ? Number(route.query.gender_id) : null)
 const sort = ref(route.query.sort?.toString() ?? 'newest')
 const currentPage = ref(parseInt(route.query.page?.toString() ?? '1', 10) || 1)
 const lastPage = ref(1)
@@ -363,6 +406,7 @@ const fetchProducts = async () => {
         search: search.value || undefined,
         category_id: selectedCategory.value || undefined,
         store_id: selectedStore.value || undefined,
+        gender_id: selectedGender.value || undefined,
         sort: sort.value,
       },
     })
@@ -374,13 +418,14 @@ const fetchProducts = async () => {
     // other filters set — otherwise the smart-switch on /shop reads
     // an empty query as "landing mode" and bounces the user back to
     // the hero. This is the empty-filters catalog state.
-    const hasFilter = !! search.value || !! selectedCategory.value || !! selectedStore.value
+    const hasFilter = !! search.value || !! selectedCategory.value || !! selectedStore.value || !! selectedGender.value
     router.replace({
       query: {
         ...(currentPage.value > 1 ? { page: currentPage.value } : {}),
         ...(search.value ? { search: search.value } : {}),
         ...(selectedCategory.value ? { category_id: selectedCategory.value } : {}),
         ...(selectedStore.value ? { store_id: selectedStore.value } : {}),
+        ...(selectedGender.value ? { gender_id: selectedGender.value } : {}),
         ...(sort.value !== 'newest' ? { sort: sort.value } : {}),
         ...(! hasFilter ? { view: 'all' } : {}),
       },
@@ -404,6 +449,12 @@ const setStore = (storeId) => {
   fetchProducts()
 }
 
+const setGender = (genderId) => {
+  selectedGender.value = genderId
+  currentPage.value = 1
+  fetchProducts()
+}
+
 // Filters drawer
 const filtersOpen = ref(false)
 
@@ -414,9 +465,12 @@ const selectedStoreObj = computed(() =>
 const selectedCategoryObj = computed(() =>
   selectedCategory.value ? categories.value.find((c) => c.id === selectedCategory.value) ?? null : null
 )
+const selectedGenderObj = computed(() =>
+  selectedGender.value ? genders.value.find((g) => g.id === selectedGender.value) ?? null : null
+)
 
 const hasActiveFilters = computed(() =>
-  !! search.value || !! selectedStore.value || !! selectedCategory.value
+  !! search.value || !! selectedStore.value || !! selectedCategory.value || !! selectedGender.value
 )
 
 const clearSearch = () => {
@@ -428,6 +482,7 @@ const clearAllFilters = () => {
   search.value = ''
   selectedStore.value = null
   selectedCategory.value = null
+  selectedGender.value = null
   currentPage.value = 1
   fetchProducts()
 }
@@ -470,11 +525,13 @@ watch(sort, () => {
 watch(() => route.query, () => {
   selectedCategory.value = route.query.category_id ? Number(route.query.category_id) : null
   selectedStore.value = route.query.store_id ? Number(route.query.store_id) : null
+  selectedGender.value = route.query.gender_id ? Number(route.query.gender_id) : null
   search.value = route.query.search?.toString() ?? ''
   sort.value = route.query.sort?.toString() ?? 'newest'
   currentPage.value = parseInt(route.query.page?.toString() ?? '1', 10) || 1
   if (! isLandingMode.value) {
     loadStores()
+    loadGenders()
     fetchProducts()
   }
 })
@@ -482,6 +539,7 @@ watch(() => route.query, () => {
 // Initial fetch only when entering catalog mode
 if (! isLandingMode.value) {
   loadStores()
+  loadGenders()
   await useAsyncData('shop-catalog-initial', fetchProducts)
 }
 </script>

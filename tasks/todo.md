@@ -1,133 +1,137 @@
-# Public Purchase Request CTA — auth-gated at form entry
+# Add Gender CRUD + filter to the Shop
 
 ## Goal
 
-Add CTAs in the public Boxly Store (catalog + product detail pages) that send shoppers to a Purchase Request form when they can't find what they're looking for. The form itself sits behind auth, so by the time the user reaches it they're logged in — full image upload, no draft persistence gymnastics. The auth bounce must work cleanly across **email login, email register, Google OAuth login, AND Google OAuth register**.
+Add a new top-level taxonomy — **Gender** — that sits alongside Categories and Stores. Each Product can optionally belong to one Gender (nullable FK; gender-neutral products stay blank). Admins and Velonie's shopping team can manage genders. Customers see Gender as a filter in the shop's filter drawer + active-chip bar, just like the existing Category and Store filters.
 
-## Approach (revised)
+## Pattern we're mirroring
 
-Auth gate moves from "after Submit" to "form entry" — the CTA itself is the trigger.
+**Gender ≈ Store**, not Category — Store uses a single direct FK on `products.store_id`, Category uses a many-to-many pivot. Gender is one-per-product, so we copy the Store wiring (FK pattern), but the form/UI/CRUD is closer to Category (single image, no cover image, no `show_on_landing`).
 
-- CTA links to `/shop/request`
-- `/shop/request` has `middleware: ['auth', 'customer', 'complete-profile']`
-- Guests get bounced to `/login?redirect=/shop/request`
-- After authenticating (any method), they land on `/shop/request` already logged in and use the full form (images included, no localStorage hacks)
+## Backend (api/) — files to create
 
-**No draft composable needed.** This kills ~150 lines of complexity vs. the previous plan.
+### 1. Migration `2026_05_07_000000_create_genders_and_add_to_products.php`
+- `genders` table mirrors `categories`: `id`, `name`, `slug` (unique), `description` (text, nullable), `image_url` (string, nullable), `is_active` (bool, default true), `sort_order` (uint, default 0), `timestamps`, `index('is_active')`.
+- Add nullable FK to products: `$table->foreignId('gender_id')->nullable()->after('store_id')->constrained('genders')->nullOnDelete(); $table->index('gender_id');`
 
-## Auth redirect verification (already in place — no work needed)
+### 2. Model `app/Models/Gender.php`
+- Fillable: `name`, `slug`, `description`, `image_url`, `is_active`, `sort_order`
+- Casts: `is_active=>boolean`, `sort_order=>integer`
+- `scopeActive`, `generateUniqueSlug` (copied from Category)
+- `products()` → HasMany (matches Store, since one-product-many-genders is wrong)
 
-Audited every flow. The `?redirect=` param survives:
+### 3. Update `app/Models/Product.php`
+- Add `gender_id` to `$fillable`
+- Add `gender()` → BelongsTo Gender
 
-| Flow | File | Status |
-|---|---|---|
-| Email login | `pages/login.vue:401` | ✓ honors `route.query.redirect` if starts with `/` |
-| Email register | `pages/register.vue:786` | ✓ same pattern |
-| Google OAuth login | `pages/login.vue:444-450` | ✓ encodes redirect into base64 OAuth `state` param |
-| Google OAuth register | `pages/register.vue:812-819` | ✓ same `state` encoding |
-| OAuth callback (backend) | `api/.../AuthSocialCallbackController.php:29-31,66` | ✓ decodes state, redirects to `frontend_url + redirectPath` |
-| New-social-user complete-profile gate | `app/account/complete-profile.vue:174,308` | ✓ honors `redirect` query param after phone capture |
+### 4. Controller `app/Http/Controllers/Admin/AdminGenderController.php`
+- index/show/store/update/destroy/uploadImage — copy `AdminCategoryController` verbatim, swap `Category`→`Gender`, `categories`→`genders`. Image path: `genders/{slug}/img-{ts}.{ext}`.
 
-**Edge case (out of scope):** Forgot-password → reset-password loses the redirect (`pages/reset-password.vue:373` hardcodes `/app`). Mention to user; don't fix unless requested.
+### 5. Update `app/Http/Controllers/StoreProductController.php`
+- Add `gender_id` + `gender_slug` to `index()` validation and filter blocks (mirror category lines 51-63 but using direct `where('gender_id', ...)` instead of `whereHas`).
+- Add public `genders()` action that returns active genders for the shop filter.
+- Eager-load `gender` on product show + index responses.
 
-## Files to touch
+### 6. Update `app/Http/Controllers/Admin/AdminProductController.php`
+- `index()`: add `gender_id` to validation + filter (`where('gender_id', ...)`)
+- `store()`/`update()`: add `'gender_id' => 'nullable|integer|exists:genders,id'` and let it flow through `$validated` (no `unset` needed — it's a real product column).
+- Eager-load `gender` in responses.
 
-| File | Change |
-|---|---|
-| `pages/shop/request.vue` | NEW — auth-gated form, `layout: 'shop'`. Functionally equivalent to `pages/app/purchase-requests/create.vue` but rendered inside the shop shell so the shopper-facing flow stays consistent. |
-| `components/store/RequestProductCTA.vue` | NEW — shared CTA card. Two visual variants via prop: `'banner'` (full-width card for catalog) and `'inline'` (slim card for product detail). Single source of truth for copy + styling. Renders as `<NuxtLink to="/shop/request">`. |
-| `pages/shop/index.vue` | EDIT — add CTA in empty state (when filters return zero products, replacing/augmenting "intenta ajustar"); add `'banner'` variant below the product grid in catalog mode. Skip on landing-mode. |
-| `pages/shop/[slug]/index.vue` | EDIT — add `'inline'` variant between the description block and the related-products section (around line 317). |
+### 7. Routes `routes/api.php`
+- Public: add `Route::get('/genders', [StoreProductController::class, 'genders']);` to the `store` group.
+- Admin: add the 6 genders routes inside the `admin` middleware group (mirror the `categories` block exactly).
+- Shopping: same 6 routes inside the `shopping` middleware group.
 
-Two new files, two surgical edits. No backend changes. No middleware changes. No login/register changes.
+## Frontend (app/) — files to create + edit
 
-## On duplicating the form
+### 8. Form component `components/admin/AdminGenderForm.vue` (NEW)
+Copy `AdminCategoryForm.vue` line-for-line (name/slug/image/description/is_active/sort_order, image upload preview, `apiNs` computed for admin-vs-shopping route detection). No deltas other than the entity name.
 
-Per CLAUDE.md ("simplest possible change, impact as little code as possible"), I'll **copy** the form from `pages/app/purchase-requests/create.vue` into `pages/shop/request.vue` rather than refactoring to a shared component. Three modifications to the copy:
+### 9. Six page files (NEW, all thin wrappers around AdminGenderForm)
+- `pages/app/admin/genders/index.vue`, `create.vue`, `[id]/edit.vue`
+- `pages/app/shopping/genders/index.vue`, `create.vue`, `[id]/edit.vue`
 
-1. `layout: 'shop'` instead of `'app'`
-2. Page header copy reframed for the discovery moment ("¿No encuentras lo que buscas? Pídelo." instead of "Nueva Solicitud")
-3. Post-submit redirect target stays `/app/purchase-requests` (same as existing flow — user sees their requests list)
+Copy from the equivalent Category pages.
 
-Refactoring the form into a shared component is the cleaner long-term move, but it would touch the existing battle-tested in-app flow. Avoiding that risk here. Easy to DRY later if we want to.
+### 10. Sidebar nav links (EDIT)
+- `components/AdminSidebar.vue`: add `storeGenders` translation + nav item right after `storeCategories` (~line 290-300 area).
+- `components/ShoppingSidebar.vue`: same.
+- Icon: `UserGroupIcon` from `@heroicons/vue/24/outline` (semantically right for gender; not gender-emoji-loaded).
 
-## Visual placement
+### 11. Product form (EDIT) `components/admin/AdminProductForm.vue`
+- Add a `gender_id` single-select dropdown right under the existing `store_id` select. "— Sin género —" as the null option.
+- Add `genders` ref, fetch on mount via `${apiNs}/genders` (or `/store/genders` — admin endpoint preferred for parity with stores).
+- Add `gender_id: null` to the form's initial state.
 
-- **Catalog empty state** (`pages/shop/index.vue` lines 206-214): keep the "no products" icon + "intenta ajustar tu búsqueda", then add the `<RequestProductCTA variant="banner">` directly below the existing copy. Highest-intent moment — they searched, found nothing.
-- **Below product grid** (`pages/shop/index.vue` after pagination ~line 248): one quiet `<RequestProductCTA variant="banner">` card. Soft gradient or neutral border, single CTA button. Only in catalog mode.
-- **Product detail** (`pages/shop/[slug]/index.vue` between line 316 description close and line 318 related-products header): one slim `<RequestProductCTA variant="inline">` card. Bordered, light bg — visually quieter than the buy buttons above.
+### 12. Public shop filter (EDIT) `pages/shop/index.vue`
+Mirror exactly what's wired for `selectedStore` (since gender is a single-FK filter, same shape). Touchpoints:
+- `t` translations: `genderLabel`
+- `genders` ref + `loadGenders()` lazy-loader
+- `selectedGender` ref synced from `route.query.gender_id`
+- `selectedGenderObj` computed
+- `setGender(id)` method
+- `fetchProducts` query: add `gender_id`
+- `hasFilter` boolean: include `selectedGender`
+- `router.replace` query: include `gender_id`
+- `clearAllFilters`: reset `selectedGender`
+- Active-chip bar: chip for `selectedGenderObj`
+- Filters drawer: new `<details>` block — list of gender pills below the existing category/store sections
+- `watch(() => route.query, ...)` re-sync block: include `gender_id`
 
-Bilingual via `useLanguage()` like everything else in the shop. Spanish copy: "¿No encuentras lo que buscas? · Te lo conseguimos de cualquier tienda de USA". English: "Can't find what you're looking for? · We'll grab it from any US store".
+### 13. Public product detail page (NO CHANGE — for now)
+Don't surface gender in breadcrumbs. It's filter metadata, not a navigational hierarchy. Easy to add later.
 
-## Tasks
+### 14. CLI (EDIT)
+- `cli/commands/genders.js` (NEW) — copy `cli/commands/categories.js` verbatim, swap entity name. Endpoints: `/admin/genders/...`.
+- `cli/boxly.js` — add `import { registerGenders } from './commands/genders.js'` and `registerGenders(program)`.
 
-1. Create `components/store/RequestProductCTA.vue` with `banner` + `inline` variants.
-2. Create `pages/shop/request.vue` (copy of in-app create form, shop layout, reframed header copy).
-3. Wire CTA into `pages/shop/index.vue` — empty state + below-grid placements.
-4. Wire CTA into `pages/shop/[slug]/index.vue` — between description and related products.
-5. Manual test: guest hits CTA → bounced to login → logs in → lands on `/shop/request`. Repeat for register, Google OAuth login, Google OAuth register.
+## Optional question: do you want a *more prominent* gender entry point?
+
+The plan above puts Gender inside the filter drawer at the same prominence as Store/Category — three peer sections, three peer chips. That's the cleanest "main filter that is separate from categories and stores" interpretation.
+
+If you want gender to be **more prominent** (e.g. a top-of-catalog "Hombre / Mujer / Ver todo" pill bar above the product grid, since it's a coarser cut than category), I can add that as a fourth touchpoint in `pages/shop/index.vue`. Tell me and I'll fold it in.
+
+## Order of work (dependencies)
+
+1. Backend migration + model + product FK (must run on prod before frontend can call new endpoints)
+2. Backend controllers + routes
+3. Admin frontend (gender CRUD pages + sidebar links + product form gender field)
+4. Public shop filter wiring
+5. CLI commands
+6. End-to-end test: create "Hombre" + "Mujer" via admin → assign one to a product → confirm public catalog filter works
+
+Each layer is isolated enough to commit separately if you want incremental review, but I'll plan to commit as one feature unless you ask otherwise.
+
+## Files touched (count)
+
+- Backend: 1 migration + 1 model + 1 controller (NEW) + 3 controllers edited + 1 routes file edited = 7 files
+- Frontend: 1 form component + 6 page files (NEW) + 4 components edited + 1 page edited = 12 files
+- CLI: 1 command (NEW) + 1 entrypoint edited = 2 files
+
+Total: ~21 files. Big, but mechanical — everything maps one-to-one onto the existing Category/Store structure.
+
+## Open questions before I start
+
+1. **Gender prominence** — peer-with-Category-and-Store in the filter drawer (current plan), or also a top-of-catalog pill bar above the grid?
+2. **Initial gender values** — should the migration seed "Hombre" and "Mujer" by default, or leave the table empty for you to create them via admin UI on first deploy?
+3. **Gender on product cards** — show a small "Hombre/Mujer" tag on the card itself, or keep cards as-is and let gender live only in filters?
+4. **Image upload field** — keep it (mirrors Category) for future flexibility, or strip it from the form since gender icons aren't really a thing? I'd default to keeping it; trivial to remove later.
+5. **Bundle into one PR or split** (backend + frontend + CLI as separate commits)?
+
+## Tasks (will create after approval)
+
+1. Backend migration + model
+2. Backend AdminGenderController
+3. Backend StoreProductController + AdminProductController updates
+4. Backend routes
+5. Frontend AdminGenderForm component
+6. Frontend admin/shopping gender pages (6)
+7. Frontend sidebar nav links (admin + shopping)
+8. Frontend AdminProductForm gender field
+9. Frontend public shop filter wiring
+10. CLI gender command
+11. End-to-end smoke test
 
 ## Review
 
-All four tasks complete. Five files touched as planned — no surprises.
-
-**New files:**
-- `components/store/RequestProductCTA.vue` — single CTA component with two visual variants (`banner`, `inline`). Bilingual via `useLanguage()`, renders as `<NuxtLink to="/shop/request">`.
-- `pages/shop/request.vue` — auth-gated PR form. `layout: 'shop'`, `middleware: ['auth', 'customer', 'complete-profile']`. Functional copy of `pages/app/purchase-requests/create.vue` with three deltas: shop layout, reframed header ("¿No encuentras lo que buscas? Pídelo."), back link points to `/shop` instead of `/app/purchase-requests`. Submit logic unchanged — POSTs FormData to `/purchase-requests`, redirects to `/app/purchase-requests` on success.
-
-**Edits:**
-- `pages/shop/index.vue` — banner CTA in two places: inside the empty-state card (when filters return zero products), and below the product grid in catalog mode (only when products exist and not loading). Added `import RequestProductCTA from '~/components/store/RequestProductCTA.vue'` to match existing convention (file already imports `ProductCard` explicitly).
-- `pages/shop/[slug]/index.vue` — inline CTA between description block and related products section. Same explicit-import pattern.
-
-**Verified locally** by running `nuxt dev` on port 3002 (port 3000 was held by another project) and probing routes:
-- `GET /shop?view=all` → 200, SSR'd HTML contains "¿No encuentras lo que buscas?", "Pídelo", "Te lo conseguimos" ✓
-- `GET /shop/request` → 302 → `/login?redirect=/shop/request` ✓ (auth middleware bouncing correctly with redirect param intact)
-- `GET /login?redirect=/shop/request` → 200 ✓
-- Product detail page rendered 200 but hit its 404 branch (local backend wasn't running, so the data fetch failed) — CTA insertion verified via source review since the live render couldn't be exercised end-to-end. The component is identical to the catalog one, just rendered with `variant="inline"`.
-
-**Auth round-trip is solid by construction:** the standard `auth` middleware writes `?redirect=` from `to.fullPath`, and that param is honored downstream by email login (`pages/login.vue:401`), email register (`pages/register.vue:786`), Google OAuth login (encoded into base64 OAuth `state` at `login.vue:444-450` and decoded server-side at `AuthSocialCallbackController.php:29-31,66`), Google OAuth register (`register.vue:812-819`), and the new-social-user "complete profile" gate (`complete-profile.vue:174,308`). No changes needed to any of those files.
-
-**Out of scope:** forgot-password → reset-password drops the redirect (`reset-password.vue:373` hardcodes `/app`). Flagged for later per user.
-
-**Manual browser test still pending** — the user should walk through the flow once: shop catalog → click banner CTA → bounced to login → log in (or register, or use Google) → land on `/shop/request` → add an item with image → submit → see PR appear in `/app/purchase-requests`.
-
----
-
-# Shop personal-shopping help line — `/shop/help`
-
-## Goal
-
-Surface a clean WhatsApp help line on `/shop` and `/shop/[slug]` so shoppers can reach Boxly's personal-shopping number `+1 (619) 493-7969` for shopping help. Keep the product UI uncluttered.
-
-## Approach
-
-- New public page `pages/shop/help.vue` (shop layout, no auth) with:
-  - Big WhatsApp CTA → `https://wa.me/16194937969?text=…` with a pre-filled greeting
-  - Tap-to-call `tel:+16194937969`
-  - Short "what we help with" bullets + hours
-- Single navbar entry in `components/Shop/Navbar.vue` ("Ayuda") on desktop nav and in the mobile sheet, pointing to `/shop/help`. This is the only CTA on `/shop` and `/shop/[slug]` — keeps product pages clean.
-- Number used elsewhere (`+1 619 559-1910` for general support) is untouched. The new `493-7969` is the personal-shopping line only.
-
-## Todos
-
-- [x] Create `pages/shop/help.vue`
-- [x] Add "Ayuda" link to `components/Shop/Navbar.vue` (desktop + mobile)
-- [x] Verify dev server renders both routes and WhatsApp deep-link works
-
-## Review
-
-**Files changed**
-
-- `pages/shop/help.vue` (new) — single-page WhatsApp help line. Big green WhatsApp CTA → `wa.me/16194937969` with a pre-filled greeting (ES/EN), tap-to-call link, "what we help with" bullets, and support hours. Uses the shop layout so it picks up `ShopNavbar` + `FooterSection` automatically.
-- `components/Shop/Navbar.vue` — added one entry to `navItems`: `{ to: '/shop/help', label: 'Ayuda' }`. Because the mobile sheet renders the same `navItems` array, the link shows up automatically in both desktop nav and the hamburger sheet — no other edits to the navbar were needed.
-
-**Verification**
-
-- Dev server boots clean. `GET /shop` → 200, `GET /shop/help` → 200.
-- `/shop` HTML contains `/shop/help` (navbar link is there).
-- `/shop/help` HTML title is `Ayuda · Personal Shopping — Tienda Boxly` and embeds `wa.me/16194937969`.
-- Existing footer/help-center number `+1 (619) 559-1910` is left untouched — only the new personal-shopping line `+1 (619) 493-7969` is added.
-
-**Why this approach**
-
-The user offered "maybe a /shop/help page" and confirmed the navbar-link approach. This keeps `/shop` and `/shop/[slug]` clean — no FAB, no extra inline cards, no clutter on the product UI. Discoverability comes from the persistent nav item; the help page itself follows the established WhatsApp-card pattern from `pages/help-center.vue` so it feels native to the rest of the platform.
+(filled in after implementation)

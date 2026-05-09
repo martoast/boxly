@@ -26,6 +26,13 @@
           </select>
         </div>
         <div>
+          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Género <span class="text-gray-300 font-normal">— deja vacío para unisex</span></label>
+          <select v-model="form.gender_id" class="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+            <option :value="null">— Unisex / Sin género —</option>
+            <option v-for="g in genders" :key="g.id" :value="g.id">{{ g.name }}</option>
+          </select>
+        </div>
+        <div>
           <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Categorías <span class="text-gray-300 font-normal">— puedes elegir varias</span></label>
           <div class="flex flex-wrap gap-2 p-3 rounded-xl border border-gray-200 max-h-44 overflow-y-auto">
             <label v-for="c in categories" :key="c.id" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border cursor-pointer text-sm transition-colors"
@@ -218,25 +225,29 @@ const form = ref({
   description: props.existingProduct?.description ?? '',
   source_url: props.existingProduct?.source_url ?? '',
   store_id: props.existingProduct?.store_id ?? null,
+  gender_id: props.existingProduct?.gender_id ?? null,
   category_ids: (props.existingProduct?.categories ?? []).map(c => c.id),
   price_cents: props.existingProduct?.price_cents ?? 0,
   status: props.existingProduct?.status ?? 'draft',
   available_until: formatDateTimeLocal(props.existingProduct?.available_until),
 })
 
-// Stores + categories for the dropdown / checkbox group
+// Stores + categories + genders for the dropdowns / checkbox group
 const stores = ref([])
 const categories = ref([])
+const genders = ref([])
 onMounted(async () => {
   try {
-    const [s, c] = await Promise.all([
+    const [s, c, g] = await Promise.all([
       $customFetch(`${apiNs.value}/stores`, { query: { active_only: 1, per_page: 200 } }),
       $customFetch(`${apiNs.value}/categories`, { query: { active_only: 1, per_page: 200 } }),
+      $customFetch(`${apiNs.value}/genders`, { query: { active_only: 1, per_page: 200 } }),
     ])
     stores.value = s.data?.data ?? []
     categories.value = c.data?.data ?? []
+    genders.value = g.data?.data ?? []
   } catch (e) {
-    console.error('Failed to load stores/categories', e)
+    console.error('Failed to load stores/categories/genders', e)
   }
 })
 
