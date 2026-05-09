@@ -316,7 +316,6 @@
 <script setup>
 import StoreImage from '~/components/store/StoreImage.vue'
 
-const { $customFetch } = useNuxtApp()
 const route = useRoute()
 const userState = useState('user')
 const isLoggedIn = computed(() => !! userState.value)
@@ -374,32 +373,12 @@ const isMobileActive = (item) => {
   return false
 }
 
-// Mega-menu data — fetch lazily on first hover so SSR/landing-page
-// renders aren't slowed down. Cached for the session after first load.
-const genders = ref([])
-const categories = ref([])
-const brands = ref([])
-let dataLoaded = false
-
-const loadMenuData = async () => {
-  if (dataLoaded) return
-  dataLoaded = true
-  try {
-    const [g, c, s] = await Promise.all([
-      $customFetch('/store/genders'),
-      $customFetch('/store/categories'),
-      $customFetch('/store/stores'),
-    ])
-    genders.value = g?.data ?? []
-    categories.value = c?.data ?? []
-    brands.value = s?.data ?? []
-  } catch {
-    dataLoaded = false  // allow retry next hover
-  }
-}
-
-// Trigger fetch the first time either menu is opened
-watch(openMenu, (val) => { if (val) loadMenuData() })
+// Mega-menu data — pulled from the shared shop-menu composable so it's
+// SSR-fetched once per session and reused across the navbar, the catalog
+// filter drawer, /shop/categories, and /shop/brands. By the time the
+// user hovers a dropdown the data is already in memory — no spinner,
+// no flash, no fetch on hover.
+const { genders, categories, brands } = useShopMenuData()
 
 // Cap categories shown in the dropdown — full list lives on /shop/categories
 const topCategories = computed(() => categories.value.slice(0, 8))

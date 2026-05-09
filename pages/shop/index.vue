@@ -341,34 +341,18 @@ useHead(() => ({
   ],
 }))
 
-// Categories — used by both the always-visible CategoryNav strip AND
-// the landing's category grid (shared via the ShopLandingCategoryGrid
-// component's own useAsyncData call). Fetched here so the strip has
-// data on first paint without a flash.
-const { data: categoriesData } = await useAsyncData('shop-categories', () =>
-  $customFetch('/store/categories').catch(() => null)
-)
-const categories = computed(() => categoriesData.value?.data ?? [])
+// Shared shop taxonomy — categories, stores (brands), genders.
+// Fetched once per session via the useShopMenuData composable; payload
+// is baked into SSR so the filter drawer has data on first paint.
+// Same composable feeds the navbar dropdowns, /shop/categories, and
+// /shop/brands — Nuxt's useAsyncData stable key dedupes the fetch.
+const { genders, categories, brands: stores } = useShopMenuData()
 
-// Stores — only loaded for catalog mode. Lazy on first interaction.
-const stores = ref([])
-const loadStores = async () => {
-  if (stores.value.length) return
-  try {
-    const res = await $customFetch('/store/stores')
-    stores.value = res?.data ?? []
-  } catch {}
-}
-
-// Genders — same lazy pattern as stores. Filter peer to category/store.
-const genders = ref([])
-const loadGenders = async () => {
-  if (genders.value.length) return
-  try {
-    const res = await $customFetch('/store/genders')
-    genders.value = res?.data ?? []
-  } catch {}
-}
+// Backwards-compat no-ops kept for anywhere these were referenced as
+// imperative loaders. They're now satisfied automatically by the
+// composable and cost nothing to call.
+const loadStores = () => {}
+const loadGenders = () => {}
 
 // Catalog state — only used in catalog mode
 const products = ref([])
