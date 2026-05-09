@@ -7,20 +7,20 @@
         <p class="text-gray-500 mt-2 text-base">Explora la tienda completa por categoría.</p>
       </div>
 
-      <div v-if="categoriesWithCovers.length === 0" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+      <div v-if="sortedCategories.length === 0" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
         <div v-for="i in 8" :key="i" class="aspect-[4/5] rounded-2xl bg-gray-100 animate-pulse" />
       </div>
 
       <div v-else class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
         <NuxtLink
-          v-for="cat in categoriesWithCovers"
+          v-for="cat in sortedCategories"
           :key="cat.id"
           :to="`/shop?category_id=${cat.id}`"
           class="group relative block aspect-[4/5] rounded-2xl overflow-hidden bg-gray-100 transition-all duration-200 hover:-translate-y-1 hover:shadow-xl"
         >
           <StoreImage
-            v-if="cat.cover_image"
-            :src="cat.cover_image"
+            v-if="cat.image_url"
+            :src="cat.image_url"
             :alt="cat.name"
             class="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
           />
@@ -44,8 +44,6 @@ import StoreImage from '~/components/store/StoreImage.vue'
 
 definePageMeta({ layout: 'shop' })
 
-const { $customFetch } = useNuxtApp()
-
 useHead({
   title: 'Categorías — Tienda Boxly',
   meta: [
@@ -53,37 +51,17 @@ useHead({
   ],
 })
 
-// Categories list (used by both the nav strip + the grid). Fetched
-// server-side so the page is fully SSR'd.
-const { data: catsRaw } = await useAsyncData('shop-categories', () =>
-  $customFetch('/store/categories').catch(() => null)
+// Categories come from the shared shop-menu composable — single SSR
+// fetch, deduped across navbar / filter drawer / this page. The
+// backend already backfills image_url with a representative product
+// image for categories without an admin-uploaded cover, so no extra
+// per-category fetches needed here anymore.
+const { categories } = useShopMenuData()
+
+// Categories with images first — keeps imageless ones at the bottom
+// where their gradient placeholder won't fight the curated cover
+// images visually.
+const sortedCategories = computed(() =>
+  [...categories.value].sort((a, b) => Number(!! b.image_url) - Number(!! a.image_url)),
 )
-const categories = computed(() => catsRaw.value?.data ?? [])
-
-// Per-category cover image. Prefer the admin-uploaded image_url
-// (managed by Velonie via the categories admin form); fall back to
-// the first product's image so categories without a configured cover
-// still render something. Done server-side so the grid is fully
-// baked into the SSR'd HTML.
-const { data: covers } = await useAsyncData('shop-categories-covers', async () => {
-  const list = catsRaw.value?.data ?? []
-  if (! list.length) return []
-  return Promise.all(
-    list.map(async (c) => {
-      if (c.image_url) return { ...c, cover_image: c.image_url }
-      try {
-        const res = await $customFetch('/store/products', { query: { category_id: c.id, per_page: 1 } })
-        return { ...c, cover_image: res?.data?.data?.[0]?.first_image_url ?? null }
-      } catch {
-        return { ...c, cover_image: null }
-      }
-    }),
-  )
-})
-
-const categoriesWithCovers = computed(() => {
-  const list = covers.value ?? []
-  // Categories with images first
-  return [...list].sort((a, b) => Number(!!b.cover_image) - Number(!!a.cover_image))
-})
 </script>
