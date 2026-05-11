@@ -168,8 +168,23 @@
               {{ t.noItems }}
             </div>
 
-            <div class="divide-y divide-gray-100">
-              <div v-for="(item, index) in request.items" :key="item.id" class="p-6">
+            <!-- Items grouped by store domain — each group is one US store
+                 Velonie will check out at, so shipping + sales tax inputs
+                 live in the group footer (pending_review only). -->
+            <div class="divide-y divide-gray-200">
+              <div v-for="group in itemGroups" :key="group.domain" class="bg-white">
+                <div class="px-6 py-3 bg-gray-50/60 border-b border-gray-100 flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold rounded-full bg-white border border-gray-200 text-gray-700">
+                      <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7h18M5 7v12a2 2 0 002 2h10a2 2 0 002-2V7M9 7V4a3 3 0 016 0v3"/></svg>
+                      {{ group.domain }}
+                    </span>
+                    <span class="text-xs text-gray-500">· {{ group.items.length }} {{ t.items.toLowerCase() }}</span>
+                  </div>
+                  <span class="text-xs text-gray-500">${{ groupSubtotalUsd(group).toFixed(2) }} USD</span>
+                </div>
+                <div class="divide-y divide-gray-100">
+                  <div v-for="(item, index) in group.items" :key="item.id" class="p-6">
                 <div class="flex gap-4 items-start">
                   <!-- Image Thumbnail -->
                   <a
@@ -320,6 +335,44 @@
                     </div>
                   </div>
                 </div>
+                  </div>
+                </div>
+
+                <!-- Per-store shipping + tax (pending_review only). One row
+                     per group — what Velonie pays at this specific store's
+                     checkout. Saved on blur to PR.store_costs. -->
+                <div v-if="request.status === 'pending_review'" class="px-6 py-4 border-t border-gray-100 bg-gray-50/40 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label class="block text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">{{ t.shippingUsa }} — {{ group.domain }} (USD)</label>
+                    <div class="relative">
+                      <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                      <input
+                        type="number" step="0.01" min="0"
+                        :value="storeCost(group.domain, 'shipping')"
+                        @input="setStoreCost(group.domain, 'shipping', $event.target.value)"
+                        @blur="persistStoreCosts"
+                        @keydown.enter.prevent="$event.target.blur()"
+                        class="w-full text-sm pl-6 pr-2 py-1.5 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label class="block text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">{{ t.salesTax }} — {{ group.domain }} (USD)</label>
+                    <div class="relative">
+                      <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                      <input
+                        type="number" step="0.01" min="0"
+                        :value="storeCost(group.domain, 'tax')"
+                        @input="setStoreCost(group.domain, 'tax', $event.target.value)"
+                        @blur="persistStoreCosts"
+                        @keydown.enter.prevent="$event.target.blur()"
+                        class="w-full text-sm pl-6 pr-2 py-1.5 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -333,22 +386,11 @@
 
             <div class="p-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
-                <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">{{ t.shippingUsa }} (USD)</label>
-                <div class="relative">
-                  <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
-                  <input v-model.number="quoteForm.shipping_cost" type="number" step="0.01" min="0" class="w-full text-sm pl-6 pr-2 py-2 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-500" placeholder="0.00" />
-                </div>
-              </div>
-              <div>
-                <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">{{ t.salesTax }} (USD)</label>
-                <div class="relative">
-                  <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
-                  <input v-model.number="quoteForm.sales_tax" type="number" step="0.01" min="0" class="w-full text-sm pl-6 pr-2 py-2 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-500" placeholder="0.00" />
-                </div>
-              </div>
-              <div>
                 <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">{{ t.serviceFee }} (%)</label>
                 <input v-model.number="quoteForm.processing_fee_percent" type="number" step="0.1" min="0" max="100" class="w-full text-sm px-2 py-2 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+              </div>
+              <div class="sm:col-span-2 flex items-end">
+                <p class="text-xs text-gray-500 leading-snug">{{ t.shippingTaxPerStoreHint }}</p>
               </div>
               <div class="sm:col-span-3">
                 <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">{{ t.adminNotes }} <span class="font-normal lowercase text-gray-400">— {{ t.optional }}</span></label>
@@ -363,13 +405,13 @@
                   <span>{{ t.itemsSubtotal }} ({{ billableCount }} {{ t.items.toLowerCase() }})</span>
                   <span class="font-mono">${{ itemsSubtotalUsd.toFixed(2) }} USD</span>
                 </div>
-                <div v-if="(quoteForm.shipping_cost || 0) > 0" class="flex justify-between text-gray-700">
-                  <span>+ {{ t.shippingUsa }}</span>
-                  <span class="font-mono">${{ Number(quoteForm.shipping_cost).toFixed(2) }} USD</span>
+                <div v-if="aggregateShipping > 0" class="flex justify-between text-gray-700">
+                  <span>+ {{ t.shippingUsa }} ({{ itemGroups.length }} {{ itemGroups.length === 1 ? t.storeOne : t.storeMany }})</span>
+                  <span class="font-mono">${{ aggregateShipping.toFixed(2) }} USD</span>
                 </div>
-                <div v-if="(quoteForm.sales_tax || 0) > 0" class="flex justify-between text-gray-700">
+                <div v-if="aggregateTax > 0" class="flex justify-between text-gray-700">
                   <span>+ {{ t.salesTax }}</span>
-                  <span class="font-mono">${{ Number(quoteForm.sales_tax).toFixed(2) }} USD</span>
+                  <span class="font-mono">${{ aggregateTax.toFixed(2) }} USD</span>
                 </div>
                 <div v-if="(quoteForm.processing_fee_percent || 0) > 0" class="flex justify-between text-gray-700">
                   <span>+ {{ t.serviceFee }} ({{ Number(quoteForm.processing_fee_percent).toFixed(1) }}%)</span>
@@ -528,7 +570,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { Menu, MenuButton, MenuItems, MenuItem } from '@headlessui/vue';
 
 definePageMeta({
@@ -612,7 +654,10 @@ const translations = {
   noItems: { es: 'No hay artículos en esta solicitud', en: 'No items in this request' },
   unavailableExcluded: { es: 'Artículos no disponibles se excluyen del total', en: 'Unavailable items are excluded from the total' },
   quoteSettings: { es: 'Configurar Cotización', en: 'Quote Settings' },
-  quoteSettingsDesc: { es: 'Estos valores se sumarán al subtotal de artículos y se cobrarán al cliente en una sola línea en Stripe.', en: 'These values are added on top of the items subtotal and billed to the customer as a single Stripe line.' },
+  quoteSettingsDesc: { es: 'Se cobra al cliente en una sola línea en Stripe — el desglose por tienda queda guardado para tu referencia.', en: 'Customer is billed as a single Stripe line — the per-store breakdown is saved for your reference.' },
+  shippingTaxPerStoreHint: { es: 'El envío y los impuestos se ingresan por tienda arriba — Velonie compra cada tienda por separado.', en: 'Shipping and tax are entered per store above — Velonie checks out at each store separately.' },
+  storeOne: { es: 'tienda', en: 'store' },
+  storeMany: { es: 'tiendas', en: 'stores' },
   shippingUsa: { es: 'Envío a USA', en: 'Shipping to USA' },
   salesTax: { es: 'Impuestos USA', en: 'US Sales Tax' },
   serviceFee: { es: 'Tarifa de servicio', en: 'Service fee' },
@@ -646,14 +691,19 @@ const showPurchaseModal = ref(false);
 const showDeleteModal = ref(false);
 const rejectReason = ref('');
 
-// Unified quote settings (filled in on the detail page, sent to /quote)
+// Unified quote settings (filled in on the detail page, sent to /quote).
+//
+// Per-store cost capture: Velonie buys from each US store separately, so
+// shipping + sales tax are entered per domain (amazon.com, youngla.com …).
+// We sum across stores to produce the final invoice — the customer sees
+// one charge but the breakdown survives reloads via PR.store_costs.
 const quoteForm = ref({
-  shipping_cost: 0,
-  sales_tax: 0,
+  store_costs: {},                // { 'amazon.com': { shipping: 0, tax: 0 } }
   processing_fee_percent: 8,
   admin_notes: '',
 });
 const sendingQuote = ref(false);
+const persistingCosts = ref(false);
 
 // Per-item editing state — keyed by item.id
 const itemBusy = ref({});      // request in flight (delete, stock toggle, etc.)
@@ -740,6 +790,21 @@ const truncateUrl = (url) => {
 // API namespace — admin vs shopping (same page is reused under /shopping)
 const apiNs = computed(() => route.path.includes('/shopping/') ? '/shopping' : '/admin');
 
+// Extract the bare domain from a product URL ("amazon.com", "youngla.com").
+// Falls back to "otros" for items missing or with broken URLs so they still
+// land in a visible group rather than disappearing.
+const extractDomain = (url) => {
+  try {
+    let safeUrl = url || '';
+    if (!safeUrl) return 'otros';
+    if (!safeUrl.match(/^https?:\/\//i)) safeUrl = 'https://' + safeUrl;
+    const { hostname } = new URL(safeUrl);
+    return hostname.replace(/^www\./, '').toLowerCase();
+  } catch {
+    return 'otros';
+  }
+};
+
 // Items billable in the quote = anything not explicitly marked unavailable.
 // (Unverified items still count — the admin can leave them unverified and
 // just send the quote, OR explicitly mark unavailable to exclude.)
@@ -748,24 +813,111 @@ const billableItems = computed(() =>
 );
 const billableCount = computed(() => billableItems.value.length);
 
+// Group items (all of them — including unavailable, so the admin can still
+// see them in context) by their product_url domain. One group = one store
+// Velonie will check out at, so shipping + tax are entered per group.
+const itemGroups = computed(() => {
+  const items = request.value?.items || [];
+  const byDomain = new Map();
+  for (const item of items) {
+    const d = extractDomain(item.product_url);
+    if (!byDomain.has(d)) byDomain.set(d, []);
+    byDomain.get(d).push(item);
+  }
+  return Array.from(byDomain.entries()).map(([domain, items]) => ({ domain, items }));
+});
+
+// Sum of price*qty for billable items inside a single store group — used
+// for the per-store header and the overall items subtotal.
+const groupSubtotalUsd = (group) =>
+  group.items
+    .filter(i => i.stock_status !== 'unavailable')
+    .reduce((sum, i) => {
+      const price = Number(itemDraft(i.id, 'price', i.price)) || 0;
+      const qty = Number(itemDraft(i.id, 'quantity', i.quantity)) || 0;
+      return sum + price * qty;
+    }, 0);
+
 const itemsSubtotalUsd = computed(() =>
-  billableItems.value.reduce((sum, i) => {
-    const price = Number(itemDraft(i.id, 'price', i.price)) || 0;
-    const qty = Number(itemDraft(i.id, 'quantity', i.quantity)) || 0;
-    return sum + price * qty;
-  }, 0),
+  itemGroups.value.reduce((s, g) => s + groupSubtotalUsd(g), 0),
+);
+
+// Per-store cost helpers — keyed by domain in quoteForm.store_costs
+const storeCost = (domain, field) => {
+  const c = quoteForm.value.store_costs?.[domain];
+  return c?.[field] ?? 0;
+};
+const setStoreCost = (domain, field, value) => {
+  if (!quoteForm.value.store_costs[domain]) {
+    quoteForm.value.store_costs[domain] = { shipping: 0, tax: 0 };
+  }
+  quoteForm.value.store_costs[domain][field] = Number(value) || 0;
+};
+
+const aggregateShipping = computed(() =>
+  Object.values(quoteForm.value.store_costs || {}).reduce(
+    (s, c) => s + (Number(c?.shipping) || 0), 0,
+  ),
+);
+const aggregateTax = computed(() =>
+  Object.values(quoteForm.value.store_costs || {}).reduce(
+    (s, c) => s + (Number(c?.tax) || 0), 0,
+  ),
 );
 
 const feeUsd = computed(() => {
-  const pre = itemsSubtotalUsd.value + (Number(quoteForm.value.shipping_cost) || 0) + (Number(quoteForm.value.sales_tax) || 0);
+  const pre = itemsSubtotalUsd.value + aggregateShipping.value + aggregateTax.value;
   const pct = Number(quoteForm.value.processing_fee_percent) || 0;
   return Math.round(pre * (pct / 100) * 100) / 100;
 });
 
 const totalUsd = computed(() => {
-  const pre = itemsSubtotalUsd.value + (Number(quoteForm.value.shipping_cost) || 0) + (Number(quoteForm.value.sales_tax) || 0);
+  const pre = itemsSubtotalUsd.value + aggregateShipping.value + aggregateTax.value;
   return Math.round((pre + feeUsd.value) * 100) / 100;
 });
+
+// Strip empty entries before persisting — saves a sparse object to the PR.
+const cleanStoreCosts = () => {
+  const clean = {};
+  for (const [domain, c] of Object.entries(quoteForm.value.store_costs || {})) {
+    const ship = Number(c?.shipping) || 0;
+    const tax = Number(c?.tax) || 0;
+    if (ship > 0 || tax > 0) clean[domain] = { shipping: ship, tax };
+  }
+  return clean;
+};
+
+// Save per-store costs to the PR on blur so reloads stay in sync.
+const persistStoreCosts = async () => {
+  if (persistingCosts.value) return;
+  persistingCosts.value = true;
+  try {
+    await $customFetch(`${apiNs.value}/purchase-requests/${request.value.id}`, {
+      method: 'PUT',
+      body: { store_costs: cleanStoreCosts() },
+    });
+  } catch (e) {
+    console.error(e);
+  } finally {
+    persistingCosts.value = false;
+  }
+};
+
+// Seed quoteForm.store_costs from the PR (or empty per-domain rows on first
+// load) once item groups are known. Watch domain list — adds missing rows
+// without clobbering admin edits-in-progress.
+watch(itemGroups, (groups) => {
+  const existing = quoteForm.value.store_costs || {};
+  const seeded = request.value?.store_costs || {};
+  const next = { ...existing };
+  for (const g of groups) {
+    if (next[g.domain]) continue;
+    next[g.domain] = seeded[g.domain]
+      ? { shipping: Number(seeded[g.domain].shipping) || 0, tax: Number(seeded[g.domain].tax) || 0 }
+      : { shipping: 0, tax: 0 };
+  }
+  quoteForm.value.store_costs = next;
+}, { immediate: true });
 
 const canSendQuote = computed(() => billableCount.value > 0);
 const noBillableMessage = computed(() => canSendQuote.value ? '' : t.value.noBillableItems);
@@ -852,8 +1004,7 @@ const onSendQuote = async () => {
     const resp = await $customFetch(`${apiNs.value}/purchase-requests/${request.value.id}/quote`, {
       method: 'POST',
       body: {
-        shipping_cost: Number(quoteForm.value.shipping_cost) || 0,
-        sales_tax: Number(quoteForm.value.sales_tax) || 0,
+        store_costs: cleanStoreCosts(),
         processing_fee_percent: Number(quoteForm.value.processing_fee_percent) || 0,
         admin_notes: quoteForm.value.admin_notes || null,
       },
