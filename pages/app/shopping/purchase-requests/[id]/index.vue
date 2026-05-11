@@ -27,20 +27,8 @@
           
           <!-- Actions based on Status -->
           <div v-if="request" class="flex items-center gap-3">
-            <!-- Pending Review -> Create Quote -->
-            <button
-              v-if="request.status === 'pending_review'"
-              @click="onCreateQuoteClick"
-              :disabled="isStorePR && !allItemsChecked"
-              :title="isStorePR && !allItemsChecked ? t.verifyAllFirst : ''"
-              class="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm flex items-center gap-2 disabled:bg-gray-300 disabled:cursor-not-allowed"
-            >
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
-              {{ t.createQuote }}
-            </button>
-
             <!-- Pending Review -> Reject -->
-            <button 
+            <button
               v-if="request.status === 'pending_review'"
               @click="showRejectModal = true"
               class="px-4 py-2 bg-white border border-red-300 text-red-600 font-medium rounded-lg hover:bg-red-50 transition-colors"
@@ -49,7 +37,7 @@
             </button>
 
             <!-- Paid -> Mark Purchased -->
-            <button 
+            <button
               v-if="request.status === 'paid'"
               @click="showPurchaseModal = true"
               :disabled="processing"
@@ -58,19 +46,6 @@
               <svg v-if="!processing" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
               <svg v-else class="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
               {{ processing ? t.processing : t.markPurchased }}
-            </button>
-
-            <!-- Quoted + Manual Deposit -> Mark as Paid -->
-            <button 
-              v-if="request.status === 'quoted' && request.payment_method === 'manual_deposit'"
-              @click="showMarkPaidModal = true"
-              :disabled="processing"
-              class="px-4 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors shadow-sm flex items-center gap-2 disabled:opacity-50"
-            >
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              {{ t.markAsPaid }}
             </button>
 
             <!-- Edit Menu -->
@@ -179,205 +154,159 @@
         </div>
       </div>
 
-      <!-- Manual Deposit Awaiting Payment Banner -->
-      <div v-if="request.status === 'quoted' && request.payment_method === 'manual_deposit'" class="bg-purple-50 border border-purple-200 rounded-xl p-4 flex items-start gap-4">
-        <div class="w-12 h-12 bg-white rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm border border-purple-100">
-          <img 
-            src="https://upload.wikimedia.org/wikipedia/commons/thumb/f/f7/Nubank_logo_2021.svg/2560px-Nubank_logo_2021.svg.png" 
-            alt="NU Bank" 
-            class="w-8 h-8 object-contain"
-          >
-        </div>
-        <div class="flex-1">
-          <p class="font-semibold text-purple-900">{{ t.awaitingBankTransfer }}</p>
-          <p class="text-sm text-purple-700 mt-1">{{ t.awaitingBankTransferDesc }}</p>
-          <button 
-            @click="showMarkPaidModal = true"
-            class="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition-colors"
-          >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            {{ t.confirmPaymentReceived }}
-          </button>
-        </div>
-      </div>
-
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <!-- Items List -->
         <div class="lg:col-span-2 space-y-6">
           <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
             <div class="px-6 py-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
               <h3 class="font-semibold text-gray-900">{{ t.items }} ({{ request.items?.length || 0 }})</h3>
-              <span class="text-sm text-gray-500">{{ t.estMerchandise }}: {{ formatCurrency(estimatedTotal) }}</span>
+              <span v-if="request.status !== 'pending_review'" class="text-sm text-gray-500">{{ t.estMerchandise }}: ${{ itemsSubtotalUsd.toFixed(2) }} USD</span>
+              <span v-else class="text-xs text-gray-500">{{ t.unavailableExcluded }}</span>
             </div>
 
-            <!-- Stock-check progress (store-source PRs in pending_review) -->
-            <div v-if="isStorePR && request.status === 'pending_review'" class="px-6 py-3 bg-blue-50 border-b border-blue-100 flex items-center justify-between text-sm">
-              <span class="text-blue-900">
-                <strong>{{ stockCheckedCount }}/{{ request.items?.length || 0 }}</strong> {{ t.itemsVerified }}
-                <span v-if="!allItemsChecked" class="text-blue-700">— {{ t.verifyEachItem }}</span>
-                <span v-else-if="availableCount > 0" class="text-green-700">— {{ t.readyToQuote }}</span>
-                <span v-else class="text-red-700">— {{ t.allUnavailable }}</span>
-              </span>
+            <div v-if="!request.items?.length" class="p-12 text-center text-sm text-gray-500">
+              {{ t.noItems }}
             </div>
 
             <div class="divide-y divide-gray-100">
-              <div v-for="(item, index) in request.items" :key="item.id" class="p-6 hover:bg-gray-50 transition-colors">
+              <div v-for="(item, index) in request.items" :key="item.id" class="p-6">
                 <div class="flex gap-4 items-start">
-                  
                   <!-- Image Thumbnail -->
-                  <a 
-                    v-if="item.image_full_url" 
-                    :href="item.image_full_url" 
-                    target="_blank" 
+                  <a
+                    v-if="item.image_full_url"
+                    :href="item.image_full_url"
+                    target="_blank"
                     class="w-20 h-20 flex-shrink-0 bg-gray-100 rounded-lg overflow-hidden border border-gray-200 relative group"
                     :title="t.viewImage"
                   >
                     <img :src="item.image_full_url" class="w-full h-full object-cover" alt="Product Image">
-                    <div class="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-                        <svg class="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
-                    </div>
                   </a>
-                  
-                  <!-- Fallback Icon -->
                   <div v-else class="w-20 h-20 flex-shrink-0 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 font-bold text-sm border border-gray-200">
                     {{ index + 1 }}
                   </div>
 
                   <div class="flex-1 min-w-0">
-                    <h4 class="font-medium text-gray-900 text-lg leading-snug">{{ item.product_name }}</h4>
-                    
-                    <!-- Link -->
-                    <a :href="item.product_url" target="_blank" class="text-sm text-blue-600 hover:underline flex items-center gap-1 mt-1 mb-3 w-fit">
-                      {{ truncateUrl(item.product_url) }}
-                      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
-                    </a>
-                    
-                    <!-- Details Grid -->
-                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm mb-3">
+                    <div class="flex items-start justify-between gap-3">
+                      <div class="min-w-0">
+                        <h4 class="font-medium text-gray-900 text-lg leading-snug">{{ item.product_name }}</h4>
+                        <a :href="item.product_url" target="_blank" class="text-sm text-blue-600 hover:underline flex items-center gap-1 mt-1 w-fit">
+                          {{ truncateUrl(item.product_url) }}
+                          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                        </a>
+                      </div>
+                      <!-- Per-item delete (pending_review only) -->
+                      <button
+                        v-if="request.status === 'pending_review'"
+                        type="button"
+                        @click="onDeleteItem(item)"
+                        :disabled="itemBusy[item.id]"
+                        class="text-gray-400 hover:text-red-600 hover:bg-red-50 p-1.5 rounded-lg transition-colors flex-shrink-0"
+                        :title="t.deleteItem"
+                      >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                      </button>
+                    </div>
+
+                    <!-- Editable price + qty (pending_review only) -->
+                    <div v-if="request.status === 'pending_review'" class="grid grid-cols-2 gap-3 mt-3">
+                      <div>
+                        <label class="block text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">{{ t.price }} USD</label>
+                        <div class="relative">
+                          <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                          <input
+                            type="number" step="0.01" min="0"
+                            :value="itemDraft(item.id, 'price', item.price)"
+                            @input="setItemDraft(item.id, 'price', $event.target.value)"
+                            @blur="commitItemEdit(item)"
+                            @keydown.enter.prevent="$event.target.blur()"
+                            class="w-full text-sm pl-6 pr-2 py-1.5 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label class="block text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">{{ t.qty }}</label>
+                        <input
+                          type="number" step="1" min="1"
+                          :value="itemDraft(item.id, 'quantity', item.quantity)"
+                          @input="setItemDraft(item.id, 'quantity', $event.target.value)"
+                          @blur="commitItemEdit(item)"
+                          @keydown.enter.prevent="$event.target.blur()"
+                          class="w-full text-sm px-2 py-1.5 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        />
+                      </div>
+                    </div>
+
+                    <!-- Display-only (after pending_review) -->
+                    <div v-else class="grid grid-cols-3 gap-3 text-sm mt-3">
                       <div class="bg-gray-50 p-2 rounded border border-gray-100">
                         <span class="text-xs text-gray-500 block uppercase">{{ t.qty }}</span>
                         <span class="font-semibold">{{ item.quantity }}</span>
                       </div>
                       <div class="bg-gray-50 p-2 rounded border border-gray-100">
                         <span class="text-xs text-gray-500 block uppercase">{{ t.price }}</span>
-                        <span class="font-semibold">{{ formatCurrency(item.price) }}</span>
+                        <span class="font-semibold">${{ Number(item.price).toFixed(2) }}</span>
                       </div>
-                      <div class="bg-gray-50 p-2 rounded border border-gray-100 col-span-2">
+                      <div class="bg-gray-50 p-2 rounded border border-gray-100">
                         <span class="text-xs text-gray-500 block uppercase">{{ t.subtotal }}</span>
-                        <span class="font-semibold">{{ formatCurrency(item.price * item.quantity) }}</span>
+                        <span class="font-semibold">${{ (item.price * item.quantity).toFixed(2) }}</span>
                       </div>
+                    </div>
+
+                    <!-- Line subtotal — live (pending_review) -->
+                    <div v-if="request.status === 'pending_review'" class="mt-2 text-sm">
+                      <span class="text-gray-500">{{ t.subtotal }}:</span>
+                      <span class="font-semibold text-gray-900 ml-1">${{ (Number(itemDraft(item.id, 'price', item.price)) * Number(itemDraft(item.id, 'quantity', item.quantity))).toFixed(2) }} USD</span>
                     </div>
 
                     <!-- Options -->
-                    <div v-if="item.options && Object.keys(item.options).length > 0" class="flex flex-wrap gap-2 mb-2">
-                        <span v-for="(val, key) in item.options" :key="key" class="text-xs bg-primary-50 text-primary-700 border border-primary-100 px-2 py-1 rounded">
-                            <strong>{{ key }}:</strong> {{ val }}
-                        </span>
+                    <div v-if="item.options && Object.keys(item.options).length > 0" class="flex flex-wrap gap-2 mt-3">
+                      <span v-for="(val, key) in item.options" :key="key" class="text-xs bg-primary-50 text-primary-700 border border-primary-100 px-2 py-1 rounded">
+                        <strong>{{ key }}:</strong> {{ val }}
+                      </span>
                     </div>
 
-                    <!-- Notes -->
-                    <div v-if="item.notes" class="text-sm bg-yellow-50 text-yellow-800 p-3 rounded border border-yellow-100">
+                    <!-- Notes from customer -->
+                    <div v-if="item.notes" class="mt-3 text-sm bg-yellow-50 text-yellow-800 p-3 rounded border border-yellow-100">
                       <span class="font-bold text-xs uppercase block mb-1 text-yellow-600">{{ t.customerNotes }}</span>
                       {{ item.notes }}
                     </div>
 
-                    <!-- Cost breakdown form (store PRs in pending_review only) —
-                         Velonie enters source-store tax/shipping + commission %
-                         after she runs the actual checkout. Submitting flips
-                         the item to "available" and persists the line total. -->
-                    <div v-if="isStorePR && request.status === 'pending_review'" class="mt-3">
-                      <div class="bg-gray-50 border border-gray-200 rounded-lg p-3 space-y-2.5">
-                        <div class="flex items-center justify-between">
-                          <span class="text-xs text-gray-500 uppercase font-semibold">{{ t.costBreakdownTitle }}</span>
-                          <span v-if="item.stock_status === 'available'" class="inline-flex items-center gap-1 text-xs font-semibold text-green-700">
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-                            {{ t.stockAvailable }}
-                          </span>
-                          <span v-else-if="item.stock_status === 'unavailable'" class="inline-flex items-center gap-1 text-xs font-semibold text-red-700">
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
-                            {{ t.stockUnavailable }}
-                          </span>
-                        </div>
-
-                        <div v-if="item.stock_status !== 'unavailable'" class="grid grid-cols-3 gap-2">
-                          <div>
-                            <label class="block text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-0.5">{{ t.tax }} USD</label>
-                            <input
-                              type="number" step="0.01" min="0"
-                              :value="costForm[item.id]?.tax_usd ?? item.tax_usd ?? ''"
-                              @input="setCostField(item.id, 'tax_usd', $event.target.value)"
-                              :placeholder="'0.00'"
-                              class="w-full text-sm px-2 py-1.5 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                            />
-                          </div>
-                          <div>
-                            <label class="block text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-0.5">{{ t.shipping }} USD</label>
-                            <input
-                              type="number" step="0.01" min="0"
-                              :value="costForm[item.id]?.shipping_usd ?? item.shipping_usd ?? ''"
-                              @input="setCostField(item.id, 'shipping_usd', $event.target.value)"
-                              :placeholder="'0.00'"
-                              class="w-full text-sm px-2 py-1.5 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                            />
-                          </div>
-                          <div>
-                            <label class="block text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-0.5">{{ t.commission }} %</label>
-                            <input
-                              type="number" step="0.1" min="0" max="100"
-                              :value="costForm[item.id]?.commission_percent ?? item.commission_percent ?? defaultCommissionPercent"
-                              @input="setCostField(item.id, 'commission_percent', $event.target.value)"
-                              class="w-full text-sm px-2 py-1.5 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                            />
-                          </div>
-                        </div>
-
-                        <div v-if="item.stock_status !== 'unavailable' && computedItemFinal(item) !== null" class="flex items-baseline justify-between text-xs pt-1 border-t border-gray-200">
-                          <span class="text-gray-500">{{ t.itemFinalUsd }}</span>
-                          <span class="font-semibold text-gray-900">${{ computedItemFinal(item).toFixed(2) }} USD</span>
-                        </div>
-
-                        <div class="flex gap-2 pt-1">
-                          <button
-                            v-if="item.stock_status !== 'unavailable'"
-                            type="button"
-                            @click="saveCostBreakdown(item)"
-                            :disabled="stockUpdating[item.id] || !canSaveCostFor(item)"
-                            class="flex-1 px-3 py-1.5 text-xs font-semibold rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1.5"
-                          >
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-                            {{ stockUpdating[item.id] ? '…' : t.markAvailable }}
-                          </button>
-                          <button
-                            type="button"
-                            @click="markStockStatus(item, 'unavailable')"
-                            :disabled="stockUpdating[item.id]"
-                            :class="[
-                              'flex-1 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors flex items-center justify-center gap-1.5',
-                              item.stock_status === 'unavailable'
-                                ? 'bg-red-600 text-white border-red-600'
-                                : 'bg-white text-red-700 border-red-300 hover:bg-red-50',
-                            ]"
-                          >
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
-                            {{ t.markUnavailable }}
-                          </button>
-                          <button
-                            v-if="item.stock_status && item.stock_status !== 'unverified'"
-                            type="button"
-                            @click="markStockStatus(item, 'unverified')"
-                            :disabled="stockUpdating[item.id]"
-                            class="px-2 py-1.5 text-xs text-gray-500 hover:text-gray-800 underline"
-                          >
-                            {{ t.resetStock }}
-                          </button>
-                        </div>
-                      </div>
+                    <!-- Stock status toggle (pending_review only) -->
+                    <div v-if="request.status === 'pending_review'" class="mt-3 flex items-center gap-2">
+                      <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">{{ t.status }}:</span>
+                      <button
+                        type="button"
+                        @click="setItemStock(item, 'available')"
+                        :disabled="itemBusy[item.id]"
+                        :class="[
+                          'px-2.5 py-1 text-xs font-semibold rounded-lg border transition-colors',
+                          item.stock_status === 'available'
+                            ? 'bg-green-600 text-white border-green-600'
+                            : 'bg-white text-green-700 border-green-300 hover:bg-green-50',
+                        ]"
+                      >{{ t.stockAvailable }}</button>
+                      <button
+                        type="button"
+                        @click="setItemStock(item, 'unavailable')"
+                        :disabled="itemBusy[item.id]"
+                        :class="[
+                          'px-2.5 py-1 text-xs font-semibold rounded-lg border transition-colors',
+                          item.stock_status === 'unavailable'
+                            ? 'bg-red-600 text-white border-red-600'
+                            : 'bg-white text-red-700 border-red-300 hover:bg-red-50',
+                        ]"
+                      >{{ t.stockUnavailable }}</button>
+                      <button
+                        v-if="item.stock_status && item.stock_status !== 'unverified'"
+                        type="button"
+                        @click="setItemStock(item, 'unverified')"
+                        :disabled="itemBusy[item.id]"
+                        class="px-1.5 py-1 text-xs text-gray-500 hover:text-gray-800 underline"
+                      >{{ t.resetStock }}</button>
                     </div>
 
-                    <!-- Stock-status badge once locked (PR no longer in pending_review) -->
-                    <div v-else-if="isStorePR && item.stock_status && item.stock_status !== 'unverified'" class="mt-3">
+                    <!-- Stock badge (after pending_review) -->
+                    <div v-else-if="item.stock_status && item.stock_status !== 'unverified'" class="mt-3">
                       <span
                         :class="[
                           'inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full border',
@@ -392,6 +321,80 @@
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+
+          <!-- Quote settings + preview + send (pending_review only) -->
+          <div v-if="request.status === 'pending_review'" class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-100 bg-gray-50">
+              <h3 class="font-semibold text-gray-900">{{ t.quoteSettings }}</h3>
+              <p class="text-xs text-gray-500 mt-0.5">{{ t.quoteSettingsDesc }}</p>
+            </div>
+
+            <div class="p-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">{{ t.shippingUsa }} (USD)</label>
+                <div class="relative">
+                  <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                  <input v-model.number="quoteForm.shipping_cost" type="number" step="0.01" min="0" class="w-full text-sm pl-6 pr-2 py-2 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-500" placeholder="0.00" />
+                </div>
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">{{ t.salesTax }} (USD)</label>
+                <div class="relative">
+                  <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                  <input v-model.number="quoteForm.sales_tax" type="number" step="0.01" min="0" class="w-full text-sm pl-6 pr-2 py-2 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-500" placeholder="0.00" />
+                </div>
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">{{ t.serviceFee }} (%)</label>
+                <input v-model.number="quoteForm.processing_fee_percent" type="number" step="0.1" min="0" max="100" class="w-full text-sm px-2 py-2 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+              </div>
+              <div class="sm:col-span-3">
+                <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">{{ t.adminNotes }} <span class="font-normal lowercase text-gray-400">— {{ t.optional }}</span></label>
+                <textarea v-model="quoteForm.admin_notes" rows="2" class="w-full text-sm px-3 py-2 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-500" :placeholder="t.adminNotesPlaceholder"></textarea>
+              </div>
+            </div>
+
+            <!-- Live preview -->
+            <div class="px-6 pb-6">
+              <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-2 text-sm">
+                <div class="flex justify-between text-gray-700">
+                  <span>{{ t.itemsSubtotal }} ({{ billableCount }} {{ t.items.toLowerCase() }})</span>
+                  <span class="font-mono">${{ itemsSubtotalUsd.toFixed(2) }} USD</span>
+                </div>
+                <div v-if="(quoteForm.shipping_cost || 0) > 0" class="flex justify-between text-gray-700">
+                  <span>+ {{ t.shippingUsa }}</span>
+                  <span class="font-mono">${{ Number(quoteForm.shipping_cost).toFixed(2) }} USD</span>
+                </div>
+                <div v-if="(quoteForm.sales_tax || 0) > 0" class="flex justify-between text-gray-700">
+                  <span>+ {{ t.salesTax }}</span>
+                  <span class="font-mono">${{ Number(quoteForm.sales_tax).toFixed(2) }} USD</span>
+                </div>
+                <div v-if="(quoteForm.processing_fee_percent || 0) > 0" class="flex justify-between text-gray-700">
+                  <span>+ {{ t.serviceFee }} ({{ Number(quoteForm.processing_fee_percent).toFixed(1) }}%)</span>
+                  <span class="font-mono">${{ feeUsd.toFixed(2) }} USD</span>
+                </div>
+                <div class="pt-2 border-t border-gray-200 flex justify-between font-semibold text-gray-900">
+                  <span>{{ t.totalUsd }}</span>
+                  <span class="font-mono">${{ totalUsd.toFixed(2) }} USD</span>
+                </div>
+                <div class="text-xs text-gray-500 italic">
+                  {{ t.fxRateNote }} (~{{ fxRateDisplay }} MXN/USD → ~${{ approxMxn.toFixed(2) }} MXN). {{ t.fxRateNote2 }}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                @click="onSendQuote"
+                :disabled="sendingQuote || !canSendQuote"
+                class="mt-4 w-full px-4 py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+              >
+                <svg v-if="!sendingQuote" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <svg v-else class="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                {{ sendingQuote ? t.sending : t.confirmAndSend }}
+              </button>
+              <p v-if="!canSendQuote" class="mt-2 text-xs text-gray-500 text-center">{{ noBillableMessage }}</p>
             </div>
           </div>
         </div>
@@ -411,15 +414,6 @@
           </div>
         </div>
       </div>
-  
-      <!-- Quote Modal -->
-      <QuoteModal 
-        v-if="showQuoteModal"
-        :show="showQuoteModal"
-        :estimated-total="estimatedTotal"
-        @close="showQuoteModal = false"
-        @confirm="handleCreateQuote"
-      />
   
       <!-- Reject Modal -->
       <div v-if="showRejectModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -495,59 +489,6 @@
           </div>
       </div>
 
-      <!-- Mark as Paid Modal (Manual Deposit) -->
-      <div v-if="showMarkPaidModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div class="bg-white rounded-xl max-w-md w-full p-6 shadow-xl">
-              <div class="flex items-center gap-3 mb-4">
-                  <div class="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
-                      <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                      </svg>
-                  </div>
-                  <div>
-                      <h3 class="text-lg font-bold text-gray-900">{{ t.confirmPaymentTitle }}</h3>
-                      <p class="text-sm text-gray-500">{{ t.confirmPaymentSubtitle }}</p>
-                  </div>
-              </div>
-              
-              <div class="bg-purple-50 rounded-lg p-4 mb-4 flex items-start gap-3">
-                  <img 
-                    src="https://upload.wikimedia.org/wikipedia/commons/thumb/f/f7/Nubank_logo_2021.svg/2560px-Nubank_logo_2021.svg.png" 
-                    alt="NU" 
-                    class="w-8 h-8 object-contain flex-shrink-0"
-                  >
-                  <div>
-                      <p class="text-sm text-purple-800 font-medium">{{ t.confirmPaymentDesc }}</p>
-                      <p class="text-xs text-purple-600 mt-1">{{ t.confirmPaymentAmount }}: <strong>{{ formatCurrency(request?.total_amount) }}</strong></p>
-                  </div>
-              </div>
-
-              <div class="flex justify-end gap-3">
-                  <button 
-                      @click="showMarkPaidModal = false" 
-                      :disabled="processing"
-                      class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
-                  >
-                      {{ t.cancel }}
-                  </button>
-                  <button 
-                      @click="handleMarkPaid" 
-                      :disabled="processing"
-                      class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center gap-2"
-                  >
-                      <svg v-if="!processing" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                      </svg>
-                      <svg v-else class="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      {{ processing ? t.processing : t.yesPaymentReceived }}
-                  </button>
-              </div>
-          </div>
-      </div>
-
       <!-- Delete Confirmation Modal -->
       <div v-if="showDeleteModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div class="bg-white rounded-xl max-w-md w-full p-6 shadow-xl">
@@ -589,7 +530,6 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { Menu, MenuButton, MenuItems, MenuItem } from '@headlessui/vue';
-import QuoteModal from '~/components/admin/QuoteModal.vue';
 
 definePageMeta({
   layout: 'shopping',
@@ -663,25 +603,29 @@ const translations = {
   confirmPaymentTitle: { es: 'Confirmar Pago', en: 'Confirm Payment' },
   confirmPaymentSubtitle: { es: '¿Recibiste la transferencia?', en: 'Did you receive the transfer?' },
   confirmPaymentDesc: { es: 'Confirma que recibiste el pago por transferencia bancaria en la cuenta NU.', en: 'Confirm that you received the bank transfer payment to the NU account.' },
-  // Stock-verification UI (store-source PRs)
-  stock: { es: 'Stock', en: 'Stock' },
+  // Unified quote flow
+  status: { es: 'Estado', en: 'Status' },
   stockAvailable: { es: 'Disponible', en: 'Available' },
   stockUnavailable: { es: 'No disponible', en: 'Unavailable' },
-  costBreakdownTitle: { es: 'Costo de checkout (USD)', en: 'Checkout cost (USD)' },
-  tax: { es: 'Impuestos', en: 'Tax' },
-  shipping: { es: 'Envío', en: 'Shipping' },
-  commission: { es: 'Comisión', en: 'Commission' },
-  itemFinalUsd: { es: 'Total del producto:', en: 'Item total:' },
-  markAvailable: { es: 'Disponible', en: 'Available' },
-  markUnavailable: { es: 'No disponible', en: 'Unavailable' },
   resetStock: { es: 'Restablecer', en: 'Reset' },
-  itemsVerified: { es: 'productos verificados', en: 'items verified' },
-  verifyEachItem: { es: 'verifica cada producto antes de cotizar', en: 'verify each item before quoting' },
-  readyToQuote: { es: 'listo para cotizar', en: 'ready to quote' },
-  allUnavailable: { es: 'todos no disponibles — no se puede cotizar', en: 'all unavailable — cannot quote' },
-  verifyAllFirst: { es: 'Verifica el stock de cada producto primero', en: 'Verify each item\'s stock first' },
-  storeQuoteConfirm: { es: 'Crear cotización Stripe por', en: 'Create Stripe invoice for' },
-  storeQuoteConfirmSuffix: { es: '— solo productos disponibles', en: '— available items only' },
+  deleteItem: { es: 'Eliminar artículo', en: 'Delete item' },
+  noItems: { es: 'No hay artículos en esta solicitud', en: 'No items in this request' },
+  unavailableExcluded: { es: 'Artículos no disponibles se excluyen del total', en: 'Unavailable items are excluded from the total' },
+  quoteSettings: { es: 'Configurar Cotización', en: 'Quote Settings' },
+  quoteSettingsDesc: { es: 'Estos valores se sumarán al subtotal de artículos y se cobrarán al cliente en una sola línea en Stripe.', en: 'These values are added on top of the items subtotal and billed to the customer as a single Stripe line.' },
+  shippingUsa: { es: 'Envío a USA', en: 'Shipping to USA' },
+  salesTax: { es: 'Impuestos USA', en: 'US Sales Tax' },
+  serviceFee: { es: 'Tarifa de servicio', en: 'Service fee' },
+  adminNotes: { es: 'Notas para el cliente', en: 'Notes to customer' },
+  adminNotesPlaceholder: { es: 'Aparecerá en el correo de cotización...', en: 'Will appear in the quote email...' },
+  optional: { es: 'opcional', en: 'optional' },
+  itemsSubtotal: { es: 'Subtotal de artículos', en: 'Items subtotal' },
+  totalUsd: { es: 'Total', en: 'Total' },
+  fxRateNote: { es: 'Se convertirá a MXN al tipo de cambio del momento del envío', en: 'Will be converted to MXN at the live FX rate when sent' },
+  fxRateNote2: { es: 'El monto exacto en MXN aparecerá en la factura de Stripe.', en: 'The exact MXN amount will appear on the Stripe invoice.' },
+  confirmAndSend: { es: 'Confirmar y Enviar Cotización', en: 'Confirm & Send Quote' },
+  sending: { es: 'Enviando...', en: 'Sending...' },
+  noBillableItems: { es: 'Marca al menos un artículo como disponible para enviar la cotización.', en: 'Mark at least one item as available to send the quote.' },
   confirmPaymentAmount: { es: 'Monto esperado', en: 'Expected amount' },
   yesPaymentReceived: { es: 'Sí, Pago Recibido', en: 'Yes, Payment Received' },
   deleteConfirmTitle: { es: 'Eliminar Solicitud', en: 'Delete Request' },
@@ -695,12 +639,36 @@ const t = createTranslations(translations);
 const request = ref(null);
 const loading = ref(true);
 const processing = ref(false);
-const showQuoteModal = ref(false);
 const showRejectModal = ref(false);
 const showPurchaseModal = ref(false);
-const showMarkPaidModal = ref(false);
 const showDeleteModal = ref(false);
 const rejectReason = ref('');
+
+// Unified quote settings (filled in on the detail page, sent to /quote)
+const quoteForm = ref({
+  shipping_cost: 0,
+  sales_tax: 0,
+  processing_fee_percent: 8,
+  admin_notes: '',
+});
+const sendingQuote = ref(false);
+
+// Per-item editing state — keyed by item.id
+const itemBusy = ref({});      // request in flight (delete, stock toggle, etc.)
+const itemDrafts = ref({});    // unsaved local edits to price/quantity inputs
+
+const itemDraft = (id, field, fallback) => {
+  const d = itemDrafts.value[id];
+  if (d && d[field] !== undefined) return d[field];
+  return fallback ?? '';
+};
+const setItemDraft = (id, field, value) => {
+  if (! itemDrafts.value[id]) itemDrafts.value[id] = {};
+  itemDrafts.value[id][field] = value;
+};
+const clearItemDraft = (id) => {
+  delete itemDrafts.value[id];
+};
 
 // Currency helpers
 const currencySymbol = computed(() => {
@@ -729,7 +697,7 @@ const marginPercent = computed(() => {
 const fetchRequest = async () => {
   loading.value = true;
   try {
-    const response = await $customFetch(`/shopping/purchase-requests/${route.params.id}`);
+    const response = await $customFetch(`${apiNs.value}/purchase-requests/${route.params.id}`);
     request.value = response.data || response; 
   } catch (e) {
     console.error(e);
@@ -738,11 +706,6 @@ const fetchRequest = async () => {
     loading.value = false;
   }
 };
-
-const estimatedTotal = computed(() => {
-  if(!request.value || !request.value.items) return 0;
-  return request.value.items.reduce((sum, item) => sum + (item.price * item.quantity), 0).toFixed(2);
-});
 
 const getStatusColor = (status) => {
   const map = {
@@ -770,130 +733,141 @@ const truncateUrl = (url) => {
   }
 };
 
-// ---- Source-aware (store vs assisted) ----
+// ---- Unified quote flow ----
 
-const isStorePR = computed(() => request.value?.source === 'store');
+// API namespace — admin vs shopping (same page is reused under /shopping)
+const apiNs = computed(() => route.path.includes('/shopping/') ? '/shopping' : '/admin');
 
-const stockCheckedCount = computed(() =>
-  (request.value?.items || []).filter(i => i.stock_status && i.stock_status !== 'unverified').length,
+// Items billable in the quote = anything not explicitly marked unavailable.
+// (Unverified items still count — the admin can leave them unverified and
+// just send the quote, OR explicitly mark unavailable to exclude.)
+const billableItems = computed(() =>
+  (request.value?.items || []).filter(i => i.stock_status !== 'unavailable'),
+);
+const billableCount = computed(() => billableItems.value.length);
+
+const itemsSubtotalUsd = computed(() =>
+  billableItems.value.reduce((sum, i) => {
+    const price = Number(itemDraft(i.id, 'price', i.price)) || 0;
+    const qty = Number(itemDraft(i.id, 'quantity', i.quantity)) || 0;
+    return sum + price * qty;
+  }, 0),
 );
 
-const allItemsChecked = computed(() => {
-  const items = request.value?.items || [];
-  if (items.length === 0) return false;
-  return items.every(i => i.stock_status && i.stock_status !== 'unverified');
+const feeUsd = computed(() => {
+  const pre = itemsSubtotalUsd.value + (Number(quoteForm.value.shipping_cost) || 0) + (Number(quoteForm.value.sales_tax) || 0);
+  const pct = Number(quoteForm.value.processing_fee_percent) || 0;
+  return Math.round(pre * (pct / 100) * 100) / 100;
 });
 
-const availableCount = computed(() =>
-  (request.value?.items || []).filter(i => i.stock_status === 'available').length,
-);
+const totalUsd = computed(() => {
+  const pre = itemsSubtotalUsd.value + (Number(quoteForm.value.shipping_cost) || 0) + (Number(quoteForm.value.sales_tax) || 0);
+  return Math.round((pre + feeUsd.value) * 100) / 100;
+});
 
-// Sum of available items' computed final_usd (or live preview when the
-// breakdown isn't saved yet). This is the number Velonie sees as the
-// pre-FX total before clicking "Crear cotización".
-const availableSubtotalUsd = computed(() => {
-  const items = (request.value?.items || []).filter(i => i.stock_status === 'available');
-  let sum = 0;
-  for (const it of items) {
-    const finalUsd = computedItemFinal(it);
-    if (finalUsd !== null) sum += finalUsd;
-    else if (it.final_usd != null) sum += parseFloat(it.final_usd);
+// Rough MXN preview only — actual FX is fetched server-side at quote time.
+// Falls back to 18 if we can't reach Frankfurter from the client. Just for UI.
+const fxRateDisplay = ref('18.0');
+const approxMxn = computed(() => totalUsd.value * Number(fxRateDisplay.value || 18));
+
+const canSendQuote = computed(() => billableCount.value > 0);
+const noBillableMessage = computed(() => canSendQuote.value ? '' : t.value.noBillableItems);
+
+// Commit a draft (price or qty) to the backend on blur
+const commitItemEdit = async (item) => {
+  const draft = itemDrafts.value[item.id];
+  if (! draft) return;
+  const payload = {};
+  if (draft.price !== undefined) payload.price = Number(draft.price);
+  if (draft.quantity !== undefined) payload.quantity = parseInt(draft.quantity, 10);
+  // Skip no-op edits
+  if (
+    (payload.price === undefined || payload.price === Number(item.price)) &&
+    (payload.quantity === undefined || payload.quantity === Number(item.quantity))
+  ) {
+    clearItemDraft(item.id);
+    return;
   }
-  return sum.toFixed(2);
-});
-
-// Legacy alias kept in case any template binding still references it
-const availableSubtotalMxn = availableSubtotalUsd;
-
-const stockUpdating = ref({});
-
-// Default Boxly commission % — pre-fills the per-item input. Eventually
-// pulled from /me or a config endpoint; hardcoded to 8 to match
-// services.commission.default_percent on the API for now.
-const defaultCommissionPercent = 8;
-
-// Per-item draft state for the cost-breakdown form. Keyed by item.id;
-// fields override the persisted item.* values until saved.
-const costForm = ref({});
-const setCostField = (id, key, value) => {
-  if (! costForm.value[id]) costForm.value[id] = {};
-  costForm.value[id][key] = value;
-};
-
-// Read whatever's in the draft, falling back to the persisted item.
-const getCostFor = (item) => {
-  const draft = costForm.value[item.id] || {};
-  return {
-    tax_usd: draft.tax_usd ?? item.tax_usd ?? '',
-    shipping_usd: draft.shipping_usd ?? item.shipping_usd ?? '',
-    commission_percent: draft.commission_percent ?? item.commission_percent ?? defaultCommissionPercent,
-  };
-};
-
-// Live preview of the line total: (price + tax + ship) × (1 + commission/100) × qty
-const computedItemFinal = (item) => {
-  const c = getCostFor(item);
-  const tax = parseFloat(c.tax_usd);
-  const ship = parseFloat(c.shipping_usd);
-  const comm = parseFloat(c.commission_percent);
-  if (! Number.isFinite(tax) || ! Number.isFinite(ship) || ! Number.isFinite(comm)) return null;
-  const unit = parseFloat(item.price) || 0;
-  const qty = parseInt(item.quantity, 10) || 1;
-  return Math.round((unit + tax + ship) * (1 + comm / 100) * qty * 100) / 100;
-};
-
-const canSaveCostFor = (item) => computedItemFinal(item) !== null;
-
-const saveCostBreakdown = async (item) => {
-  if (! canSaveCostFor(item)) return;
-  if (stockUpdating.value[item.id]) return;
-  stockUpdating.value[item.id] = true;
+  itemBusy.value[item.id] = true;
   try {
-    const c = getCostFor(item);
-    const resp = await $customFetch(
-      `/shopping/purchase-requests/${request.value.id}/items/${item.id}/cost-breakdown`,
-      {
-        method: 'PUT',
-        body: {
-          tax_usd: parseFloat(c.tax_usd),
-          shipping_usd: parseFloat(c.shipping_usd),
-          commission_percent: parseFloat(c.commission_percent),
-        },
+    const resp = await $customFetch(`${apiNs.value}/purchase-requests/${request.value.id}/items/${item.id}`, {
+      method: 'PUT',
+      body: payload,
+    });
+    const next = resp?.data || resp;
+    const idx = request.value.items.findIndex(x => x.id === item.id);
+    if (idx >= 0 && next) request.value.items[idx] = { ...request.value.items[idx], ...next };
+    clearItemDraft(item.id);
+  } catch (e) {
+    console.error(e);
+    $toast.error(e?.data?.message || 'No se pudo guardar el cambio');
+  } finally {
+    itemBusy.value[item.id] = false;
+  }
+};
+
+const setItemStock = async (item, stockStatus) => {
+  if (itemBusy.value[item.id]) return;
+  itemBusy.value[item.id] = true;
+  try {
+    const resp = await $customFetch(`${apiNs.value}/purchase-requests/${request.value.id}/items/${item.id}`, {
+      method: 'PUT',
+      body: { stock_status: stockStatus },
+    });
+    const next = resp?.data || resp;
+    const idx = request.value.items.findIndex(x => x.id === item.id);
+    if (idx >= 0 && next) request.value.items[idx] = { ...request.value.items[idx], ...next };
+  } catch (e) {
+    console.error(e);
+    $toast.error(e?.data?.message || 'No se pudo actualizar');
+  } finally {
+    itemBusy.value[item.id] = false;
+  }
+};
+
+const onDeleteItem = async (item) => {
+  if (! confirm(`¿Eliminar "${item.product_name}"?`)) return;
+  if (itemBusy.value[item.id]) return;
+  itemBusy.value[item.id] = true;
+  try {
+    await $customFetch(`${apiNs.value}/purchase-requests/${request.value.id}/items/${item.id}`, {
+      method: 'DELETE',
+    });
+    request.value.items = request.value.items.filter(x => x.id !== item.id);
+    clearItemDraft(item.id);
+  } catch (e) {
+    console.error(e);
+    $toast.error(e?.data?.message || 'No se pudo eliminar el artículo');
+  } finally {
+    itemBusy.value[item.id] = false;
+  }
+};
+
+const onSendQuote = async () => {
+  if (sendingQuote.value || ! canSendQuote.value) return;
+  // Force any in-flight blur to save before sending
+  if (Object.keys(itemDrafts.value).length > 0) {
+    const pending = (request.value?.items || []).filter(i => itemDrafts.value[i.id]);
+    await Promise.all(pending.map(i => commitItemEdit(i)));
+  }
+  sendingQuote.value = true;
+  try {
+    const resp = await $customFetch(`${apiNs.value}/purchase-requests/${request.value.id}/quote`, {
+      method: 'POST',
+      body: {
+        shipping_cost: Number(quoteForm.value.shipping_cost) || 0,
+        sales_tax: Number(quoteForm.value.sales_tax) || 0,
+        processing_fee_percent: Number(quoteForm.value.processing_fee_percent) || 0,
+        admin_notes: quoteForm.value.admin_notes || null,
       },
-    );
-    const next = resp?.data || resp;
-    const idx = request.value.items.findIndex(x => x.id === item.id);
-    if (idx >= 0 && next) {
-      request.value.items[idx] = { ...request.value.items[idx], ...next };
-    }
-    // Clear the draft now that it's persisted
-    delete costForm.value[item.id];
+    });
+    request.value = resp?.data || resp;
+    $toast.success('Cotización enviada al cliente');
   } catch (e) {
     console.error(e);
-    $toast.error(e?.data?.message || 'No se pudo guardar el costo');
+    $toast.error(e?.data?.message || 'No se pudo enviar la cotización');
   } finally {
-    stockUpdating.value[item.id] = false;
-  }
-};
-
-const markStockStatus = async (item, stockStatus) => {
-  if (stockUpdating.value[item.id]) return;
-  stockUpdating.value[item.id] = true;
-  try {
-    const resp = await $customFetch(
-      `/shopping/purchase-requests/${request.value.id}/items/${item.id}/stock-status`,
-      { method: 'PUT', body: { stock_status: stockStatus } },
-    );
-    const next = resp?.data || resp;
-    const idx = request.value.items.findIndex(x => x.id === item.id);
-    if (idx >= 0 && next) {
-      request.value.items[idx] = { ...request.value.items[idx], ...next };
-    }
-  } catch (e) {
-    console.error(e);
-    $toast.error(e?.data?.message || 'No se pudo actualizar el stock');
-  } finally {
-    stockUpdating.value[item.id] = false;
+    sendingQuote.value = false;
   }
 };
 
@@ -908,53 +882,10 @@ const copyPaymentLink = async () => {
   }
 };
 
-const onCreateQuoteClick = async () => {
-  if (!isStorePR.value) {
-    showQuoteModal.value = true;
-    return;
-  }
-  const total = availableSubtotalUsd.value;
-  const msg = `${t.value.storeQuoteConfirm} $${total} USD ${t.value.storeQuoteConfirmSuffix} (${availableCount.value} ${t.value.items.toLowerCase()})`;
-  if (!confirm(msg)) return;
-  try {
-    const response = await $customFetch(`/shopping/purchase-requests/${request.value.id}/quote`, {
-      method: 'POST',
-      body: {},
-    });
-    request.value = response.data || response;
-    $toast.success('Cotización creada y enviada al cliente');
-  } catch (e) {
-    console.error(e);
-    $toast.error(e?.data?.message || 'Error al crear la cotización');
-  }
-};
-
-const handleCreateQuote = async (quoteData) => {
-  try {
-    const response = await $customFetch(`/shopping/purchase-requests/${request.value.id}/quote`, {
-      method: 'POST',
-      body: quoteData
-    });
-
-    request.value = response.data || response;
-
-    showQuoteModal.value = false;
-
-    if (quoteData.payment_method === 'manual_deposit') {
-      $toast.success('Quote created - Bank transfer instructions sent');
-    } else {
-      $toast.success('Quote created and Stripe invoice sent');
-    }
-  } catch (e) {
-    console.error(e);
-    $toast.error('Error creating quote');
-  }
-};
-
 const handleMarkPurchased = async () => {
   processing.value = true;
   try {
-    const response = await $customFetch(`/shopping/purchase-requests/${request.value.id}/mark-purchased`, {
+    const response = await $customFetch(`${apiNs.value}/purchase-requests/${request.value.id}/mark-purchased`, {
       method: 'POST'
     });
     await fetchRequest();
@@ -968,30 +899,9 @@ const handleMarkPurchased = async () => {
   }
 };
 
-const handleMarkPaid = async () => {
-  processing.value = true;
-  try {
-    await $customFetch(`/shopping/purchase-requests/${request.value.id}`, {
-      method: 'PUT',
-      body: { 
-        status: 'paid',
-        paid_at: new Date().toISOString()
-      }
-    });
-    await fetchRequest();
-    showMarkPaidModal.value = false;
-    $toast.success('Payment confirmed successfully');
-  } catch (e) {
-    console.error(e);
-    $toast.error('Error confirming payment');
-  } finally {
-    processing.value = false;
-  }
-};
-
 const handleReject = async () => {
     try {
-        await $customFetch(`/shopping/purchase-requests/${request.value.id}/reject`, {
+        await $customFetch(`${apiNs.value}/purchase-requests/${request.value.id}/reject`, {
             method: 'PUT',
             body: { reason: rejectReason.value }
         });
@@ -1005,7 +915,7 @@ const handleReject = async () => {
 
 const confirmDelete = async () => {
     try {
-        await $customFetch(`/shopping/purchase-requests/${request.value.id}`, {
+        await $customFetch(`${apiNs.value}/purchase-requests/${request.value.id}`, {
             method: 'DELETE'
         });
         $toast.success('Request deleted');

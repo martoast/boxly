@@ -1,228 +1,179 @@
-# Boxly Storefront Performance — Roadmap
+# Unify Admin PR Flow (Store + Assisted)
 
-**North star:** Mexican shopper on a slow LTE connection sees the catalog *instantly* — fonts and layout in <500ms, first products in <1s, full grid in <2s. Image-heavy pages feel like an app, not a website. Repeat visits are near-instant.
+## What's wrong today
 
----
+Two completely different UXs depending on `source`:
 
-## Audit findings (the why)
+| | Store PR | Assisted PR |
+|---|---|---|
+| Per-item stock verification | ✅ available/unavailable toggle | ❌ none |
+| Per-item delete from detail page | ❌ | ❌ |
+| Per-item price/qty editing | ❌ | ❌ |
+| Cost breakdown | per-item tax/shipping/commission | aggregate totals in modal |
+| Quote modal | none (auto-compute from items) | manual aggregate-total form |
+| Stripe invoice lines | one per item | two aggregate lines (goods + fee) |
+| Validation coupling | rich (gates on stock check + cost breakdown) | none — admin can type any number |
 
-I dug into the actual codebase + the live prod stack. Five things stood out — most are quick wins:
+**User's specific pain (assisted PRs):**
+- Can't remove items before quoting
+- Modal asks for totals the admin has to compute manually; they can mismatch the items
+- The Stripe invoice doesn't reflect what the admin "intended" — it ships whatever was typed in the modal
+- Two surfaces of truth (modal numbers vs items) → bugs
 
-### 1. Images are NOT going through the Spaces CDN
+## What we want
 
-Prod images are served from `envioscomercialestj.sfo3.digitaloceanspaces.com` — that's the **direct origin** in San Francisco. The CDN endpoint is `envioscomercialestj.sfo3.cdn.digitaloceanspaces.com` — same files, same auth, but DigitalOcean fronts it with **Cloudflare's global edge network**. I checked the DNS:
+**One flow.** On the PR detail page, for both source types, while PR is in `pending_review`:
 
+1. Each item is **inline-editable** (price USD, quantity), can be **marked available/unavailable**, can be **deleted**
+2. PR-level **adjustments** (admin enters): shipping to USA warehouse, sales tax, service fee % (default 8%)
+3. A **live preview** below the items shows the exact Stripe invoice — every line, every USD amount, the FX rate, the MXN total
+4. One **"Confirm & Send Quote"** button. What you see is what gets billed.
+
+## The plan
+
+### Backend (api/) — `AdminPurchaseRequestController`
+
+**1.1 New per-item endpoint: update price + qty + stock status**
 ```
-sfo3.digitaloceanspaces.com      → 138.68.34.161  (DO origin only)
-sfo3.cdn.digitaloceanspaces.com  → Cloudflare IPs (172.64.x, 104.18.x)
+PUT  /admin/purchase-requests/{pr}/items/{item}
+PUT  /shopping/purchase-requests/{pr}/items/{item}
 ```
+Validates `price` (nullable), `quantity` (nullable), `stock_status` (nullable enum). Only operable while PR is `pending_review`. Replaces the existing `updateItemStockStatus` and `updateItemCostBreakdown` endpoints with a single unified one.
 
-For a Mexico shopper, every product image right now is going from CDMX → San Francisco and back (~120ms RTT minimum). Through the CDN, it'd hit a Cloudflare edge in **MEX, GDL, or QRO** (~10-30ms RTT) on cached requests. **Same files, just a different hostname.** This is the single biggest win available.
+**1.2 New per-item delete endpoint**
+```
+DELETE /admin/purchase-requests/{pr}/items/{item}
+DELETE /shopping/purchase-requests/{pr}/items/{item}
+```
+Removes the item from the PR + deletes the Spaces image (PurchaseRequestItem's model already auto-deletes its image on delete via boot hook).
+Only operable while PR is `pending_review`. Errors if it's the last item (PRs shouldn't end up empty — admin should reject instead).
 
-### 2. API responses say `Cache-Control: no-cache, private`
+**1.3 Refactor `createQuote` to be ONE method**
+Drop the source-based branching. New unified behavior:
 
-The prod API is *already behind Cloudflare* (`server: cloudflare`, `cf-cache-status: MISS`). But every response sets `cache-control: no-cache, private`, so Cloudflare's edge cache never engages. We're paying for the CDN and turning it off. `/store/products`, `/store/categories`, `/store/stores`, `/store/genders` are all public, change rarely, and would be perfect cache candidates.
+- Validation accepts: `shipping_cost`, `sales_tax`, `processing_fee_percent` (default 8 if missing), `admin_notes`, `payment_method` (default 'stripe')
+- Compute the subtotal from `availableItems()` × their current `price` × `quantity` (NOT from the modal — items are the truth)
+- Fetch FX rate (live or fallback, same as today)
+- Build Stripe line items:
+  - One line per available item (description: product name + qty + USD)
+  - One "Shipping to USA warehouse" line if `shipping_cost > 0`
+  - One "US Sales Tax" line if `sales_tax > 0`
+  - One "Service Fee (X%)" line if `processing_fee_percent > 0`
+- All amounts on Stripe in MXN at the captured FX rate
+- Store `items_total`, `shipping_cost`, `sales_tax`, `processing_fee`, `total_amount` on the PR for audit (these match what was sent to Stripe exactly)
+- Set status to `quoted`, send Stripe invoice (or skip Stripe for `manual_deposit`)
 
-### 3. `three.js` is 600KB of dead weight
+This unifies store + assisted into one path. Store PRs that used to lean on per-item `tax_usd`/`shipping_usd`/`commission_percent` columns will now use the same aggregate fields. We can keep the existing columns on the model for back-compat / future use, but the active code path stops reading them.
 
-`package.json` includes `three: ^0.173.0`. Grepping the entire codebase: **0 imports**. It's not used anywhere. That's ~600KB minified that ships in our deps.
+**1.4 Routes** — add the two new routes (update item, delete item) inside both the `admin` and `shopping` middleware groups in `routes/api.php`.
 
-### 4. `pdf-lib` (~300KB) is loaded eagerly but only used for one tax form
+### Frontend (app/) — admin + shopping detail pages
 
-Used only in `composables/useForm1583.ts` for generating USPS Form 1583. Currently imported at the top of the file, so it bundles into anything that touches the composable. Should be a dynamic import — only ~5 customers per month need this.
+The two pages (`/app/admin/purchase-requests/[id]` and `/app/shopping/purchase-requests/[id]`) are near-identical sibling pages. Both edit the same way via the existing `apiNs` pattern.
 
-### 5. Mapbox loads on every page including `/shop`
+**2.1 Redesign the items list (while `status === 'pending_review'`)**
 
-`plugins/mapboxgl.js` imports `mapbox-gl` + its CSS at module level. Mapbox is only used in `/app/account/shipping-address.vue`, `/components/CustomPlacesAutoComplete.vue`, and `/components/CheckoutStep4.vue` — none of which run on the public storefront. This is ~450KB of JS + CSS shipping to every shop page for no reason.
+For each item, render:
+- Image + name + URL + options + notes (read-only)
+- **Inline-editable**: `price` (USD, number input with `$` prefix), `quantity` (stepper)
+- **Stock status**: 3-state toggle (Unverified / Available / Unavailable)
+- **Delete button** with confirm dialog
+- Computed line subtotal shown next to the inputs
 
-### Other findings (less urgent but real)
+Edits debounce + auto-save to the new `PUT /items/{item}` endpoint. Optimistic UI updates; toast on failure.
 
-- No `<link rel="preconnect">` for the API or image CDN. Each first request pays full DNS + TLS handshake (~150-300ms in Mexico).
-- `pages/shop/categories.vue` does an N+1: for each category without a configured cover, it fires a separate `/store/products?category_id=X&per_page=1` query. With 11 categories that's potentially 11 extra requests on the categories landing.
-- No PWA / service worker / offline support.
-- No image resizing pipeline — admins upload original-res photos (up to 10MB), customers download them at full size on mobile.
-- `<NuxtLink>` prefetching is on by default (good!), but we could go further with hover-prefetch for product cards.
-- Frontend is on Netlify (which has a Mexico edge in its CDN) but `cache-control: no-cache` is also set on the HTML, so even SSR'd pages aren't being edge-cached.
+**2.2 Quote settings panel** (replaces the existing QuoteModal entirely)
 
----
+Lives inline on the detail page (below the items list, above the preview), only visible while PR is `pending_review`:
+- Shipping to USA warehouse (USD, number)
+- US Sales tax (USD, number)
+- Service fee % (number, default 8)
+- Admin notes (textarea, optional, shown to customer in email)
+- Payment method (Stripe / Manual deposit radio)
 
-## The plan, ordered by **impact ÷ effort**
+All four are reactive — changes recompute the preview live.
 
-### Tier 1 — Free wins (ship this week)
+**2.3 Quote preview** (the "what Stripe will see" panel)
 
-These are 1-line code changes or config tweaks that compound to a *massive* perceived improvement, especially for Mexico.
+Live-computed beneath the settings:
+- Items subtotal (sum of available items × price × qty), with item count
+- + Shipping
+- + Sales tax
+- + Service fee
+- = **Total USD**
+- × FX rate (display with refresh button — fetches live rate from existing Frankfurter cache; cached 10 min on backend)
+- = **Total MXN** (the amount the customer will be charged)
+- Mini-table preview of the Stripe line items so the admin sees *exactly* what the customer will see
 
-**T1.1 — Route images through the Spaces CDN** (≈2h)
-- Update `api/config/filesystems.php` `spaces.url` env to `https://envioscomercialestj.sfo3.cdn.digitaloceanspaces.com` (note the added `.cdn`).
-- One-shot artisan migration to rewrite existing image URLs in: `products.images` (JSON), `stores.logo_url`, `stores.cover_image_url`, `categories.image_url`, `genders.image_url`, `purchase_request_items.image_url`. Simple `str_replace` on each row.
-- New uploads will use the CDN URL automatically once the env var changes.
-- **Expected win:** -100 to -200ms per image for Mexico users on first load. Subsequent loads from Cloudflare edge cache are ~10ms (vs origin's ~150ms).
+**2.4 "Confirm & Send Quote" button**
 
-**T1.2 — Make `/store/*` API responses cacheable** (≈3h)
-- Add a tiny middleware that sets `Cache-Control: public, max-age=300, s-maxage=3600, stale-while-revalidate=86400` on `/store/products`, `/store/products/{slug}`, `/store/categories`, `/store/stores`, `/store/genders`, `/store/hero`.
-- 5 min browser cache, 1 hour shared (Cloudflare) cache, 24 hour stale-while-revalidate window.
-- Add cache-busting on writes: when an admin updates a product/category/store/gender, hit the Cloudflare API to purge `/store/*`. (We have the Cloudflare zone already since the API is behind it.)
-- **Expected win:** Cold catalog page load drops from ~400ms (PHP+SQL roundtrip) to ~30ms (Cloudflare edge HIT). Repeat visitors don't even hit the network for 5 minutes.
+Replaces the current "Create Quote" button. Disabled if:
+- No items marked `available`
+- Some items still `unverified`
+- All edits successfully saved (debounce flush)
 
-**T1.3 — Add `preconnect` + `dns-prefetch` hints to the shop layout** (≈30min)
-- In `layouts/shop.vue`, add `useHead` with `<link rel="preconnect">` to:
-  - `https://api.boxly.mx`
-  - `https://envioscomercialestj.sfo3.cdn.digitaloceanspaces.com`
-- Plus `<link rel="dns-prefetch">` for the same hosts as a fallback.
-- Browser warms TLS + DNS in parallel with HTML parse instead of serially when the first image/api call fires.
-- **Expected win:** 100-200ms shaved off first image / first API call.
+POST to the unified `/admin/purchase-requests/{id}/quote` with the settings panel values. Server returns the PR with `status=quoted`; UI flips to the post-quote view.
 
-**T1.4 — Drop `three.js` from `package.json`** (≈5min)
-- Confirmed unused. Remove the line, run `yarn install`.
-- **Expected win:** ~600KB off the dependency tree. Some of that may have been tree-shaken already, but the dev-time install is faster and the bundle analyzer no longer has to inspect it.
+**2.5 Remove the QuoteModal component** entirely after the refactor. Inline UX is clearer.
 
-**T1.5 — Lazy-load `pdf-lib`** (≈30min)
-- In `composables/useForm1583.ts`, change `import { PDFDocument } from 'pdf-lib'` to a dynamic `await import('pdf-lib')` inside the function that needs it.
-- The 1583 form runs maybe 5 times a month. No reason to bundle ~300KB into the storefront for it.
-- **Expected win:** ~300KB off any route that transitively imports useForm1583.
+### Data model
 
-**T1.6 — Make the mapbox plugin route-scoped** (≈1h)
-- Move the `import 'mapbox-gl/dist/mapbox-gl.css'` and `import mapboxgl from 'mapbox-gl'` out of `plugins/mapboxgl.js`.
-- Inline the imports inside `CustomPlacesAutoComplete.vue` and `CheckoutStep4.vue` as dynamic imports (`onMounted(async () => { const mb = await import('mapbox-gl'); ... })`).
-- Or: make the plugin a "client-side, conditional" plugin that only registers when navigating to a route that needs it.
-- **Expected win:** ~450KB off every shop page bundle. Mapbox doesn't load until checkout.
+No migration needed. Existing columns on `purchase_request_items` (`tax_usd`, `shipping_usd`, `commission_percent`, `final_usd`) stay in place for already-quoted historical PRs. New flow simply stops writing to them; we use `price` × `quantity` + the PR-level aggregates instead.
 
-**T1.7 — Cache the Netlify-served HTML for shop landings** (≈30min)
-- Add `routeRules` in nuxt.config:
-  ```ts
-  routeRules: {
-    '/shop':            { headers: { 'cache-control': 'public, max-age=60, stale-while-revalidate=600' } },
-    '/shop/categories': { headers: { 'cache-control': 'public, max-age=300, stale-while-revalidate=3600' } },
-    '/shop/brands':     { headers: { 'cache-control': 'public, max-age=300, stale-while-revalidate=3600' } },
-  }
-  ```
-- The catalog grid (`/shop?view=all`) is harder to cache since it's filter-dependent — leave it for now.
-- **Expected win:** Repeat visits to shop landing serve instantly from Netlify edge.
+If we want to clean up later, that's a separate migration. Not needed now.
 
-**Tier 1 totals: ~7 hours of work, payoff is massive on Mexico-cellular.**
+## Edge cases / decisions
 
----
+1. **What happens to in-flight store PRs that already have per-item cost breakdowns?**
+   On the redesigned page, we ignore the per-item breakdowns and let the admin re-enter aggregate shipping/tax/fee. The existing per-item data stays in the DB for audit but doesn't drive billing anymore. Acceptable trade-off — only PRs still in `pending_review` are affected, and Velonie's already comfortable entering aggregates (the assisted flow does it today).
 
-### Tier 2 — Big wins (ship over 1-2 weeks)
+2. **What if a PR has only one item and admin tries to delete it?**
+   Return a 422 with message "Reject the PR instead of removing its last item." Reject is the right semantic action there.
 
-**T2.1 — Image transformation pipeline** (≈2-3 days)
+3. **FX rate caching**
+   Already handled in `fetchLiveFxRate()` (cached 10 min, falls back to config). The preview reuses the same call.
 
-Today's flow: admin uploads a 4MB iPhone photo → stored at full resolution → mobile shopper downloads 4MB. Two paths to fix:
+4. **Edit-then-quote race**
+   Debounced auto-save fires before the quote button is enabled. If a network failure leaves an edit unsaved, the quote button stays disabled until it succeeds.
 
-**Option A — Cloudflare Images** (recommended, lowest effort)
-- $5/mo + $1 per 100K transformations.
-- Update image URLs from `sfo3.cdn.digitaloceanspaces.com/products/.../img.jpg` to `https://imagedelivery.net/{account}/{...}/public` style URLs.
-- Auto WebP/AVIF, auto-resize, edge-cached globally.
-- Migration: bulk-import existing Spaces images into Cloudflare Images, swap URLs in the DB.
+## Files touched
 
-**Option B — Server-side resize on upload** (more code, no recurring cost)
-- On admin upload, generate sm (400px), md (800px), lg (1200px), xl (original) variants.
-- Convert to WebP + keep original as fallback.
-- Store all variants in Spaces.
-- Return srcset-ready data: `{ url, url_sm, url_md, url_lg, blur }` per image.
+**Backend (3 files):**
+- `app/Http/Controllers/AdminPurchaseRequestController.php` — add `updateItem`, `deleteItem`; refactor `createQuote` (drop the store/assisted branch); delete `createStoreQuote` (folded into `createQuote`)
+- `routes/api.php` — two new routes × two middleware groups (admin + shopping)
+- Maybe `app/Models/PurchaseRequest.php` if helper methods need adjusting (probably not)
 
-**Frontend** for either option: update `<StoreImage>` to render `<img srcset="... 400w, ... 800w, ... 1200w" sizes="(max-width: 768px) 50vw, 25vw">` so the browser picks the right size for the viewport.
+**Frontend (~3 files):**
+- `pages/app/admin/purchase-requests/[id]/index.vue` — redesign items list + add settings panel + add preview panel
+- `pages/app/shopping/purchase-requests/[id]/index.vue` — same changes (or refactor to share via composable — but the existing convention duplicates them)
+- Delete `components/admin/QuoteModal.vue`
 
-- **Expected win:** Mobile catalog page goes from ~5-15MB of images to ~500KB-1.5MB. This is the biggest single mobile-bandwidth win available.
+## Order of work
 
-**T2.2 — LQIP (real blurry placeholders, not just shimmer)** (≈1 day, depends on T2.1)
-- On image upload (or as a one-shot job), generate a tiny ~24×24 px blurred preview, base64-encoded (~1KB).
-- Return it as a `blur` field on each image in API responses.
-- `<StoreImage>` renders the base64 blur as a CSS `background-image` while the real image loads. When real image loads, fade over.
-- This is what Spotify/Pinterest/Notion do — placeholder is an actual blurred preview of the real image, not a generic shimmer.
-- Pairs naturally with T2.1.
-- **Expected win:** Pages feel "loaded" the moment SSR HTML arrives, even before any image bytes have downloaded.
+1. Backend endpoints (item update, item delete) — small, isolated
+2. Backend createQuote unification — bigger but contained
+3. Frontend redesign on the admin detail page — biggest visual change
+4. Mirror to shopping detail page
+5. Delete QuoteModal
+6. Smoke test: create a /shop checkout PR, edit items, delete one, quote it. Then create an assisted PR via /shop/request, do the same. Both should look identical and produce correct Stripe invoices.
+7. Commit + push (api + app)
 
-**T2.3 — Hover-prefetch on product cards** (≈4h)
-- On `mouseenter` of a `ProductCard`, kick off a `$customFetch('/store/products/{slug}')` (cached by Nuxt's data cache).
-- When the user clicks, the detail page already has the data — instant transition.
-- Same trick for category links in nav, brand links.
-- Also intersection-prefetch the "next page" of the catalog grid when the user scrolls within 200px of the bottom.
-- **Expected win:** Click → render of product detail goes from ~600ms to ~50ms. Subjectively feels native-app fast.
+## Open questions for you
 
-**T2.4 — Fix the N+1 on `/shop/categories`** (≈3h)
-- The categories page currently fires one `/store/products?category_id=X&per_page=1` request per category to fetch a cover image fallback.
-- Add a `cover_image_first_product_url` accessor on the Category model OR (better) pre-compute it as a `cover_image_url` column that gets refreshed when products are added/removed.
-- Backend change is small; frontend gets a clean single-fetch payload.
-- **Expected win:** /shop/categories first paint goes from ~12 round-trips to 1.
+Before I start:
 
-**T2.5 — Service worker for offline-tolerant catalog** (≈2 days)
-- Add `@vite-pwa/nuxt` module, config it for cache-first on `/store/categories`, `/store/genders`, `/store/stores` (very stable data) and stale-while-revalidate on `/store/products`.
-- Cache hashed JS/CSS bundles forever.
-- Cache the last-visited product detail pages so going back through the browser is offline-safe.
-- App becomes browseable on an iffy LTE connection — even when the network drops mid-tap, the previous catalog is still there.
-- **Expected win:** Boxly becomes "installable" (Add to Home Screen). Repeat visits are essentially instant — cached HTML serves while we revalidate in the background.
+1. **Per-item Stripe lines vs aggregate**: Today, store PRs send one Stripe line per available item (transparent — customer sees "Coach Bag × 1 ... $52" etc.). Assisted PRs send 2 lines ("Cost of Goods ... $X" + "Service Fee 8% ... $Y"). In the unified flow, **I'm proposing per-item lines for both** — customers see exactly what they bought. Cleaner, more honest. Is that what you want? (Alternative: keep 2-line aggregate for both. Less detail in the email but shorter invoice.)
 
-**Tier 2 totals: ~5-7 days of work, takes us from "fast" to "elite."**
+2. **Service fee — keep editable per-PR?** Default 8% but admin can override to e.g. 5% on a big order. Or hardcode at 8% forever. Your call.
 
----
+3. **Shipping / tax — show on Stripe as separate lines, or fold into the cost-of-goods aggregate?** I'm proposing separate lines (customers like itemization). You could also bake them into items only.
 
-### Tier 3 — Architectural plays (worth considering, weeks of work each)
+4. **"Reject the PR" vs "delete last item"**: when only one item is left, do you want the admin to be forced to reject, or should we just allow empty PRs?
 
-**T3.1 — Edge-rendered SSR**
-- The frontend is on Netlify. Netlify Edge Functions run Nuxt SSR at edge nodes (including Mexico).
-- Currently: Mexico shopper's HTML round-trip goes Mexico → Netlify origin (likely US-East) → back. ~150-300ms TTFB.
-- With edge SSR: Mexico → Netlify Mexico edge → back. ~30-50ms TTFB.
-- Configuration is `defineRouteRules({ swr: 60 })` plus deploying with `NITRO_PRESET=netlify_edge`.
-- **Expected win:** TTFB on shop landing drops by ~150ms for Mexico users. Material for above-fold paint.
+5. **Existing per-item cost breakdown columns** (`tax_usd`, `shipping_usd`, `commission_percent`, `final_usd` on `purchase_request_items`): leave them as dead columns, or drop them in a follow-up migration? I'd leave them for now.
 
-**T3.2 — Real User Monitoring (RUM)**
-- Add the `web-vitals` library (~3KB) to capture LCP, CLS, INP, FCP, TTFB on real user sessions.
-- Send to either:
-  - Cloudflare Web Analytics (free, simple, but limited filtering)
-  - A custom `/metrics` endpoint on the API that logs to a small Postgres table
-  - PostHog or Plausible (~$10-30/mo, much better dashboards)
-- Filter by country: we want to see Mexico-specific p75 numbers, not aggregate.
-- Without this, we're optimizing in the dark — we can't tell if T1/T2 actually helped real customers.
-- **Expected win:** We can prove (or disprove) every change empirically and prioritize the next round based on data.
+Give me your answers and the go-ahead, and I'll start with the backend endpoints.
 
-**T3.3 — Admin-side image optimizer** (paired with T2.1 Option B)
-- A queued job that watches for new uploads and runs `sharp` (Node) or `intervention/image` (PHP) to generate variants + WebP + AVIF + LQIP.
-- Runs in background — admin upload returns immediately, variants populate within a minute.
-- This is a nice-to-have if we go with Option B; not needed if we use Cloudflare Images.
+## Review
 
-**T3.4 — Streaming SSR for the catalog**
-- Nuxt 3 supports streaming HTML — render the layout + above-fold immediately, then stream product cards in as they're queried.
-- Most useful when data fetching is slow. Less impactful if T1.2 (API caching) lands first.
-- File this as "consider after we measure."
-
----
-
-## Recommended ship order
-
-I'd do it like this — measurable wins each week, no big-bang risk:
-
-**Week 1** (Free wins): T1.1, T1.2, T1.3, T1.4, T1.5, T1.6, T1.7 — the whole Tier 1 in one go. Maybe split into two PRs (frontend bundle cleanup + backend cache headers + image URL migration). After this, expect catalog page to feel ~2× snappier on Mexico mobile, and repeat-visit catalog to be near-instant.
-
-**Week 2** (Measurement): T3.2 RUM. Before we invest in the image pipeline, we want a baseline so we can prove the win. Pick PostHog or Cloudflare Web Analytics. Measure for 5-7 days.
-
-**Week 3** (Image pipeline): T2.1 (recommend Option A — Cloudflare Images, $5-15/mo is nothing for the win). T2.2 (LQIP) right after.
-
-**Week 4** (Polish): T2.3 (hover prefetch), T2.4 (N+1 fix), T2.5 (PWA).
-
-**Then evaluate:** T3.1 edge SSR, T3.4 streaming. By that point we'll have RUM data showing whether they're worth it.
-
----
-
-## What I'd push back on
-
-A few things people typically suggest that I think aren't right for Boxly:
-
-- **Removing SSR entirely / going SPA.** Bad for SEO, bad for WhatsApp/social previews. SSR is keeping us on Google + getting the share-card right.
-- **Custom fonts.** We're using system fonts and they look fine. Adding a custom font means downloading 50-150KB of font files. Skip unless brand demands it.
-- **Heavy state libs (Vuex/Redux).** We're already on Pinia + composables. Tiny footprint. Don't change this.
-- **Aggressive code splitting per component.** Diminishing returns past the modal-level splits we've identified. Smaller bundles ≠ always faster — too many requests hurts on cellular.
-- **Replacing Tailwind.** It's already JIT-purged, the production CSS is tiny.
-
----
-
-## TL;DR for the conversation
-
-**Three findings stand out:**
-1. We're not using the Spaces CDN. Same files, faster delivery, free. ~2 hour fix.
-2. We're paying for Cloudflare in front of the API but blocking it with `Cache-Control: no-cache`. ~3 hour fix.
-3. ~1.3MB of unused/misconfigured JS (three, pdf-lib, mapbox) ships on every shop page. ~2 hour fix.
-
-**Tier 1 alone** (a single week of work) gets us most of the way. **Tier 2** (image pipeline + LQIP + PWA) takes us from "fast" to "feels native." **Tier 3** is the cherry on top once we have RUM data to prove what's worth doing.
-
-I'm ready to start on T1.1–T1.7 the moment you give the word — they're independent enough that I can ship them as small focused PRs, easy to review.
+(filled in after implementation)
