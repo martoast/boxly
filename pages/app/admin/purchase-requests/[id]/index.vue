@@ -380,7 +380,7 @@
                   <span class="font-mono">${{ totalUsd.toFixed(2) }} USD</span>
                 </div>
                 <div class="text-xs text-gray-500 italic">
-                  {{ t.fxRateNote }} (~{{ fxRateDisplay }} MXN/USD → ~${{ approxMxn.toFixed(2) }} MXN). {{ t.fxRateNote2 }}
+                  {{ t.usdInvoiceNote }}
                 </div>
               </div>
 
@@ -621,8 +621,10 @@ const translations = {
   optional: { es: 'opcional', en: 'optional' },
   itemsSubtotal: { es: 'Subtotal de artículos', en: 'Items subtotal' },
   totalUsd: { es: 'Total', en: 'Total' },
-  fxRateNote: { es: 'Se convertirá a MXN al tipo de cambio del momento del envío', en: 'Will be converted to MXN at the live FX rate when sent' },
-  fxRateNote2: { es: 'El monto exacto en MXN aparecerá en la factura de Stripe.', en: 'The exact MXN amount will appear on the Stripe invoice.' },
+  usdInvoiceNote: {
+    es: 'La factura se emite en USD. Stripe muestra el monto convertido a MXN al cliente y su banco hace la conversión al pagar.',
+    en: 'Invoice is issued in USD. Stripe shows the MXN-converted amount to the customer; their bank handles conversion at payment time.',
+  },
   confirmAndSend: { es: 'Confirmar y Enviar Cotización', en: 'Confirm & Send Quote' },
   sending: { es: 'Enviando...', en: 'Sending...' },
   noBillableItems: { es: 'Marca al menos un artículo como disponible para enviar la cotización.', en: 'Mark at least one item as available to send the quote.' },
@@ -764,11 +766,6 @@ const totalUsd = computed(() => {
   const pre = itemsSubtotalUsd.value + (Number(quoteForm.value.shipping_cost) || 0) + (Number(quoteForm.value.sales_tax) || 0);
   return Math.round((pre + feeUsd.value) * 100) / 100;
 });
-
-// Rough MXN preview only — actual FX is fetched server-side at quote time.
-// Falls back to 18 if we can't reach Frankfurter from the client. Just for UI.
-const fxRateDisplay = ref('18.0');
-const approxMxn = computed(() => totalUsd.value * Number(fxRateDisplay.value || 18));
 
 const canSendQuote = computed(() => billableCount.value > 0);
 const noBillableMessage = computed(() => canSendQuote.value ? '' : t.value.noBillableItems);
