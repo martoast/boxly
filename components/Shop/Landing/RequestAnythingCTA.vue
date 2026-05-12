@@ -59,8 +59,8 @@ const tutorialUrl = 'https://www.loom.com/share/839bbe3460e140babb0665c1aa3884ce
 
 const t = createTranslations({
   eyebrow:     { es: 'Compra en cualquier tienda 🇺🇸', en: 'Shop any US store 🇺🇸' },
-  headline:    { es: '¿No encuentras lo que buscas? Nosotros te ayudamos a comprarlo.', en: "Can't find it here? We'll help you buy it." },
-  subheadline: { es: 'Compra en cualquier tienda de USA como si vivieras allá. Accede a productos, ofertas y lanzamientos en tiempo real de Amazon, Nike, Sephora, Shein y miles de tiendas más. Solo mándanos el link y BOXLY se encarga de la compra, recepción y envío hasta México.', en: "Shop any US store as if you lived there. Get real-time access to products, deals, and drops from Amazon, Nike, Sephora, Shein, and thousands more. Just send us the link and BOXLY handles the purchase, receiving, and shipping to Mexico." },
+  headline:    { es: '¿No encuentras lo que buscas? Mándanos el link y nosotros lo compramos por ti.', en: "Can't find it? Send us the link and we'll buy it for you." },
+  subheadline: { es: 'Compra en cualquier tienda de USA como si vivieras allá 🇺🇸 Accede a ofertas, productos y lanzamientos en tiempo real mientras BOXLY se encarga de la compra y el envío hasta México 📦', en: "Shop any US store as if you lived there 🇺🇸 Real-time access to deals, products, and drops while BOXLY handles the purchase and shipping to Mexico 📦" },
   requestCta:  { es: 'Crear solicitud', en: 'Create request' },
   tutorialCta: { es: 'Ver cómo funciona', en: 'See how it works' },
 })
