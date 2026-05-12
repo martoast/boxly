@@ -30,12 +30,11 @@
         </NuxtLink>
       </div>
 
-      <!-- Two-column cart: items on the left, summary on the right (sticky on desktop).
-           Stacks below md so phones see a clean linear flow. -->
-      <div v-else class="flex flex-col lg:flex-row lg:items-start gap-6">
+      <!-- Standard 2-column cart: items left, summary right (sticky). Stacks on mobile. -->
+      <div v-else class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
 
-        <!-- Items list -->
-        <div class="flex-1 min-w-0 bg-white rounded-2xl border border-gray-100 shadow-sm divide-y divide-gray-100 overflow-hidden">
+        <!-- Items list — single card with divider rows -->
+        <div class="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm divide-y divide-gray-100 overflow-hidden">
           <div
             v-for="item in items"
             :key="lineKey(item.product_id, item.variant_id)"
@@ -63,7 +62,7 @@
                 </button>
               </div>
 
-              <!-- Variant chips — always inline -->
+              <!-- Variant chips -->
               <div v-if="item.size || item.color || item.length" class="flex flex-wrap gap-1.5 mt-1.5">
                 <span v-if="item.size" class="inline-flex items-center px-2 py-0.5 bg-gray-100 text-gray-700 text-xs font-medium rounded-md">
                   {{ t.size }}:&nbsp;<strong>{{ item.size }}</strong>
@@ -105,7 +104,7 @@
         </div>
 
         <!-- Summary sidebar -->
-        <aside class="w-full lg:w-96 shrink-0">
+        <aside class="lg:col-span-1">
           <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 lg:sticky lg:top-24">
             <h2 class="font-bold text-gray-900 text-lg mb-5">{{ t.summary }}</h2>
 
