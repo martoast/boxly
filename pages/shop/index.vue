@@ -326,7 +326,7 @@ const t = createTranslations({
 // ?view=all → catalog mode.
 const isLandingMode = computed(() => {
   const q = route.query
-  return !q.category_id && !q.store_id && !q.search && q.view !== 'all'
+  return !q.category_id && !q.store_id && !q.gender_id && !q.search && q.view !== 'all'
 })
 
 // SEO meta
