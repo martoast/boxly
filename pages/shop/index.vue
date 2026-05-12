@@ -4,6 +4,7 @@
     <template v-if="isLandingMode">
       <ShopLandingHeroBanner />
       <ShopLandingFeaturedProducts />
+      <ShopLandingRequestAnythingCTA />
       <ShopLandingBrandShowcase />
     </template>
 
