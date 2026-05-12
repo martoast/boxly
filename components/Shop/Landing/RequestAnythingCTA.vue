@@ -58,9 +58,9 @@ const { t: createTranslations } = useLanguage()
 const tutorialUrl = 'https://www.loom.com/share/839bbe3460e140babb0665c1aa3884ce'
 
 const t = createTranslations({
-  eyebrow:     { es: 'Compra en cualquier tienda 🇺🇸', en: 'Shop any US store 🇺🇸' },
+  eyebrow:     { es: 'Compra en cualquier tienda', en: 'Shop any US store' },
   headline:    { es: '¿No encuentras lo que buscas? Mándanos el link y nosotros lo compramos por ti.', en: "Can't find it? Send us the link and we'll buy it for you." },
-  subheadline: { es: 'Compra en cualquier tienda de USA como si vivieras allá 🇺🇸 Accede a ofertas, productos y lanzamientos en tiempo real mientras BOXLY se encarga de la compra y el envío hasta México 📦', en: "Shop any US store as if you lived there 🇺🇸 Real-time access to deals, products, and drops while BOXLY handles the purchase and shipping to Mexico 📦" },
+  subheadline: { es: 'Compra en cualquier tienda de USA como si vivieras allá. Accede a ofertas, productos y lanzamientos en tiempo real mientras BOXLY se encarga de la compra y el envío hasta México.', en: 'Shop any US store as if you lived there. Real-time access to deals, products, and drops while BOXLY handles the purchase and shipping to Mexico.' },
   requestCta:  { es: 'Crear solicitud', en: 'Create request' },
   tutorialCta: { es: 'Ver cómo funciona', en: 'See how it works' },
 })
