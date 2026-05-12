@@ -58,9 +58,9 @@ const { t: createTranslations } = useLanguage()
 const tutorialUrl = 'https://www.loom.com/share/839bbe3460e140babb0665c1aa3884ce'
 
 const t = createTranslations({
-  eyebrow:     { es: 'Pide cualquier cosa', en: 'Request anything' },
-  headline:    { es: '¿No encuentras lo que buscas? Te lo conseguimos.', en: "Can't find it? We'll get it for you." },
-  subheadline: { es: 'Mándanos el link de cualquier tienda de USA — Amazon, Shein, Nike, lo que sea — y nosotros lo compramos, lo recibimos en nuestra bodega y te lo enviamos a México.', en: "Send us a link from any US store — Amazon, Shein, Nike, anything — we'll buy it, receive it at our warehouse, and ship it to Mexico." },
+  eyebrow:     { es: 'Compra en cualquier tienda 🇺🇸', en: 'Shop any US store 🇺🇸' },
+  headline:    { es: '¿No encuentras lo que buscas? Nosotros te ayudamos a comprarlo.', en: "Can't find it here? We'll help you buy it." },
+  subheadline: { es: 'Compra en cualquier tienda de USA como si vivieras allá. Accede a productos, ofertas y lanzamientos en tiempo real de Amazon, Nike, Sephora, Shein y miles de tiendas más. Solo mándanos el link y BOXLY se encarga de la compra, recepción y envío hasta México.', en: "Shop any US store as if you lived there. Get real-time access to products, deals, and drops from Amazon, Nike, Sephora, Shein, and thousands more. Just send us the link and BOXLY handles the purchase, receiving, and shipping to Mexico." },
   requestCta:  { es: 'Crear solicitud', en: 'Create request' },
   tutorialCta: { es: 'Ver cómo funciona', en: 'See how it works' },
 })
