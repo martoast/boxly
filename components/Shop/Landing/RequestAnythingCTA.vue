@@ -20,9 +20,6 @@
           <h2 class="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight leading-[1.05] drop-shadow-sm">
             {{ t.headline }}
           </h2>
-          <p class="mt-4 text-base sm:text-lg lg:text-xl text-white/90 leading-relaxed max-w-xl">
-            {{ t.subheadline }}
-          </p>
         </div>
 
         <div class="flex flex-col sm:flex-row lg:flex-col gap-3 sm:gap-4 lg:shrink-0">
@@ -60,7 +57,6 @@ const tutorialUrl = 'https://www.loom.com/share/839bbe3460e140babb0665c1aa3884ce
 const t = createTranslations({
   eyebrow:     { es: 'Compra en cualquier tienda', en: 'Shop any US store' },
   headline:    { es: '¿No puedes comprar el producto que quieres? Mándanos el link y nosotros hacemos la compra por ti', en: "Can't buy the product you want? Send us the link and we'll make the purchase for you" },
-  subheadline: { es: 'Compra en cualquier tienda de USA como si vivieras allá. Accede a ofertas, productos y lanzamientos en tiempo real mientras BOXLY se encarga de la compra y el envío hasta México.', en: 'Shop any US store as if you lived there. Real-time access to deals, products, and drops while BOXLY handles the purchase and shipping to Mexico.' },
   requestCta:  { es: 'Crear solicitud', en: 'Create request' },
   tutorialCta: { es: 'Ver cómo funciona', en: 'See how it works' },
 })
