@@ -535,6 +535,7 @@ const handleLogout = async () => {
     useState("user", () => null);
     const csrfCookie = useCookie("XSRF-TOKEN");
     csrfCookie.value = null;
+    markLoggedOut();
     window.location.href = "/login";
   } catch (error) {
     console.error('Logout error:', error);

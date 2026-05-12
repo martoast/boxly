@@ -24,9 +24,11 @@ export default defineNuxtPlugin((nuxtApp) => {
   ;(nuxtApp as any).$authReady = (async () => {
     try {
       await (nuxtApp as any).$retriveUser()
+      markLoggedIn()
     } catch {
-      // 401 / network error — userState stays null, which auth middleware
+      // 401 / network error — userState stays null, auth middleware
       // will read as "not logged in" and redirect to /login.
+      markLoggedOut()
     } finally {
       authChecked.value = true
     }

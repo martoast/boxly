@@ -1,43 +1,53 @@
 // middleware/auth.ts
 //
-// Auth gate for protected pages. The heavy lifting (the actual /user
-// fetch) is pre-warmed at app boot by plugins/auth-bootstrap.client.ts,
-// so this middleware usually finds either:
-//   - userState already populated → continue immediately, no API call
-//   - the in-flight $authReady promise → await it (no duplicate request)
-//   - both nullish (e.g. SSR or hot reload) → fall back to a fresh fetch
+// Auth gate for protected pages. Optimised for the "anonymous visitor
+// clicks a protected link" case — that's the path that used to feel
+// slow because we had to wait on /user before knowing where to send them.
 //
-// We also short-circuit when we've already tried *and failed* this session
-// (authChecked === true, user === null) so a non-logged-in user clicking
-// around doesn't hit /user again on every navigation.
+// Strategy:
+//   1. If localStorage says they're definitely-anon, redirect to /login
+//      immediately. No API call, no waiting.
+//   2. Otherwise, fast-path on existing userState if we already resolved.
+//   3. Otherwise, await the bootstrap /user promise (or fire one if no
+//      bootstrap was kicked off).
+//
+// The hint is best-effort — server still has final say. If somehow the
+// hint says "logged in" but /user 401s, we fall through to the redirect
+// path normally.
 export default defineNuxtRouteMiddleware(async (to) => {
   const nuxtApp = useNuxtApp()
   const userState = useState('user')
-  const authChecked = useState<boolean>('auth-checked', () => false)
 
-  // Fast path: already logged in this session.
+  // 1. Instant client-side redirect when we already know they're anon.
+  if (import.meta.client && getAuthHint() === false && !userState.value) {
+    const queryParams = new URLSearchParams({ redirect: to.fullPath })
+    return navigateTo(`/login?${queryParams.toString()}`, {
+      redirectCode: 302,
+      external: false,
+    })
+  }
+
+  // 2. Already resolved as logged-in this session.
   if (userState.value) return
 
-  // We haven't resolved auth yet — wait on the bootstrap if it's mid-flight.
+  // 3. Wait on the in-flight bootstrap (or fire one as a fallback).
+  const authChecked = useState<boolean>('auth-checked', () => false)
   if (!authChecked.value) {
     const ready = (nuxtApp as any).$authReady
     if (ready) {
       await ready
     } else {
-      // No bootstrap fired (rare — SSR or plugin disabled). Do the call
-      // ourselves so we still get a definitive answer.
       try {
         await (nuxtApp as any).$retriveUser()
-      } catch {
-        // fall through to redirect
-      }
+      } catch {}
       authChecked.value = true
     }
   }
 
   if (userState.value) return
 
-  // Definitive: not logged in. Redirect to login with the intended path.
+  // Definitive: not logged in.
+  if (import.meta.client) markLoggedOut()
   const queryParams = new URLSearchParams({ redirect: to.fullPath })
   return navigateTo(`/login?${queryParams.toString()}`, {
     redirectCode: 302,

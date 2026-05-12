@@ -44,6 +44,7 @@ const handleLogout = async () => {
     await $customFetch('/auth/logout', { method: 'POST' })
   } catch {}
   userState.value = null
+  markLoggedOut()
   await navigateTo('/login')
 }
 </script>

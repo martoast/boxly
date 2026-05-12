@@ -384,6 +384,7 @@ const handleLogout = async () => {
     await $customFetch('/auth/logout', { method: 'POST' });
     useState('user', () => null);
     useCookie('XSRF-TOKEN').value = null;
+    markLoggedOut();
     window.location.href = '/login';
   } catch (error) {
     console.error('Logout error:', error);
