@@ -145,7 +145,7 @@ const t = createTranslations({
   item:                { es: 'producto', en: 'item' },
   items:               { es: 'productos', en: 'items' },
   payNow:              { es: 'Subtotal:', en: 'Subtotal:' },
-  checkout:            { es: 'Crear solicitud', en: 'Create request' },
+  checkout:            { es: 'Continuar a checkout', en: 'Continue to checkout' },
   shippingNote:        {
     es: 'Boxly verificará disponibilidad en cada tienda. Si todo está disponible, te enviaremos un link de pago. El envío se cotiza después, cuando consolidamos tu caja.',
     en: 'Boxly will verify availability at each store. If everything is in stock, we\'ll send you a payment link. Shipping is quoted later, when we consolidate your box.',

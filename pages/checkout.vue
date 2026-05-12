@@ -58,11 +58,32 @@
 
         <p class="text-xs text-gray-400 text-center">{{ t.poweredBy }}</p>
       </div>
+
+      <!-- Suggested products — random pick to nudge an extra add before
+           the customer commits. Filters out anything already in the cart
+           so we don't suggest what they're about to buy. -->
+      <section v-if="suggested.length > 0" class="mt-12">
+        <div class="flex items-baseline justify-between gap-4 mb-4">
+          <h2 class="text-xl sm:text-2xl font-extrabold text-gray-900 tracking-tight">{{ t.suggestedTitle }}</h2>
+          <NuxtLink
+            to="/shop?view=all"
+            class="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-700 hover:text-primary-600 transition-colors"
+          >
+            {{ t.seeAll }}
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+          </NuxtLink>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 auto-rows-fr">
+          <ProductCard v-for="p in suggested" :key="p.id" :product="p" />
+        </div>
+      </section>
     </div>
   </section>
 </template>
 
 <script setup>
+import ProductCard from '~/components/store/ProductCard.vue'
+
 // Auth-gated page — buying requires an account
 definePageMeta({
   layout: 'default',
@@ -84,12 +105,31 @@ const t = createTranslations({
   payProducts:       { es: 'Crear solicitud', en: 'Create request' },
   redirecting:       { es: 'Creando solicitud...', en: 'Creating request...' },
   poweredBy:         { es: 'Sin cargos hasta que Boxly confirme stock.', en: 'No charge until Boxly confirms stock.' },
+  suggestedTitle:    { es: 'También te puede interesar', en: 'You might also like' },
+  seeAll:            { es: 'Ver todos', en: 'See all' },
 })
 
 const { items, cartSubtotalCents, clear } = useStoreCart()
 
 const loading = ref(false)
 const error = ref(null)
+
+// Random suggestions to nudge a bigger order before checkout. We fetch a
+// generous slice (12) and trim to 8 after filtering out anything already
+// in the cart — that way an item or two in the cart doesn't leave the
+// suggestion grid looking sparse.
+const { data: suggestedData } = await useAsyncData(
+  'checkout-suggested',
+  () => $customFetch('/store/products', {
+    query: { per_page: 12, sort: 'random' },
+  }).catch(() => null),
+)
+
+const suggested = computed(() => {
+  const all = suggestedData.value?.data?.data ?? []
+  const inCart = new Set(items.value.map((it) => it.product_id))
+  return all.filter((p) => !inCart.has(p.id)).slice(0, 8)
+})
 
 const formatPrice = (cents) => (cents / 100).toLocaleString('es-MX', {
   minimumFractionDigits: 2,
