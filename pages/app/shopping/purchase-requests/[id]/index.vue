@@ -158,10 +158,21 @@
         <!-- Items List -->
         <div class="lg:col-span-2 space-y-6">
           <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-            <div class="px-6 py-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
+            <div class="px-6 py-4 border-b border-gray-100 bg-gray-50 flex flex-wrap justify-between items-center gap-3">
               <h3 class="font-semibold text-gray-900">{{ t.items }} ({{ request.items?.length || 0 }})</h3>
-              <span v-if="request.status !== 'pending_review'" class="text-sm text-gray-500">{{ t.estMerchandise }}: ${{ itemsSubtotalUsd.toFixed(2) }} USD</span>
-              <span v-else class="text-xs text-gray-500">{{ t.unavailableExcluded }}</span>
+              <div class="flex items-center gap-3">
+                <span v-if="request.status !== 'pending_review'" class="text-sm text-gray-500">{{ t.estMerchandise }}: ${{ itemsSubtotalUsd.toFixed(2) }} USD</span>
+                <span v-else class="text-xs text-gray-500">{{ t.unavailableExcluded }}</span>
+                <button
+                  v-if="canEditItems"
+                  type="button"
+                  @click="openAddItemModal"
+                  class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary-600 text-white text-xs font-semibold rounded-lg hover:bg-primary-700 transition-colors"
+                >
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                  {{ t.addItem }}
+                </button>
+              </div>
             </div>
 
             <div v-if="!request.items?.length" class="p-12 text-center text-sm text-gray-500">
@@ -209,9 +220,9 @@
                           <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
                         </a>
                       </div>
-                      <!-- Per-item delete (pending_review only) -->
+                      <!-- Per-item delete (editable through `paid`) -->
                       <button
-                        v-if="request.status === 'pending_review'"
+                        v-if="canEditItems"
                         type="button"
                         @click="onDeleteItem(item)"
                         :disabled="itemBusy[item.id]"
@@ -222,8 +233,8 @@
                       </button>
                     </div>
 
-                    <!-- Editable price + qty (pending_review only) -->
-                    <div v-if="request.status === 'pending_review'" class="grid grid-cols-2 gap-3 mt-3">
+                    <!-- Editable price + qty (open through `paid`) -->
+                    <div v-if="canEditItems" class="grid grid-cols-2 gap-3 mt-3">
                       <div>
                         <label class="block text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">{{ t.price }} USD</label>
                         <div class="relative">
@@ -251,7 +262,7 @@
                       </div>
                     </div>
 
-                    <!-- Display-only (after pending_review) -->
+                    <!-- Display-only (after the editing window closes) -->
                     <div v-else class="grid grid-cols-3 gap-3 text-sm mt-3">
                       <div class="bg-gray-50 p-2 rounded border border-gray-100">
                         <span class="text-xs text-gray-500 block uppercase">{{ t.qty }}</span>
@@ -267,8 +278,8 @@
                       </div>
                     </div>
 
-                    <!-- Line subtotal — live (pending_review) -->
-                    <div v-if="request.status === 'pending_review'" class="mt-2 text-sm">
+                    <!-- Line subtotal — live while items are editable -->
+                    <div v-if="canEditItems" class="mt-2 text-sm">
                       <span class="text-gray-500">{{ t.subtotal }}:</span>
                       <span class="font-semibold text-gray-900 ml-1">${{ (Number(itemDraft(item.id, 'price', item.price)) * Number(itemDraft(item.id, 'quantity', item.quantity))).toFixed(2) }} USD</span>
                     </div>
@@ -286,8 +297,8 @@
                       {{ item.notes }}
                     </div>
 
-                    <!-- Stock status toggle (pending_review only) -->
-                    <div v-if="request.status === 'pending_review'" class="mt-3 flex items-center gap-2">
+                    <!-- Stock status toggle (open through `paid`) -->
+                    <div v-if="canEditItems" class="mt-3 flex items-center gap-2">
                       <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">{{ t.status }}:</span>
                       <button
                         type="button"
@@ -320,7 +331,7 @@
                       >{{ t.resetStock }}</button>
                     </div>
 
-                    <!-- Stock badge (after pending_review) -->
+                    <!-- Stock badge (after the editing window closes) -->
                     <div v-else-if="item.stock_status && item.stock_status !== 'unverified'" class="mt-3">
                       <span
                         :class="[
@@ -531,6 +542,56 @@
           </div>
       </div>
 
+      <!-- Add Item Modal — open through `paid` so admin can patch in a
+           substituted product before clicking "Marcar como Comprado". -->
+      <div v-if="showAddItemModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div class="bg-white rounded-xl max-w-lg w-full p-6 shadow-xl">
+              <h3 class="text-lg font-bold text-gray-900 mb-1">{{ t.addItemTitle }}</h3>
+              <p class="text-sm text-gray-500 mb-5">{{ t.addItemSubtitle }}</p>
+
+              <div class="space-y-3">
+                  <div>
+                      <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">{{ t.addItemName }}</label>
+                      <input v-model="addItemForm.product_name" type="text" class="w-full px-3 py-2 text-sm rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-500" :placeholder="t.addItemNamePh" />
+                  </div>
+                  <div>
+                      <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">{{ t.addItemUrl }}</label>
+                      <input v-model="addItemForm.product_url" type="url" class="w-full px-3 py-2 text-sm rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-500" placeholder="https://..." />
+                  </div>
+                  <div class="grid grid-cols-2 gap-3">
+                      <div>
+                          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">{{ t.addItemPrice }} (USD)</label>
+                          <div class="relative">
+                              <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                              <input v-model.number="addItemForm.price" type="number" step="0.01" min="0" class="w-full text-sm pl-6 pr-2 py-2 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                          </div>
+                      </div>
+                      <div>
+                          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">{{ t.qty }}</label>
+                          <input v-model.number="addItemForm.quantity" type="number" step="1" min="1" class="w-full text-sm px-2 py-2 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                      </div>
+                  </div>
+                  <div>
+                      <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">{{ t.addItemNotes }} <span class="font-normal lowercase text-gray-400">— {{ t.optional }}</span></label>
+                      <textarea v-model="addItemForm.notes" rows="2" class="w-full px-3 py-2 text-sm rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-500"></textarea>
+                  </div>
+              </div>
+
+              <p v-if="addItemError" class="mt-3 text-xs text-red-600">{{ addItemError }}</p>
+
+              <div class="flex justify-end gap-3 mt-5">
+                  <button @click="closeAddItemModal" :disabled="addItemSaving" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50">{{ t.cancel }}</button>
+                  <button
+                      @click="submitAddItem"
+                      :disabled="addItemSaving || !addItemForm.product_name || !addItemForm.product_url || addItemForm.price === '' || !addItemForm.quantity"
+                      class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                      {{ addItemSaving ? t.adding : t.addItem }}
+                  </button>
+              </div>
+          </div>
+      </div>
+
       <!-- Delete Confirmation Modal -->
       <div v-if="showDeleteModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div class="bg-white rounded-xl max-w-md w-full p-6 shadow-xl">
@@ -651,6 +712,15 @@ const translations = {
   stockUnavailable: { es: 'No disponible', en: 'Unavailable' },
   resetStock: { es: 'Restablecer', en: 'Reset' },
   deleteItem: { es: 'Eliminar artículo', en: 'Delete item' },
+  addItem: { es: 'Agregar artículo', en: 'Add item' },
+  addItemTitle: { es: 'Agregar artículo a la solicitud', en: 'Add item to request' },
+  addItemSubtitle: { es: 'Útil cuando el cliente cambia lo que pidió después del pago.', en: 'Useful when the customer swaps what they ordered after payment.' },
+  addItemName: { es: 'Nombre del producto', en: 'Product name' },
+  addItemNamePh: { es: 'Ej: Nike Air Max 90, talla 9', en: 'Ex: Nike Air Max 90, size 9' },
+  addItemUrl: { es: 'Link del producto', en: 'Product URL' },
+  addItemPrice: { es: 'Precio', en: 'Price' },
+  addItemNotes: { es: 'Notas internas', en: 'Internal notes' },
+  adding: { es: 'Agregando...', en: 'Adding...' },
   noItems: { es: 'No hay artículos en esta solicitud', en: 'No items in this request' },
   unavailableExcluded: { es: 'Artículos no disponibles se excluyen del total', en: 'Unavailable items are excluded from the total' },
   quoteSettings: { es: 'Configurar Cotización', en: 'Quote Settings' },
@@ -689,6 +759,10 @@ const processing = ref(false);
 const showRejectModal = ref(false);
 const showPurchaseModal = ref(false);
 const showDeleteModal = ref(false);
+const showAddItemModal = ref(false);
+const addItemSaving = ref(false);
+const addItemError = ref(null);
+const addItemForm = ref({ product_name: '', product_url: '', price: '', quantity: 1, notes: '' });
 const rejectReason = ref('');
 
 // Unified quote settings (filled in on the detail page, sent to /quote).
@@ -789,6 +863,15 @@ const truncateUrl = (url) => {
 
 // API namespace — admin vs shopping (same page is reused under /shopping)
 const apiNs = computed(() => route.path.includes('/shopping/') ? '/shopping' : '/admin');
+
+// Statuses where the line-up is still mutable. Matches ITEM_EDITABLE_STATUSES
+// on the backend — pending_review through paid. Once the PR is `purchased`
+// the items have been materialised into an Order and edits would silently
+// drift the two records apart.
+const canEditItems = computed(() => {
+  const s = request.value?.status
+  return s === 'pending_review' || s === 'quoted' || s === 'paid'
+});
 
 // Extract the bare domain from a product URL ("amazon.com", "youngla.com").
 // Falls back to "otros" for items missing or with broken URLs so they still
@@ -971,6 +1054,46 @@ const setItemStock = async (item, stockStatus) => {
     $toast.error(e?.data?.message || 'No se pudo actualizar');
   } finally {
     itemBusy.value[item.id] = false;
+  }
+};
+
+const openAddItemModal = () => {
+  addItemForm.value = { product_name: '', product_url: '', price: '', quantity: 1, notes: '' };
+  addItemError.value = null;
+  showAddItemModal.value = true;
+};
+
+const closeAddItemModal = () => {
+  if (addItemSaving.value) return;
+  showAddItemModal.value = false;
+};
+
+const submitAddItem = async () => {
+  if (addItemSaving.value) return;
+  addItemSaving.value = true;
+  addItemError.value = null;
+  try {
+    const resp = await $customFetch(`${apiNs.value}/purchase-requests/${request.value.id}/items`, {
+      method: 'POST',
+      body: {
+        product_name: addItemForm.value.product_name,
+        product_url:  addItemForm.value.product_url,
+        price:        Number(addItemForm.value.price) || 0,
+        quantity:     parseInt(addItemForm.value.quantity, 10) || 1,
+        notes:        addItemForm.value.notes || null,
+      },
+    });
+    const created = resp?.data || resp;
+    if (created && !request.value.items.some(x => x.id === created.id)) {
+      request.value.items.push(created);
+    }
+    showAddItemModal.value = false;
+    $toast.success('Artículo agregado');
+  } catch (e) {
+    console.error(e);
+    addItemError.value = e?.data?.message || 'No se pudo agregar el artículo';
+  } finally {
+    addItemSaving.value = false;
   }
 };
 
