@@ -448,6 +448,14 @@ const handleSocialLogin = async (provider) => {
     ? route.query.redirect
     : null
   const state = btoa(JSON.stringify({ redirect: redirectTo }))
+
+  // OAuth is a full-page redirect that never returns through handleLogin,
+  // so it would otherwise leave the localStorage auth hint stale — and
+  // auth.ts instant-bounces a "hint === false" visitor straight back to
+  // /login before the real /user check runs. Mark optimistically; a failed
+  // OAuth lands on /login where the boot /user probe 401s and resets it.
+  markLoggedIn()
+
   window.location.href = `${runtimeConfig.public.apiUrl}/auth/${provider}/redirect?state=${encodeURIComponent(state)}`
 }
 
