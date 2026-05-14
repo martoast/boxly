@@ -24,17 +24,8 @@ export default defineNuxtPlugin(async (nuxtApp) => {
     },
     async onResponseError({ response }) {
       if (response.status === 401) {
-        // Only force-bounce to /login when the user WAS logged in and the
-        // session just got rejected (session expiry, manual revoke, etc.).
-        // A 401 from a "are we logged in?" probe (e.g. the auth bootstrap
-        // call to /user on the public shop landing) must NOT yank the
-        // visitor off a public page — route middleware handles that flow.
-        const userState = useState('user', () => null)
-        const wasLoggedIn = !!userState.value
-        userState.value = null
-        if (wasLoggedIn) {
-          await nuxtApp.runWithContext(() => navigateTo('/login'))
-        }
+        useState('user', () => null)
+        await nuxtApp.runWithContext(() => navigateTo('/login'))
       }
     }
   });
