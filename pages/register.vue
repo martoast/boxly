@@ -809,19 +809,12 @@ const handleRegister = async () => {
   }
 }
 
-const handleGoogleSignUp = () => {
+const handleGoogleSignUp = () => { 
   const state = btoa(JSON.stringify({
     tracking: form.value.registration_source || null,
     redirect: redirectTo || null
   }))
-
-  // OAuth is a full-page redirect that never returns through a login
-  // handler, so it would leave the localStorage auth hint stale — and
-  // auth.ts instant-bounces a "hint === false" visitor back to /login
-  // before the real /user check runs. Mark optimistically; a failed OAuth
-  // lands on /login where the boot /user probe 401s and resets it.
-  markLoggedIn()
-
+  
   window.location.href = `${runtimeConfig.public.apiUrl}/auth/google/redirect?state=${encodeURIComponent(state)}`
 }
 

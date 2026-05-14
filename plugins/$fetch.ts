@@ -6,23 +6,20 @@ export default defineNuxtPlugin(async (nuxtApp) => {
     credentials: "include",
     onRequest({ request, options, error }) {
       const csrfCookie = useCookie("XSRF-TOKEN");
-      let headers = (options.headers ||= {});
-
-      // Accept must ALWAYS be sent — this is a JSON API client. Without it,
-      // Laravel treats an unauthenticated request as a browser navigation and
-      // issues a redirect instead of a 401 JSON response; behind our
-      // TLS-terminating proxy that redirect points at an insecure http:// URL
-      // and the browser blocks it as mixed content. X-XSRF-TOKEN is only
-      // available once the CSRF cookie has been set.
-      if (Array.isArray(headers)) {
-        headers.push(["Accept", "application/json"]);
-        if (csrfCookie.value) headers.push(["X-XSRF-TOKEN", csrfCookie.value]);
-      } else if (headers instanceof Headers) {
-        headers.set("Accept", "application/json");
-        if (csrfCookie.value) headers.set("X-XSRF-TOKEN", csrfCookie.value);
-      } else {
-        headers["Accept"] = "application/json";
-        if (csrfCookie.value) headers["X-XSRF-TOKEN"] = csrfCookie.value;
+      
+      if (csrfCookie.value) {
+        let headers = (options.headers ||= {});
+        
+        if (Array.isArray(headers)) {
+          headers.push(["Accept", "application/json"]);
+          headers.push(["X-XSRF-TOKEN", csrfCookie.value]);
+        } else if (headers instanceof Headers) {
+          headers.set("Accept", "application/json");
+          headers.set("X-XSRF-TOKEN", csrfCookie.value);
+        } else {
+          headers["Accept"] = "application/json";
+          headers["X-XSRF-TOKEN"] = csrfCookie.value;
+        }
       }
     },
     async onResponseError({ response }) {
