@@ -32,7 +32,6 @@ export default defineNuxtPlugin(async (nuxtApp) => {
         const userState = useState('user', () => null)
         const wasLoggedIn = !!userState.value
         userState.value = null
-        markLoggedOut()
         if (wasLoggedIn) {
           await nuxtApp.runWithContext(() => navigateTo('/login'))
         }

@@ -394,8 +394,6 @@ const handleLogin = async () => {
       }
     })
 
-    markLoggedIn()
-
     // Check for redirect query parameter
     const route = useRoute()
     const redirectTo = route.query.redirect
