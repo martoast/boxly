@@ -511,7 +511,7 @@
                   <p class="font-semibold text-gray-900">{{ t.warehouseName }}</p>
                   <p class="text-sm text-gray-600 mt-1">{{ t.warehouseAddress }}</p>
                   <a
-                    href="https://maps.app.goo.gl/Qeq2cdHjXtfVnFwZA"
+                    href="https://www.google.com/maps/search/?api=1&query=Av.+Jalisco+2850-local+3%2C+Col.+Madero+%28Cacho%29%2C+22040+Tijuana%2C+B.C."
                     target="_blank"
                     rel="noopener noreferrer"
                     class="inline-flex items-center gap-1.5 mt-3 text-sm font-medium text-amber-700 hover:text-amber-800 transition-colors"
@@ -670,7 +670,7 @@ const translations = {
   // Pickup Location
   pickupLocation: { es: 'Ubicación de Recolección', en: 'Pickup Location' },
   warehouseName: { es: 'Bodega Boxly - Tijuana', en: 'Boxly Warehouse - Tijuana' },
-  warehouseAddress: { es: 'Blvd. Insurgentes #18512, Río Tijuana 3ra Etapa, Tijuana, BC', en: 'Blvd. Insurgentes #18512, Río Tijuana 3ra Etapa, Tijuana, BC' },
+  warehouseAddress: { es: 'Av. Jalisco 2850-local 3, Col. Madero (Cacho), 22040 Tijuana, B.C.', en: 'Av. Jalisco 2850-local 3, Col. Madero (Cacho), 22040 Tijuana, B.C.' },
   getDirections: { es: 'Ver en Google Maps', en: 'See in Google Maps' },
   crossingNote: { es: 'El cliente deberá pagar el 100% del total antes de poder recoger sus paquetes. Se le enviará una factura por correo cuando la orden esté lista.', en: 'Customer must pay 100% of the total before picking up. An invoice will be sent via email when the order is ready.' },
   

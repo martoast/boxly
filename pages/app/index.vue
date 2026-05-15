@@ -614,7 +614,7 @@ const fullUserName = computed(() => {
 
 // Shipping address (for online purchases)
 const poBoxAddress = computed(() => ({
-  line1: `157 Virginia Ave #835`,
+  line1: `157 Virginia Ave Suite 835`,
   line2: "San Ysidro, CA 92173",
 }));
 

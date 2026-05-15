@@ -243,7 +243,7 @@
                 </div>
               </div>
               <a
-                href="https://maps.app.goo.gl/4SsEVjy2D4noFM9n8"
+                href="https://www.google.com/maps/search/?api=1&query=Av.+Jalisco+2850-local+3%2C+Col.+Madero+%28Cacho%29%2C+22040+Tijuana%2C+B.C."
                 target="_blank"
                 rel="noopener noreferrer"
                 class="flex items-center justify-center gap-2 w-full px-5 py-3 bg-amber-600 text-white font-semibold rounded-xl hover:bg-amber-700 transition-colors"
@@ -382,7 +382,7 @@
                 <h4 class="text-sm font-semibold text-gray-900">{{ t.needHelp }}</h4>
                 <p class="text-xs text-gray-600 mt-1">{{ t.needHelpDesc }}</p>
                 <a
-                  href="https://wa.me/5216641234567"
+                  href="https://wa.me/16195591910"
                   target="_blank"
                   class="inline-flex items-center gap-1.5 text-xs font-medium text-primary-600 hover:text-primary-700 mt-2"
                 >
@@ -568,7 +568,7 @@ const translations = {
   pickupLocation: { es: "Ubicación de Recolección", en: "Pickup Location" },
   pickupLocationDesc: { es: "Recoge tus paquetes en nuestra bodega", en: "Pick up your packages at our warehouse" },
   warehouseName: { es: "Colectivo Las Ferias La Cacho", en: "Colectivo Las Ferias La Cacho" },
-  warehouseAddress: { es: "Blvd. Insurgentes #18512, Río Tijuana 3ra Etapa", en: "Blvd. Insurgentes #18512, Río Tijuana 3ra Etapa" },
+  warehouseAddress: { es: "Av. Jalisco 2850-local 3, Col. Madero (Cacho), 22040", en: "Av. Jalisco 2850-local 3, Col. Madero (Cacho), 22040" },
   getDirections: { es: "Obtener Direcciones", en: "Get Directions" },
   pickupHours: { es: "Lun-Vie: 9AM-6PM | Sáb: 9AM-2PM", en: "Mon-Fri: 9AM-6PM | Sat: 9AM-2PM" },
   // Help

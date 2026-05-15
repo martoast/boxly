@@ -365,7 +365,7 @@
                       <p class="text-sm font-semibold text-gray-900">{{ t.warehouseName }}</p>
                       <p class="text-xs text-gray-600 mt-0.5">{{ t.warehouseAddress }}</p>
                       <NuxtLink
-                        to="https://maps.app.goo.gl/4SsEVjy2D4noFM9n8"
+                        to="https://www.google.com/maps/search/?api=1&query=Av.+Jalisco+2850-local+3%2C+Col.+Madero+%28Cacho%29%2C+22040+Tijuana%2C+B.C."
                         target="_blank"
                         external
                         class="inline-flex items-center gap-1 text-xs text-amber-600 hover:text-amber-700 mt-2 font-medium"
@@ -1368,7 +1368,7 @@ const translations = {
   deliveryAddress: { es: "Dirección de Entrega", en: "Delivery Address" },
   pickupLocation: { es: "Ubicación de Recolección", en: "Pickup Location" },
   warehouseName: { es: "Colectivo Las Ferias La Cacho", en: "Colectivo Las Ferias La Cacho" },
-  warehouseAddress: { es: "Blvd. Insurgentes #18512, Río Tijuana 3ra Etapa, Tijuana, BC", en: "Blvd. Insurgentes #18512, Río Tijuana 3ra Etapa, Tijuana, BC" },
+  warehouseAddress: { es: "Av. Jalisco 2850-local 3, Col. Madero (Cacho), 22040 Tijuana, B.C.", en: "Av. Jalisco 2850-local 3, Col. Madero (Cacho), 22040 Tijuana, B.C." },
   getDirections: { es: "Ver en Google Maps", en: "See in Google Maps" },
   orderSummary: { es: "Resumen", en: "Summary" },
   orderNumber: { es: "Orden #", en: "Order #" },
