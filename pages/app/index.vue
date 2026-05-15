@@ -284,7 +284,7 @@
             style="animation-delay: 0.4s"
           >
             <a
-              href="https://www.loom.com/share/aa0802b6092b4a4bb989a6bbb2e9786d?sid=a2023588-6ade-4252-beaa-b50202f5d237"
+              href="https://www.loom.com/share/15852780c73a401096ea598def4f8ef5"
               target="_blank"
               rel="noopener noreferrer"
               class="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-primary-500 to-primary-600 text-white font-semibold rounded-xl hover:from-primary-600 hover:to-primary-700 transition-all duration-300 shadow-md hover:shadow-lg group"
