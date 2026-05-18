@@ -124,6 +124,9 @@ export default defineNuxtConfig({
     },
   },
   runtimeConfig: {
+    // Server-only. Used by /api/voice/session to mint ephemeral OpenAI
+    // Realtime tokens. Never exposed to the client.
+    openaiApiKey: process.env.OPENAI_API_KEY,
     public: {
       apiUrl: process.env.API_URL,
       cookieDomain: process.env.COOKIE_DOMAIN,
@@ -131,7 +134,7 @@ export default defineNuxtConfig({
       gtagId: process.env.GTAG_ID,
       // Meta Pixel configuration
       metapixel: {
-        default: { 
+        default: {
           id: process.env.META_PIXEL_ID || '1259587282078463',
           pageView: '**' // Track all pages by default
         }
