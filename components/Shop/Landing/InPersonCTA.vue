@@ -3,7 +3,7 @@
        RequestAnythingCTA but distinct: physical visit to Las Americas
        Outlets, no upfront payment, pay-after-trip model. -->
   <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-16">
-    <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-700 via-indigo-600 to-purple-600 px-6 py-12 sm:px-12 sm:py-16 lg:px-16 lg:py-20 shadow-xl">
+    <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-boxly-blue-700 via-boxly-blue to-boxly-blue-500 px-6 py-12 sm:px-12 sm:py-16 lg:px-16 lg:py-20 shadow-xl">
       <div class="absolute -top-24 -left-24 w-72 h-72 rounded-full bg-white/10 blur-3xl pointer-events-none" aria-hidden="true"></div>
       <div class="absolute -bottom-32 -right-20 w-80 h-80 rounded-full bg-white/10 blur-3xl pointer-events-none" aria-hidden="true"></div>
 
@@ -26,7 +26,7 @@
         <div class="flex flex-col gap-3 lg:shrink-0">
           <NuxtLink
             to="/shop/in-person"
-            class="inline-flex items-center justify-center gap-2 px-7 py-4 bg-white text-indigo-700 font-bold rounded-full shadow-lg hover:shadow-xl hover:bg-gray-100 transition-all text-base"
+            class="inline-flex items-center justify-center gap-2 px-7 py-4 bg-white text-boxly-blue-700 font-bold rounded-full shadow-lg hover:shadow-xl hover:bg-gray-100 transition-all text-base"
           >
             {{ t.cta }}
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">

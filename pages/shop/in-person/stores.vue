@@ -23,10 +23,11 @@
 
     <div class="max-w-3xl mx-auto px-4 py-5 space-y-4">
       <!-- Pricing card -->
-      <div class="rounded-2xl bg-gradient-to-br from-indigo-600 to-purple-600 text-white p-5 shadow-md">
+      <div class="relative rounded-2xl bg-gradient-to-br from-boxly-blue to-boxly-blue-500 text-white p-5 shadow-md overflow-hidden">
+        <div class="absolute top-0 left-0 right-0 h-1 bg-boxly-yellow"></div>
         <div class="text-xs uppercase tracking-wider opacity-80 font-semibold">{{ t.pricingLabel }}</div>
         <div class="flex items-baseline gap-2 mt-1">
-          <span class="text-3xl font-extrabold">${{ totalServiceFee.toFixed(2) }}</span>
+          <span class="text-3xl font-extrabold text-boxly-yellow">${{ totalServiceFee.toFixed(2) }}</span>
           <span class="text-sm opacity-80">USD</span>
         </div>
         <div class="text-sm opacity-90 mt-1">
@@ -46,10 +47,10 @@
             :key="store.id"
             type="button"
             @click="toggleStore(store.id)"
-            class="inline-flex items-center gap-1.5 pl-3 pr-1 py-1 bg-indigo-100 text-indigo-800 rounded-full text-sm font-medium hover:bg-indigo-200 transition-colors"
+            class="inline-flex items-center gap-1.5 pl-3 pr-1 py-1 bg-boxly-blue-100 text-boxly-blue-800 rounded-full text-sm font-medium hover:bg-boxly-blue-200 transition-colors"
           >
             {{ store.name }}
-            <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-indigo-200 hover:bg-indigo-300">
+            <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-boxly-blue-200 hover:bg-boxly-blue-300">
               <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
             </span>
           </button>
@@ -68,7 +69,7 @@
               v-model="query"
               type="text"
               :placeholder="t.searchPlaceholder.replace('{n}', String(stores.length))"
-              class="pl-10 pr-10 w-full rounded-xl border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 py-3 text-sm"
+              class="pl-10 pr-10 w-full rounded-xl border-gray-300 focus:border-boxly-blue-500 focus:ring-boxly-blue-500 py-3 text-sm"
               autocomplete="off"
             >
             <button v-if="query" @click="query = ''" class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600">
@@ -100,7 +101,7 @@
           @click="toggleStore(store.id)"
           :class="[
             'w-full text-left bg-white rounded-xl border-2 p-3 flex items-center gap-3 transition-all',
-            selectedStoreIds.includes(store.id) ? 'border-indigo-600 ring-2 ring-indigo-100' : 'border-gray-200 hover:border-indigo-300'
+            selectedStoreIds.includes(store.id) ? 'border-boxly-blue ring-2 ring-boxly-blue-100' : 'border-gray-200 hover:border-boxly-blue-300'
           ]"
         >
           <div class="w-11 h-11 rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0" :style="{ background: store.logo_url ? '#f3f4f6' : initialBg(store.name) }">
@@ -114,7 +115,7 @@
           <div
             :class="[
               'w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0',
-              selectedStoreIds.includes(store.id) ? 'bg-indigo-600 text-white' : 'border-2 border-gray-300'
+              selectedStoreIds.includes(store.id) ? 'bg-boxly-blue text-white' : 'border-2 border-gray-300'
             ]"
           >
             <svg v-if="selectedStoreIds.includes(store.id)" class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
@@ -131,7 +132,7 @@
         <NuxtLink
           v-if="selectedStoreIds.length > 0"
           to="/shop/in-person/details"
-          class="w-full inline-flex items-center justify-center gap-2 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-colors"
+          class="w-full inline-flex items-center justify-center gap-2 py-3.5 bg-boxly-blue hover:bg-boxly-blue-700 text-white font-bold rounded-xl shadow-lg shadow-boxly-blue/30 hover:shadow-boxly-yellow/50 transition-all transition-colors"
         >
           {{ t.continue }}
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>

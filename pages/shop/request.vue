@@ -59,7 +59,7 @@
       <!-- In-person option -->
       <NuxtLink
         to="/shop/in-person"
-        class="block bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl shadow-lg hover:shadow-xl transition-all p-6 group text-white"
+        class="block bg-gradient-to-br from-boxly-blue to-boxly-blue-500 rounded-2xl shadow-lg hover:shadow-xl transition-all p-6 group text-white"
       >
         <div class="flex items-start gap-4">
           <div class="w-12 h-12 bg-white/15 backdrop-blur rounded-xl flex items-center justify-center flex-shrink-0">

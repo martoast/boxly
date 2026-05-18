@@ -33,7 +33,7 @@
             min="1"
             step="1"
             placeholder="500"
-            class="pl-7 pr-16 w-full rounded-xl border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-3 text-lg font-semibold"
+            class="pl-7 pr-16 w-full rounded-xl border-gray-300 shadow-sm focus:border-boxly-blue-500 focus:ring-boxly-blue-500 py-3 text-lg font-semibold"
           >
           <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-500 text-sm">USD</div>
         </div>
@@ -53,8 +53,8 @@
             :class="[
               'px-3 py-1.5 rounded-full text-sm font-medium border transition-colors',
               selectedCategoryIds.includes(cat.id)
-                ? 'bg-indigo-600 text-white border-indigo-600'
-                : 'bg-white text-gray-700 border-gray-300 hover:border-indigo-400'
+                ? 'bg-boxly-blue text-white border-boxly-blue'
+                : 'bg-white text-gray-700 border-gray-300 hover:border-boxly-blue-400'
             ]"
           >{{ cat.name }}</button>
         </div>
@@ -78,7 +78,7 @@
             </div>
             <div class="flex-1 min-w-0">
               <div class="text-sm font-medium text-gray-900 truncate">{{ item.product_name }}</div>
-              <div v-if="item.product_url" class="text-xs text-indigo-600 truncate">{{ shortUrl(item.product_url) }}</div>
+              <div v-if="item.product_url" class="text-xs text-boxly-blue truncate">{{ shortUrl(item.product_url) }}</div>
               <div v-if="item.notes" class="text-xs text-gray-500 italic mt-1">"{{ item.notes }}"</div>
             </div>
             <button @click="removeWishlistItem(i)" class="p-1 text-gray-400 hover:text-red-500" :aria-label="t.remove">
@@ -88,12 +88,12 @@
         </div>
 
         <!-- Inline add form -->
-        <div v-if="showAddForm" class="border border-indigo-200 bg-indigo-50/40 rounded-xl p-4 space-y-3">
+        <div v-if="showAddForm" class="border border-boxly-blue-200 bg-boxly-blue-50/40 rounded-xl p-4 space-y-3">
           <input v-model="draft.product_name" type="text" :placeholder="t.draftName" class="w-full rounded-lg border-gray-300 text-sm py-2.5">
           <input v-model="draft.product_url" type="text" :placeholder="t.draftUrl" class="w-full rounded-lg border-gray-300 text-sm py-2.5">
           <textarea v-model="draft.notes" rows="2" :placeholder="t.draftNotes" class="w-full rounded-lg border-gray-300 text-sm py-2.5"></textarea>
           <div class="flex items-center gap-3">
-            <label class="cursor-pointer text-xs text-indigo-700 font-medium hover:underline">
+            <label class="cursor-pointer text-xs text-boxly-blue-700 font-medium hover:underline">
               <input type="file" accept="image/*" class="hidden" @change="handleImage">
               📎 {{ draft.image ? t.imagePicked : t.addImage }}
             </label>
@@ -107,7 +107,7 @@
             <button
               @click="saveDraft"
               :disabled="!draft.product_name"
-              class="flex-1 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg disabled:opacity-50"
+              class="flex-1 py-2 text-sm font-semibold text-white bg-boxly-blue hover:bg-boxly-blue-700 rounded-lg disabled:opacity-50"
             >{{ t.saveItem }}</button>
           </div>
         </div>
@@ -115,7 +115,7 @@
         <button
           v-else
           @click="openAdd"
-          class="w-full py-3 border-2 border-dashed border-gray-300 hover:border-indigo-400 hover:bg-indigo-50/30 rounded-xl text-sm font-medium text-gray-600 transition-colors"
+          class="w-full py-3 border-2 border-dashed border-gray-300 hover:border-boxly-blue-400 hover:bg-boxly-blue-50/30 rounded-xl text-sm font-medium text-gray-600 transition-colors"
         >+ {{ wishlist.length === 0 ? t.addFirst : t.addAnother }}</button>
       </div>
 
@@ -128,7 +128,7 @@
           @input="setNotes($event.target.value)"
           rows="4"
           :placeholder="t.notesPlaceholder"
-          class="w-full rounded-xl border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-3 text-sm"
+          class="w-full rounded-xl border-gray-300 shadow-sm focus:border-boxly-blue-500 focus:ring-boxly-blue-500 py-3 text-sm"
         ></textarea>
       </div>
     </div>
@@ -138,7 +138,7 @@
         <NuxtLink
           v-if="canContinue"
           to="/shop/in-person/review"
-          class="w-full inline-flex items-center justify-center gap-2 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-colors"
+          class="w-full inline-flex items-center justify-center gap-2 py-3.5 bg-boxly-blue hover:bg-boxly-blue-700 text-white font-bold rounded-xl shadow-lg shadow-boxly-blue/30 hover:shadow-boxly-yellow/50 transition-all transition-colors"
         >
           {{ t.continue }}
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>

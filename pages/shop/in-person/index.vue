@@ -36,13 +36,13 @@
         :class="[
           'w-full text-left bg-white rounded-2xl border-2 p-4 sm:p-5 transition-all',
           selectedTrip?.id === trip.id
-            ? 'border-indigo-600 ring-2 ring-indigo-100'
-            : 'border-gray-200 hover:border-indigo-300'
+            ? 'border-boxly-blue ring-2 ring-boxly-blue-100'
+            : 'border-gray-200 hover:border-boxly-blue-300'
         ]"
       >
         <div class="flex items-center justify-between gap-4">
           <div class="min-w-0">
-            <div class="text-xs uppercase tracking-wider text-indigo-600 font-semibold">
+            <div class="text-xs uppercase tracking-wider text-boxly-blue font-semibold">
               {{ formatWeekday(trip.trip_date) }}
             </div>
             <div class="text-lg font-bold text-gray-900 mt-0.5">{{ formatDate(trip.trip_date) }}</div>
@@ -55,7 +55,7 @@
           <div
             :class="[
               'w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0',
-              selectedTrip?.id === trip.id ? 'bg-indigo-600 text-white' : 'border-2 border-gray-300'
+              selectedTrip?.id === trip.id ? 'bg-boxly-blue text-white' : 'border-2 border-gray-300'
             ]"
           >
             <svg v-if="selectedTrip?.id === trip.id" class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
@@ -68,7 +68,7 @@
       <div class="max-w-3xl mx-auto">
         <NuxtLink
           to="/shop/in-person/stores"
-          class="w-full inline-flex items-center justify-center gap-2 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-colors"
+          class="w-full inline-flex items-center justify-center gap-2 py-3.5 bg-boxly-blue hover:bg-boxly-blue-700 text-white font-bold rounded-xl shadow-lg shadow-boxly-blue/30 hover:shadow-boxly-yellow/50 transition-all transition-colors"
         >
           {{ t.continue }}
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>

@@ -23,7 +23,7 @@
       <div class="bg-white rounded-2xl border border-gray-200 p-5">
         <div class="flex items-center justify-between gap-2 mb-3">
           <h3 class="text-sm font-semibold text-gray-900">{{ t.tripSection }}</h3>
-          <NuxtLink to="/shop/in-person" class="text-xs text-indigo-600 font-medium hover:underline">{{ t.edit }}</NuxtLink>
+          <NuxtLink to="/shop/in-person" class="text-xs text-boxly-blue font-medium hover:underline">{{ t.edit }}</NuxtLink>
         </div>
         <div class="text-base font-bold text-gray-900">{{ selectedTrip ? formatDate(selectedTrip.trip_date) : '—' }}</div>
         <div class="text-sm text-gray-500">{{ selectedTrip?.location }}</div>
@@ -33,11 +33,11 @@
       <div class="bg-white rounded-2xl border border-gray-200 p-5">
         <div class="flex items-center justify-between gap-2 mb-3">
           <h3 class="text-sm font-semibold text-gray-900">{{ t.storesSection }} <span class="text-gray-400">({{ selectedStoreIds.length }})</span></h3>
-          <NuxtLink to="/shop/in-person/stores" class="text-xs text-indigo-600 font-medium hover:underline">{{ t.edit }}</NuxtLink>
+          <NuxtLink to="/shop/in-person/stores" class="text-xs text-boxly-blue font-medium hover:underline">{{ t.edit }}</NuxtLink>
         </div>
         <div v-if="storesLoading" class="text-sm text-gray-400">{{ t.loading }}</div>
         <div v-else class="flex flex-wrap gap-2">
-          <span v-for="s in pickedStores" :key="s.id" class="px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs font-medium">{{ s.name }}</span>
+          <span v-for="s in pickedStores" :key="s.id" class="px-3 py-1 bg-boxly-blue-50 text-boxly-blue-700 rounded-full text-xs font-medium">{{ s.name }}</span>
         </div>
       </div>
 
@@ -45,7 +45,7 @@
       <div class="bg-white rounded-2xl border border-gray-200 p-5">
         <div class="flex items-center justify-between gap-2 mb-3">
           <h3 class="text-sm font-semibold text-gray-900">{{ t.detailsSection }}</h3>
-          <NuxtLink to="/shop/in-person/details" class="text-xs text-indigo-600 font-medium hover:underline">{{ t.edit }}</NuxtLink>
+          <NuxtLink to="/shop/in-person/details" class="text-xs text-boxly-blue font-medium hover:underline">{{ t.edit }}</NuxtLink>
         </div>
         <dl class="text-sm space-y-2">
           <div class="flex justify-between">
@@ -77,10 +77,11 @@
       </div>
 
       <!-- Pricing -->
-      <div class="rounded-2xl bg-gradient-to-br from-indigo-600 to-purple-600 text-white p-5">
+      <div class="relative rounded-2xl bg-gradient-to-br from-boxly-blue to-boxly-blue-500 text-white p-5 overflow-hidden">
+        <div class="absolute top-0 left-0 right-0 h-1 bg-boxly-yellow"></div>
         <h3 class="text-sm font-semibold opacity-90 uppercase tracking-wider">{{ t.pricingSection }}</h3>
         <div class="mt-3 space-y-1.5 text-sm">
-          <div class="flex justify-between"><span class="opacity-85">{{ selectedStoreIds.length }} × $10 {{ t.perStore }}</span><span class="font-semibold">${{ serviceFee.toFixed(2) }} USD</span></div>
+          <div class="flex justify-between"><span class="opacity-85">{{ selectedStoreIds.length }} × $10 {{ t.perStore }}</span><span class="font-bold text-boxly-yellow">${{ serviceFee.toFixed(2) }} USD</span></div>
           <div class="flex justify-between"><span class="opacity-85">{{ t.feePct }}</span><span class="opacity-85 italic">{{ t.afterTrip }}</span></div>
         </div>
         <div class="mt-3 pt-3 border-t border-white/20 text-xs opacity-85">
@@ -94,7 +95,7 @@
         <button
           @click="submit"
           :disabled="submitting"
-          class="w-full inline-flex items-center justify-center gap-2 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-colors disabled:opacity-60"
+          class="w-full inline-flex items-center justify-center gap-2 py-4 bg-boxly-blue hover:bg-boxly-blue-700 text-white font-bold rounded-xl shadow-lg shadow-boxly-blue/30 hover:shadow-boxly-yellow/50 transition-all transition-colors disabled:opacity-60"
         >
           <span v-if="submitting" class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
           {{ submitting ? t.submitting : t.submit }}

@@ -1,13 +1,15 @@
 <template>
-  <!-- 4-step progress indicator for the /shop/in-person/* flow. -->
+  <!-- 4-step progress indicator for the /shop/in-person/* flow.
+       Yellow accent ring on the active step gives it a "live" / concierge
+       feel that distinguishes it from generic checkout steppers. -->
   <div class="flex items-center gap-2 sm:gap-3">
     <template v-for="(label, i) in steps" :key="i">
       <div class="flex items-center gap-2 min-w-0">
         <div
           :class="[
-            'w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0',
-            i + 1 < current ? 'bg-indigo-600 text-white' :
-            i + 1 === current ? 'bg-indigo-600 text-white ring-4 ring-indigo-100' :
+            'w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 transition-all',
+            i + 1 < current ? 'bg-boxly-blue text-white' :
+            i + 1 === current ? 'bg-boxly-blue text-white ring-4 ring-boxly-yellow shadow-lg shadow-boxly-yellow/30' :
             'bg-gray-200 text-gray-500'
           ]"
         >
@@ -18,12 +20,18 @@
         </div>
         <span
           :class="[
-            'text-xs font-medium hidden sm:block truncate',
-            i + 1 === current ? 'text-indigo-700' : 'text-gray-500'
+            'text-xs font-semibold hidden sm:block truncate',
+            i + 1 === current ? 'text-boxly-blue-700' : 'text-gray-500'
           ]"
         >{{ label }}</span>
       </div>
-      <div v-if="i < steps.length - 1" class="flex-1 h-px bg-gray-200 min-w-[16px]"></div>
+      <div
+        v-if="i < steps.length - 1"
+        :class="[
+          'flex-1 h-0.5 min-w-[16px] rounded-full transition-colors',
+          i + 1 < current ? 'bg-boxly-blue' : 'bg-gray-200'
+        ]"
+      ></div>
     </template>
   </div>
 </template>
