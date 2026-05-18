@@ -5,10 +5,17 @@
 // the client receives only the short-lived token and uses it to do the
 // WebRTC SDP exchange directly with OpenAI.
 //
-// The KB lives at `server/assets/boxly-kb.md` (auto-mounted by Nitro as the
-// `assets:server` storage namespace). It is loaded once at module init and
-// cached for the lifetime of the server process — restart the app (or
-// re-deploy) to pick up KB edits.
+// The KB lives as multiple files under `server/assets/kb/` (auto-mounted
+// by Nitro as the `assets:server` storage namespace). The files are
+// concatenated alphabetically — the numeric filename prefixes
+// (`00-persona.md`, `10-service.md`, `20-policies.md`, `30-orders.md`)
+// drive the order. Sorted order is important: prompt caching is
+// prefix-sensitive, so the byte order across sessions must be stable for
+// the prefix to stay cached (~80x cost reduction on cached input).
+//
+// Editing the KB: add or change any file in server/assets/kb/ and
+// redeploy. Most-stable content (persona) is up top so edits to the
+// later files (orders, etc.) bust less of the cache.
 //
 // OPENAI_API_KEY is read from process.env at REQUEST time (runtime), not
 // via useRuntimeConfig(). Anything in runtimeConfig that pulls from
@@ -20,14 +27,27 @@ let cachedInstructions: string | null = null
 async function getInstructions(): Promise<string> {
   if (cachedInstructions) return cachedInstructions
   const storage = useStorage('assets:server')
-  const raw = await storage.getItem<string>('boxly-kb.md')
-  if (!raw) {
+
+  // List everything under the kb/ subdirectory and sort alphabetically.
+  // Unstorage normalizes path separators to `:`, so keys look like
+  // `kb:00-persona.md`. We filter and sort for deterministic order.
+  const allKeys = await storage.getKeys()
+  const kbKeys = allKeys.filter((k) => /^kb[:/]/.test(k)).sort()
+
+  if (!kbKeys.length) {
     throw createError({
       statusCode: 500,
-      statusMessage: 'Voice KB not found at server/assets/boxly-kb.md',
+      statusMessage: 'No voice KB files found under server/assets/kb/',
     })
   }
-  cachedInstructions = raw
+
+  const parts = await Promise.all(
+    kbKeys.map((k) => storage.getItem<string>(k))
+  )
+
+  // Markdown horizontal rule between sections — clean separator the model
+  // won't confuse with content.
+  cachedInstructions = parts.filter((p): p is string => !!p).join('\n\n---\n\n')
   return cachedInstructions
 }
 
