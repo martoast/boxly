@@ -162,6 +162,20 @@ async function start() {
     }
     micStream = stream
 
+    // Log which mic the browser picked. On macOS the OS sometimes
+    // promotes "Continuity Camera" (iPhone mic) to the system default
+    // and the browser inherits it — if Continuity Camera is muted /
+    // unavailable, the model just receives silence and the assistant
+    // appears to "not hear" the visitor. Console label tells us fast.
+    const micTrack = stream.getAudioTracks()[0]
+    // eslint-disable-next-line no-console
+    console.debug(
+      '[voice] mic in use:',
+      micTrack?.label || '(unlabeled)',
+      'settings:',
+      micTrack?.getSettings?.()
+    )
+
     // 3. Create the RTCPeerConnection. Default ICE servers are fine for
     //    direct browser → OpenAI; OpenAI handles its side.
     pc = new RTCPeerConnection()
