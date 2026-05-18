@@ -1,8 +1,10 @@
 <template>
-  <!-- Step 2: multi-select stores. Pricing card surfaces the $10/store
-       service charge so the customer sees the running total before
-       committing. 8% on the purchase is mentioned but not computed
-       here — it's applied at quote time after the trip. -->
+  <!-- Step 2: smart-search store picker. 163 Las Americas brands is too many
+       for a scroll list; user types a brand name and we surface matches.
+       Selected stores always visible as removable chips above search so
+       customer can build a list without losing their selections. Pricing
+       card sticks to the top so the running $10/store total is always in
+       view as they pick. -->
   <section class="min-h-screen bg-gray-50 pb-32">
     <div class="bg-white border-b border-gray-200">
       <div class="max-w-3xl mx-auto px-4 py-5">
@@ -19,9 +21,9 @@
       </div>
     </div>
 
-    <div class="max-w-3xl mx-auto px-4 py-6">
+    <div class="max-w-3xl mx-auto px-4 py-5 space-y-4">
       <!-- Pricing card -->
-      <div class="rounded-2xl bg-gradient-to-br from-indigo-600 to-purple-600 text-white p-5 mb-5 shadow-md">
+      <div class="rounded-2xl bg-gradient-to-br from-indigo-600 to-purple-600 text-white p-5 shadow-md">
         <div class="text-xs uppercase tracking-wider opacity-80 font-semibold">{{ t.pricingLabel }}</div>
         <div class="flex items-baseline gap-2 mt-1">
           <span class="text-3xl font-extrabold">${{ totalServiceFee.toFixed(2) }}</span>
@@ -35,15 +37,65 @@
         </div>
       </div>
 
+      <!-- Selected chips -->
+      <div v-if="pickedStores.length > 0" class="bg-white rounded-2xl border border-gray-200 p-4">
+        <div class="text-xs uppercase tracking-wider text-gray-500 font-semibold mb-2">{{ t.selectedLabel }} ({{ pickedStores.length }})</div>
+        <div class="flex flex-wrap gap-2">
+          <button
+            v-for="store in pickedStores"
+            :key="store.id"
+            type="button"
+            @click="toggleStore(store.id)"
+            class="inline-flex items-center gap-1.5 pl-3 pr-1 py-1 bg-indigo-100 text-indigo-800 rounded-full text-sm font-medium hover:bg-indigo-200 transition-colors"
+          >
+            {{ store.name }}
+            <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-indigo-200 hover:bg-indigo-300">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            </span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Search input -->
+      <div class="bg-white rounded-2xl border border-gray-200 p-4 sticky top-2 z-10 shadow-sm">
+        <label class="block">
+          <span class="sr-only">{{ t.searchLabel }}</span>
+          <div class="relative">
+            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            </div>
+            <input
+              v-model="query"
+              type="text"
+              :placeholder="t.searchPlaceholder.replace('{n}', String(stores.length))"
+              class="pl-10 pr-10 w-full rounded-xl border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 py-3 text-sm"
+              autocomplete="off"
+            >
+            <button v-if="query" @click="query = ''" class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          </div>
+        </label>
+      </div>
+
+      <!-- Results -->
       <div v-if="loading" class="text-center py-12 text-gray-500 text-sm">{{ t.loading }}</div>
 
-      <div v-else-if="stores.length === 0" class="bg-white rounded-2xl border border-gray-200 p-6 text-center text-sm text-gray-500">
-        {{ t.noStores }}
+      <div v-else-if="!query" class="bg-white rounded-2xl border border-dashed border-gray-300 p-8 text-center">
+        <div class="w-12 h-12 mx-auto mb-3 bg-gray-100 rounded-full flex items-center justify-center text-gray-400">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+        </div>
+        <p class="text-sm text-gray-600 font-medium">{{ t.emptyTitle }}</p>
+        <p class="text-xs text-gray-400 mt-1">{{ t.emptyDesc.replace('{n}', String(stores.length)) }}</p>
+      </div>
+
+      <div v-else-if="filtered.length === 0" class="bg-white rounded-2xl border border-gray-200 p-6 text-center text-sm text-gray-500">
+        {{ t.noMatches.replace('{q}', query) }}
       </div>
 
       <div v-else class="space-y-2">
         <button
-          v-for="store in stores"
+          v-for="store in filtered.slice(0, 30)"
           :key="store.id"
           @click="toggleStore(store.id)"
           :class="[
@@ -51,9 +103,9 @@
             selectedStoreIds.includes(store.id) ? 'border-indigo-600 ring-2 ring-indigo-100' : 'border-gray-200 hover:border-indigo-300'
           ]"
         >
-          <div class="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+          <div class="w-11 h-11 rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0" :style="{ background: store.logo_url ? '#f3f4f6' : initialBg(store.name) }">
             <img v-if="store.logo_url" :src="store.logo_url" :alt="store.name" class="w-full h-full object-contain p-1">
-            <svg v-else class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+            <span v-else class="text-white font-bold text-base">{{ store.name.charAt(0).toUpperCase() }}</span>
           </div>
           <div class="flex-1 min-w-0">
             <div class="font-semibold text-gray-900 truncate">{{ store.name }}</div>
@@ -68,6 +120,9 @@
             <svg v-if="selectedStoreIds.includes(store.id)" class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
           </div>
         </button>
+        <div v-if="filtered.length > 30" class="text-center text-xs text-gray-400 py-2">
+          {{ t.refineHint.replace('{shown}', '30').replace('{total}', String(filtered.length)) }}
+        </div>
       </div>
     </div>
 
@@ -105,12 +160,18 @@ const { selectedTrip, selectedStoreIds, toggleStore } = useInPersonRequest()
 const t = createTranslations({
   back:          { es: 'Volver', en: 'Back' },
   title:         { es: 'Elige las tiendas', en: 'Pick the stores' },
-  subtitle:      { es: 'Visitaremos cada tienda que elijas.', en: "We'll visit every store you pick." },
+  subtitle:      { es: 'Busca la tienda que quieres visitar.', en: 'Search for the store you want us to visit.' },
+  searchLabel:   { es: 'Buscar tienda', en: 'Search store' },
+  searchPlaceholder: { es: 'Buscar entre {n} tiendas (Nike, Coach, Tommy…)', en: 'Search {n} stores (Nike, Coach, Tommy…)' },
+  selectedLabel: { es: 'Seleccionadas', en: 'Selected' },
   pricingLabel:  { es: 'Cuota de servicio en persona', en: 'In-person service fee' },
   perStore:      { es: 'por tienda', en: 'per store' },
   plusFee:       { es: '+ {pct}% sobre el valor de la compra (se calcula después de la visita)', en: '+ {pct}% on the purchase value (calculated after the trip)' },
   loading:       { es: 'Cargando tiendas…', en: 'Loading stores…' },
-  noStores:      { es: 'No hay tiendas configuradas. Avísanos para agregar la tienda que necesitas.', en: "No stores configured yet. Let us know which store you need." },
+  emptyTitle:    { es: 'Empieza a escribir para buscar', en: 'Start typing to search' },
+  emptyDesc:     { es: 'Hay {n} tiendas disponibles en Las Américas Outlets.', en: '{n} stores available at Las Americas Outlets.' },
+  noMatches:     { es: 'No encontramos resultados para "{q}".', en: 'No matches for "{q}".' },
+  refineHint:    { es: 'Mostrando {shown} de {total} resultados — refina tu búsqueda para ver más.', en: 'Showing {shown} of {total} matches — refine your search to narrow down.' },
   continue:      { es: 'Continuar', en: 'Continue' },
   pickAtLeastOne:{ es: 'Elige al menos una tienda', en: 'Pick at least one store' },
 })
@@ -126,12 +187,38 @@ const stores = ref([])
 const perStoreFee = ref(10)
 const servicePct = ref(8)
 const loading = ref(true)
+const query = ref('')
 
 const totalServiceFee = computed(() => selectedStoreIds.value.length * perStoreFee.value)
+const pickedStores = computed(() => stores.value.filter((s) => selectedStoreIds.value.includes(s.id)))
+
+// Normalize for accent-insensitive match — search "calvin" should hit "Cálvin"
+// if it ever shows up, and "h&m" should hit "H & M" without needing exact form.
+function normalize(s) {
+  return (s ?? '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+}
+
+const filtered = computed(() => {
+  const q = normalize(query.value)
+  if (!q) return []
+  return stores.value.filter((s) => normalize(s.name).includes(q))
+})
+
+// Deterministic colorful background for the letter-fallback so each
+// brand looks distinct without needing a logo upload.
+const PALETTE = ['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f97316', '#eab308', '#10b981', '#06b6d4', '#3b82f6', '#a855f7']
+function initialBg(name) {
+  let hash = 0
+  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0
+  return PALETTE[hash % PALETTE.length]
+}
 
 onMounted(async () => {
-  // Customer might land here directly without a trip — bounce them back
-  // to Step 1 rather than letting them assemble a half-state PR.
   if (!selectedTrip.value) {
     router.replace('/shop/in-person')
     return
