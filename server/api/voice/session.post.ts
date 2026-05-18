@@ -9,6 +9,11 @@
 // `assets:server` storage namespace). It is loaded once at module init and
 // cached for the lifetime of the server process — restart the app (or
 // re-deploy) to pick up KB edits.
+//
+// OPENAI_API_KEY is read from process.env at REQUEST time (runtime), not
+// via useRuntimeConfig(). Anything in runtimeConfig that pulls from
+// process.env at build time gets baked into the server bundle as a string
+// literal, which Netlify's secrets scanner catches and the deploy fails.
 
 let cachedInstructions: string | null = null
 
@@ -27,7 +32,7 @@ async function getInstructions(): Promise<string> {
 }
 
 export default defineEventHandler(async () => {
-  const { openaiApiKey } = useRuntimeConfig()
+  const openaiApiKey = process.env.OPENAI_API_KEY
   if (!openaiApiKey) {
     throw createError({
       statusCode: 500,

@@ -124,9 +124,13 @@ export default defineNuxtConfig({
     },
   },
   runtimeConfig: {
-    // Server-only. Used by /api/voice/session to mint ephemeral OpenAI
-    // Realtime tokens. Never exposed to the client.
-    openaiApiKey: process.env.OPENAI_API_KEY,
+    // NOTE: do NOT add OPENAI_API_KEY (or any other secret) here.
+    // Anything assigned to runtimeConfig from process.env in this file is
+    // evaluated at BUILD time and baked into the server bundle as a
+    // string literal — Netlify's secrets scanner then catches it inside
+    // .netlify/functions-internal/server/chunks/nitro/nitro.mjs and the
+    // build fails. Read secrets directly from process.env inside the
+    // server route instead (see server/api/voice/session.post.ts).
     public: {
       apiUrl: process.env.API_URL,
       cookieDomain: process.env.COOKIE_DOMAIN,
