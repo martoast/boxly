@@ -37,21 +37,27 @@ export interface InPersonStore {
   description: string | null
 }
 
+// { [store_id]: [category_id, ...] } — what the customer wants us to
+// look for at each store. Stored as plain object so it survives JSON
+// round-tripping in localStorage. Backend persists the same shape into
+// the `store_categories` JSON column on purchase_requests.
+export type StoreCategoryMap = Record<number, number[]>
+
 interface PersistedState {
   selectedTrip: InPersonTrip | null
   selectedStoreIds: number[]
-  selectedCategoryIds: number[]
+  storeCategoryMap: StoreCategoryMap
   minimumBudgetUsd: number | null
   customerNotes: string
   // Wishlist persisted without image File — only metadata survives refresh.
   wishlist: Omit<InPersonWishlistItem, 'image'>[]
 }
 
-const STORAGE_KEY = 'boxly_in_person_request_v1'
+const STORAGE_KEY = 'boxly_in_person_request_v2'
 
 const selectedTrip = ref<InPersonTrip | null>(null)
 const selectedStoreIds = ref<number[]>([])
-const selectedCategoryIds = ref<number[]>([])
+const storeCategoryMap = ref<StoreCategoryMap>({})
 const minimumBudgetUsd = ref<number | null>(null)
 const customerNotes = ref<string>('')
 const wishlist = ref<InPersonWishlistItem[]>([])
@@ -64,7 +70,7 @@ function persist() {
     const payload: PersistedState = {
       selectedTrip: selectedTrip.value,
       selectedStoreIds: selectedStoreIds.value,
-      selectedCategoryIds: selectedCategoryIds.value,
+      storeCategoryMap: storeCategoryMap.value,
       minimumBudgetUsd: minimumBudgetUsd.value,
       customerNotes: customerNotes.value,
       // Strip File handles before serialising — they can't round-trip.
@@ -82,7 +88,7 @@ function rehydrate() {
     const parsed: PersistedState = JSON.parse(raw)
     selectedTrip.value = parsed.selectedTrip ?? null
     selectedStoreIds.value = parsed.selectedStoreIds ?? []
-    selectedCategoryIds.value = parsed.selectedCategoryIds ?? []
+    storeCategoryMap.value = parsed.storeCategoryMap ?? {}
     minimumBudgetUsd.value = parsed.minimumBudgetUsd ?? null
     customerNotes.value = parsed.customerNotes ?? ''
     wishlist.value = (parsed.wishlist ?? []).map((w) => ({ ...w, image: null }))
@@ -111,16 +117,32 @@ export function useInPersonRequest() {
 
   function toggleStore(id: number) {
     const idx = selectedStoreIds.value.indexOf(id)
-    if (idx >= 0) selectedStoreIds.value.splice(idx, 1)
-    else selectedStoreIds.value.push(id)
+    if (idx >= 0) {
+      selectedStoreIds.value.splice(idx, 1)
+      // Deselecting a store drops its category preferences too — they're
+      // meaningless without the store.
+      if (storeCategoryMap.value[id]) {
+        const { [id]: _, ...rest } = storeCategoryMap.value
+        storeCategoryMap.value = rest
+      }
+    } else {
+      selectedStoreIds.value.push(id)
+    }
     persist()
   }
 
-  function toggleCategory(id: number) {
-    const idx = selectedCategoryIds.value.indexOf(id)
-    if (idx >= 0) selectedCategoryIds.value.splice(idx, 1)
-    else selectedCategoryIds.value.push(id)
+  function toggleStoreCategory(storeId: number, categoryId: number) {
+    const current = storeCategoryMap.value[storeId] ?? []
+    const idx = current.indexOf(categoryId)
+    const next = idx >= 0
+      ? current.filter((c) => c !== categoryId)
+      : [...current, categoryId]
+    storeCategoryMap.value = { ...storeCategoryMap.value, [storeId]: next }
     persist()
+  }
+
+  function categoriesForStore(storeId: number): number[] {
+    return storeCategoryMap.value[storeId] ?? []
   }
 
   function setBudget(value: number | null) {
@@ -146,7 +168,7 @@ export function useInPersonRequest() {
   function reset() {
     selectedTrip.value = null
     selectedStoreIds.value = []
-    selectedCategoryIds.value = []
+    storeCategoryMap.value = {}
     minimumBudgetUsd.value = null
     customerNotes.value = ''
     wishlist.value = []
@@ -156,14 +178,15 @@ export function useInPersonRequest() {
   return {
     selectedTrip,
     selectedStoreIds,
-    selectedCategoryIds,
+    storeCategoryMap,
     minimumBudgetUsd,
     customerNotes,
     wishlist,
     stepsReady,
     setTrip,
     toggleStore,
-    toggleCategory,
+    toggleStoreCategory,
+    categoriesForStore,
     setBudget,
     setNotes,
     addWishlistItem,

@@ -184,17 +184,29 @@
             <div class="mt-1 font-bold text-gray-900">${{ Number(request.minimum_budget_usd ?? 0).toFixed(2) }} USD</div>
           </div>
           <div class="sm:col-span-2">
-            <div class="text-xs uppercase tracking-wider text-gray-500 font-semibold mb-1.5">{{ t.inPersonStoresLabel }} ({{ request.stores?.length ?? 0 }})</div>
-            <div v-if="request.stores?.length" class="flex flex-wrap gap-1.5">
-              <span v-for="s in request.stores" :key="s.id" class="px-2.5 py-1 bg-indigo-100 text-indigo-800 rounded-full text-xs font-medium">{{ s.name }}</span>
+            <div class="text-xs uppercase tracking-wider text-gray-500 font-semibold mb-2">
+              {{ t.inPersonStoresLabel }} ({{ request.in_person_breakdown?.length ?? 0 }})
+            </div>
+            <div v-if="request.in_person_breakdown?.length" class="space-y-2">
+              <div
+                v-for="row in request.in_person_breakdown"
+                :key="row.store_id"
+                class="bg-white border border-gray-200 rounded-lg px-3 py-2"
+              >
+                <div class="font-semibold text-gray-900 text-sm">{{ row.store_name }}</div>
+                <div class="mt-1 text-xs">
+                  <template v-if="row.category_names.length">
+                    <span
+                      v-for="(name, i) in row.category_names"
+                      :key="i"
+                      class="inline-block mr-1.5 mt-0.5 px-2 py-0.5 bg-primary-50 text-primary-700 rounded"
+                    >{{ name }}</span>
+                  </template>
+                  <span v-else class="text-gray-400 italic">{{ t.inPersonAnyCategory }}</span>
+                </div>
+              </div>
             </div>
             <div v-else class="text-gray-500 italic">—</div>
-          </div>
-          <div v-if="request.categories?.length" class="sm:col-span-2">
-            <div class="text-xs uppercase tracking-wider text-gray-500 font-semibold mb-1.5">{{ t.inPersonCategoriesLabel }}</div>
-            <div class="flex flex-wrap gap-1.5">
-              <span v-for="c in request.categories" :key="c.id" class="px-2.5 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">{{ c.name }}</span>
-            </div>
           </div>
           <div v-if="request.customer_notes" class="sm:col-span-2 bg-amber-50 border border-amber-200 rounded-lg p-3">
             <div class="text-xs uppercase tracking-wider text-amber-700 font-semibold mb-1">{{ t.inPersonCustomerNotes }}</div>
@@ -722,8 +734,8 @@ const translations = {
   inPersonPanelDesc:     { es: 'Lo que el cliente agendó. Los items abajo (estado "wishlist") son su lista — confírmalos después de la visita con el precio real.', en: 'What the customer scheduled. Items below in "wishlist" state are their list — confirm after the trip with the real price.' },
   inPersonTripLabel:     { es: 'Fecha de la visita', en: 'Visit date' },
   inPersonBudgetLabel:   { es: 'Presupuesto mínimo del cliente', en: "Customer's minimum budget" },
-  inPersonStoresLabel:   { es: 'Tiendas a visitar', en: 'Stores to visit' },
-  inPersonCategoriesLabel:{ es: 'Categorías de interés', en: 'Categories of interest' },
+  inPersonStoresLabel:    { es: 'Tiendas a visitar', en: 'Stores to visit' },
+  inPersonAnyCategory:    { es: 'Cualquier categoría', en: 'Any category' },
   inPersonCustomerNotes: { es: 'Notas del cliente', en: 'Customer notes' },
   inPersonNoTrip:        { es: 'Sin fecha asignada — la visita fue eliminada', en: 'No date — the trip was deleted' },
   financials: { es: 'Finanzas', en: 'Financials' },
