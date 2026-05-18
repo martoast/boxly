@@ -140,30 +140,6 @@ export default {
           light: '#c2d9f0',
         },
 
-        // Boxly brand tokens (in-person flow + new premium surfaces).
-        // Kept separate from `primary` so this rebrand doesn't bleed
-        // into the existing Boxly Store / storefront colors.
-        boxly: {
-          blue: {
-            DEFAULT: '#0A3D91',
-            50:  '#e7eef8',
-            100: '#cedef1',
-            200: '#9dbce3',
-            300: '#6c9bd5',
-            400: '#3b7ac7',
-            500: '#0a59b9',
-            600: '#0A3D91',
-            700: '#082f70',
-            800: '#06214f',
-            900: '#03132e',
-          },
-          yellow: {
-            DEFAULT: '#FFD400',
-            light:   '#fff09e',
-            dark:    '#e6bf00',
-          },
-        },
-
         // Include standard colors needed for status badges
         teal: colors.teal,
         cyan: colors.cyan,
