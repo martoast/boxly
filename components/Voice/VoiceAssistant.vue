@@ -145,10 +145,12 @@ async function start() {
 
   try {
     // 1. Mint an ephemeral OpenAI Realtime session token from our backend.
+    //    GA response shape: `{ value: "ek_...", expires_at, session: {...} }`.
+    //    Fall back to the old `client_secret.value` path defensively in case
+    //    OpenAI ships a transitional response.
     const session = await $fetch('/api/voice/session', { method: 'POST' })
-    const token = session?.client_secret?.value
-    const model = session?.model || 'gpt-realtime'
-    if (!token) throw new Error('No client_secret in session response')
+    const token = session?.value || session?.client_secret?.value
+    if (!token) throw new Error('No ephemeral token in session response')
 
     // 2. Request the visitor's microphone.
     let stream
@@ -184,8 +186,10 @@ async function start() {
     await pc.setLocalDescription(offer)
 
     // 8. Hand the SDP to OpenAI with the ephemeral token — direct.
+    //    GA endpoint: /v1/realtime/calls (no `?model=` param — the model
+    //    is locked into the session when the ephemeral key is minted).
     const sdpRes = await fetch(
-      `https://api.openai.com/v1/realtime?model=${encodeURIComponent(model)}`,
+      'https://api.openai.com/v1/realtime/calls',
       {
         method: 'POST',
         body: offer.sdp,

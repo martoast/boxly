@@ -44,8 +44,14 @@ export default defineEventHandler(async () => {
   const instructions = await getInstructions()
 
   try {
+    // OpenAI Realtime GA — the beta `/v1/realtime/sessions` endpoint was
+    // shut down. Use `/v1/realtime/client_secrets` with the new request
+    // shape (everything wrapped under `session.*`, with `session.type =
+    // "realtime"`, `voice` under `session.audio.output.voice`, and
+    // turn-detection / noise-reduction under `session.audio.input.*`).
+    // Response is `{ value: "ek_...", expires_at, session: {...} }`.
     const session = await $fetch<Record<string, any>>(
-      'https://api.openai.com/v1/realtime/sessions',
+      'https://api.openai.com/v1/realtime/client_secrets',
       {
         method: 'POST',
         headers: {
@@ -53,24 +59,32 @@ export default defineEventHandler(async () => {
           'Content-Type': 'application/json',
         },
         body: {
-          model: 'gpt-realtime',
-          // Warm, multilingual voice — handles Mexican Spanish well.
-          // Swap to `alloy`, `ash`, `verse`, `cedar`, `coral`, etc. if you
-          // want a different feel.
-          voice: 'marin',
-          modalities: ['text', 'audio'],
-          instructions,
-          // Model-side turn detection. `semantic_vad` lets the model use what
-          // the visitor actually said (not just silence) to decide their turn
-          // is over; `eagerness: low` errs on letting them think. Interrupts
-          // yield immediately when the visitor talks over the assistant.
-          turn_detection: {
-            type: 'semantic_vad',
-            eagerness: 'low',
-            create_response: true,
-            interrupt_response: true,
+          session: {
+            type: 'realtime',
+            model: 'gpt-realtime',
+            instructions,
+            audio: {
+              input: {
+                // `semantic_vad` lets the model use what the visitor
+                // actually said (not just silence) to decide their turn
+                // is over; `eagerness: low` errs on letting them think.
+                // Interrupts yield immediately on overlap.
+                turn_detection: {
+                  type: 'semantic_vad',
+                  eagerness: 'low',
+                  create_response: true,
+                  interrupt_response: true,
+                },
+                noise_reduction: { type: 'near_field' },
+              },
+              output: {
+                // Warm, multilingual voice — handles Mexican Spanish well.
+                // Swap to `alloy`, `ash`, `verse`, `cedar`, `coral`, etc.
+                // if you want a different feel.
+                voice: 'marin',
+              },
+            },
           },
-          input_audio_noise_reduction: { type: 'near_field' },
         },
       }
     )
