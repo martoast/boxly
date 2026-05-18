@@ -264,7 +264,7 @@ onMounted(async () => {
  if (selectedStoreIds.value.length === 0) return router.replace('/shop/in-person/stores')
 
  try {
- const res = await $customFetch('/categories')
+ const res = await $customFetch('/store/categories')
  categories.value = res?.data ?? res ?? []
  } catch (e) {
  console.error(e)

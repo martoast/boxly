@@ -206,7 +206,7 @@ onMounted(async () => {
  try {
  const [storesRes, catsRes] = await Promise.all([
  $customFetch('/shopping-trips/in-person-stores'),
- $customFetch('/categories'),
+ $customFetch('/store/categories'),
  ])
  allStores.value = storesRes?.data?.stores ?? []
  allCategories.value = catsRes?.data ?? catsRes ?? []
