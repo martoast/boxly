@@ -146,10 +146,11 @@ const t = createTranslations({
   perStore:        { es: 'tiendas', en: 'stores' },
   feePct:          { es: '+ 8% sobre la compra', en: '+ 8% on the purchase' },
   afterTrip:       { es: 'Se calcula después', en: 'Calculated later' },
-  noPayNow:        { es: 'No te cobramos nada al agendar. Después de la visita te enviamos la cuenta final.', en: "Nothing's charged when you schedule. After the trip we send you the final bill." },
+  noPayNow:        { es: 'Pagas $10 USD por tienda al reservar. La compra y el envío se cobran al final.', en: 'You pay $10 USD per store to book. Merchandise + shipping billed after the trip.' },
   loading:         { es: 'Cargando…', en: 'Loading…' },
-  submit:          { es: 'Agendar visita', en: 'Schedule visit' },
-  submitting:      { es: 'Agendando…', en: 'Scheduling…' },
+  submit:          { es: 'Pagar y reservar visita', en: 'Pay and book visit' },
+  submitting:      { es: 'Redirigiendo al pago…', en: 'Redirecting to payment…' },
+  cancelledToast:  { es: 'Cancelaste el pago. Tu reserva no quedó confirmada — intenta de nuevo.', en: 'Payment cancelled. Your booking was not confirmed — try again.' },
   errorMsg:        { es: 'Algo falló. Intenta de nuevo.', en: 'Something went wrong. Try again.' },
 })
 
@@ -209,20 +210,40 @@ async function submit() {
     })
 
     const res = await $customFetch('/purchase-requests/in-person', { method: 'POST', body: fd })
+
+    // Backend returns the Stripe Checkout URL — hand the customer over to
+    // Stripe. Webhook independently flips the PR to pending_review when the
+    // deposit clears; Stripe's success_url already points at /success.
+    const checkoutUrl = res?.checkout_url
+    if (checkoutUrl) {
+      window.location.href = checkoutUrl
+      return
+    }
+
+    // Defensive: if for some reason we didn't get a checkout URL but the PR
+    // was created, fall through to the local success screen with the ref.
     const prRef = res?.data?.request_number ?? null
     router.push(prRef ? `/shop/in-person/success?ref=${encodeURIComponent(prRef)}` : '/shop/in-person/success')
   } catch (e) {
     console.error(e)
     $toast.error(t.value.errorMsg)
-  } finally {
     submitting.value = false
   }
 }
+
+const route = useRoute()
 
 onMounted(async () => {
   if (!selectedTrip.value) return router.replace('/shop/in-person')
   if (selectedStoreIds.value.length === 0) return router.replace('/shop/in-person/stores')
   if (!minimumBudgetUsd.value) return router.replace('/shop/in-person/details')
+
+  // Returning from Stripe's cancel_url — surface a soft toast and strip
+  // the query param so a refresh doesn't keep re-toasting.
+  if (route.query.cancelled === '1') {
+    $toast.info(t.value.cancelledToast)
+    router.replace('/shop/in-person/review')
+  }
 
   try {
     const [storesRes, catsRes] = await Promise.all([

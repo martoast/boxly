@@ -46,10 +46,10 @@ const { reset } = useInPersonRequest()
 const prRef = computed(() => route.query.ref || null)
 
 const t = createTranslations({
- title: { es: '¡Visita agendada!', en: 'Trip scheduled!' },
- subtitle: { es: 'Recibimos tu solicitud y te enviamos un correo con los detalles.', en: 'We got your request and sent you a confirmation email.' },
+ title: { es: '¡Pago recibido!', en: 'Payment received!' },
+ subtitle: { es: 'Tu visita en Las Américas está confirmada. Te enviamos un correo con todos los detalles.', en: "Your Las Americas visit is locked in. We've emailed you the details." },
  refLabel: { es: 'Tu solicitud', en: 'Your request' },
- next: { es: 'Te avisamos cuando tu cotización esté lista, después de que vayamos a Las Américas en la fecha que elegiste. No se te cobra nada hasta ese momento.', en: "We'll notify you when your quote is ready, after we visit Las Americas on your chosen date. Nothing's charged until then." },
+ next: { es: 'Después de la visita te enviamos la cuenta final con la mercancía, el envío y el 8% de servicio. La reserva que pagaste hoy ya está cubierta.', en: "After the trip we'll send the final bill with merchandise, shipping, and the 8% service fee. Your booking deposit is already covered." },
  viewMine: { es: 'Ver mis solicitudes', en: 'View my requests' },
  backToShop: { es: 'Volver a la tienda', en: 'Back to shop' },
 })

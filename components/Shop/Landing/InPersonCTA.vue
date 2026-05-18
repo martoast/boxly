@@ -1,7 +1,8 @@
 <template>
   <!-- In-person shopping CTA on the /shop landing. Sibling to
        RequestAnythingCTA but distinct: physical visit to Las Americas
-       Outlets, no upfront payment, pay-after-trip model. -->
+       Outlets. $10 USD per store reserved upfront via Stripe Checkout;
+       merchandise + 8% billed after the trip. -->
   <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-16">
     <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary-700 via-primary-600 to-primary-500 px-6 py-12 sm:px-12 sm:py-16 lg:px-16 lg:py-20 shadow-xl">
       <div class="absolute -top-24 -left-24 w-72 h-72 rounded-full bg-white/10 blur-3xl pointer-events-none" aria-hidden="true"></div>
@@ -48,6 +49,6 @@ const t = createTranslations({
   headline:       { es: 'Vamos por ti a Las Américas Outlets', en: "We'll shop Las Americas Outlets for you" },
   subline:        { es: 'Agenda una visita, elige las tiendas y déjanos hacer la compra en persona. $10 USD por tienda + 8% sobre la compra.', en: 'Schedule a visit, pick the stores, and let us shop in person on your behalf. $10 USD per store + 8% on the purchase.' },
   cta:            { es: 'Agendar visita', en: 'Schedule a visit' },
-  noPaymentHint:  { es: 'No pagas nada al agendar', en: 'No payment to schedule' },
+  noPaymentHint:  { es: 'Reservas con $10 USD por tienda', en: 'Reserve with $10 USD per store' },
 })
 </script>
