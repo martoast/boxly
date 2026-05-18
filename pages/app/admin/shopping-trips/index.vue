@@ -173,7 +173,13 @@ function statusClass(s) {
 }
 
 function formatDate(d) {
-  return new Date(d + 'T12:00').toLocaleDateString('es-MX', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })
+  if (!d) return '—'
+  // Accept both 'YYYY-MM-DD' and full ISO ('2026-05-25T00:00:00Z') —
+  // the latter is what Laravel's default `date` cast emits.
+  const datePart = String(d).substring(0, 10)
+  const dt = new Date(datePart + 'T12:00')
+  if (isNaN(dt.getTime())) return d
+  return dt.toLocaleDateString('es-MX', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })
 }
 function formatTime(t) {
   const [h, m] = t.split(':')

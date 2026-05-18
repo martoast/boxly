@@ -114,12 +114,21 @@ function pick(trip) {
   setTrip(trip)
 }
 
+function tripDate(date) {
+  // Robust to both 'YYYY-MM-DD' and full ISO date-time strings.
+  const datePart = String(date ?? '').substring(0, 10)
+  const dt = new Date(datePart + 'T12:00')
+  return isNaN(dt.getTime()) ? null : dt
+}
+
 function formatWeekday(date) {
-  return new Date(date + 'T12:00').toLocaleDateString(language.value === 'es' ? 'es-MX' : 'en-US', { weekday: 'long' })
+  const dt = tripDate(date)
+  return dt ? dt.toLocaleDateString(language.value === 'es' ? 'es-MX' : 'en-US', { weekday: 'long' }) : ''
 }
 
 function formatDate(date) {
-  return new Date(date + 'T12:00').toLocaleDateString(language.value === 'es' ? 'es-MX' : 'en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+  const dt = tripDate(date)
+  return dt ? dt.toLocaleDateString(language.value === 'es' ? 'es-MX' : 'en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : ''
 }
 
 function formatTime(time) {

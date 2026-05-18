@@ -174,7 +174,7 @@
           <div>
             <div class="text-xs uppercase tracking-wider text-gray-500 font-semibold">{{ t.inPersonTripLabel }}</div>
             <div v-if="request.shopping_trip" class="mt-1">
-              <div class="font-bold text-gray-900">{{ request.shopping_trip.trip_date }}</div>
+              <div class="font-bold text-gray-900">{{ formatTripDate(request.shopping_trip.trip_date) }}</div>
               <div class="text-gray-600">{{ request.shopping_trip.location }}</div>
             </div>
             <div v-else class="text-gray-500 mt-1 italic">{{ t.inPersonNoTrip }}</div>
@@ -810,6 +810,16 @@ const translations = {
 };
 
 const t = createTranslations(translations);
+
+// Robust to both 'YYYY-MM-DD' and full ISO date-time strings — Laravel's
+// default `date` cast emits the latter on some models.
+const formatTripDate = (d) => {
+  if (!d) return '';
+  const datePart = String(d).substring(0, 10);
+  const dt = new Date(datePart + 'T12:00');
+  return isNaN(dt.getTime()) ? d : dt.toLocaleDateString('es-MX', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+};
+
 const request = ref(null);
 const loading = ref(true);
 const processing = ref(false);

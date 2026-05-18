@@ -160,7 +160,10 @@ const pickedCategories = computed(() => allCategories.value.filter((c) => select
 const serviceFee = computed(() => selectedStoreIds.value.length * 10)
 
 function formatDate(date) {
-  return new Date(date + 'T12:00').toLocaleDateString(language.value === 'es' ? 'es-MX' : 'en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+  const datePart = String(date ?? '').substring(0, 10)
+  const dt = new Date(datePart + 'T12:00')
+  if (isNaN(dt.getTime())) return ''
+  return dt.toLocaleDateString(language.value === 'es' ? 'es-MX' : 'en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
 }
 
 async function submit() {
