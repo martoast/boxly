@@ -5,6 +5,7 @@
       <ShopLandingHeroBanner />
       <ShopLandingFeaturedProducts />
       <ShopLandingRequestAnythingCTA />
+      <ShopLandingInPersonCTA />
       <ShopLandingBrandShowcase />
     </template>
 

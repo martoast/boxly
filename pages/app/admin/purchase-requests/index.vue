@@ -226,6 +226,7 @@
               <option value="">{{ t.allSources }}</option>
               <option value="store">{{ t.sourceStore }}</option>
               <option value="assisted">{{ t.sourceAssisted }}</option>
+              <option value="in_person">{{ t.sourceInPerson }}</option>
             </select>
           </div>
         </div>
@@ -693,6 +694,7 @@ const t = createTranslations({
   allSources: { es: "Todos los orígenes", en: "All sources" },
   sourceStore: { es: "Tienda Boxly", en: "Boxly Store" },
   sourceAssisted: { es: "Asistido", en: "Assisted" },
+  sourceInPerson: { es: "En Persona (Las Américas)", en: "In Person (Las Americas)" },
 });
 const requests = ref([]);
 const loading = ref(true);

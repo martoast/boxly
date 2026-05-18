@@ -154,6 +154,55 @@
         </div>
       </div>
 
+      <!-- In-person context — renders only for source=in_person PRs.
+           Surfaces what the customer asked for on the /shop/in-person
+           flow: trip date, mall, stores to visit, categories of interest,
+           minimum budget, and customer-facing notes. Items below remain
+           the source of truth for billing — wishlist items there are
+           the customer's pre-trip list. -->
+      <div v-if="request.source === 'in_person'" class="bg-white rounded-xl shadow-sm border-2 border-indigo-200 overflow-hidden">
+        <div class="px-6 py-4 border-b border-indigo-100 bg-gradient-to-r from-indigo-50 to-purple-50 flex items-center gap-3">
+          <div class="w-9 h-9 rounded-lg bg-indigo-600 text-white flex items-center justify-center flex-shrink-0">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0l-4.243-4.243a8 8 0 1111.314 0z M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          </div>
+          <div>
+            <h3 class="font-bold text-gray-900">{{ t.inPersonPanelTitle }}</h3>
+            <p class="text-xs text-gray-500">{{ t.inPersonPanelDesc }}</p>
+          </div>
+        </div>
+        <div class="p-6 grid grid-cols-1 sm:grid-cols-2 gap-5 text-sm">
+          <div>
+            <div class="text-xs uppercase tracking-wider text-gray-500 font-semibold">{{ t.inPersonTripLabel }}</div>
+            <div v-if="request.shopping_trip" class="mt-1">
+              <div class="font-bold text-gray-900">{{ request.shopping_trip.trip_date }}</div>
+              <div class="text-gray-600">{{ request.shopping_trip.location }}</div>
+            </div>
+            <div v-else class="text-gray-500 mt-1 italic">{{ t.inPersonNoTrip }}</div>
+          </div>
+          <div>
+            <div class="text-xs uppercase tracking-wider text-gray-500 font-semibold">{{ t.inPersonBudgetLabel }}</div>
+            <div class="mt-1 font-bold text-gray-900">${{ Number(request.minimum_budget_usd ?? 0).toFixed(2) }} USD</div>
+          </div>
+          <div class="sm:col-span-2">
+            <div class="text-xs uppercase tracking-wider text-gray-500 font-semibold mb-1.5">{{ t.inPersonStoresLabel }} ({{ request.stores?.length ?? 0 }})</div>
+            <div v-if="request.stores?.length" class="flex flex-wrap gap-1.5">
+              <span v-for="s in request.stores" :key="s.id" class="px-2.5 py-1 bg-indigo-100 text-indigo-800 rounded-full text-xs font-medium">{{ s.name }}</span>
+            </div>
+            <div v-else class="text-gray-500 italic">—</div>
+          </div>
+          <div v-if="request.categories?.length" class="sm:col-span-2">
+            <div class="text-xs uppercase tracking-wider text-gray-500 font-semibold mb-1.5">{{ t.inPersonCategoriesLabel }}</div>
+            <div class="flex flex-wrap gap-1.5">
+              <span v-for="c in request.categories" :key="c.id" class="px-2.5 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">{{ c.name }}</span>
+            </div>
+          </div>
+          <div v-if="request.customer_notes" class="sm:col-span-2 bg-amber-50 border border-amber-200 rounded-lg p-3">
+            <div class="text-xs uppercase tracking-wider text-amber-700 font-semibold mb-1">{{ t.inPersonCustomerNotes }}</div>
+            <p class="text-sm text-amber-900 whitespace-pre-wrap">{{ request.customer_notes }}</p>
+          </div>
+        </div>
+      </div>
+
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <!-- Items List -->
         <div class="lg:col-span-2 space-y-6">
@@ -669,6 +718,14 @@ const translations = {
   price: { es: 'Precio', en: 'Price' },
   subtotal: { es: 'Subtotal', en: 'Subtotal' },
   customerNotes: { es: 'Notas del Cliente', en: 'Customer Notes' },
+  inPersonPanelTitle:    { es: 'Visita en persona a Las Américas', en: 'In-person trip to Las Americas' },
+  inPersonPanelDesc:     { es: 'Lo que el cliente agendó. Los items abajo (estado "wishlist") son su lista — confírmalos después de la visita con el precio real.', en: 'What the customer scheduled. Items below in "wishlist" state are their list — confirm after the trip with the real price.' },
+  inPersonTripLabel:     { es: 'Fecha de la visita', en: 'Visit date' },
+  inPersonBudgetLabel:   { es: 'Presupuesto mínimo del cliente', en: "Customer's minimum budget" },
+  inPersonStoresLabel:   { es: 'Tiendas a visitar', en: 'Stores to visit' },
+  inPersonCategoriesLabel:{ es: 'Categorías de interés', en: 'Categories of interest' },
+  inPersonCustomerNotes: { es: 'Notas del cliente', en: 'Customer notes' },
+  inPersonNoTrip:        { es: 'Sin fecha asignada — la visita fue eliminada', en: 'No date — the trip was deleted' },
   financials: { es: 'Finanzas', en: 'Financials' },
   calculateQuote: { es: 'Calcular Cotización', en: 'Calculate Quote' },
   yourCost: { es: 'Costo', en: 'Cost' },
