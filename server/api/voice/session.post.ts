@@ -71,7 +71,11 @@ export default defineEventHandler(async () => {
                 // Interrupts yield immediately on overlap.
                 turn_detection: {
                   type: 'semantic_vad',
-                  eagerness: 'low',
+                  // `auto` (the default) is snappier than `low` and better
+                  // suited to short Q&A turns on a website widget. Bump
+                  // back to `low` if the model is cutting visitors off
+                  // when they pause to think.
+                  eagerness: 'auto',
                   create_response: true,
                   interrupt_response: true,
                 },

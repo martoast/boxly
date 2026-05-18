@@ -168,6 +168,8 @@ async function start() {
 
     // 4. Route the assistant's audio track into the page's <audio> element.
     pc.ontrack = (e) => {
+      // eslint-disable-next-line no-console
+      console.debug('[voice] remote track received:', e.track.kind, 'streams:', e.streams.length)
       if (audioEl.value && e.streams[0]) {
         audioEl.value.srcObject = e.streams[0]
       }
@@ -176,10 +178,36 @@ async function start() {
     // 5. Send the visitor's mic upstream.
     pc.addTrack(stream.getAudioTracks()[0], stream)
 
-    // 6. Open the data channel for Realtime events (transcripts, etc.).
-    //    We do not use the events yet, but the channel is required to be
-    //    open for the SDP exchange to work cleanly.
+    // 6. Open the data channel for Realtime events. Once open, kick off
+    //    an initial assistant greeting so the visitor knows it's live —
+    //    without this the model just waits silently until VAD picks up
+    //    the visitor's voice, which feels broken.
     dataChannel = pc.createDataChannel('oai-events')
+    dataChannel.addEventListener('open', () => {
+      try {
+        dataChannel.send(
+          JSON.stringify({
+            type: 'response.create',
+            response: {
+              instructions:
+                'Saluda al visitante brevemente en español casual (una sola frase corta) y pregúntale en qué le puedes ayudar.',
+            },
+          })
+        )
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error('[voice] failed to send initial greeting:', err)
+      }
+    })
+    dataChannel.addEventListener('message', (ev) => {
+      try {
+        const evt = JSON.parse(ev.data)
+        if (evt?.type === 'error') {
+          // eslint-disable-next-line no-console
+          console.error('[voice] OpenAI error event:', evt)
+        }
+      } catch {}
+    })
 
     // 7. Generate the SDP offer.
     const offer = await pc.createOffer()
