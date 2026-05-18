@@ -59,31 +59,39 @@ export default defineEventHandler(async () => {
           'Content-Type': 'application/json',
         },
         body: {
+          // Extend the ephemeral token TTL from the 60s default to 10 min
+          // so the client can prefetch it on page mount and have it ready
+          // for a near-instant click-to-speak. Max allowed is 7200s.
+          expires_after: { anchor: 'created_at', seconds: 600 },
           session: {
             type: 'realtime',
-            model: 'gpt-realtime',
+            // gpt-realtime-2 (May 2026): GPT-5-class reasoning, 128K
+            // context, parallel tool calls. `reasoning.effort: minimal`
+            // keeps time-to-first-audio in the ~1.1s range while still
+            // benefiting from the new model's instruction-following and
+            // dynamics gains over `gpt-realtime`.
+            model: 'gpt-realtime-2',
+            reasoning: { effort: 'minimal' },
             instructions,
             audio: {
               input: {
-                // `semantic_vad` lets the model use what the visitor
-                // actually said (not just silence) to decide their turn
-                // is over; `eagerness: low` errs on letting them think.
-                // Interrupts yield immediately on overlap.
+                // `semantic_vad` uses what the visitor actually said (not
+                // just silence) to decide their turn is over. `eagerness:
+                // low` errs on letting them think — important for
+                // Spanish-speaking visitors who pause mid-sentence
+                // ("entonces… si mando una caja…"). Bump back to `auto`
+                // if turn pickup ever feels sluggish.
                 turn_detection: {
                   type: 'semantic_vad',
-                  // `auto` (the default) is snappier than `low` and better
-                  // suited to short Q&A turns on a website widget. Bump
-                  // back to `low` if the model is cutting visitors off
-                  // when they pause to think.
-                  eagerness: 'auto',
+                  eagerness: 'low',
                   create_response: true,
                   interrupt_response: true,
                 },
                 noise_reduction: { type: 'near_field' },
               },
               output: {
-                // Warm, multilingual voice — handles Mexican Spanish well.
-                // Swap to `alloy`, `ash`, `verse`, `cedar`, `coral`, etc.
+                // Warm, multilingual voice — handles Mexican Spanish
+                // well. Swap to `cedar`, `alloy`, `ash`, `verse`, etc.
                 // if you want a different feel.
                 voice: 'marin',
               },

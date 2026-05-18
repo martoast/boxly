@@ -86,6 +86,13 @@ const t = createTranslations(translations)
 
 useHead({
   title: 'Asistente Boxly · Habla con nosotros',
+  // Preconnect + DNS-prefetch to api.openai.com so the WebRTC SDP POST
+  // skips DNS + TCP + TLS handshake on the critical path (saves
+  // ~100–300ms of time-to-first-audio).
+  link: [
+    { rel: 'preconnect', href: 'https://api.openai.com', crossorigin: 'anonymous' },
+    { rel: 'dns-prefetch', href: 'https://api.openai.com' },
+  ],
   meta: [
     {
       name: 'description',
