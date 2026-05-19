@@ -24,7 +24,7 @@
 
         <div class="flex flex-col sm:flex-row lg:flex-col gap-3 sm:gap-4 lg:shrink-0">
           <NuxtLink
-            to="/shop/request"
+            to="/shop/request/online"
             class="inline-flex items-center justify-center gap-2 px-7 py-4 bg-white text-gray-900 font-bold rounded-full shadow-lg hover:shadow-xl hover:bg-gray-100 transition-all text-base"
           >
             {{ t.requestCta }}

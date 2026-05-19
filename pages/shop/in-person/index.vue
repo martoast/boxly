@@ -92,8 +92,8 @@ const { selectedTrip, setTrip } = useInPersonRequest()
 
 const t = createTranslations({
  back: { es: 'Volver', en: 'Back' },
- title: { es: 'Elige la fecha de la visita', en: 'Pick the visit date' },
- subtitle: { es: 'Nuestro equipo va a Las Américas estos días.', en: 'Our team visits Las Americas on these days.' },
+ title: { es: 'Elige la fecha de tu visita', en: 'Pick your visit date' },
+ subtitle: { es: 'Compramos por ti en outlets y tiendas físicas — ideal para boutiques y compras múltiples.', en: 'We shop US outlets and stores for you — built for boutiques and multi-store runs.' },
  loading: { es: 'Cargando fechas…', en: 'Loading dates…' },
  noneTitle: { es: 'No hay fechas abiertas', en: 'No open dates right now' },
  noneDesc: { es: 'Estamos planeando la próxima visita. Vuelve a checar pronto.', en: "We're planning the next trip. Check back soon." },

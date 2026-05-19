@@ -103,8 +103,8 @@ const t = createTranslations({
   onlineBullet1: { es: 'Cualquier tienda de USA', en: 'Any US store' },
   onlineBullet2: { es: 'Te cotizamos antes de comprar', en: 'You get a quote before we buy' },
 
-  inPersonTitle:    { es: 'Compra en persona en Las Américas', en: 'In-person shopping at Las Americas' },
-  inPersonDesc:     { es: 'Reservas una visita al outlet — compramos en persona.', en: 'Book an outlet visit — we shop in person.' },
+  inPersonTitle:    { es: 'Compras presenciales en outlets y tiendas físicas', en: 'In-person shopping at US outlets and stores' },
+  inPersonDesc:     { es: 'Ideal para boutiques, mayoreo y compras múltiples. Reservas una visita y compramos por ti en persona.', en: 'Built for boutiques, wholesale, and multi-store runs. Reserve a visit and we shop in person.' },
   inPersonBullet1:  { es: 'Reservas con $10 USD por tienda', en: 'Reserve with $10 USD per store' },
   inPersonBullet2:  { es: '+ 10% sobre la compra al final', en: '+ 10% on the purchase at the end' },
 });

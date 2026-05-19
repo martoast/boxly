@@ -118,10 +118,10 @@ const t = createTranslations({
   onlineBullet1: { es: 'Compra en cualquier tienda de USA', en: 'Shop any US store' },
   onlineBullet2: { es: 'Te cotizamos antes de comprar', en: 'You get a quote before we buy' },
 
-  inPersonTitle:    { es: 'Compra en persona en Las Américas', en: 'In-person shopping at Las Americas' },
-  inPersonDesc:     { es: 'Agendamos una visita al outlet de Las Américas y compramos en persona los productos que quieres en las tiendas que elijas.', en: 'We schedule a visit to Las Americas Outlets and shop in person at the stores you pick.' },
-  inPersonBullet1:  { es: 'Reservas con $10 USD por tienda — el resto al final', en: 'Book with $10 USD per store — the rest after the trip' },
-  inPersonBullet2:  { es: '$10 USD por tienda + 10% sobre la compra', en: '$10 USD per store + 10% on the purchase' },
-  inPersonBullet3:  { es: 'Comparte tu lista de deseos o déjanos elegir', en: 'Share a wishlist or let us pick' },
+  inPersonTitle:    { es: 'Compras presenciales en outlets y tiendas físicas', en: 'In-person shopping at US outlets and stores' },
+  inPersonDesc:     { es: 'Ideal para boutiques, mayoreo y compras múltiples. Agendamos una visita, vamos a las tiendas que elijas y hacemos la compra en persona.', en: 'Built for boutiques, wholesale, and multi-store runs. Book a visit, pick your stores, and we shop in person.' },
+  inPersonBullet1:  { es: 'Reservas con $10 USD por tienda', en: 'Reserve with $10 USD per store' },
+  inPersonBullet2:  { es: '+ 10% sobre la compra al final', en: '+ 10% on the purchase at the end' },
+  inPersonBullet3:  { es: 'Comparte tu lista o déjanos curar las mejores ofertas', en: 'Share your list or let us curate the best deals' },
 });
 </script>
