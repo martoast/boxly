@@ -211,6 +211,7 @@
               class="w-full sm:w-48 px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             >
               <option value="">{{ t.allStatuses }}</option>
+              <option value="awaiting_deposit">{{ t.awaitingDeposit }}</option>
               <option value="pending_review">{{ t.pendingReview }}</option>
               <option value="quoted">{{ t.quoted }}</option>
               <option value="paid">{{ t.paid }}</option>
@@ -672,6 +673,7 @@ const translations = {
   purchased: { es: "Comprado", en: "Purchased" },
   rejected: { es: "Rechazado", en: "Rejected" },
   cancelled: { es: "Cancelado", en: "Cancelled" },
+  awaitingDeposit: { es: "Pago de Reserva Pendiente", en: "Awaiting Deposit" },
   // Bulk status update
   bulkSetStatus: { es: "Cambiar estado…", en: "Change status…" },
   updating: { es: "Actualizando…", en: "Updating…" },

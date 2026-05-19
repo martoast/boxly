@@ -204,7 +204,8 @@
     paid: { es: 'Pagado - Procesando Compra', en: 'Paid - Processing Purchase' },
     purchased: { es: 'Comprado', en: 'Purchased' },
     rejected: { es: 'Rechazado', en: 'Rejected' },
-    cancelled: { es: 'Cancelado', en: 'Cancelled' }
+    cancelled: { es: 'Cancelado', en: 'Cancelled' },
+    awaiting_deposit: { es: 'Pago de Reserva Pendiente', en: 'Awaiting Booking Deposit' }
   };
   
   const t = createTranslations(translations);
@@ -263,6 +264,7 @@
       purchased: 'bg-green-50 text-green-700 border-green-200',
       rejected: 'bg-red-50 text-red-700 border-red-200',
       cancelled: 'bg-gray-50 text-gray-700 border-gray-200',
+      awaiting_deposit: 'bg-amber-50 text-amber-700 border-amber-200',
     };
     return map[status] || 'bg-gray-50 text-gray-600';
   };
