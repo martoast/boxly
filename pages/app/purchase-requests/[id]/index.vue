@@ -290,7 +290,7 @@
               <div v-if="request.status !== 'pending_review'" class="space-y-3 pt-3 border-t border-dashed border-gray-200">
                 <div class="flex justify-between text-gray-600"><span>{{ t.shipping }}</span><span>${{ request.shipping_cost || '0.00' }}</span></div>
                 <div class="flex justify-between text-gray-600"><span>{{ t.tax }}</span><span>${{ request.sales_tax || '0.00' }}</span></div>
-                <div class="flex justify-between text-gray-600"><span>{{ t.fee }} (8%)</span><span>${{ request.processing_fee || '0.00' }}</span></div>
+                <div class="flex justify-between text-gray-600"><span>{{ t.fee }} (10%)</span><span>${{ request.processing_fee || '0.00' }}</span></div>
               </div>
               <div v-if="request.status !== 'pending_review'" class="pt-4 mt-4 border-t border-gray-200 flex justify-between font-bold text-lg text-gray-900">
                 <span>{{ t.total }}</span>
@@ -350,7 +350,7 @@ const translations = {
   budgetLabel:      { es: 'Presupuesto mínimo', en: 'Minimum budget' },
   notesLabel:       { es: 'Notas para el equipo', en: 'Notes for the team' },
   wishlistLabel:    { es: 'Lista de deseos', en: 'Wishlist' },
-  inPersonWhatsNext:{ es: 'Después de la visita revisamos lo que conseguimos y te enviamos una cotización final con la mercancía, el envío al almacén y el 8% de servicio. La reserva ya está cubierta.', en: 'After the trip we review what we found and send you a final quote with the merchandise, warehouse shipping, and 8% service fee. The deposit is already covered.' },
+  inPersonWhatsNext:{ es: 'Después de la visita revisamos lo que conseguimos y te enviamos una cotización final con la mercancía, el envío al almacén y el 10% de servicio. La reserva ya está cubierta.', en: 'After the trip we review what we found and send you a final quote with the merchandise, warehouse shipping, and 10% service fee. The deposit is already covered.' },
 
   // Online layout labels
   editRequest:   { es: 'Editar', en: 'Edit' },

@@ -773,7 +773,7 @@ const rejectReason = ref('');
 // one charge but the breakdown survives reloads via PR.store_costs.
 const quoteForm = ref({
   store_costs: {},                // { 'amazon.com': { shipping: 0, tax: 0 } }
-  processing_fee_percent: 8,
+  processing_fee_percent: 10,
   admin_notes: '',
 });
 const sendingQuote = ref(false);

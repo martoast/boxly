@@ -64,7 +64,7 @@
                 <div class="flex-1 min-w-0">
                   <div class="flex items-center gap-2 mb-1">
                     <h3 class="font-bold text-gray-900 text-base">Compra Online</h3>
-                    <span class="text-xs font-semibold text-primary-600 bg-primary-50 border border-primary-100 px-2 py-0.5 rounded-full">8% comisión</span>
+                    <span class="text-xs font-semibold text-primary-600 bg-primary-50 border border-primary-100 px-2 py-0.5 rounded-full">10% comisión</span>
                   </div>
                   <p class="text-sm text-gray-500 leading-snug">Mándanos el link del producto y nosotros lo compramos con nuestra tarjeta americana.</p>
                 </div>

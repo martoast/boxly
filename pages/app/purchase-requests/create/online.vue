@@ -147,7 +147,7 @@
               <span>{{ t.tbd }}</span>
             </div>
             <div class="flex justify-between">
-              <span>+ {{ t.serviceFee }} (8%)</span>
+              <span>+ {{ t.serviceFee }} (10%)</span>
               <span>{{ t.tbd }}</span>
             </div>
           </div>

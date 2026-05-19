@@ -144,7 +144,7 @@ const t = createTranslations({
   notesLabel:      { es: 'Notas', en: 'Notes' },
   anyCategory:     { es: 'Cualquier categoría', en: 'Any category' },
   perStore:        { es: 'tiendas', en: 'stores' },
-  feePct:          { es: '+ 8% sobre la compra', en: '+ 8% on the purchase' },
+  feePct:          { es: '+ 10% sobre la compra', en: '+ 10% on the purchase' },
   afterTrip:       { es: 'Se calcula después', en: 'Calculated later' },
   noPayNow:        { es: 'Pagas $10 USD por tienda al reservar. La compra y el envío se cobran al final.', en: 'You pay $10 USD per store to book. Merchandise + shipping billed after the trip.' },
   loading:         { es: 'Cargando…', en: 'Loading…' },

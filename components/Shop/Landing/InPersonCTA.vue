@@ -47,7 +47,7 @@ const { t: createTranslations } = useLanguage()
 const t = createTranslations({
   eyebrow:        { es: 'Compra en persona en San Diego', en: 'In-person shopping in San Diego' },
   headline:       { es: 'Vamos por ti a Las Américas Outlets', en: "We'll shop Las Americas Outlets for you" },
-  subline:        { es: 'Agenda una visita, elige las tiendas y déjanos hacer la compra en persona. $10 USD por tienda + 8% sobre la compra.', en: 'Schedule a visit, pick the stores, and let us shop in person on your behalf. $10 USD per store + 8% on the purchase.' },
+  subline:        { es: 'Agenda una visita, elige las tiendas y déjanos hacer la compra en persona. $10 USD por tienda + 10% sobre la compra.', en: 'Schedule a visit, pick the stores, and let us shop in person on your behalf. $10 USD per store + 10% on the purchase.' },
   cta:            { es: 'Agendar visita', en: 'Schedule a visit' },
   noPaymentHint:  { es: 'Reservas con $10 USD por tienda', en: 'Reserve with $10 USD per store' },
 })

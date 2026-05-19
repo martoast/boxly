@@ -81,7 +81,7 @@
                 <p class="text-sm text-gray-500 leading-snug">Mándanos el link y compramos con nuestra tarjeta americana.</p>
               </div>
               <div class="mt-auto flex items-center justify-between">
-                <span class="text-xs font-semibold text-primary-600 bg-primary-50 border border-primary-100 px-2.5 py-1 rounded-full">8% comisión</span>
+                <span class="text-xs font-semibold text-primary-600 bg-primary-50 border border-primary-100 px-2.5 py-1 rounded-full">10% comisión</span>
                 <svg class="h-4 w-4 text-gray-300 group-hover:text-primary-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                 </svg>

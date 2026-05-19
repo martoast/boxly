@@ -49,7 +49,7 @@ const t = createTranslations({
  title: { es: '¡Pago recibido!', en: 'Payment received!' },
  subtitle: { es: 'Tu visita en Las Américas está confirmada. Te enviamos un correo con todos los detalles.', en: "Your Las Americas visit is locked in. We've emailed you the details." },
  refLabel: { es: 'Tu solicitud', en: 'Your request' },
- next: { es: 'Después de la visita te enviamos la cuenta final con la mercancía, el envío y el 8% de servicio. La reserva que pagaste hoy ya está cubierta.', en: "After the trip we'll send the final bill with merchandise, shipping, and the 8% service fee. Your booking deposit is already covered." },
+ next: { es: 'Después de la visita te enviamos la cuenta final con la mercancía, el envío y el 10% de servicio. La reserva que pagaste hoy ya está cubierta.', en: "After the trip we'll send the final bill with merchandise, shipping, and the 10% service fee. Your booking deposit is already covered." },
  viewMine: { es: 'Ver mis solicitudes', en: 'View my requests' },
  backToShop: { es: 'Volver a la tienda', en: 'Back to shop' },
 })

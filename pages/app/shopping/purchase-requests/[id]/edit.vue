@@ -260,10 +260,10 @@ const marginDisplayClass = computed(() => {
   return 'bg-green-50 border-green-200 text-green-700';
 });
 
-// Quick apply 8% margin
+// Quick apply 10% margin
 const applyMargin = () => {
   const cost = form.value.items_total || 0;
-  form.value.total_amount = Math.round(cost * 1.08 * 100) / 100;
+  form.value.total_amount = Math.round(cost * 1.10 * 100) / 100;
 };
 
 const translations = {
@@ -283,7 +283,7 @@ const translations = {
   yourCost: { es: "Tu Costo", en: "Your Cost" },
   yourCostHint: { es: "Incluye artículos + envío + impuestos", en: "Includes items + shipping + taxes" },
   customerPays: { es: "Cliente Paga", en: "Customer Pays" },
-  apply8Percent: { es: "+ 8%", en: "+ 8%" },
+  apply8Percent: { es: "+ 10%", en: "+ 10%" },
   yourMargin: { es: "Tu Ganancia", en: "Your Margin" },
   links: { es: "Enlaces", en: "Links" },
   paymentLink: { es: "Enlace de Pago", en: "Payment Link" },

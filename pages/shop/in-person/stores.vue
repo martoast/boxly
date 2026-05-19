@@ -183,7 +183,7 @@ const stepLabels = computed(() => [
 
 const stores = ref([])
 const perStoreFee = ref(10)
-const servicePct = ref(8)
+const servicePct = ref(10)
 const loading = ref(true)
 const query = ref('')
 const showAll = ref(false)
@@ -236,7 +236,7 @@ onMounted(async () => {
     const res = await $customFetch('/shopping-trips/in-person-stores')
     stores.value = res?.data?.stores ?? []
     perStoreFee.value = res?.data?.per_store_fee_usd ?? 10
-    servicePct.value = res?.data?.service_fee_percent ?? 8
+    servicePct.value = res?.data?.service_fee_percent ?? 10
   } catch (e) {
     console.error(e)
   } finally {

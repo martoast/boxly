@@ -106,6 +106,6 @@ const t = createTranslations({
   inPersonTitle:    { es: 'Compra en persona en Las Américas', en: 'In-person shopping at Las Americas' },
   inPersonDesc:     { es: 'Reservas una visita al outlet — compramos en persona.', en: 'Book an outlet visit — we shop in person.' },
   inPersonBullet1:  { es: 'Reservas con $10 USD por tienda', en: 'Reserve with $10 USD per store' },
-  inPersonBullet2:  { es: '+ 8% sobre la compra al final', en: '+ 8% on the purchase at the end' },
+  inPersonBullet2:  { es: '+ 10% sobre la compra al final', en: '+ 10% on the purchase at the end' },
 });
 </script>

@@ -204,7 +204,7 @@
                   <!-- Floating 8% badge -->
                   <div class="absolute -bottom-3 -right-3 md:-bottom-4 md:-right-4 bg-amber-500 text-white rounded-full px-4 py-2 md:px-5 md:py-3 shadow-xl">
                     <p class="text-xs font-bold uppercase">{{ t.feeBadgeLabel }}</p>
-                    <p class="text-xl md:text-2xl font-bold">8%</p>
+                    <p class="text-xl md:text-2xl font-bold">10%</p>
                   </div>
                 </div>
               </div>
@@ -501,8 +501,8 @@ const translations = {
     en: "Pay in pesos to a Mexican account, no international fees",
   },
   assistedFee: {
-    es: "Solo 8% de tarifa de servicio sobre el valor del producto",
-    en: "Only 8% service fee on product value",
+    es: "Solo 10% de tarifa de servicio sobre el valor del producto",
+    en: "Only 10% service fee on product value",
   },
   feeBadgeLabel: {
     es: "Solo",
