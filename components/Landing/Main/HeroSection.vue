@@ -36,14 +36,14 @@
     <div class="relative min-h-[480px] sm:min-h-[540px] lg:min-h-[620px] flex flex-col">
       <div class="flex-1 flex items-center">
         <div class="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 pt-16 sm:pt-20 lg:pt-24 pb-8">
-          <div class="max-w-2xl mx-auto sm:mx-0 text-center sm:text-left">
+          <div class="max-w-2xl">
             <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-white leading-[1.05] tracking-tight">
               {{ t.title }}
             </h1>
-            <p class="text-base sm:text-lg lg:text-xl text-white/85 mt-4 sm:mt-5 max-w-xl mx-auto sm:mx-0 leading-relaxed">
+            <p class="text-base sm:text-lg lg:text-xl text-white/85 mt-4 sm:mt-5 max-w-xl leading-relaxed">
               {{ t.subtitle }}
             </p>
-            <div class="mt-7 flex flex-col sm:flex-row items-center sm:items-start gap-3">
+            <div class="mt-7 flex flex-col sm:flex-row gap-3">
               <!-- Primary — register (or dashboard if signed in). On mobile
                    this is the main entry to the app since the nav doesn't
                    expose auth buttons. -->

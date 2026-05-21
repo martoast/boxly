@@ -19,16 +19,9 @@
             <h2 class="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight leading-[1.1] mb-4">
               {{ t.headline }}
             </h2>
-            <p class="text-white/85 text-base sm:text-lg leading-relaxed mb-6 max-w-lg">
+            <p class="text-white/85 text-base sm:text-lg leading-relaxed mb-7 max-w-lg">
               {{ t.subline }}
             </p>
-
-            <ul class="space-y-2.5 mb-7 text-sm sm:text-base">
-              <li v-for="(bullet, i) in bullets" :key="i" class="flex items-start gap-2.5">
-                <svg class="w-5 h-5 flex-shrink-0 mt-0.5 text-white/90" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-                <span class="text-white/90">{{ bullet }}</span>
-              </li>
-            </ul>
 
             <div class="flex flex-col sm:flex-row gap-3">
               <NuxtLink
@@ -61,21 +54,14 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
-
 const { t: createTranslations } = useLanguage()
 
 const t = createTranslations({
   eyebrow:  { es: 'Servicio premium', en: 'Premium service' },
   headline: { es: 'Tu personal shopper en USA', en: 'Your personal shopper in the US' },
-  subline:  { es: 'Agendamos una visita a outlets y tiendas físicas en San Diego. Vamos a las tiendas que tú elijas, compramos por ti y lo enviamos a México.', en: 'We book outlet and store visits in San Diego. We go to the stores you pick, shop on your behalf, and ship to Mexico.' },
-  bullet1:  { es: 'Ideal para boutiques, mayoreo y compras múltiples', en: 'Built for boutiques, wholesale, and multi-store runs' },
-  bullet2:  { es: 'Tú eliges las tiendas — nosotros vamos por ti', en: 'You pick the stores — we shop them for you' },
-  bullet3:  { es: 'Recibimos, consolidamos y enviamos a tu casa', en: 'We receive, consolidate, and ship to your home' },
+  subline:  { es: 'Vamos a los outlets y tiendas que tú elijas en San Diego, compramos por ti y lo enviamos a México.', en: 'We visit the San Diego outlets and stores you pick, shop for you, and ship to Mexico.' },
   cta:      { es: 'Agendar visita', en: 'Schedule a visit' },
   hint:     { es: 'Reservas con $10 USD por tienda', en: 'Reserve with $10 USD per store' },
   imageAlt: { es: 'Personal shopper de Boxly en San Diego', en: 'Boxly personal shopper in San Diego' },
 })
-
-const bullets = computed(() => [t.value.bullet1, t.value.bullet2, t.value.bullet3])
 </script>
