@@ -47,7 +47,7 @@ const { t: createTranslations } = useLanguage()
 
 const t = createTranslations({
   eyebrow: { es: 'Lo más buscado en USA', en: 'Trending in the US' },
-  title:   { es: 'Productos que están moviéndose', en: 'What\'s moving right now' },
+  title:   { es: 'Productos en tendencia', en: 'Trending products' },
   seeAll:  { es: 'Ver toda la tienda', en: 'See the full store' },
 })
 

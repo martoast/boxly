@@ -11,16 +11,16 @@
       <ServiceLanes />
     </section>
 
-    <!-- 5. Trending in USA — curated product rail (Boxly Store window) -->
+    <!-- 5. Brands showcase — clickable store cards from the Boxly Store catalog -->
+    <BrandsRail />
+
+    <!-- 6. Trending in USA — curated product rail (Boxly Store window) -->
     <TrendingRail />
 
-    <!-- 6. Wedge CTA — "send us the link". Sits right after the store
+    <!-- 7. Wedge CTA — "send us the link". Sits right after the product
             rail so customers who didn't find what they wanted in the
             catalog land here next: the unlimited-access promise. -->
     <WedgeCTA />
-
-    <!-- 7. Brands showcase — clickable store cards from the Boxly Store catalog -->
-    <BrandsRail />
 
     <!-- 8. Concierge spotlight — premium in-person section -->
     <ConciergeSpotlight />
