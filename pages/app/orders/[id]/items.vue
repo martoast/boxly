@@ -96,28 +96,6 @@
                 </div>
             </div>
 
-            <!-- PROOF OF PURCHASE (required) -->
-            <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-1">{{ t.receipt }} <span class="text-red-500">*</span></label>
-                <p class="text-xs text-gray-500 mb-2">{{ t.receiptHelp }}</p>
-                <input ref="fileInputDesktop" type="file" accept=".pdf,.jpg,.jpeg,.png" @change="handleFileSelect" class="hidden" />
-                <div v-if="selectedFile" class="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center justify-between">
-                    <span class="text-xs text-green-700 font-medium truncate pr-2">{{ selectedFile.name }}</span>
-                    <button type="button" @click="removeFile" class="text-green-600 hover:text-green-800"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
-                </div>
-                <div v-else-if="existingFiles.proof.url && !markedForDeletion.proof" class="bg-white border border-gray-200 rounded-lg p-3 flex items-center justify-between group">
-                    <div class="flex items-center gap-2 overflow-hidden">
-                        <svg class="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                        <a :href="existingFiles.proof.url" target="_blank" class="text-xs font-medium text-blue-600 hover:underline truncate">{{ existingFiles.proof.name }}</a>
-                    </div>
-                    <div class="flex items-center gap-1">
-                        <button type="button" @click="fileInputDesktop?.click()" class="p-1.5 text-gray-400 hover:text-primary-600 rounded hover:bg-gray-100" title="Replace"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg></button>
-                        <button type="button" @click="markedForDeletion.proof = true" class="p-1.5 text-gray-400 hover:text-red-600 rounded hover:bg-red-50" title="Delete"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
-                    </div>
-                </div>
-                <div v-else @click="fileInputDesktop?.click()" class="bg-white border border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer hover:border-primary-400 hover:bg-primary-50/30 transition-all"><span class="text-xs text-gray-500">{{ t.clickToUpload }}</span></div>
-            </div>
-
             <!-- OPTIONAL TOGGLE -->
             <div>
                 <button type="button" @click="showDetails = !showDetails" class="flex items-center gap-2 text-sm font-medium text-primary-600 hover:text-primary-700 transition-colors focus:outline-none">
@@ -215,6 +193,31 @@
             </div>
           </TransitionGroup>
 
+          <!-- ORDER PROOF OF PURCHASE — required before confirming. One array
+               of files for the whole order so the customer can upload a
+               receipt per store in this final step. -->
+          <div v-if="canEdit" class="bg-white rounded-xl border border-gray-200 p-5">
+            <h3 class="text-base font-bold text-gray-900">{{ t.proofTitle }} <span class="text-red-500">*</span></h3>
+            <p class="text-sm text-gray-500 mt-1 mb-4">{{ t.proofHelp }}</p>
+
+            <input ref="proofInput" type="file" multiple accept=".pdf,.jpg,.jpeg,.png" @change="handleProofSelect" class="hidden" />
+
+            <div v-if="orderProofs.length" class="space-y-2 mb-4">
+              <div v-for="(f, i) in orderProofs" :key="i" class="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg p-3">
+                <a :href="f.url" target="_blank" class="flex items-center gap-2 overflow-hidden min-w-0">
+                  <svg class="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                  <span class="text-sm font-medium text-blue-600 hover:underline truncate">{{ f.filename || `${t.receipt} ${i + 1}` }}</span>
+                </a>
+                <button type="button" @click="deleteOrderProof(i)" class="p-1.5 text-gray-400 hover:text-red-600 rounded hover:bg-red-50 flex-shrink-0" :title="t.remove"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
+              </div>
+            </div>
+
+            <button type="button" @click="proofInput?.click()" :disabled="proofUploading" class="w-full py-3 border border-dashed border-gray-300 rounded-lg text-sm font-semibold text-primary-600 hover:border-primary-400 hover:bg-primary-50/30 transition-all disabled:opacity-60 flex items-center justify-center gap-2">
+              <svg v-if="!proofUploading" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+              {{ proofUploading ? t.uploading : (orderProofs.length ? t.addMoreProof : t.uploadProof) }}
+            </button>
+          </div>
+
           <!-- Footer Action -->
           <div v-if="canEdit" class="hidden sm:block mt-8">
             <div class="bg-gradient-to-r from-primary-50 to-white rounded-xl p-6 border border-primary-100 flex items-center justify-between shadow-sm">
@@ -270,25 +273,6 @@
                             <div class="flex-1 bg-gray-50 rounded-xl border border-transparent h-14 flex items-center justify-center"><span class="text-2xl font-bold text-gray-900">{{ itemForm.quantity }}</span></div>
                             <button type="button" @click="incrementQuantity" class="w-14 h-14 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors flex items-center justify-center"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg></button>
                           </div>
-                        </div>
-                    </div>
-
-                    <!-- PROOF OF PURCHASE (required) -->
-                    <div>
-                        <label class="block text-sm font-bold text-gray-900 mb-1">{{ t.receipt }} <span class="text-red-500">*</span></label>
-                        <p class="text-xs text-gray-500 mb-2">{{ t.receiptHelp }}</p>
-                        <input ref="fileInputMobile" type="file" accept=".pdf,.jpg,.jpeg,.png" @change="handleFileSelect" class="hidden" />
-                        <div @click="fileInputMobile?.click()" class="border border-dashed rounded-xl p-4 text-center min-h-[5rem] flex flex-col items-center justify-center cursor-pointer" :class="selectedFile ? 'bg-green-50 border-green-300' : 'bg-gray-50 border-gray-300 hover:bg-gray-100'">
-                            <div v-if="selectedFile" class="w-full text-center"><span class="text-xs text-green-700 font-bold block mb-1">New Selected</span><span class="text-[10px] text-green-600 truncate block px-2">{{ selectedFile.name }}</span></div>
-                            <div v-else-if="existingFiles.proof.url && !markedForDeletion.proof" class="w-full flex flex-col items-center justify-center">
-                                <span class="text-[10px] text-gray-400 font-bold uppercase mb-1">Current File</span>
-                                <a :href="existingFiles.proof.url" target="_blank" @click.stop class="text-xs font-bold text-blue-600 underline truncate max-w-[90%]">{{ existingFiles.proof.name }}</a>
-                                <div class="flex gap-2 mt-1">
-                                    <button type="button" @click.stop="fileInputMobile?.click()" class="text-[10px] text-gray-500 bg-gray-100 px-2 py-0.5 rounded">Replace</button>
-                                    <button type="button" @click.stop="markedForDeletion.proof = true" class="text-[10px] text-red-500 bg-red-50 px-2 py-0.5 rounded">Delete</button>
-                                </div>
-                            </div>
-                            <div v-else><span class="text-xs font-semibold text-gray-500 block mb-1">{{ t.clickToUpload }}</span><span class="text-[10px] text-primary-600 font-bold">{{ editingItemId ? t.tapToReplace : t.tapToUpload }}</span></div>
                         </div>
                     </div>
 
@@ -386,18 +370,20 @@ const submitting = ref(false);
 const completingOrder = ref(false);
 const showCompleteModal = ref(false);
 const showAddProductModal = ref(false);
-const selectedFile = ref(null);
 const selectedProductImage = ref(null);
 const editingItemId = ref(null);
-const showDetails = ref(false); 
+const showDetails = ref(false);
 
-// File State & Refs
-const existingFiles = ref({ image: { url: null, name: null }, proof: { url: null, name: null } });
-const markedForDeletion = ref({ image: false, proof: false });
-const fileInputDesktop = ref(null);
-const fileInputMobile = ref(null);
+// Per-item product image state (proof of purchase is per-order, below)
+const existingFiles = ref({ image: { url: null, name: null } });
+const markedForDeletion = ref({ image: false });
 const productImageInputDesktop = ref(null);
 const productImageInputMobile = ref(null);
+
+// Order-level proof of purchase — an array of files for the whole order.
+const proofInput = ref(null);
+const proofUploading = ref(false);
+const orderProofs = computed(() => order.value?.proof_of_purchase_files ?? []);
 
 const itemForm = ref({ product_name: "", product_url: "", merchant_order_id: "", quantity: 1, declared_value: "", tracking_number: "", estimated_delivery_date: "" });
 
@@ -407,14 +393,6 @@ const hasItems = computed(() => order.value?.items && order.value.items.length >
 const totalItemQuantity = computed(() => order.value?.items ? order.value.items.reduce((total, item) => total + item.quantity, 0) : 0);
 const isCollecting = computed(() => order.value?.status === 'collecting');
 const canEdit = computed(() => order.value?.can_add_items ?? false);
-
-// Proof of purchase is mandatory on every item. Valid when a new file is
-// staged, or (when editing) an existing receipt stays attached.
-const proofMissing = computed(() => {
-  const hasNew = !!selectedFile.value;
-  const hasExisting = !!existingFiles.value.proof.url && !markedForDeletion.value.proof;
-  return !hasNew && !hasExisting;
-});
 
 const translations = {
   addYourProducts: { es: "Agrega tus productos", en: "Add your products" },
@@ -447,8 +425,13 @@ const translations = {
   qty: { es: "Cant", en: "Qty" },
   receipt: { es: "Recibo", en: "Receipt" },
   receiptAttached: { es: "Recibo", en: "Receipt" },
-  receiptRequired: { es: "Sube el recibo (comprobante de compra) para continuar.", en: "Upload the receipt (proof of purchase) to continue." },
-  receiptHelp: { es: "Sube el comprobante de compra (PDF o foto). Obligatorio.", en: "Upload your proof of purchase (PDF or photo). Required." },
+  proofTitle: { es: "Comprobante de compra", en: "Proof of purchase" },
+  proofHelp: { es: "Sube una captura, PDF o confirmación de pedido donde se vea el total de tu compra. Si compraste en varias tiendas, puedes subir un comprobante por tienda. Obligatorio para confirmar.", en: "Upload a screenshot, PDF, or order confirmation that shows your purchase total. If you bought from several stores, you can upload one receipt per store. Required to confirm." },
+  uploadProof: { es: "Subir comprobantes", en: "Upload receipts" },
+  addMoreProof: { es: "Subir más comprobantes", en: "Upload more receipts" },
+  uploading: { es: "Subiendo...", en: "Uploading..." },
+  proofUploaded: { es: "Comprobantes subidos", en: "Receipts uploaded" },
+  proofRequired: { es: "Sube al menos un comprobante de compra para confirmar tu orden.", en: "Upload at least one proof of purchase to confirm your order." },
   productImage: { es: "Imagen", en: "Image" },
   showOptional: { es: "Agregar detalles (opcional)", en: "Add more details (optional)" },
   hideOptional: { es: "Ocultar detalles", en: "Hide details" },
@@ -485,15 +468,6 @@ const decrementQuantity = () => { if (itemForm.value.quantity > 1) itemForm.valu
 const formatCurrency = (value) => value ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value) : '';
 const formatDate = (date) => date ? `${date.split('T')[0].split('-')[1]}/${date.split('T')[0].split('-')[2]}/${date.split('T')[0].split('-')[0]}` : '';
 
-const handleFileSelect = (event) => {
-  const file = event.target.files[0];
-  if (file) {
-    if (file.size > 10 * 1024 * 1024) { $toast.error("File too large"); return; }
-    selectedFile.value = file;
-    markedForDeletion.value.proof = false; 
-  }
-};
-
 const handleProductImageSelect = (event) => {
   const file = event.target.files[0];
   if (file) {
@@ -503,8 +477,42 @@ const handleProductImageSelect = (event) => {
   }
 };
 
-const removeFile = () => { selectedFile.value = null; if (fileInputMobile.value) fileInputMobile.value.value = ""; if (fileInputDesktop.value) fileInputDesktop.value.value = ""; };
 const removeProductImage = () => { selectedProductImage.value = null; if (productImageInputMobile.value) productImageInputMobile.value.value = ""; if (productImageInputDesktop.value) productImageInputDesktop.value.value = ""; };
+
+// Order-level proof handlers — upload multiple files at once, append to order.
+const handleProofSelect = async (event) => {
+  const files = Array.from(event.target.files || []);
+  if (!files.length) return;
+
+  const tooBig = files.find(f => f.size > 10 * 1024 * 1024);
+  if (tooBig) { $toast.error("File too large (max 10MB)"); event.target.value = ""; return; }
+
+  proofUploading.value = true;
+  try {
+    const formData = new FormData();
+    files.forEach(f => formData.append("files[]", f));
+    await $customFetch(`/orders/${order.value.id}/proofs`, { method: "POST", body: formData });
+    // Re-fetch the full order — the upload response omits the items relation.
+    await fetchOrder(true);
+    $toast.success(t.value.proofUploaded);
+  } catch (error) {
+    console.error('Error uploading proof:', error);
+    $toast.error(error?.data?.message ?? "Error uploading file");
+  } finally {
+    proofUploading.value = false;
+    if (proofInput.value) proofInput.value.value = "";
+  }
+};
+
+const deleteOrderProof = async (index) => {
+  try {
+    await $customFetch(`/orders/${order.value.id}/proofs/${index}`, { method: "DELETE" });
+    // Re-fetch the full order — the delete response omits the items relation.
+    await fetchOrder(true);
+  } catch (error) {
+    $toast.error("Error removing file");
+  }
+};
 
 const fetchOrder = async (background = false) => {
   if (!background) loading.value = true;
@@ -518,26 +526,19 @@ const fetchOrder = async (background = false) => {
 const editItem = (item) => {
     editingItemId.value = item.id;
     itemForm.value = { product_name: item.product_name, product_url: item.product_url || '', merchant_order_id: item.merchant_order_id || '', quantity: item.quantity, declared_value: item.declared_value || '', tracking_number: item.tracking_number || '', estimated_delivery_date: item.estimated_delivery_date ? item.estimated_delivery_date.split('T')[0] : '' };
-    existingFiles.value = { image: { url: item.product_image_url, name: item.product_image_filename || 'Product Image' }, proof: { url: item.proof_of_purchase_url, name: item.proof_of_purchase_filename || 'Receipt' } };
-    markedForDeletion.value = { image: false, proof: false };
-    selectedFile.value = null; selectedProductImage.value = null; showDetails.value = true; 
+    existingFiles.value = { image: { url: item.product_image_url, name: item.product_image_filename || 'Product Image' } };
+    markedForDeletion.value = { image: false };
+    selectedProductImage.value = null; showDetails.value = true;
     if (window.innerWidth < 640) { showAddProductModal.value = true; } else { document.getElementById('desktop-form')?.scrollIntoView({ behavior: 'smooth' }); }
 };
 
 const cancelEdit = () => { editingItemId.value = null; resetForm(); };
-const resetForm = () => { itemForm.value = { product_name: "", product_url: "", merchant_order_id: "", quantity: 1, declared_value: "", tracking_number: "", estimated_delivery_date: "" }; existingFiles.value = { image: { url: null, name: null }, proof: { url: null, name: null } }; markedForDeletion.value = { image: false, proof: false }; removeFile(); removeProductImage(); showDetails.value = false; };
+const resetForm = () => { itemForm.value = { product_name: "", product_url: "", merchant_order_id: "", quantity: 1, declared_value: "", tracking_number: "", estimated_delivery_date: "" }; existingFiles.value = { image: { url: null, name: null } }; markedForDeletion.value = { image: false }; removeProductImage(); showDetails.value = false; };
 const openAddModal = () => { if (editingItemId.value) cancelEdit(); showAddProductModal.value = true; };
 const closeModal = () => { showAddProductModal.value = false; cancelEdit(); };
 
 const handleSubmit = async () => {
   if (!itemForm.value.product_name.trim()) return;
-
-  // Receipt is required — surface the (collapsed) upload and stop.
-  if (proofMissing.value) {
-    showDetails.value = true;
-    $toast.error(t.value.receiptRequired);
-    return;
-  }
 
   submitting.value = true;
   
@@ -555,17 +556,9 @@ const handleSubmit = async () => {
     formData.append("tracking_number", itemForm.value.tracking_number || '');
     formData.append("estimated_delivery_date", itemForm.value.estimated_delivery_date || '');
     
-    // File uploads - only send if new file selected
-    if (selectedFile.value) {
-      formData.append("proof_of_purchase", selectedFile.value);
-    }
+    // Product image - only send if new file selected
     if (selectedProductImage.value) {
       formData.append("product_image", selectedProductImage.value);
-    }
-    
-    // File deletions - send flags if marked for deletion
-    if (markedForDeletion.value.proof) {
-      formData.append("remove_proof_of_purchase", "1");
     }
     if (markedForDeletion.value.image) {
       formData.append("remove_product_image", "1");
@@ -609,6 +602,12 @@ const removeItem = async (itemId) => {
 // Smart Footer Logic
 const handleFooterAction = () => {
     if (isCollecting.value) {
+        // Proof of purchase is required before the order can be confirmed.
+        if (orderProofs.value.length === 0) {
+            $toast.error(t.value.proofRequired);
+            proofInput.value?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+            return;
+        }
         showCompleteModal.value = true; // Open confirmation modal
     } else {
         navigateTo(`/app/orders/${order.value.id}`); // Just go back

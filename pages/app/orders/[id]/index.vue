@@ -260,6 +260,28 @@
           <!-- Items List -->
           <UserOrderItemsList :order="order" />
 
+          <!-- Proof of Purchase (order-level) -->
+          <div v-if="order.proof_of_purchase_files?.length" class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-100 bg-gray-50">
+              <h2 class="font-semibold text-gray-900">{{ t.proofOfPurchaseTitle }}</h2>
+            </div>
+            <div class="p-4 space-y-2">
+              <a
+                v-for="(f, i) in order.proof_of_purchase_files"
+                :key="i"
+                :href="f.url"
+                target="_blank"
+                class="flex items-center justify-between gap-3 p-3 rounded-lg border border-gray-100 hover:border-primary-300 hover:bg-primary-50/30 transition-colors group"
+              >
+                <span class="flex items-center gap-2 min-w-0">
+                  <svg class="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                  <span class="text-sm font-medium text-gray-700 truncate">{{ f.filename || `${t.proofFile} ${i + 1}` }}</span>
+                </span>
+                <span class="text-xs font-semibold text-primary-600 flex-shrink-0">{{ t.viewProof }}</span>
+              </a>
+            </div>
+          </div>
+
           <!-- Progress Timeline -->
           <OrderProgressTimeline :order="order" />
         </div>
@@ -533,6 +555,9 @@ const paymentLink = computed(() => {
 // Translations
 const translations = {
   loadingOrder: { es: "Cargando orden...", en: "Loading order..." },
+  proofOfPurchaseTitle: { es: "Comprobantes de compra", en: "Proof of purchase" },
+  proofFile: { es: "Comprobante", en: "Receipt" },
+  viewProof: { es: "Ver", en: "View" },
   // Arrival Proof
   packagesArrived: { es: "Tus Paquetes Han Llegado", en: "Your Packages Have Arrived" },
   packagesArrivedDesc: { es: "Foto de tus artículos en nuestra bodega", en: "Photo of your items at our warehouse" },
