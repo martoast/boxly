@@ -96,6 +96,28 @@
                 </div>
             </div>
 
+            <!-- PROOF OF PURCHASE (required) -->
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">{{ t.receipt }} <span class="text-red-500">*</span></label>
+                <p class="text-xs text-gray-500 mb-2">{{ t.receiptHelp }}</p>
+                <input ref="fileInputDesktop" type="file" accept=".pdf,.jpg,.jpeg,.png" @change="handleFileSelect" class="hidden" />
+                <div v-if="selectedFile" class="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center justify-between">
+                    <span class="text-xs text-green-700 font-medium truncate pr-2">{{ selectedFile.name }}</span>
+                    <button type="button" @click="removeFile" class="text-green-600 hover:text-green-800"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
+                </div>
+                <div v-else-if="existingFiles.proof.url && !markedForDeletion.proof" class="bg-white border border-gray-200 rounded-lg p-3 flex items-center justify-between group">
+                    <div class="flex items-center gap-2 overflow-hidden">
+                        <svg class="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                        <a :href="existingFiles.proof.url" target="_blank" class="text-xs font-medium text-blue-600 hover:underline truncate">{{ existingFiles.proof.name }}</a>
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <button type="button" @click="fileInputDesktop?.click()" class="p-1.5 text-gray-400 hover:text-primary-600 rounded hover:bg-gray-100" title="Replace"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg></button>
+                        <button type="button" @click="markedForDeletion.proof = true" class="p-1.5 text-gray-400 hover:text-red-600 rounded hover:bg-red-50" title="Delete"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
+                    </div>
+                </div>
+                <div v-else @click="fileInputDesktop?.click()" class="bg-white border border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer hover:border-primary-400 hover:bg-primary-50/30 transition-all"><span class="text-xs text-gray-500">{{ t.clickToUpload }}</span></div>
+            </div>
+
             <!-- OPTIONAL TOGGLE -->
             <div>
                 <button type="button" @click="showDetails = !showDetails" class="flex items-center gap-2 text-sm font-medium text-primary-600 hover:text-primary-700 transition-colors focus:outline-none">
@@ -116,29 +138,8 @@
                     <div><label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">{{ t.estimatedDeliveryDate }}</label><input v-model="itemForm.estimated_delivery_date" type="date" :min="todayDate" class="w-full px-3 py-2.5 border-gray-200 rounded-lg focus:ring-primary-500 focus:border-primary-500 text-sm" /></div>
                 </div>
 
-                <!-- File Uploads (Desktop) -->
-                <div class="grid sm:grid-cols-2 gap-5">
-                    <!-- Receipt -->
-                    <div>
-                        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">{{ t.receipt }}</label>
-                        <input ref="fileInputDesktop" type="file" accept=".pdf,.jpg,.jpeg,.png" @change="handleFileSelect" class="hidden" />
-                        <div v-if="selectedFile" class="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center justify-between">
-                            <span class="text-xs text-green-700 font-medium truncate pr-2">{{ selectedFile.name }}</span>
-                            <button type="button" @click="removeFile" class="text-green-600 hover:text-green-800"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
-                        </div>
-                        <div v-else-if="existingFiles.proof.url && !markedForDeletion.proof" class="bg-white border border-gray-200 rounded-lg p-3 flex items-center justify-between group">
-                            <div class="flex items-center gap-2 overflow-hidden">
-                                <svg class="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                                <a :href="existingFiles.proof.url" target="_blank" class="text-xs font-medium text-blue-600 hover:underline truncate">{{ existingFiles.proof.name }}</a>
-                            </div>
-                            <div class="flex items-center gap-1">
-                                <button type="button" @click="fileInputDesktop?.click()" class="p-1.5 text-gray-400 hover:text-primary-600 rounded hover:bg-gray-100" title="Replace"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg></button>
-                                <button type="button" @click="markedForDeletion.proof = true" class="p-1.5 text-gray-400 hover:text-red-600 rounded hover:bg-red-50" title="Delete"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
-                            </div>
-                        </div>
-                        <div v-else @click="fileInputDesktop?.click()" class="bg-white border border-dashed border-gray-300 rounded-lg p-3 text-center cursor-pointer hover:border-primary-400 hover:bg-primary-50/30 transition-all"><span class="text-xs text-gray-500">{{ t.clickToUpload }}</span></div>
-                    </div>
-
+                <!-- Product Image (Desktop) -->
+                <div>
                     <!-- Image -->
                     <div>
                         <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">{{ t.productImage }}</label>
@@ -271,6 +272,26 @@
                           </div>
                         </div>
                     </div>
+
+                    <!-- PROOF OF PURCHASE (required) -->
+                    <div>
+                        <label class="block text-sm font-bold text-gray-900 mb-1">{{ t.receipt }} <span class="text-red-500">*</span></label>
+                        <p class="text-xs text-gray-500 mb-2">{{ t.receiptHelp }}</p>
+                        <input ref="fileInputMobile" type="file" accept=".pdf,.jpg,.jpeg,.png" @change="handleFileSelect" class="hidden" />
+                        <div @click="fileInputMobile?.click()" class="border border-dashed rounded-xl p-4 text-center min-h-[5rem] flex flex-col items-center justify-center cursor-pointer" :class="selectedFile ? 'bg-green-50 border-green-300' : 'bg-gray-50 border-gray-300 hover:bg-gray-100'">
+                            <div v-if="selectedFile" class="w-full text-center"><span class="text-xs text-green-700 font-bold block mb-1">New Selected</span><span class="text-[10px] text-green-600 truncate block px-2">{{ selectedFile.name }}</span></div>
+                            <div v-else-if="existingFiles.proof.url && !markedForDeletion.proof" class="w-full flex flex-col items-center justify-center">
+                                <span class="text-[10px] text-gray-400 font-bold uppercase mb-1">Current File</span>
+                                <a :href="existingFiles.proof.url" target="_blank" @click.stop class="text-xs font-bold text-blue-600 underline truncate max-w-[90%]">{{ existingFiles.proof.name }}</a>
+                                <div class="flex gap-2 mt-1">
+                                    <button type="button" @click.stop="fileInputMobile?.click()" class="text-[10px] text-gray-500 bg-gray-100 px-2 py-0.5 rounded">Replace</button>
+                                    <button type="button" @click.stop="markedForDeletion.proof = true" class="text-[10px] text-red-500 bg-red-50 px-2 py-0.5 rounded">Delete</button>
+                                </div>
+                            </div>
+                            <div v-else><span class="text-xs font-semibold text-gray-500 block mb-1">{{ t.clickToUpload }}</span><span class="text-[10px] text-primary-600 font-bold">{{ editingItemId ? t.tapToReplace : t.tapToUpload }}</span></div>
+                        </div>
+                    </div>
+
                     <button type="button" @click="showDetails = !showDetails" class="w-full py-3 flex items-center justify-center gap-2 text-primary-600 font-semibold bg-primary-50/50 rounded-xl hover:bg-primary-50 transition-colors">{{ showDetails ? t.hideOptional : t.showOptional }}<svg :class="{'rotate-180': showDetails}" class="w-5 h-5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg></button>
                     <div v-show="showDetails" class="space-y-4 pt-2">
                         <div>
@@ -296,23 +317,8 @@
                             </div>
                         </div>
                         
-                        <!-- Mobile File Inputs (Smart) -->
-                        <div class="grid grid-cols-2 gap-3">
-                            <!-- Mobile Receipt -->
-                            <div @click="fileInputMobile?.click()" class="border border-dashed rounded-xl p-3 text-center h-24 flex flex-col items-center justify-center relative overflow-hidden cursor-pointer" :class="selectedFile ? 'bg-green-50 border-green-300' : 'bg-gray-50 border-gray-300 hover:bg-gray-100'">
-                                <input ref="fileInputMobile" type="file" accept=".pdf,.jpg,.jpeg,.png" @change="handleFileSelect" class="hidden" />
-                                <div v-if="selectedFile" class="w-full text-center"><span class="text-xs text-green-700 font-bold block mb-1">New Selected</span><span class="text-[10px] text-green-600 truncate block px-2">{{ selectedFile.name }}</span></div>
-                                <div v-else-if="existingFiles.proof.url && !markedForDeletion.proof" class="w-full h-full flex flex-col items-center justify-center bg-white absolute inset-0">
-                                    <span class="text-[10px] text-gray-400 font-bold uppercase mb-1">Current File</span>
-                                    <a :href="existingFiles.proof.url" target="_blank" @click.stop class="text-xs font-bold text-blue-600 underline truncate max-w-[90%]">{{ existingFiles.proof.name }}</a>
-                                    <div class="flex gap-2 mt-1">
-                                        <button type="button" @click.stop="fileInputMobile?.click()" class="text-[10px] text-gray-500 bg-gray-100 px-2 py-0.5 rounded">Replace</button>
-                                        <button type="button" @click.stop="markedForDeletion.proof = true" class="text-[10px] text-red-500 bg-red-50 px-2 py-0.5 rounded">Delete</button>
-                                    </div>
-                                </div>
-                                <div v-else><span class="text-xs font-semibold text-gray-500 block mb-1">{{ t.receipt }}</span><span class="text-[10px] text-primary-600 font-bold truncate max-w-full px-1">{{ editingItemId ? t.tapToReplace : t.tapToUpload }}</span></div>
-                            </div>
-
+                        <!-- Mobile Product Image -->
+                        <div>
                             <!-- Mobile Image -->
                             <div @click="productImageInputMobile?.click()" class="border border-dashed rounded-xl p-3 text-center h-24 flex flex-col items-center justify-center relative overflow-hidden cursor-pointer" :class="selectedProductImage ? 'bg-green-50 border-green-300' : 'bg-gray-50 border-gray-300 hover:bg-gray-100'">
                                 <input ref="productImageInputMobile" type="file" accept=".jpg,.jpeg,.png,.webp" @change="handleProductImageSelect" class="hidden" />
@@ -402,6 +408,14 @@ const totalItemQuantity = computed(() => order.value?.items ? order.value.items.
 const isCollecting = computed(() => order.value?.status === 'collecting');
 const canEdit = computed(() => order.value?.can_add_items ?? false);
 
+// Proof of purchase is mandatory on every item. Valid when a new file is
+// staged, or (when editing) an existing receipt stays attached.
+const proofMissing = computed(() => {
+  const hasNew = !!selectedFile.value;
+  const hasExisting = !!existingFiles.value.proof.url && !markedForDeletion.value.proof;
+  return !hasNew && !hasExisting;
+});
+
 const translations = {
   addYourProducts: { es: "Agrega tus productos", en: "Add your products" },
   orderNumber: { es: "Orden", en: "Order" },
@@ -433,6 +447,8 @@ const translations = {
   qty: { es: "Cant", en: "Qty" },
   receipt: { es: "Recibo", en: "Receipt" },
   receiptAttached: { es: "Recibo", en: "Receipt" },
+  receiptRequired: { es: "Sube el recibo (comprobante de compra) para continuar.", en: "Upload the receipt (proof of purchase) to continue." },
+  receiptHelp: { es: "Sube el comprobante de compra (PDF o foto). Obligatorio.", en: "Upload your proof of purchase (PDF or photo). Required." },
   productImage: { es: "Imagen", en: "Image" },
   showOptional: { es: "Agregar detalles (opcional)", en: "Add more details (optional)" },
   hideOptional: { es: "Ocultar detalles", en: "Hide details" },
@@ -515,6 +531,14 @@ const closeModal = () => { showAddProductModal.value = false; cancelEdit(); };
 
 const handleSubmit = async () => {
   if (!itemForm.value.product_name.trim()) return;
+
+  // Receipt is required — surface the (collapsed) upload and stop.
+  if (proofMissing.value) {
+    showDetails.value = true;
+    $toast.error(t.value.receiptRequired);
+    return;
+  }
+
   submitting.value = true;
   
   try {
