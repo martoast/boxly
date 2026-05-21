@@ -18,32 +18,16 @@
         </NuxtLink>
       </div>
 
-      <!-- Mobile: horizontal scroll. Desktop: grid. -->
-      <div class="flex sm:grid sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 overflow-x-auto sm:overflow-visible -mx-4 px-4 sm:mx-0 sm:px-0 snap-x snap-mandatory sm:snap-none">
-        <NuxtLink
+      <!-- Mobile: horizontal scroll. Desktop: grid. Cards are the shared
+           store ProductCard so the rail matches the shop listing exactly. -->
+      <div class="flex sm:grid sm:grid-cols-3 lg:grid-cols-4 sm:auto-rows-fr gap-3 sm:gap-4 overflow-x-auto sm:overflow-visible -mx-4 px-4 sm:mx-0 sm:px-0 snap-x snap-mandatory sm:snap-none">
+        <div
           v-for="p in products"
           :key="p.id"
-          :to="`/shop/${p.slug}`"
-          class="snap-start flex-shrink-0 w-44 sm:w-auto bg-white rounded-2xl border border-gray-200 hover:border-primary-300 hover:shadow-md transition-all overflow-hidden group"
+          class="snap-start flex-shrink-0 w-44 sm:w-auto"
         >
-          <div class="aspect-square bg-gray-100 overflow-hidden">
-            <img
-              v-if="imageUrl(p)"
-              :src="imageUrl(p)"
-              :alt="p.name"
-              loading="lazy"
-              class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-            >
-            <div v-else class="w-full h-full flex items-center justify-center text-gray-300">
-              <svg class="w-10 h-10" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01"/></svg>
-            </div>
-          </div>
-          <div class="p-3">
-            <div v-if="p.store?.name" class="text-[10px] uppercase tracking-wider text-gray-500 font-semibold truncate">{{ p.store.name }}</div>
-            <div class="font-semibold text-gray-900 text-sm leading-tight mt-0.5 line-clamp-2">{{ p.name }}</div>
-            <div v-if="p.price_cents" class="text-sm font-bold text-primary-600 mt-1.5">${{ (p.price_cents / 100).toFixed(2) }} MXN</div>
-          </div>
-        </NuxtLink>
+          <ProductCard :product="p" />
+        </div>
       </div>
 
       <NuxtLink to="/shop" class="mt-5 inline-flex sm:hidden items-center justify-center gap-1.5 w-full py-3 bg-white border border-gray-200 hover:border-primary-300 rounded-xl text-sm font-semibold text-primary-600">
@@ -56,6 +40,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import ProductCard from '~/components/store/ProductCard.vue'
 
 const { $customFetch } = useNuxtApp()
 const { t: createTranslations } = useLanguage()
@@ -68,10 +53,6 @@ const t = createTranslations({
 
 const products = ref([])
 const loading = ref(true)
-
-// Images come back as an array of { url, path, order } objects; the API also
-// exposes a flattened first_image_url. Prefer that, fall back to images[0].url.
-const imageUrl = (p) => p.first_image_url ?? p.images?.[0]?.url ?? null
 
 onMounted(async () => {
   try {
