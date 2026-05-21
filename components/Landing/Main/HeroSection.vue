@@ -22,11 +22,11 @@
     <!-- Readability gradient. Mobile: strong bottom-up dark fade.
          Desktop (sm+): left-to-right fade so the text column reads while
          the subject on the right stays visible. -->
-    <div class="absolute inset-0 bg-gradient-to-t from-gray-900/85 via-gray-900/55 to-gray-900/45 sm:bg-gradient-to-r sm:from-gray-900/85 sm:via-gray-900/55 sm:to-transparent"></div>
+    <div class="absolute inset-0 bg-gradient-to-t from-gray-900/65 via-gray-900/35 to-gray-900/25 sm:bg-gradient-to-r sm:from-gray-900/85 sm:via-gray-900/55 sm:to-transparent"></div>
 
     <!-- Mobile-only top fade: darkens the light sky so the white headline
          reads. Desktop is handled by the left-to-right overlay above. -->
-    <div class="sm:hidden absolute inset-x-0 top-0 h-2/3 bg-gradient-to-b from-gray-900/80 via-gray-900/40 to-transparent pointer-events-none"></div>
+    <div class="sm:hidden absolute inset-x-0 top-0 h-2/3 bg-gradient-to-b from-gray-900/55 via-gray-900/20 to-transparent pointer-events-none"></div>
 
     <!-- Extra bottom fade so the white logo strip reads across the full
          width (the desktop l-to-r overlay leaves the bottom-right light). -->
@@ -36,14 +36,14 @@
     <div class="relative min-h-[480px] sm:min-h-[540px] lg:min-h-[620px] flex flex-col">
       <div class="flex-1 flex items-center">
         <div class="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 pt-16 sm:pt-20 lg:pt-24 pb-8">
-          <div class="max-w-2xl">
+          <div class="max-w-2xl mx-auto sm:mx-0 text-center sm:text-left">
             <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-white leading-[1.05] tracking-tight">
               {{ t.title }}
             </h1>
-            <p class="text-base sm:text-lg lg:text-xl text-white/85 mt-4 sm:mt-5 max-w-xl leading-relaxed">
+            <p class="text-base sm:text-lg lg:text-xl text-white/85 mt-4 sm:mt-5 max-w-xl mx-auto sm:mx-0 leading-relaxed">
               {{ t.subtitle }}
             </p>
-            <div class="mt-7 flex flex-col sm:flex-row gap-3">
+            <div class="mt-7 flex flex-col sm:flex-row items-center sm:items-start gap-3">
               <!-- Primary — register (or dashboard if signed in). On mobile
                    this is the main entry to the app since the nav doesn't
                    expose auth buttons. -->
