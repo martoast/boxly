@@ -142,6 +142,17 @@
           <input v-model="form.available_until" type="datetime-local" class="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
         </div>
       </div>
+
+      <!-- Featured: hand-pick which products show in the homepage rail. -->
+      <div class="mt-5 pt-5 border-t border-gray-100">
+        <label class="flex items-start gap-3 cursor-pointer select-none">
+          <input v-model="form.is_featured" type="checkbox" class="mt-0.5 w-5 h-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
+          <span>
+            <span class="block text-sm font-semibold text-gray-800">Destacar en la página principal</span>
+            <span class="block text-xs text-gray-400 mt-0.5">Aparece en el carrusel "Lo más buscado en USA" del inicio. Solo se muestran productos activos.</span>
+          </span>
+        </label>
+      </div>
     </div>
 
     <!-- Variants -->
@@ -229,6 +240,7 @@ const form = ref({
   category_ids: (props.existingProduct?.categories ?? []).map(c => c.id),
   price_cents: props.existingProduct?.price_cents ?? 0,
   status: props.existingProduct?.status ?? 'draft',
+  is_featured: props.existingProduct?.is_featured ?? false,
   available_until: formatDateTimeLocal(props.existingProduct?.available_until),
 })
 
