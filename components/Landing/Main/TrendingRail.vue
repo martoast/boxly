@@ -28,8 +28,8 @@
         >
           <div class="aspect-square bg-gray-100 overflow-hidden">
             <img
-              v-if="p.images?.[0]"
-              :src="p.images[0]"
+              v-if="imageUrl(p)"
+              :src="imageUrl(p)"
               :alt="p.name"
               loading="lazy"
               class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
@@ -68,6 +68,10 @@ const t = createTranslations({
 
 const products = ref([])
 const loading = ref(true)
+
+// Images come back as an array of { url, path, order } objects; the API also
+// exposes a flattened first_image_url. Prefer that, fall back to images[0].url.
+const imageUrl = (p) => p.first_image_url ?? p.images?.[0]?.url ?? null
 
 onMounted(async () => {
   try {
