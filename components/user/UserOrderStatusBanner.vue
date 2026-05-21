@@ -32,22 +32,6 @@
       </div>
     </div>
   
-    <!-- AWAITING PACKAGES -->
-    <div v-else-if="status === 'awaiting_packages'" class="bg-amber-50 border border-amber-200 rounded-xl p-6">
-      <div class="flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left">
-        <div class="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">
-          <svg class="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
-        </div>
-        <div class="flex-1">
-          <h3 class="text-lg font-semibold text-amber-900">{{ t.awaitingPackagesTitle }}</h3>
-          <p class="text-sm text-amber-700 mt-1">{{ t.awaitingPackagesDescription }}</p>
-        </div>
-        <button @click="$emit('reopen')" class="px-6 py-3 bg-amber-600 text-white font-medium rounded-lg hover:bg-amber-700 transition-colors">
-          {{ t.reopenOrder }}
-        </button>
-      </div>
-    </div>
-  
     <!-- PACKAGES COMPLETE / PROCESSING -->
     <div v-else-if="['packages_complete', 'processing'].includes(status)" class="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-6 text-white">
       <div class="flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left">
