@@ -1,417 +1,170 @@
 <template>
-  <header class="relative w-full h-screen min-h-[600px] overflow-hidden">
-    <!-- Carousel Container with Touch Support -->
-    <div class="relative w-full h-full" 
-         @touchstart="handleTouchStart"
-         @touchmove="handleTouchMove"
-         @touchend="handleTouchEnd">
-      <!-- Slides -->
-      <transition-group
-        name="slide"
-        tag="div"
-        class="relative w-full h-full"
-      >
-        <div
-          v-for="(slide, index) in slides"
-          v-show="currentSlide === index"
-          :key="index"
-          class="absolute inset-0 w-full h-full"
-        >
-          <!-- Desktop Background Image — modern browsers get the WebP
-               variant (60-80% smaller). First slide is the LCP element
-               so it's eager + high fetchpriority; subsequent slides
-               are lazy. Explicit dimensions reserve space and prevent
-               any layout shift. -->
-          <picture class="hidden md:block">
-            <source :srcset="webpFor(slide.image)" type="image/webp" />
-            <img
-              :src="slide.image"
-              :alt="slide.title"
-              width="1600" height="768"
-              :loading="index === 0 ? 'eager' : 'lazy'"
-              :fetchpriority="index === 0 ? 'high' : undefined"
-              decoding="async"
-              class="absolute inset-0 w-full h-full object-cover"
-            />
-          </picture>
+  <!-- Landing hero — bright outlet-shopping photo with a gradient overlay
+       so the white headline stays readable. Overlay is left-heavy on
+       desktop (text sits left, subject sits right) and bottom-heavy on
+       mobile where the layout stacks. Primary CTA on mobile is
+       register/login because the mobile nav doesn't expose those buttons;
+       signed-in users see a "Mi cuenta" shortcut instead. -->
+  <header class="relative w-full overflow-hidden bg-gray-900">
+    <picture>
+      <source media="(max-width: 768px)" :srcset="mobileImageSrc" type="image/png" />
+      <source :srcset="desktopImageSrc" type="image/png" />
+      <img
+        :src="desktopImageSrc"
+        :alt="t.imageAlt"
+        width="1920" height="1080"
+        fetchpriority="high"
+        decoding="async"
+        class="absolute inset-0 w-full h-full object-cover"
+      />
+    </picture>
 
-          <!-- Mobile Background Image -->
-          <picture class="md:hidden">
-            <source :srcset="webpFor(slide.mobileImage)" type="image/webp" />
-            <img
-              :src="slide.mobileImage"
-              :alt="slide.title"
-              width="1009" height="1414"
-              :loading="index === 0 ? 'eager' : 'lazy'"
-              :fetchpriority="index === 0 ? 'high' : undefined"
-              decoding="async"
-              class="absolute inset-0 w-full h-full object-cover"
-            />
-          </picture>
-          
-          <!-- Gradient Overlay for better text readability -->
-          <div class="absolute inset-0 bg-gradient-to-r from-black/50 via-black/30 to-transparent"></div>
-          
-          <!-- Content Container -->
-          <div class="relative h-full flex items-center">
-            <div class="container mx-auto px-6 md:px-12 lg:px-20">
-              <div class="max-w-2xl">
-                <!-- Title -->
-                <h1 class="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-4 leading-tight text-shadow-lg">
-                  {{ slide.title }}
-                </h1>
-                
-                <!-- Subtitle -->
-                <p class="text-lg md:text-xl text-white mb-8 text-shadow">
-                  {{ slide.subtitle }}
-                </p>
-                
-                <!-- CTA Buttons -->
-                <div
-                  class="flex gap-4 justify-start flex-wrap"
-                  @touchstart.stop
-                  @touchmove.stop
-                  @touchend.stop
-                >
-                  <NuxtLink
-                    :to="registerLink"
-                    class="px-8 py-4 bg-primary-500 hover:bg-primary-600 text-white font-semibold rounded-full transition-all duration-300 hover:scale-105 hover:shadow-xl inline-flex items-center gap-2"
-                  >
-                    {{ slide.ctaText || t.ctaRegister }}
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
-                    </svg>
-                  </NuxtLink>
+    <!-- Readability gradient. Mobile: strong bottom-up dark fade.
+         Desktop (sm+): left-to-right fade so the text column reads while
+         the subject on the right stays visible. -->
+    <div class="absolute inset-0 bg-gradient-to-t from-gray-900/85 via-gray-900/55 to-gray-900/45 sm:bg-gradient-to-r sm:from-gray-900/85 sm:via-gray-900/55 sm:to-transparent"></div>
 
-                  <NuxtLink
-                    to="/how-it-works"
-                    class="px-8 py-4 bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white font-semibold rounded-full transition-all duration-300 border border-white/30"
-                  >
-                    {{ t.ctaHowItWorks }}
-                  </NuxtLink>
-                </div>
+    <!-- Mobile-only top fade: darkens the light sky so the white headline
+         reads. Desktop is handled by the left-to-right overlay above. -->
+    <div class="sm:hidden absolute inset-x-0 top-0 h-2/3 bg-gradient-to-b from-gray-900/80 via-gray-900/40 to-transparent pointer-events-none"></div>
 
-                <!-- Trustpilot Reviews Link -->
-                <a
-                  href="https://www.trustpilot.com/review/boxly.mx"
-                  target="_blank"
-                  rel="noopener"
-                  class="mt-6 inline-flex items-center gap-2 text-white/90 hover:text-white transition-colors duration-300 group"
-                >
-                  <div class="flex items-center gap-0.5">
-                    <svg v-for="i in 5" :key="i" class="w-4 h-4 text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
-                    </svg>
-                  </div>
-                  <span class="text-sm font-medium">{{ t.reviewsOnTrustpilot }}</span>
-                  <svg class="w-4 h-4 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
-                  </svg>
-                </a>
-              </div>
+    <!-- Extra bottom fade so the white logo strip reads across the full
+         width (the desktop l-to-r overlay leaves the bottom-right light). -->
+    <div class="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-gray-900/80 to-transparent pointer-events-none"></div>
+
+    <!-- Column layout: content fills the top, logo strip pins to the bottom. -->
+    <div class="relative min-h-[480px] sm:min-h-[540px] lg:min-h-[620px] flex flex-col">
+      <div class="flex-1 flex items-center">
+        <div class="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 pt-16 sm:pt-20 lg:pt-24 pb-8">
+          <div class="max-w-2xl">
+            <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-white leading-[1.05] tracking-tight">
+              {{ t.title }}
+            </h1>
+            <p class="text-base sm:text-lg lg:text-xl text-white/85 mt-4 sm:mt-5 max-w-xl leading-relaxed">
+              {{ t.subtitle }}
+            </p>
+            <div class="mt-7 flex flex-col sm:flex-row gap-3">
+              <!-- Primary — register (or dashboard if signed in). On mobile
+                   this is the main entry to the app since the nav doesn't
+                   expose auth buttons. -->
+              <NuxtLink
+                :to="primaryHref"
+                class="inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-primary-600 text-white font-bold rounded-full shadow-lg hover:shadow-xl hover:bg-primary-700 transition-all text-base"
+              >
+                {{ primaryLabel }}
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+              </NuxtLink>
+              <!-- Secondary — non-auth users see "Iniciar sesión", signed-in
+                   users see "Cómo funciona" because they don't need login. -->
+              <NuxtLink
+                :to="secondaryHref"
+                class="inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-white/10 backdrop-blur border border-white/20 text-white font-semibold rounded-full hover:bg-white/20 transition-colors text-base"
+              >
+                {{ secondaryLabel }}
+              </NuxtLink>
             </div>
           </div>
         </div>
-      </transition-group>
-      
-      <!-- Navigation Arrows - Hidden on mobile -->
-      <button
-        @click="previousSlide"
-        class="hidden md:flex absolute left-6 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/20 backdrop-blur-sm rounded-full items-center justify-center text-white hover:bg-white/30 transition-all duration-300 hover:scale-110"
-        aria-label="Previous slide"
-      >
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
-        </svg>
-      </button>
-      
-      <button
-        @click="nextSlide"
-        class="hidden md:flex absolute right-6 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/20 backdrop-blur-sm rounded-full items-center justify-center text-white hover:bg-white/30 transition-all duration-300 hover:scale-110"
-        aria-label="Next slide"
-      >
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-        </svg>
-      </button>
-      
-      <!-- Dots Navigation -->
-      <div class="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-2">
-        <button
-          v-for="(slide, index) in slides"
-          :key="index"
-          @click="goToSlide(index)"
-          :class="[
-            'w-3 h-3 rounded-full transition-all duration-300',
-            currentSlide === index ? 'bg-white w-8' : 'bg-white/50 hover:bg-white/70'
-          ]"
-          :aria-label="`Go to slide ${index + 1}`"
-        ></button>
+      </div>
+
+      <!-- Infinite logo strip, white-on-photo, pinned to the bottom of the
+           hero. Edges are masked so logos fade in/out over the image. -->
+      <div class="relative pb-5 sm:pb-6">
+        <div class="logo-marquee-mask overflow-hidden">
+          <div class="flex gap-8 sm:gap-10 lg:gap-12 w-max animate-hero-logo-scroll">
+            <template v-for="n in 3" :key="`set-${n}`">
+              <img
+                v-for="(logo, index) in logos"
+                :key="`logo-${n}-${index}`"
+                :src="logo.src"
+                :alt="logo.alt"
+                width="120" height="40"
+                class="h-10 sm:h-12 w-auto object-contain flex-shrink-0 hero-logo-white opacity-70"
+                loading="lazy"
+                decoding="async"
+                draggable="false"
+              />
+            </template>
+          </div>
+        </div>
       </div>
     </div>
-    
-    <!-- Track Package Section (appears below carousel) -->
-    <!-- <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent py-6">
-      <div class="container mx-auto px-6 text-center">
-        <div class="flex items-center justify-center gap-3 mb-3">
-          <span class="block w-16 h-[1px] bg-white/30"></span>
-          <span class="text-white/80 text-sm">{{ t.alreadyHavePackage }}</span>
-          <span class="block w-16 h-[1px] bg-white/30"></span>
-        </div>
-        <NuxtLink
-          :to="trackLink"
-          class="group inline-flex items-center gap-3 text-white hover:text-primary-300 transition-colors duration-300"
-        >
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 01.553-.894L9 2m0 18l6-3m-6 3V2m6 16l5.447 2.724A1 1 0 0021 19.382V8.618a1 1 0 00-.553-.894L15 5m0 13V5m0 0L9 2"/>
-          </svg>
-          <span class="font-semibold">{{ t.ctaTrack }}</span>
-          <svg class="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-          </svg>
-        </NuxtLink>
-      </div>
-    </div> -->
   </header>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { computed } from 'vue'
 
-// Derive the .webp sibling path of a JPEG/PNG asset. We generate
-// these via cwebp at build/asset time and ship them next to the
-// originals; this lets us bind <source srcset> directly off the
-// existing slide.image / slide.mobileImage strings without extra
-// data fields.
-const webpFor = (path) => path ? path.replace(/\.(jpe?g|png)$/i, '.webp') : path
+const { t: createTranslations } = useLanguage()
+const user = useUser()
 
-// Preload the first slide's hero images — they're the LCP element of
-// the marketing landing. Two media-targeted preloads so each viewport
-// only downloads its variant. Browser parses these in <head> before
-// the slide markup is even processed.
-useHead({
-  link: [
-    { rel: 'preload', as: 'image', href: '/hero1.webp', type: 'image/webp', media: '(min-width: 768px)', fetchpriority: 'high' },
-    { rel: 'preload', as: 'image', href: '/mobilehero1test.webp', type: 'image/webp', media: '(max-width: 767px)', fetchpriority: 'high' },
-  ],
+// Image swap: hero-candidate.png is the new generation; falls back to the
+// existing hero1/mobilehero1 if you ever want to revert. Same files used
+// for mobile + desktop since the new hero already accounts for both.
+const desktopImageSrc = '/images/hero-shopper.png'
+const mobileImageSrc  = '/images/hero-shopper.png'
+
+const t = createTranslations({
+  title:          { es: 'Compra en USA sin fronteras.', en: 'Shop the US without borders.' },
+  subtitle:       { es: 'Nosotros lo compramos, lo recibimos y lo trasladamos. Tú lo recibes en tu casa en México.', en: 'We buy it, receive it, and ship it. You get it delivered to your door in Mexico.' },
+  createAccount:  { es: 'Crear cuenta gratis', en: 'Create free account' },
+  myAccount:      { es: 'Ir a mi cuenta', en: 'Go to my account' },
+  signIn:         { es: 'Iniciar sesión', en: 'Sign in' },
+  howItWorks:     { es: 'Cómo funciona', en: 'How it works' },
+  imageAlt:       { es: 'Compra en USA con Boxly', en: 'Shop the US with Boxly' },
 })
 
-const { t: createTranslations, language } = useLanguage()
-const route = useRoute()
+const isAuthed = computed(() => Boolean(user?.value?.id))
 
-// Props
-const props = defineProps({
-  landingType: {
-    type: String,
-    default: 'shoppers',
-    validator: (value) => ['shoppers', 'business', 'general'].includes(value)
-  }
-})
+const primaryHref  = computed(() => (isAuthed.value ? '/app' : '/register'))
+const primaryLabel = computed(() => (isAuthed.value ? t.value.myAccount : t.value.createAccount))
+const secondaryHref  = computed(() => (isAuthed.value ? '/how-it-works' : '/login'))
+const secondaryLabel = computed(() => (isAuthed.value ? t.value.howItWorks : t.value.signIn))
 
-// Carousel state
-const currentSlide = ref(0)
-let slideInterval = null
-
-// Touch handling state
-const touchStartX = ref(0)
-const touchEndX = ref(0)
-const isDragging = ref(false)
-
-// Translations
-const translations = {
-  ctaRegister: {
-    es: "Regístrate Gratis",
-    en: "Register Free",
-  },
-  ctaHowItWorks: {
-    es: "Como Funciona",
-    en: "How it works",
-  },
-  alreadyHavePackage: {
-    es: "¿Ya tienes una orden?",
-    en: "Already have an order?",
-  },
-  ctaTrack: {
-    es: "Rastrear Mi Envío",
-    en: "Track My Shipment",
-  },
-  reviewsOnTrustpilot: {
-    es: "Ver reseñas en Trustpilot",
-    en: "See reviews on Trustpilot",
-  }
-}
-
-const t = createTranslations(translations)
-
-// Slides data with both desktop and mobile images
-const slides = computed(() => {
-  const baseSlides = language.value === 'es' ? [
-    {
-      image: '/hero1.jpeg',
-      mobileImage: '/mobilehero1test.jpeg',
-      title: 'Vive el shopping sin fronteras',
-      subtitle: 'Compra en cualquier tienda de USA y recíbelo en México, todo en una sola caja.',
-      ctaText: 'Empieza Ahora'
-    },
-    {
-      image: '/hero2.jpeg',
-      mobileImage: '/mobilehero2.jpeg',
-      title: 'Tu dirección en USA para comprar sin límites',
-      subtitle: 'Consolidamos tus compras, las enviamos a México y tú ahorras más.',
-      ctaText: 'Regístrate Gratis'
-    }
-  ] : [
-    {
-      image: '/hero1.jpeg',
-      mobileImage: '/mobilehero1.jpeg',
-      title: 'Shop from any store in the world',
-      subtitle: 'Your US address for unlimited shopping',
-      ctaText: 'Start Now'
-    },
-    {
-      image: '/hero2.jpeg',
-      mobileImage: '/mobilehero2.jpeg',
-      title: 'Receive all your packages in Mexico',
-      subtitle: 'We consolidate your purchases and save on shipping',
-      ctaText: 'Register Free'
-    }
-  ]
-  
-  return baseSlides
-})
-
-// Carousel methods
-const nextSlide = () => {
-  currentSlide.value = (currentSlide.value + 1) % slides.value.length
-}
-
-const previousSlide = () => {
-  currentSlide.value = currentSlide.value === 0 ? slides.value.length - 1 : currentSlide.value - 1
-}
-
-const goToSlide = (index) => {
-  currentSlide.value = index
-  stopAutoPlay()
-  startAutoPlay() // Restart auto-play after manual navigation
-}
-
-// Auto-play carousel
-const startAutoPlay = () => {
-  slideInterval = setInterval(nextSlide, 5000) // Change slide every 5 seconds
-}
-
-const stopAutoPlay = () => {
-  if (slideInterval) {
-    clearInterval(slideInterval)
-  }
-}
-
-// Touch handling functions
-const handleTouchStart = (e) => {
-  touchStartX.value = e.touches[0].clientX
-  isDragging.value = true
-  stopAutoPlay() // Stop auto-play while user is interacting
-}
-
-const handleTouchMove = (e) => {
-  if (!isDragging.value) return
-  touchEndX.value = e.touches[0].clientX
-}
-
-const handleTouchEnd = () => {
-  if (!isDragging.value) return
-  
-  const swipeDistance = touchStartX.value - touchEndX.value
-  const threshold = 50 // Minimum swipe distance in pixels
-  
-  if (Math.abs(swipeDistance) > threshold) {
-    if (swipeDistance > 0) {
-      // Swiped left - go to next slide
-      nextSlide()
-    } else {
-      // Swiped right - go to previous slide
-      previousSlide()
-    }
-  }
-  
-  isDragging.value = false
-  startAutoPlay() // Resume auto-play after swipe
-}
-
-// Link building functions
-const buildTrackedLink = (basePath, additionalParams = {}) => {
-  const params = new URLSearchParams()
-  
-  for (const [key, value] of Object.entries(route.query)) {
-    if (value) params.set(key, value)
-  }
-  
-  for (const [key, value] of Object.entries(additionalParams)) {
-    if (value) params.set(key, value)
-  }
-  
-  const queryString = params.toString()
-  return queryString ? `${basePath}?${queryString}` : basePath
-}
-
-const registerLink = computed(() => {
-  let source = 'landing_page_general'
-  let preselect = 'shopper'
-  
-  switch (props.landingType) {
-    case 'shoppers':
-      source = 'landing_page_shoppers'
-      preselect = 'shopper'
-      break
-    case 'business':
-      source = 'landing_page_business'
-      preselect = 'business'
-      break
-    case 'general':
-      source = 'landing_page_general'
-      preselect = null
-      break
-  }
-  
-  const additionalParams = { source }
-  if (preselect) additionalParams.preselect = preselect
-  
-  return buildTrackedLink('/register', additionalParams)
-})
-
-const trackLink = computed(() => buildTrackedLink('/track'))
-
-// Lifecycle
-onMounted(() => {
-  startAutoPlay()
-})
-
-onUnmounted(() => {
-  stopAutoPlay()
-})
+// US stores whose logos scroll across the bottom of the hero. Rendered
+// solid white over the photo via the .hero-logo-white filter.
+const logos = [
+  { src: 'https://static.nc-myus.com/images/pub/www/uploads/image/21afeea318a64a71bcb1dbd3ef27ffec/shein-logo.png', alt: 'SHEIN' },
+  { src: 'https://static.nc-myus.com/images/pub/www/uploads/image/c7378301189a420a8648cdc317dad98b/sephora.png', alt: 'Sephora' },
+  { src: 'https://static.nc-myus.com/images/pub/www/uploads/image/4342cf740e1d4c809a5266f006012ffc/macys-logo.png', alt: "Macy's" },
+  { src: 'https://static.nc-myus.com/images/pub/www/uploads/image/9b11fc458968411b972a0f7df9e42c67/apple-logo.png', alt: 'Apple' },
+  { src: 'https://static.nc-myus.com/images/pub/www/uploads/image/22ea4c4db5df4d4fbb4f5067de096869/shop-disney-logo.png', alt: 'Disney' },
+  { src: 'https://static.nc-myus.com/images/pub/www/uploads/image/9c6f199c00bc41a8ba335347cbb4ac66/ready-edit-nordstrom-logo-transparent-2.png', alt: 'Nordstrom' },
+  { src: 'https://static.nc-myus.com/images/pub/www/uploads/image/3706eb76defa4368bf0c8b1d738b3456/amazon-logo.png', alt: 'Amazon' },
+  { src: 'https://static.nc-myus.com/images/pub/www/uploads/image/7569832f95cb49f8af42a2aa4c4adc8d/walmart-logo.png', alt: 'Walmart' },
+  { src: 'https://static.nc-myus.com/images/pub/www/uploads/image/fbd77ea07e224a73b1fecf4137d7ba78/ebay-logo.png', alt: 'eBay' },
+  { src: 'https://static.nc-myus.com/images/pub/www/uploads/image/f3ffc5a464e94ff89d4405d026923c27/bath-body-works.png', alt: 'Bath & Body Works' },
+  { src: 'https://static.nc-myus.com/images/pub/www/uploads/image/3e5ad2a7062640a1a4fee03f0004ebbe/gap.png', alt: 'Gap' },
+  { src: 'https://static.nc-myus.com/images/pub/www/uploads/image/774f8d281cfe45ef81f7882de1599be2/carters-logo-120x120.png', alt: "Carter's" },
+]
 </script>
 
 <style scoped>
-/* Slide transitions */
-.slide-enter-active,
-.slide-leave-active {
-  transition: opacity 1s ease-in-out;
+/* Solid-white treatment so dark-mark logos read over the photo. */
+.hero-logo-white {
+  filter: brightness(0) invert(1);
 }
 
-.slide-enter-from {
-  opacity: 0;
+/* Track is tripled; shifting by one set (-100%/3) loops seamlessly. */
+@keyframes hero-logo-scroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(calc(-100% / 3)); }
+}
+.animate-hero-logo-scroll {
+  animation: hero-logo-scroll 50s linear infinite;
+  will-change: transform;
+}
+.animate-hero-logo-scroll:hover {
+  animation-play-state: paused;
 }
 
-.slide-leave-to {
-  opacity: 0;
+/* Fade the strip edges into the photo instead of a hard cut. */
+.logo-marquee-mask {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent);
+          mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent);
 }
 
-/* Text shadow for better readability */
-.text-shadow {
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
-}
-
-.text-shadow-lg {
-  text-shadow: 0 4px 8px rgba(0, 0, 0, 0.7);
+@media (prefers-reduced-motion: reduce) {
+  .animate-hero-logo-scroll { animation: none; }
 }
 </style>

@@ -30,7 +30,7 @@
                 'px-4 py-2 rounded-full text-sm font-semibold transition-colors',
               ]"
               @mouseenter="closeMenu"
-            >Productos</NuxtLink>
+            >Comprar en USA</NuxtLink>
 
             <!-- Categorías dropdown trigger -->
             <button
@@ -359,7 +359,7 @@ const isHelpActive = computed(() => route.path === '/shop/help')
 // Mobile flat nav (no dropdowns there — taps go straight to index pages)
 const mobileNavItems = [
   { to: '/shop',            label: 'Inicio' },
-  { to: '/shop?view=all',   label: 'Productos' },
+  { to: '/shop?view=all',   label: 'Comprar en USA' },
   { to: '/shop/categories', label: 'Categorías' },
   { to: '/shop/brands',     label: 'Marcas' },
   { to: '/shop/help',       label: 'Ayuda' },

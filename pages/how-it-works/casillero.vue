@@ -61,7 +61,7 @@
     </section>
 
     <!-- Step-by-Step Process -->
-    <MainStepsSection />
+    <CasilleroSteps />
 
     <!-- CTA Section -->
     <section class="py-16 md:py-24 bg-gradient-to-br from-dark-500 via-dark-600 to-dark-700 relative overflow-hidden">
@@ -150,12 +150,13 @@
                 />
               </svg>
             </NuxtLink>
-            <NuxtLink
-              to="/"
+            <button
+              type="button"
+              @click="calculatorOpen = true"
               class="inline-flex items-center justify-center gap-2 px-8 py-4 border-2 border-white/30 text-white font-bold rounded-full hover:bg-white/10 transition-all duration-300"
             >
               {{ t.calculateButton }}
-            </NuxtLink>
+            </button>
           </div>
         </div>
       </div>
@@ -164,15 +165,26 @@
     <!-- FAQ Section -->
     <MainFAQSection />
 
+    <!-- Still have questions? WhatsApp support CTA -->
+    <WhatsAppHelpCTA />
+
     <!-- Footer -->
     <FooterSection />
+
+    <!-- Shipping calculator modal, triggered by the "Calcular envío" CTA above. -->
+    <ShippingCalculatorModal v-model="calculatorOpen" />
   </main>
 </template>
 
 <script setup>
+import { ref } from "vue";
 import FooterSection from "~/components/Landing/FooterSection.vue";
 import MainFAQSection from "~/components/Landing/Main/FAQSection.vue";
-import MainStepsSection from "~/components/Landing/Main/StepsSection.vue";
+import CasilleroSteps from "~/components/Landing/Main/CasilleroSteps.vue";
+import ShippingCalculatorModal from "~/components/Landing/Main/ShippingCalculatorModal.vue";
+import WhatsAppHelpCTA from "~/components/Landing/Main/WhatsAppHelpCTA.vue";
+
+const calculatorOpen = ref(false);
 
 const { t: createTranslations } = useLanguage();
 
@@ -182,8 +194,8 @@ const translations = {
     en: "HOW IT WORKS",
   },
   heroTitle: {
-    es: "Compra en USA, recibe en México en 5 pasos simples",
-    en: "Shop in USA, receive in Mexico in 5 simple steps",
+    es: "Tu casillero en USA · Compra tú mismo, te lo enviamos",
+    en: "Your US locker · Shop yourself, we ship it",
   },
   heroSubtitle: {
     es: "Simple, rápido y seguro.",
