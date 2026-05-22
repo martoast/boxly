@@ -196,25 +196,52 @@
           <!-- ORDER PROOF OF PURCHASE — required before confirming. One array
                of files for the whole order so the customer can upload a
                receipt per store in this final step. -->
-          <div v-if="canEdit" class="bg-white rounded-xl border border-gray-200 p-5">
-            <h3 class="text-base font-bold text-gray-900">{{ t.proofTitle }} <span class="text-red-500">*</span></h3>
-            <p class="text-sm text-gray-500 mt-1 mb-4">{{ t.proofHelp }}</p>
-
-            <input ref="proofInput" type="file" multiple accept=".pdf,.jpg,.jpeg,.png" @change="handleProofSelect" class="hidden" />
-
-            <div v-if="orderProofs.length" class="space-y-2 mb-4">
-              <div v-for="(f, i) in orderProofs" :key="i" class="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg p-3">
-                <a :href="f.url" target="_blank" class="flex items-center gap-2 overflow-hidden min-w-0">
-                  <svg class="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                  <span class="text-sm font-medium text-blue-600 hover:underline truncate">{{ f.filename || `${t.receipt} ${i + 1}` }}</span>
-                </a>
-                <button type="button" @click="deleteOrderProof(i)" class="p-1.5 text-gray-400 hover:text-red-600 rounded hover:bg-red-50 flex-shrink-0" :title="t.remove"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
+          <div v-if="canEdit" class="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
+            <!-- Header with icon -->
+            <div class="flex items-start gap-3">
+              <div class="hidden sm:flex w-10 h-10 rounded-xl bg-primary-50 text-primary-600 items-center justify-center flex-shrink-0">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+              </div>
+              <div class="min-w-0">
+                <h3 class="text-base font-bold text-gray-900">{{ t.proofTitle }} <span class="text-red-500">*</span></h3>
+                <p class="text-sm text-gray-500 mt-1 leading-relaxed">{{ t.proofHelp }}</p>
               </div>
             </div>
 
-            <button type="button" @click="proofInput?.click()" :disabled="proofUploading" class="w-full py-3 border border-dashed border-gray-300 rounded-lg text-sm font-semibold text-primary-600 hover:border-primary-400 hover:bg-primary-50/30 transition-all disabled:opacity-60 flex items-center justify-center gap-2">
-              <svg v-if="!proofUploading" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
-              {{ proofUploading ? t.uploading : (orderProofs.length ? t.addMoreProof : t.uploadProof) }}
+            <!-- Loom walkthrough: how to turn the order-confirmation email into a PDF -->
+            <a
+              v-if="proofGuideUrl"
+              :href="proofGuideUrl"
+              target="_blank"
+              rel="noopener"
+              class="group mt-4 inline-flex items-center gap-2.5 pl-1.5 pr-4 py-1.5 rounded-full bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors shadow-sm"
+            >
+              <span class="flex items-center justify-center w-7 h-7 rounded-full bg-white/20 group-hover:bg-white/30 transition-colors">
+                <svg class="w-3.5 h-3.5 ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
+              </span>
+              {{ t.proofGuide }}
+            </a>
+
+            <input ref="proofInput" type="file" multiple accept="application/pdf,.pdf" @change="handleProofSelect" class="hidden" />
+
+            <!-- Uploaded PDFs -->
+            <div v-if="orderProofs.length" class="mt-5 space-y-2">
+              <div v-for="(f, i) in orderProofs" :key="i" class="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-xl p-2.5 pr-3">
+                <span class="flex items-center justify-center w-9 h-9 rounded-lg bg-red-50 text-red-600 text-[10px] font-extrabold tracking-wide flex-shrink-0">PDF</span>
+                <a :href="f.url" target="_blank" class="flex-1 min-w-0">
+                  <span class="block text-sm font-medium text-gray-800 truncate group-hover:underline">{{ f.filename || `${t.receipt} ${i + 1}` }}</span>
+                  <span class="block text-xs text-primary-600">{{ t.viewFile }}</span>
+                </a>
+                <button type="button" @click="deleteOrderProof(i)" class="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors flex-shrink-0" :title="t.remove"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
+              </div>
+            </div>
+
+            <!-- Upload dropzone -->
+            <button type="button" @click="proofInput?.click()" :disabled="proofUploading" class="mt-4 w-full px-4 py-5 border-2 border-dashed border-gray-200 rounded-xl text-center hover:border-primary-400 hover:bg-primary-50/30 transition-all disabled:opacity-60 flex flex-col items-center justify-center gap-1.5">
+              <svg v-if="!proofUploading" class="w-6 h-6 text-primary-500" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
+              <svg v-else class="w-6 h-6 text-primary-500 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+              <span class="text-sm font-semibold text-primary-600">{{ proofUploading ? t.uploading : (orderProofs.length ? t.addMoreProof : t.uploadProof) }}</span>
+              <span class="text-xs text-gray-400">{{ t.proofUploadHint }}</span>
             </button>
           </div>
 
@@ -340,8 +367,7 @@
           <div class="flex min-h-full items-center justify-center p-4">
             <TransitionChild as="template" enter="ease-out duration-300" enter-from="opacity-0 scale-95" enter-to="opacity-100 scale-100" leave="ease-in duration-200" leave-from="opacity-100 scale-100" leave-to="opacity-0 scale-95">
               <DialogPanel class="w-full max-w-sm bg-white rounded-2xl shadow-2xl p-6">
-                <div class="text-center mb-5"><div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4"><svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg></div><DialogTitle class="text-xl font-bold text-gray-900 mb-2">{{ t.confirmOrder }}</DialogTitle><p class="text-sm text-gray-500">{{ t.confirmMessage }}</p></div>
-                <div class="bg-gray-50 rounded-xl p-4 mb-6 flex justify-between items-center border border-gray-100"><span class="text-gray-600 font-medium">{{ t.totalProducts }}</span><span class="text-2xl font-bold text-gray-900">{{ totalItemQuantity }}</span></div>
+                <div class="text-center mb-6"><div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4"><svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg></div><DialogTitle class="text-xl font-bold text-gray-900 mb-2">{{ t.confirmOrder }}</DialogTitle><p class="text-sm text-gray-500">{{ t.confirmMessage }}</p></div>
                 <div class="flex gap-3"><button @click="showCompleteModal = false" class="flex-1 py-3 border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 font-bold transition-colors">{{ t.cancel }}</button><button @click="confirmOrderAction" :disabled="completingOrder" class="flex-1 py-3 bg-gray-900 text-white rounded-xl hover:bg-black disabled:opacity-50 font-bold transition-colors shadow-lg">{{ completingOrder ? t.confirming : t.confirm }}</button></div>
               </DialogPanel>
             </TransitionChild>
@@ -380,10 +406,14 @@ const markedForDeletion = ref({ image: false });
 const productImageInputDesktop = ref(null);
 const productImageInputMobile = ref(null);
 
-// Order-level proof of purchase — an array of files for the whole order.
+// Order-level proof of purchase — an array of PDF files for the whole order.
 const proofInput = ref(null);
 const proofUploading = ref(false);
 const orderProofs = computed(() => order.value?.proof_of_purchase_files ?? []);
+
+// Loom walkthrough showing how to save the order-confirmation email as a PDF.
+// Leave empty to hide the button until the video URL is ready.
+const proofGuideUrl = 'https://www.loom.com/share/664bd2439c57458bb8f4474bb818d93b';
 
 const itemForm = ref({ product_name: "", product_url: "", merchant_order_id: "", quantity: 1, declared_value: "", tracking_number: "", estimated_delivery_date: "" });
 
@@ -403,7 +433,7 @@ const translations = {
   reviewAndConfirm: { es: "Revisa y confirma tus productos", en: "Review & Confirm" },
   confirmExplanation: { es: "Confirma que estos son los productos que vas a enviar.", en: "Confirm these are the items you are shipping." },
   confirmProducts: { es: "Confirmar todo", en: "Confirm All" },
-  confirmAndContinue: { es: "Confirmar y Continuar", en: "Confirm & Continue" },
+  confirmAndContinue: { es: "Continuar", en: "Continue" },
   saveAndReturn: { es: "Guardar y Volver", en: "Save & Return" },
   finishedEditing: { es: "¿Terminaste de editar?", en: "Finished editing?" },
   returnToOrder: { es: "Vuelve al detalle de la orden.", en: "Return to order details." },
@@ -426,7 +456,11 @@ const translations = {
   receipt: { es: "Recibo", en: "Receipt" },
   receiptAttached: { es: "Recibo", en: "Receipt" },
   proofTitle: { es: "Comprobante de compra", en: "Proof of purchase" },
-  proofHelp: { es: "Sube una captura, PDF o confirmación de pedido donde se vea el total de tu compra. Si compraste en varias tiendas, puedes subir un comprobante por tienda. Obligatorio para confirmar.", en: "Upload a screenshot, PDF, or order confirmation that shows your purchase total. If you bought from several stores, you can upload one receipt per store. Required to confirm." },
+  proofHelp: { es: "Sube el PDF de la confirmación de tu pedido (el correo que te manda la tienda). Solo se aceptan archivos PDF. Si compraste en varias tiendas, sube un PDF por tienda. Obligatorio para confirmar.", en: "Upload the PDF of your order confirmation (the email the store sends you). PDF files only. If you bought from several stores, upload one PDF per store. Required to confirm." },
+  proofGuide: { es: "¿Cómo crear el PDF?", en: "How to create the PDF?" },
+  proofPdfOnly: { es: "Solo se aceptan archivos PDF.", en: "Only PDF files are accepted." },
+  proofUploadHint: { es: "Solo PDF · máx 10 MB", en: "PDF only · max 10 MB" },
+  viewFile: { es: "Ver archivo", en: "View file" },
   uploadProof: { es: "Subir comprobantes", en: "Upload receipts" },
   addMoreProof: { es: "Subir más comprobantes", en: "Upload more receipts" },
   uploading: { es: "Subiendo...", en: "Uploading..." },
@@ -483,6 +517,10 @@ const removeProductImage = () => { selectedProductImage.value = null; if (produc
 const handleProofSelect = async (event) => {
   const files = Array.from(event.target.files || []);
   if (!files.length) return;
+
+  // PDF only — law enforcement/legal need the order-confirmation PDF, not images.
+  const isPdf = (f) => f.type === 'application/pdf' || /\.pdf$/i.test(f.name);
+  if (!files.every(isPdf)) { $toast.error(t.value.proofPdfOnly); event.target.value = ""; return; }
 
   const tooBig = files.find(f => f.size > 10 * 1024 * 1024);
   if (tooBig) { $toast.error("File too large (max 10MB)"); event.target.value = ""; return; }
