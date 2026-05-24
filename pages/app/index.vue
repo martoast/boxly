@@ -667,6 +667,16 @@ const dropOffAddress = {
 // of its default back target (e.g. /app/purchase-requests) — so the dashboard
 // cards feel like a natural round-trip.
 const lanes = computed(() => [
+  // Casillero leads — it's our flagship service right now.
+  {
+    key: 'casillero',
+    href: '/app/casillero?from=/app',
+    image: '/images/lane-casillero.png',
+    imageAlt: t.value.laneCasilleroAlt,
+    title: t.value.laneCasilleroTitle,
+    desc: t.value.laneCasilleroDesc,
+    cta: t.value.laneCasilleroCta,
+  },
   {
     key: 'online',
     href: '/app/purchase-requests/create/online?from=/app',
@@ -685,15 +695,6 @@ const lanes = computed(() => [
     title: t.value.laneInPersonTitle,
     desc: t.value.laneInPersonDesc,
     cta: t.value.laneInPersonCta,
-  },
-  {
-    key: 'casillero',
-    href: '/app/casillero?from=/app',
-    image: '/images/lane-casillero.png',
-    imageAlt: t.value.laneCasilleroAlt,
-    title: t.value.laneCasilleroTitle,
-    desc: t.value.laneCasilleroDesc,
-    cta: t.value.laneCasilleroCta,
   },
 ])
 

@@ -81,6 +81,17 @@ const t = createTranslations({
 // Go to my account" CTA themselves. Action-side links live elsewhere
 // (e.g. the WedgeCTA "Crear solicitud" still goes straight to the form).
 const lanes = computed(() => [
+  // Casillero leads — it's our flagship service right now.
+  {
+    key: 'casillero',
+    href: '/how-it-works/casillero',
+    image: '/images/lane-casillero.png',
+    imageAlt: t.value.casilleroImageAlt,
+    badge: null,
+    title: t.value.casilleroTitle,
+    desc: t.value.casilleroDesc,
+    cta: t.value.casilleroCta,
+  },
   {
     key: 'online',
     href: '/how-it-works/online',
@@ -100,16 +111,6 @@ const lanes = computed(() => [
     title: t.value.inPersonTitle,
     desc: t.value.inPersonDesc,
     cta: t.value.inPersonCta,
-  },
-  {
-    key: 'casillero',
-    href: '/how-it-works/casillero',
-    image: '/images/lane-casillero.png',
-    imageAlt: t.value.casilleroImageAlt,
-    badge: null,
-    title: t.value.casilleroTitle,
-    desc: t.value.casilleroDesc,
-    cta: t.value.casilleroCta,
   },
 ])
 </script>
