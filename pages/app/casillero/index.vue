@@ -101,7 +101,7 @@
       <!-- 3. Tutorial video — sits at the bottom as a helper for customers who need a walkthrough. -->
       <div class="relative w-full max-w-2xl mx-auto rounded-xl overflow-hidden shadow-sm bg-black" style="aspect-ratio: 16 / 9">
         <iframe
-          src="https://www.loom.com/embed/15852780c73a401096ea598def4f8ef5"
+          src="https://www.loom.com/embed/34cef0546fd64ca3bf8f11fa89c156cc"
           frameborder="0"
           allowfullscreen
           allow="autoplay; fullscreen; picture-in-picture"
