@@ -7,8 +7,13 @@
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
           {{ t.back }}
         </NuxtLink>
-        <h1 class="text-2xl sm:text-3xl font-extrabold text-gray-900">{{ t.title }}</h1>
-        <p class="mt-2 text-gray-600">{{ t.subtitle }}</p>
+        <div class="flex items-start sm:items-center justify-between gap-4 flex-col sm:flex-row">
+          <div class="min-w-0">
+            <h1 class="text-2xl sm:text-3xl font-extrabold text-gray-900">{{ t.title }}</h1>
+            <p class="mt-2 text-gray-600">{{ t.subtitle }}</p>
+          </div>
+          <TutorialVideoButton loom-id="34cef0546fd64ca3bf8f11fa89c156cc" cookie-name="boxly_casillero_tutorial_dismissed" />
+        </div>
       </div>
     </div>
 
@@ -98,16 +103,6 @@
         </NuxtLink>
       </div>
 
-      <!-- 3. Tutorial video — sits at the bottom as a helper for customers who need a walkthrough. -->
-      <div class="relative w-full max-w-2xl mx-auto rounded-xl overflow-hidden shadow-sm bg-black" style="aspect-ratio: 16 / 9">
-        <iframe
-          src="https://www.loom.com/embed/34cef0546fd64ca3bf8f11fa89c156cc"
-          frameborder="0"
-          allowfullscreen
-          allow="autoplay; fullscreen; picture-in-picture"
-          class="absolute inset-0 w-full h-full"
-        ></iframe>
-      </div>
     </div>
   </section>
 </template>
@@ -144,8 +139,6 @@ const t = createTranslations({
   back: { es: 'Volver', en: 'Back' },
   title: { es: 'Tu casillero en USA', en: 'Your US locker' },
   subtitle: { es: 'Compra en cualquier tienda de Estados Unidos y envía a estas direcciones. Nosotros recibimos por ti y enviamos a México.', en: 'Shop from any US store and ship to these addresses. We receive the packages for you and ship them to Mexico.' },
-  videoTitle: { es: 'Mira cómo funciona', en: 'See how it works' },
-  videoSubtitle: { es: 'Aprende el proceso completo en menos de 3 minutos.', en: 'Learn the full process in under 3 minutes.' },
   addressesHeading: { es: 'Tus direcciones', en: 'Your addresses' },
   onlineShoppingAddress: { es: 'Dirección para compras en línea', en: 'Online shopping address' },
   copyAddress: { es: 'Copiar dirección', en: 'Copy address' },

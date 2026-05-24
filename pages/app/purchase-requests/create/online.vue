@@ -20,6 +20,7 @@
               {{ t.stepAddItems }}
             </p>
           </div>
+          <TutorialVideoButton loom-id="d0b29f8d1eb44727a1fb9799aaf04e61" cookie-name="boxly_online_request_tutorial_dismissed" />
           <!-- Item Counter Badge -->
           <div
             v-if="hasItems"
