@@ -12,7 +12,7 @@
             <h1 class="text-2xl sm:text-3xl font-extrabold text-gray-900">{{ t.title }}</h1>
             <p class="mt-2 text-gray-600">{{ t.subtitle }}</p>
           </div>
-          <TutorialVideoButton loom-id="34cef0546fd64ca3bf8f11fa89c156cc" cookie-name="boxly_casillero_tutorial_dismissed" />
+          <TutorialVideoButton loom-id="34cef0546fd64ca3bf8f11fa89c156cc" />
         </div>
       </div>
     </div>

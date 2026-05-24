@@ -13,7 +13,7 @@
  <h1 class="text-xl font-bold text-gray-900">{{ t.title }}</h1>
  <p class="text-sm text-gray-500 mt-0.5">{{ t.subtitle }}</p>
  </div>
- <TutorialVideoButton loom-id="01640d8214164acd9f21f37c8fdd3cd6" cookie-name="boxly_in_person_tutorial_dismissed" />
+ <TutorialVideoButton loom-id="01640d8214164acd9f21f37c8fdd3cd6" />
  </div>
  <InPersonStepper :current="1" :steps="stepLabels" />
  </div>

@@ -11,12 +11,10 @@
   </button>
 
   <!--
-    Tutorial modal — premium UX, mobile-first.
-    - Bottom-sheet on mobile, centered card on desktop.
-    - Backdrop tap and Esc are deliberately NOT close triggers — users on
-      mobile kept dismissing it by accident. They close via the explicit X
-      in the header or the "Cerrar" button in the footer.
-    - "No mostrar de nuevo" persists the dismissal via cookie.
+    Tutorial modal — premium UX, mobile-first. Only opens when the user
+    clicks the "Ver tutorial" button (no auto-popup). Closes via the explicit
+    X in the header, the "Cerrar" button in the footer, or a swipe-down
+    gesture on mobile.
   -->
   <TransitionRoot as="template" :show="showModal">
     <Dialog class="relative z-50" @close="noop">
@@ -35,7 +33,17 @@
             leave-from="opacity-100 translate-y-0 sm:scale-100"
             leave-to="opacity-0 translate-y-8 sm:translate-y-0 sm:scale-95"
           >
-            <DialogPanel class="w-full sm:max-w-3xl bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden ring-1 ring-black/5">
+            <DialogPanel
+              class="w-full sm:max-w-3xl bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden ring-1 ring-black/5 touch-pan-y"
+              :style="{
+                transform: dragOffset > 0 ? `translateY(${dragOffset}px)` : '',
+                transition: dragging ? 'none' : (isDragSettling ? 'transform 220ms ease-out' : '')
+              }"
+              @touchstart.passive="onTouchStart"
+              @touchmove.passive="onTouchMove"
+              @touchend="onTouchEnd"
+              @touchcancel="onTouchEnd"
+            >
               <!-- Mobile drag handle — purely visual, gives the iOS bottom-sheet feel -->
               <div class="sm:hidden pt-3 pb-1 flex items-center justify-center">
                 <div class="w-10 h-1 rounded-full bg-gray-300"></div>
@@ -74,16 +82,11 @@
                 ></iframe>
               </div>
 
-              <!-- Footer — safe-area padding so iOS home-bar doesn't overlap the buttons -->
+              <!-- Footer — safe-area padding so iOS home-bar doesn't overlap the button -->
               <div
-                class="px-5 sm:px-7 py-4 sm:py-5 flex items-center justify-between gap-3 bg-white border-t border-gray-100"
+                class="px-5 sm:px-7 py-4 sm:py-5 flex items-center justify-end bg-white border-t border-gray-100"
                 style="padding-bottom: max(1rem, env(safe-area-inset-bottom))"
               >
-                <button
-                  type="button"
-                  @click="dismissForever"
-                  class="text-sm text-gray-500 hover:text-gray-700 underline underline-offset-2 transition-colors py-1"
-                >{{ t.dontShowAgain }}</button>
                 <button
                   type="button"
                   @click="close"
@@ -99,14 +102,12 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref } from 'vue'
 import { Dialog, DialogPanel, DialogTitle, TransitionChild, TransitionRoot } from '@headlessui/vue'
 
-const props = defineProps({
+defineProps({
   // Loom video ID — e.g. "d0b29f8d1eb44727a1fb9799aaf04e61".
   loomId: { type: String, required: true },
-  // Unique cookie name per page so dismissals are independent.
-  cookieName: { type: String, required: true },
 })
 
 const { t: createTranslations } = useLanguage()
@@ -114,25 +115,58 @@ const t = createTranslations({
   watchTutorial: { es: 'Ver tutorial', en: 'Watch tutorial' },
   eyebrow: { es: 'Guía rápida', en: 'Quick guide' },
   modalTitle: { es: 'Mira cómo funciona', en: 'See how it works' },
-  dontShowAgain: { es: 'No mostrar de nuevo', en: 'Don’t show again' },
   close: { es: 'Cerrar', en: 'Close' },
 })
 
-const dismissed = useCookie(props.cookieName, { default: () => false })
 const showModal = ref(false)
 
 const open = () => { showModal.value = true }
 const close = () => { showModal.value = false }
 // HeadlessUI's @close fires on backdrop tap + Esc — both are accidental on
 // mobile (the small "x" miss tap on backdrop kept hiding the video). Force
-// explicit closes via the X button or footer button instead.
+// explicit closes via the X button, footer button, or swipe-down gesture.
 const noop = () => {}
-const dismissForever = () => {
-  dismissed.value = true
-  showModal.value = false
+
+// Swipe-down-to-close — mobile only. Drag the panel down, release past the
+// threshold to dismiss; otherwise it springs back.
+const dragOffset = ref(0)
+const dragging = ref(false)
+const isDragSettling = ref(false)
+let startY = 0
+const DISMISS_THRESHOLD = 120 // px
+
+const onTouchStart = (e) => {
+  if (typeof window !== 'undefined' && window.innerWidth >= 640) return // mobile only
+  startY = e.touches[0].clientY
+  dragging.value = true
+  isDragSettling.value = false
+  dragOffset.value = 0
 }
 
-onMounted(() => {
-  if (!dismissed.value) showModal.value = true
-})
+const onTouchMove = (e) => {
+  if (!dragging.value) return
+  const delta = e.touches[0].clientY - startY
+  // Only allow downward drag, with a soft resistance curve for over-drag feel.
+  dragOffset.value = delta > 0 ? delta : 0
+}
+
+const onTouchEnd = () => {
+  if (!dragging.value) return
+  dragging.value = false
+  isDragSettling.value = true
+
+  if (dragOffset.value > DISMISS_THRESHOLD) {
+    // Fling the panel off the bottom of the screen, then close cleanly.
+    dragOffset.value = (typeof window !== 'undefined' ? window.innerHeight : 800)
+    setTimeout(() => {
+      close()
+      dragOffset.value = 0
+      isDragSettling.value = false
+    }, 220)
+  } else {
+    // Spring back to rest.
+    dragOffset.value = 0
+    setTimeout(() => { isDragSettling.value = false }, 220)
+  }
+}
 </script>
