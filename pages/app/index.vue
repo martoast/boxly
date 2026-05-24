@@ -311,9 +311,10 @@
           </div>
         </div>
 
-        <!-- Form 1583 Banner -->
+        <!-- Form 1583 Banner — hidden for now (no longer required).
+             Original condition: totalOrders >= 5 && !user?.form_1583_completed_at -->
         <NuxtLink
-          v-if="totalOrders >= 5 && !user?.form_1583_completed_at"
+          v-if="false"
           to="/app/usps-form"
           class="block mb-6 relative overflow-hidden bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl p-5 shadow-md hover:shadow-lg transition-all duration-300 group animate-fadeIn"
           style="animation-delay: 0.5s"
