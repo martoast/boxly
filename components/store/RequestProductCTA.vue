@@ -2,7 +2,7 @@
   <!-- Banner variant: full-width card for catalog pages -->
   <NuxtLink
     v-if="variant === 'banner'"
-    to="/shop/request"
+    to="/app/purchase-requests"
     class="group block rounded-2xl border border-primary-100 bg-gradient-to-br from-primary-50 via-white to-amber-50 p-5 sm:p-6 transition-all hover:border-primary-300 hover:shadow-md"
   >
     <div class="flex items-center gap-4 sm:gap-5">
@@ -28,7 +28,7 @@
   <!-- Inline variant: slimmer card for product detail page -->
   <NuxtLink
     v-else
-    to="/shop/request"
+    to="/app/purchase-requests"
     class="group flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-4 transition-all hover:border-primary-300 hover:bg-primary-50/40"
   >
     <div class="w-10 h-10 rounded-full bg-primary-50 text-primary-600 flex items-center justify-center flex-shrink-0">

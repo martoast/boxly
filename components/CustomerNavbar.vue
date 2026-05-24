@@ -57,6 +57,7 @@
             >
               <button
                 type="button"
+                @click="handleNavigation('/app/orders')"
                 class="inline-flex items-center gap-2 px-1 pt-1 border-b-2 text-sm font-medium transition-colors duration-200"
                 :class="[
                   isActiveRoute('/app/orders')
@@ -121,21 +122,77 @@
               </div>
             </div>
 
-            <!-- Purchase Requests (NEW) -->
-            <button
-              @click="handleNavigation('/app/purchase-requests')"
-              :class="[
-                isActiveRoute('/app/purchase-requests')
-                  ? 'border-primary-500 text-gray-900'
-                  : 'border-transparent text-gray-600 hover:border-gray-300 hover:text-gray-900',
-                'inline-flex items-center border-b-2 px-1 pt-1 text-sm font-medium transition-colors duration-200',
-              ]"
+            <!-- Solicitudes de Compra — dropdown with the two pipelines -->
+            <div
+              class="relative inline-flex h-full group"
+              @mouseenter="showDropdown('purchaseRequests')"
+              @mouseleave="hideDropdown('purchaseRequests')"
             >
-              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-              </svg>
-              {{ t.purchaseRequests }}
-            </button>
+              <button
+                type="button"
+                @click="handleNavigation('/app/purchase-requests')"
+                class="inline-flex items-center gap-2 px-1 pt-1 border-b-2 text-sm font-medium transition-colors duration-200"
+                :class="[
+                  isActiveRoute('/app/purchase-requests')
+                    ? 'border-primary-500 text-gray-900'
+                    : 'border-transparent text-gray-600 hover:border-gray-300 hover:text-gray-900',
+                ]"
+              >
+                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+                <span class="whitespace-nowrap">{{ t.purchaseRequests }}</span>
+                <svg
+                  class="w-2.5 h-2.5 flex-shrink-0"
+                  aria-hidden="true"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 10 6"
+                >
+                  <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 4 4 4-4"/>
+                </svg>
+              </button>
+              <div
+                v-show="dropdowns.purchaseRequests"
+                class="absolute left-0 top-full mt-1 w-64 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none"
+                style="position: absolute; z-index: 99999; width: 280px;"
+                role="menu"
+                aria-orientation="vertical"
+              >
+                <div class="py-1" role="none">
+                  <a
+                    href="/app/purchase-requests/create/online"
+                    @click.prevent="handleNavigation('/app/purchase-requests/create/online')"
+                    class="group flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-primary-50 hover:text-primary-600 transition-colors duration-200"
+                    role="menuitem"
+                  >
+                    <svg class="w-4 h-4 mr-3 text-gray-400 group-hover:text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+                    </svg>
+                    <div>
+                      <p class="font-medium">{{ t.prOnlineTitle }}</p>
+                      <p class="text-xs text-gray-500">{{ t.prOnlineDesc }}</p>
+                    </div>
+                  </a>
+                  <div class="border-t border-gray-100 my-1"></div>
+                  <a
+                    href="/shop/in-person"
+                    @click.prevent="handleNavigation('/shop/in-person')"
+                    class="group flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-primary-50 hover:text-primary-600 transition-colors duration-200"
+                    role="menuitem"
+                  >
+                    <svg class="w-4 h-4 mr-3 text-gray-400 group-hover:text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    </svg>
+                    <div>
+                      <p class="font-medium">{{ t.prInPersonTitle }}</p>
+                      <p class="text-xs text-gray-500">{{ t.prInPersonDesc }}</p>
+                    </div>
+                  </a>
+                </div>
+              </div>
+            </div>
 
             <!-- Tienda (Boxly Store) -->
             <button
@@ -347,26 +404,32 @@
           </DisclosureButton>
         </div>
 
-        <!-- Mobile Purchase Requests (NEW) -->
+        <!-- Mobile Solicitudes de Compra — section header + two pipeline entries -->
         <div class="pl-4 mt-2">
-            <DisclosureButton
+          <p class="px-3 pt-2 pb-1 text-xs font-semibold text-gray-500 uppercase tracking-wider">{{ t.purchaseRequests }}</p>
+          <DisclosureButton
             as="a"
-            href="/app/purchase-requests"
-            @click.prevent="handleNavigation('/app/purchase-requests')"
+            href="/app/purchase-requests/create/online"
+            @click.prevent="handleNavigation('/app/purchase-requests/create/online')"
             :class="[
-              isActiveRoute('/app/purchase-requests')
+              isActiveRoute('/app/purchase-requests/create/online')
                 ? 'bg-primary-50 border-primary-500 text-primary-600'
                 : 'border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900',
-              'block border-l-4 py-2 pl-3 pr-4 text-base font-medium sm:pl-5 sm:pr-6 w-full text-left',
+              'block border-l-4 py-2 pl-6 pr-4 text-base font-medium',
             ]"
-            >
-            <div class="flex items-center">
-                <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
-                {{ t.purchaseRequests }}
-            </div>
-            </DisclosureButton>
+          >{{ t.prOnlineTitle }}</DisclosureButton>
+
+          <DisclosureButton
+            as="a"
+            href="/shop/in-person"
+            @click.prevent="handleNavigation('/shop/in-person')"
+            :class="[
+              isActiveRoute('/shop/in-person')
+                ? 'bg-primary-50 border-primary-500 text-primary-600'
+                : 'border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900',
+              'block border-l-4 py-2 pl-6 pr-4 text-base font-medium',
+            ]"
+          >{{ t.prInPersonTitle }}</DisclosureButton>
         </div>
 
         <!-- Mobile Affiliate Portal (shown only for affiliates) -->
@@ -475,7 +538,11 @@ const translations = {
   allOrders: { es: 'Todos los Envios', en: 'All Orders' },
   allOrdersDesc: { es: 'Ver historial completo', en: 'View complete history' },
   createNewOrder: { es: 'Crear Nuevo Envio', en: 'Create New Order' },
-  purchaseRequests: { es: 'Compra Asistida', en: 'Assisted Purchase' },
+  purchaseRequests: { es: 'Solicitudes de Compra', en: 'Purchase Requests' },
+  prOnlineTitle: { es: 'Compra Online', en: 'Online Purchase' },
+  prOnlineDesc: { es: 'Mándanos el link de cualquier tienda USA', en: 'Send us a link from any US store' },
+  prInPersonTitle: { es: 'Personal Shopping', en: 'Personal Shopping' },
+  prInPersonDesc: { es: 'Vamos por ti a Las Americas Outlets', en: 'We shop for you at Las Americas Outlets' },
   shop: { es: 'Tienda', en: 'Shop' },
   cart: { es: 'Carrito', en: 'Cart' },
   signedInAs: { es: 'Sesión iniciada como', en: 'Signed in as' },
@@ -497,7 +564,7 @@ const userInitials = computed(() => {
 // Cart count (Boxly Store)
 const { totalItems: cartCount } = useStoreCart();
 
-const dropdowns = reactive({ orders: false });
+const dropdowns = reactive({ orders: false, purchaseRequests: false });
 const dropdownTimers = reactive({});
 
 const showDropdown = (key) => {

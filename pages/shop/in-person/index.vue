@@ -6,7 +6,7 @@
  <div class="bg-white border-b border-gray-200">
  <div class="max-w-3xl mx-auto px-4 py-5">
  <div class="flex items-start gap-3 mb-5">
- <NuxtLink to="/shop/request" class="p-2 -ml-2 hover:bg-gray-100 rounded-lg" :aria-label="t.back">
+ <NuxtLink to="/app/purchase-requests" class="p-2 -ml-2 hover:bg-gray-100 rounded-lg" :aria-label="t.back">
  <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
  </NuxtLink>
  <div class="flex-1 min-w-0">

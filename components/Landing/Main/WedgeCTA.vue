@@ -15,7 +15,7 @@
         <p class="text-sm sm:text-base text-gray-600 mt-3 max-w-xl mx-auto leading-relaxed">{{ t.subtitle }}</p>
         <div class="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
           <NuxtLink
-            to="/shop/request/online"
+            to="/app/purchase-requests/create/online"
             class="inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-full shadow-md transition-colors"
           >
             {{ t.cta }}

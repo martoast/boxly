@@ -43,7 +43,7 @@
           <h3 class="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">{{ t.path2Title }}</h3>
           <p class="text-[15px] text-gray-600 mt-2 leading-relaxed flex-1">{{ t.path2Desc }}</p>
           <NuxtLink
-            to="/shop/request/online"
+            to="/app/purchase-requests/create/online"
             class="mt-5 inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-gray-900 hover:bg-gray-800 text-white font-semibold rounded-full text-sm transition-colors self-start"
           >
             {{ t.path2Cta }}
