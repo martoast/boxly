@@ -19,8 +19,9 @@
           <div class="w-12 h-12 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin"></div>
         </div>
   
-        <!-- Empty State — image-forward cards matching the landing ServiceLanes. -->
-        <div v-else-if="requests.length === 0" class="animate-fadeIn">
+        <!-- Pipeline chooser cards — always visible above the list so customers
+             can start a new request whether or not they already have ones. -->
+        <div v-else class="animate-fadeIn">
           <p class="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-3 px-1">¿Cómo quieres comprar?</p>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-5 lg:gap-7">
 
@@ -76,8 +77,9 @@
           </div>
         </div>
   
-        <!-- List -->
-        <div v-else class="grid gap-6 animate-fadeIn" style="animation-delay: 0.2s">
+        <!-- List of existing requests — shown below the chooser cards. -->
+        <div v-if="!loading && requests.length > 0" class="grid gap-6 animate-fadeIn mt-8" style="animation-delay: 0.2s">
+          <p class="text-xs font-semibold uppercase tracking-widest text-gray-400 px-1">{{ t.yourRequests }}</p>
           <div 
             v-for="req in requests" 
             :key="req.id"
@@ -155,6 +157,7 @@
     newRequest: { es: 'Nueva Solicitud', en: 'New Request' },
     new: { es: 'Nueva', en: 'New' },
     noRequests: { es: 'Sin solicitudes recientes', en: 'No recent requests' },
+    yourRequests: { es: 'Tus solicitudes', en: 'Your requests' },
     noRequestsDesc: { es: 'Déjanos comprar por ti. Envíanos los enlaces y nosotros nos encargamos del resto.', en: 'Let us shop for you. Send us the links and we handle the rest.' },
     startShopping: { es: 'Comenzar Compra Asistida', en: 'Start Assisted Purchase' },
     learnMore: { es: '¿Cómo funciona?', en: 'How does it work?' },
