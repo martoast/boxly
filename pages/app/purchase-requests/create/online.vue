@@ -5,7 +5,7 @@
       <div class="max-w-3xl mx-auto px-4 py-4">
         <div class="flex items-center gap-3">
           <NuxtLink
-            to="/app/purchase-requests"
+            :to="backTo"
             class="p-2 -ml-2 hover:bg-gray-100 rounded-lg transition-colors"
           >
             <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -378,6 +378,10 @@ definePageMeta({
 const { $customFetch, $toast } = useNuxtApp();
 const { t: createTranslations } = useLanguage();
 const router = useRouter();
+const route = useRoute();
+
+// Round-trip back to whoever sent us here (?from=…) or default to the index.
+const backTo = computed(() => (typeof route.query.from === 'string' ? route.query.from : '/app/purchase-requests'));
 
 const translations = {
   createRequest: { es: 'Nueva Solicitud', en: 'New Request' },
@@ -578,7 +582,7 @@ const submitRequest = async () => {
     });
     
     $toast.success(t.value.successMsg);
-    router.push('/app/purchase-requests');
+    router.push(backTo.value);
   } catch (error) {
     console.error(error);
     $toast.error(t.value.errorMsg);

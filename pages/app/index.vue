@@ -54,8 +54,45 @@
       </div>
       <!-- Main Content -->
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-        <!-- PO Box Card - Redesigned with Clear Steps -->
+        <!-- THREE PIPELINES — image-forward cards matching the landing's
+             ServiceLanes. One hub for all three ways to shop in USA. -->
         <div class="mb-8 animate-fadeIn" style="animation-delay: 0.2s">
+          <p class="text-xs font-bold uppercase tracking-widest text-primary-600 text-center mb-2">{{ t.threeWaysEyebrow }}</p>
+          <h2 class="text-2xl sm:text-3xl font-extrabold text-gray-900 text-center tracking-tight">{{ t.threeWaysTitle }}</h2>
+          <p class="text-center text-gray-500 mt-2 max-w-2xl mx-auto">{{ t.threeWaysSubtitle }}</p>
+
+          <div class="mt-8 grid grid-cols-1 md:grid-cols-3 gap-5 lg:gap-7">
+            <NuxtLink
+              v-for="lane in lanes"
+              :key="lane.key"
+              :to="lane.href"
+              class="group block bg-white rounded-2xl overflow-hidden border border-gray-200/80 hover:border-gray-300 transition-all shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)]"
+            >
+              <div class="relative aspect-[4/3] overflow-hidden bg-gray-100">
+                <img
+                  :src="lane.image"
+                  :alt="lane.imageAlt"
+                  loading="lazy"
+                  decoding="async"
+                  class="absolute inset-0 w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-700"
+                >
+                <span v-if="lane.badge" class="absolute top-3 left-3 inline-flex items-center px-2.5 py-1 rounded-full bg-white text-[10px] font-bold uppercase tracking-wider text-primary-700 shadow-sm">{{ lane.badge }}</span>
+              </div>
+              <div class="p-6 sm:p-7">
+                <h3 class="text-xl font-bold text-gray-900 tracking-tight">{{ lane.title }}</h3>
+                <p class="text-[15px] text-gray-500 mt-2 leading-relaxed">{{ lane.desc }}</p>
+                <div class="mt-4 inline-flex items-center gap-1.5 text-[15px] font-semibold text-primary-600 group-hover:text-primary-700">
+                  {{ lane.cta }}
+                  <svg class="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+                </div>
+              </div>
+            </NuxtLink>
+          </div>
+        </div>
+
+        <!-- ORIGINAL PO Box card hidden in favor of the 3-card pipeline chooser above.
+             Kept (v-if false) so we can flip back quickly if needed. -->
+        <div v-if="false" class="mb-8 animate-fadeIn" style="animation-delay: 0.2s">
           <!-- Steps Container -->
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
             <!-- Step 1: Copy Address -->
@@ -625,6 +662,41 @@ const dropOffAddress = {
   line2: "San Ysidro, CA 92173",
 };
 
+// Three pipelines surfaced on the dashboard (mirrors the landing ServiceLanes).
+// `from` lets each destination page send the customer back to /app instead
+// of its default back target (e.g. /app/purchase-requests) — so the dashboard
+// cards feel like a natural round-trip.
+const lanes = computed(() => [
+  {
+    key: 'online',
+    href: '/app/purchase-requests/create/online?from=/app',
+    image: '/images/lane-online.png',
+    imageAlt: t.value.laneOnlineAlt,
+    title: t.value.laneOnlineTitle,
+    desc: t.value.laneOnlineDesc,
+    cta: t.value.laneOnlineCta,
+  },
+  {
+    key: 'in-person',
+    href: '/shop/in-person?from=/app',
+    image: '/images/lane-in-person.png',
+    imageAlt: t.value.laneInPersonAlt,
+    badge: t.value.laneInPersonBadge,
+    title: t.value.laneInPersonTitle,
+    desc: t.value.laneInPersonDesc,
+    cta: t.value.laneInPersonCta,
+  },
+  {
+    key: 'casillero',
+    href: '/app/casillero?from=/app',
+    image: '/images/lane-casillero.png',
+    imageAlt: t.value.laneCasilleroAlt,
+    title: t.value.laneCasilleroTitle,
+    desc: t.value.laneCasilleroDesc,
+    cta: t.value.laneCasilleroCta,
+  },
+])
+
 // Translations
 const translations = {
   welcome: {
@@ -635,6 +707,22 @@ const translations = {
     es: "Envía a México sin complicaciones",
     en: "Ship to Mexico without complications",
   },
+  threeWaysEyebrow: { es: 'Tres formas de comprar en USA', en: 'Three ways to shop in the US' },
+  threeWaysTitle: { es: '¿Cómo te ayudamos hoy?', en: 'How can we help you today?' },
+  threeWaysSubtitle: { es: 'Elige el servicio que mejor te funcione. Mismo equipo, misma bodega, misma entrega segura a México.', en: 'Pick the service that fits you. Same team, same warehouse, same secure delivery to Mexico.' },
+  laneOnlineTitle: { es: 'Mándanos el link', en: 'Send us the link' },
+  laneOnlineDesc: { es: 'Encuentra el producto que quieres en cualquier tienda de USA — nosotros lo compramos y te lo enviamos a México.', en: 'Find any product in any US store — we buy it and ship it to Mexico for you.' },
+  laneOnlineCta: { es: 'Crear solicitud', en: 'Create request' },
+  laneOnlineAlt: { es: 'Producto de tienda USA visto en celular', en: 'US store product on phone' },
+  laneInPersonBadge: { es: 'Nuevo', en: 'New' },
+  laneInPersonTitle: { es: 'Compras presenciales en San Diego', en: 'In-person shopping in San Diego' },
+  laneInPersonDesc: { es: 'Vamos en persona a outlets y tiendas físicas. Ideal para boutiques, mayoreo y compras múltiples.', en: 'We visit outlets and physical stores for you. Built for boutiques, wholesale, and multi-store runs.' },
+  laneInPersonCta: { es: 'Agendar visita', en: 'Schedule a visit' },
+  laneInPersonAlt: { es: 'Compras presenciales en San Diego', en: 'In-person shopping in San Diego' },
+  laneCasilleroTitle: { es: 'Tu casillero en USA', en: 'Your US locker' },
+  laneCasilleroDesc: { es: 'Compra tú mismo y envía a nuestra bodega en San Diego. Consolidamos tus paquetes y los mandamos a tu casa.', en: 'Shop yourself and send to our San Diego warehouse. We consolidate your packages and ship them to your door.' },
+  laneCasilleroCta: { es: 'Ver mis direcciones', en: 'See my addresses' },
+  laneCasilleroAlt: { es: 'Bodega Boxly con paquetes', en: 'Boxly warehouse with packages' },
   yourUSAddress: {
     es: "Tu Dirección en Estados Unidos",
     en: "Your US Address",
