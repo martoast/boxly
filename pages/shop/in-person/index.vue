@@ -108,8 +108,7 @@ const t = createTranslations({
 const stepLabels = computed(() => [
  language.value === 'es' ? 'Fecha' : 'Date',
  language.value === 'es' ? 'Tiendas' : 'Stores',
- language.value === 'es' ? 'Detalles' : 'Details',
- language.value === 'es' ? 'Revisar' : 'Review',
+ language.value === 'es' ? 'Pagar' : 'Pay',
 ])
 
 const trips = ref([])

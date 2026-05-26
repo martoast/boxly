@@ -279,8 +279,8 @@ function shortUrl(url) {
 }
 
 onMounted(async () => {
-  if (!selectedTrip.value) return router.replace('/shop/in-person')
-  if (selectedStoreIds.value.length === 0) return router.replace('/shop/in-person/stores')
+  // This step has been removed — redirect to review.
+  return router.replace('/shop/in-person/review')
 
   try {
     const [catsRes, storesRes] = await Promise.all([

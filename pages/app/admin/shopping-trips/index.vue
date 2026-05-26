@@ -51,12 +51,21 @@
               <td class="px-4 py-3 text-gray-500">
                 {{ trip.start_time ? formatTime(trip.start_time) : '—' }}<template v-if="trip.end_time"> – {{ formatTime(trip.end_time) }}</template>
               </td>
-              <td class="px-4 py-3 text-right text-gray-700">{{ trip.purchase_requests_count ?? 0 }}</td>
+              <td class="px-4 py-3 text-right">
+                <NuxtLink
+                  :to="`/app/admin/shopping-trips/${trip.id}`"
+                  class="inline-flex items-center gap-1 font-semibold text-indigo-600 hover:text-indigo-700"
+                >
+                  {{ trip.confirmed_bookings_count ?? 0 }}
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+                </NuxtLink>
+              </td>
               <td class="px-4 py-3">
                 <span :class="statusClass(trip.status)" class="inline-flex px-2 py-0.5 rounded-full text-xs font-semibold border">{{ statusLabel(trip.status) }}</span>
               </td>
-              <td class="px-4 py-3 text-right">
-                <button @click="openEdit(trip)" class="text-indigo-600 font-medium hover:text-indigo-700 text-sm mr-3">Editar</button>
+              <td class="px-4 py-3 text-right whitespace-nowrap">
+                <NuxtLink :to="`/app/admin/shopping-trips/${trip.id}`" class="text-indigo-600 font-medium hover:text-indigo-700 text-sm mr-3">Ver citas</NuxtLink>
+                <button @click="openEdit(trip)" class="text-gray-600 font-medium hover:text-gray-900 text-sm mr-3">Editar</button>
                 <button @click="confirmDelete(trip)" class="text-red-500 font-medium hover:text-red-600 text-sm">Eliminar</button>
               </td>
             </tr>

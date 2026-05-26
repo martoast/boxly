@@ -32,7 +32,7 @@
           </div>
         </div>
         <div class="text-[11px] opacity-75 mt-2.5 pt-2.5 border-t border-white/15 leading-snug">
-          {{ t.plusFee.replace('{pct}', servicePct) }}
+          {{ language === 'es' ? 'Cuota de reserva — no se cobra nada más hoy' : 'Booking fee — nothing else charged today' }}
         </div>
       </div>
 
@@ -121,11 +121,37 @@
       </template>
     </div>
 
+      <!-- Per-store category interests — shown once at least one store is picked -->
+      <div v-if="pickedStores.length > 0" class="bg-white rounded-2xl border border-gray-200 p-5">
+        <label class="block text-sm font-semibold text-gray-900 mb-1">{{ t.categoriesLabel }}</label>
+        <p class="text-xs text-gray-500 mb-3">{{ t.categoriesHint }}</p>
+        <div class="space-y-2.5">
+          <div v-for="store in pickedStores" :key="store.id" class="border border-gray-200 rounded-xl p-3">
+            <div class="font-semibold text-gray-900 text-sm mb-2">{{ store.name }}</div>
+            <div v-if="categories.length === 0" class="text-xs text-gray-400 italic">{{ t.loadingCats }}</div>
+            <div v-else class="flex flex-wrap gap-1.5">
+              <button
+                v-for="cat in categories"
+                :key="cat.id"
+                type="button"
+                @click="toggleStoreCategory(store.id, cat.id)"
+                :class="[
+                  'px-2.5 py-1 rounded-full text-xs font-medium border transition-colors',
+                  categoriesForStore(store.id).includes(cat.id)
+                    ? 'bg-primary-600 text-white border-primary-600'
+                    : 'bg-white text-gray-700 border-gray-200 hover:border-primary-400'
+                ]"
+              >{{ cat.name }}</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
     <div class="fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 px-4 py-3.5 shadow-[0_-4px_12px_rgba(0,0,0,0.04)]">
       <div class="max-w-3xl mx-auto">
         <NuxtLink
           v-if="selectedStoreIds.length > 0"
-          to="/shop/in-person/details"
+          to="/shop/in-person/review"
           class="w-full inline-flex items-center justify-center gap-2 py-3.5 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-xl transition-colors"
         >
           {{ t.continue }} ({{ selectedStoreIds.length }})
@@ -150,7 +176,7 @@ definePageMeta({
 const { $customFetch } = useNuxtApp()
 const { t: createTranslations, language } = useLanguage()
 const router = useRouter()
-const { selectedTrip, selectedStoreIds, toggleStore } = useInPersonRequest()
+const { selectedTrip, selectedStoreIds, toggleStore, toggleStoreCategory, categoriesForStore } = useInPersonRequest()
 
 const t = createTranslations({
   back:            { es: 'Volver', en: 'Back' },
@@ -170,6 +196,9 @@ const t = createTranslations({
   resultsLabel:    { es: 'Resultados ({n})', en: 'Results ({n})' },
   noMatches:       { es: 'Sin resultados para "{q}".', en: 'No matches for "{q}".' },
   refineHint:      { es: 'Mostrando {shown} de {total}. Refina la búsqueda.', en: 'Showing {shown} of {total}. Refine your search.' },
+  categoriesLabel: { es: '¿Qué tipo de productos buscas?', en: 'What type of products are you looking for?' },
+  categoriesHint:  { es: 'Opcional — marca lo que te interesa en cada tienda.', en: 'Optional — tap what interests you at each store.' },
+  loadingCats:     { es: 'Cargando categorías…', en: 'Loading categories…' },
   continue:        { es: 'Continuar', en: 'Continue' },
   pickAtLeastOne:  { es: 'Elige al menos una tienda', en: 'Pick at least one store' },
 })
@@ -177,13 +206,12 @@ const t = createTranslations({
 const stepLabels = computed(() => [
   language.value === 'es' ? 'Fecha' : 'Date',
   language.value === 'es' ? 'Tiendas' : 'Stores',
-  language.value === 'es' ? 'Detalles' : 'Details',
-  language.value === 'es' ? 'Revisar' : 'Review',
+  language.value === 'es' ? 'Pagar' : 'Pay',
 ])
 
 const stores = ref([])
+const categories = ref([])
 const perStoreFee = ref(10)
-const servicePct = ref(10)
 const loading = ref(true)
 const query = ref('')
 const showAll = ref(false)
@@ -233,10 +261,13 @@ onMounted(async () => {
   }
 
   try {
-    const res = await $customFetch('/shopping-trips/in-person-stores')
-    stores.value = res?.data?.stores ?? []
-    perStoreFee.value = res?.data?.per_store_fee_usd ?? 10
-    servicePct.value = res?.data?.service_fee_percent ?? 10
+    const [storesRes, catsRes] = await Promise.all([
+      $customFetch('/shopping-trips/in-person-stores'),
+      $customFetch('/store/categories'),
+    ])
+    stores.value = storesRes?.data?.stores ?? []
+    perStoreFee.value = storesRes?.data?.per_store_fee_usd ?? 10
+    categories.value = catsRes?.data ?? catsRes ?? []
   } catch (e) {
     console.error(e)
   } finally {

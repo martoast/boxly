@@ -1,61 +1,71 @@
 <template>
- <!-- Confirmation after a successful POST /purchase-requests/in-person.
- Resets the flow state on mount so a back-button + new flow starts
- cleanly. -->
- <section class="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-12">
- <div class="max-w-md w-full bg-white rounded-3xl shadow-lg p-8 text-center">
- <div class="relative w-20 h-20 mx-auto mb-5">
- <div class="relative w-20 h-20 rounded-full bg-primary-600 flex items-center justify-center text-white ring-4 ring-primary-200 shadow-lg">
- <svg class="w-10 h-10" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
- </div>
- </div>
- <h1 class="text-2xl font-extrabold text-gray-900">{{ t.title }}</h1>
- <p class="text-sm text-gray-600 mt-2">{{ t.subtitle }}</p>
+  <section class="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-12">
+    <div class="max-w-md w-full bg-white rounded-3xl shadow-lg p-8 text-center">
 
- <div v-if="prRef" class="mt-5 inline-flex items-center gap-2 px-4 py-2 bg-primary-50 rounded-full">
- <span class="text-xs text-primary-700 uppercase tracking-wider font-semibold">{{ t.refLabel }}</span>
- <span class="text-sm font-mono font-bold text-primary-900">{{ prRef }}</span>
- </div>
+      <!-- Checkmark -->
+      <div class="w-20 h-20 mx-auto mb-5 rounded-full bg-primary-600 flex items-center justify-center text-white ring-4 ring-primary-200 shadow-lg">
+        <svg class="w-10 h-10" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+      </div>
 
- <p class="text-xs text-gray-500 mt-6 leading-relaxed">{{ t.next }}</p>
+      <h1 class="text-2xl font-extrabold text-gray-900">{{ t.title }}</h1>
+      <p class="text-sm text-gray-600 mt-2 leading-relaxed">{{ t.subtitle }}</p>
 
- <div class="mt-6 flex flex-col gap-2">
- <NuxtLink to="/app/purchase-requests" class="w-full py-3 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-xl shadow-lg shadow-primary-600/20 transition-colors">
- {{ t.viewMine }}
- </NuxtLink>
- <NuxtLink to="/shop" class="w-full py-3 bg-white border border-gray-300 text-gray-700 font-semibold rounded-xl hover:bg-gray-50">
- {{ t.backToShop }}
- </NuxtLink>
- </div>
- </div>
- </section>
+      <div v-if="bookingRef" class="mt-5 inline-flex items-center gap-2 px-4 py-2 bg-primary-50 rounded-full">
+        <span class="text-xs text-primary-700 uppercase tracking-wider font-semibold">{{ t.refLabel }}</span>
+        <span class="text-sm font-mono font-bold text-primary-900">{{ bookingRef }}</span>
+      </div>
+
+      <!-- WhatsApp CTA — primary action -->
+      <a
+        :href="whatsappUrl"
+        target="_blank"
+        rel="noopener"
+        class="mt-7 w-full inline-flex items-center justify-center gap-3 py-4 bg-green-500 hover:bg-green-600 text-white font-bold rounded-2xl shadow-lg shadow-green-500/25 transition-colors"
+      >
+        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+        {{ t.whatsapp }}
+      </a>
+
+      <p class="text-xs text-gray-400 mt-3 leading-relaxed">{{ t.whatsappHint }}</p>
+
+      <NuxtLink to="/app" class="mt-4 block w-full py-3 bg-white border border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-colors">
+        {{ t.goHome }}
+      </NuxtLink>
+    </div>
+  </section>
 </template>
 
 <script setup>
-import { onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
 
 definePageMeta({
- layout: 'shop',
- middleware: ['auth', 'customer', 'complete-profile'],
+  layout: 'shop',
+  middleware: ['auth', 'customer', 'complete-profile'],
 })
 
-const { t: createTranslations } = useLanguage()
+const { t: createTranslations, language } = useLanguage()
 const route = useRoute()
 const { reset } = useInPersonRequest()
 
-const prRef = computed(() => route.query.ref || null)
+const bookingRef = computed(() => route.query.ref || null)
+
+const whatsappUrl = computed(() => {
+  const msg = language.value === 'es'
+    ? `Hola! Acabo de reservar una visita en persona con Boxly${bookingRef.value ? ` (${bookingRef.value})` : ''}. ¿Me pueden dar más detalles?`
+    : `Hi! I just booked an in-person visit with Boxly${bookingRef.value ? ` (${bookingRef.value})` : ''}. Can you give me more details?`
+  return `https://wa.me/16195591910?text=${encodeURIComponent(msg)}`
+})
 
 const t = createTranslations({
- title: { es: '¡Pago recibido!', en: 'Payment received!' },
- subtitle: { es: 'Tu visita en Las Américas está confirmada. Te enviamos un correo con todos los detalles.', en: "Your Las Americas visit is locked in. We've emailed you the details." },
- refLabel: { es: 'Tu solicitud', en: 'Your request' },
- next: { es: 'Después de la visita te enviamos la cuenta final con la mercancía, el envío y el 10% de servicio. La reserva que pagaste hoy ya está cubierta.', en: "After the trip we'll send the final bill with merchandise, shipping, and the 10% service fee. Your booking deposit is already covered." },
- viewMine: { es: 'Ver mis solicitudes', en: 'View my requests' },
- backToShop: { es: 'Volver a la tienda', en: 'Back to shop' },
+  title:       { es: '¡Reserva confirmada!', en: 'Booking confirmed!' },
+  subtitle:    { es: 'Tu visita a Las Américas está reservada. El siguiente paso es hablar con nosotros por WhatsApp para coordinar los detalles.', en: "Your Las Americas visit is booked. Next step is to connect with us on WhatsApp to coordinate the details." },
+  refLabel:    { es: 'Reserva', en: 'Booking' },
+  whatsapp:    { es: 'Hablar con Boxly por WhatsApp', en: 'Chat with Boxly on WhatsApp' },
+  whatsappHint:{ es: 'Ahí coordinamos qué buscar, tallas, colores y todo lo demás.', en: "That's where we'll coordinate what to look for, sizes, colors, and everything else." },
+  goHome:      { es: 'Ir al inicio', en: 'Go home' },
 })
 
 onMounted(() => {
- // Clear the flow state so back-navigating into the wizard starts fresh.
- reset()
+  reset()
 })
 </script>
