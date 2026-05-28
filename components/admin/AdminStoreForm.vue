@@ -69,6 +69,13 @@
             <span class="text-xs text-gray-500">Aparece en el showcase de marcas en /shop. Recomendado: 5 marcas máximo.</span>
           </span>
         </label>
+        <label class="flex items-start gap-2 text-sm">
+          <input type="checkbox" v-model="form.is_in_person_available" class="mt-0.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
+          <span>
+            <span class="font-semibold text-gray-900 block">Disponible para citas en persona</span>
+            <span class="text-xs text-gray-500">Aparece como opción al agendar una cita de compras en persona.</span>
+          </span>
+        </label>
         <div>
           <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Sort order</label>
           <input v-model.number="form.sort_order" type="number" min="0" class="w-full border border-gray-200 rounded-xl px-3 py-1.5 text-sm" />
@@ -107,6 +114,7 @@ const form = ref({
   description: '',
   is_active: true,
   show_on_landing: false,
+  is_in_person_available: false,
   sort_order: 0,
 })
 
@@ -121,6 +129,7 @@ watch(() => props.existingStore, (s) => {
       description: s.description ?? '',
       is_active: s.is_active ?? true,
       show_on_landing: s.show_on_landing ?? false,
+      is_in_person_available: s.is_in_person_available ?? false,
       sort_order: s.sort_order ?? 0,
     }
   }
