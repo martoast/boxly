@@ -73,7 +73,7 @@
       <div class="container mx-auto px-4 md:px-8 lg:px-12 relative z-10">
         <div class="text-center max-w-3xl mx-auto">
           <span class="inline-flex items-center px-3 py-1 rounded-full bg-white/10 backdrop-blur border border-white/15 text-[11px] sm:text-xs font-semibold text-white uppercase tracking-wider mb-5">
-            🛍️ {{ t.ctaBadge }}
+            {{ t.ctaBadge }}
           </span>
           <h2 class="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-4">{{ t.ctaTitle }}</h2>
           <p class="text-lg text-white/80 mb-8">{{ t.ctaSubtitle }}</p>
@@ -132,8 +132,8 @@ const translations = {
     en: "IN-PERSON SHOPPING",
   },
   heroTitle: {
-    es: "🛍️ Tu personal shopper en outlets y tiendas físicas de USA",
-    en: "🛍️ Your personal shopper at US outlets and physical stores",
+    es: "Tu personal shopper en outlets y tiendas físicas de USA",
+    en: "Your personal shopper at US outlets and physical stores",
   },
   heroSubtitle: {
     es: "Agendamos una visita a Las Américas Outlets o a las tiendas que tú elijas en San Diego. Vamos en persona, compramos por ti y te enviamos a México.",

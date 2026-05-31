@@ -38,7 +38,6 @@
                 />
               </div>
               <div class="absolute -top-4 -left-4 bg-white rounded-xl shadow-xl p-3 flex items-center gap-2">
-                <div class="w-10 h-10 bg-primary-50 rounded-lg flex items-center justify-center text-lg">📅</div>
                 <div>
                   <p class="text-xs font-bold text-gray-900">{{ t.step1BadgeTitle }}</p>
                   <p class="text-xs text-gray-600">{{ t.step1BadgeDesc }}</p>
@@ -62,7 +61,6 @@
                 />
               </div>
               <div class="absolute -bottom-4 -right-4 bg-white rounded-xl shadow-xl p-3 flex items-center gap-2">
-                <div class="w-10 h-10 bg-primary-50 rounded-lg flex items-center justify-center text-lg">🛍️</div>
                 <div>
                   <p class="text-xs font-bold text-gray-900">{{ t.step2BadgeTitle }}</p>
                   <p class="text-xs text-gray-600">{{ t.step2BadgeDesc }}</p>
@@ -93,7 +91,7 @@
               <h3 class="text-2xl md:text-3xl font-bold text-gray-900">{{ t.step3Title }}</h3>
             </div>
             <div class="space-y-4 text-gray-700">
-              <p class="text-lg">{{ t.step3Desc }}</p>
+              <p class="text-lg whitespace-pre-line">{{ t.step3Desc }}</p>
               <div class="flex items-start gap-3 text-sm">
                 <svg class="w-6 h-6 text-green-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                 <p class="text-gray-600">{{ t.step3Tip }}</p>
@@ -148,7 +146,7 @@ const t = createTranslations({
   step1Title:        { es: 'Reserva tu visita y elige las tiendas', en: 'Book your visit and pick the stores' },
   step1Desc:         { es: 'Elige la fecha en que vamos a Las Américas Outlets o a las tiendas que tú decidas en San Diego. Selecciona qué tiendas visitar, marca categorías y deja una lista de deseos.', en: 'Pick the date we visit Las Americas Outlets or whichever stores you choose in San Diego. Select which stores, tag the categories that interest you, and leave a wishlist.' },
   step1CalloutTitle: { es: 'Reservas con $10 USD por tienda', en: 'Reserve with $10 USD per store' },
-  step1CalloutDesc:  { es: 'Esto bloquea tu visita y nos permite organizar la ruta. Lo restante (mercancía + 10% de servicio) lo pagas al final, cuando recibimos todo en bodega.', en: 'This locks in your visit and lets us plan the route. You pay the rest (merchandise + 10% service fee) at the end, once we receive everything in our warehouse.' },
+  step1CalloutDesc:  { es: 'El resto se paga al final: total de las compras realizadas + 10% de comisión de servicio calculada sobre el valor total de la mercancía adquirida.', en: 'The rest is paid at the end: total of the purchases made + 10% service fee calculated on the total value of the merchandise acquired.' },
   step1Alt:          { es: 'Reserva tu visita desde tu celular', en: 'Book your visit from your phone' },
   step1BadgeTitle:   { es: 'Fecha disponible', en: 'Available date' },
   step1BadgeDesc:    { es: 'En minutos', en: 'In minutes' },
@@ -161,7 +159,7 @@ const t = createTranslations({
   step2BadgeDesc:    { es: 'En outlets de USA', en: 'At US outlets' },
 
   step3Title:        { es: 'Te enviamos a tu casa en México', en: 'We ship to your door in Mexico' },
-  step3Desc:         { es: 'Consolidamos todo en una sola caja en San Diego y te enviamos por Estafeta a tu dirección en México. Pagas la cuenta final en pesos a cuenta mexicana — sin comisiones internacionales.', en: 'We consolidate everything in a single box in San Diego and ship via Estafeta to your address in Mexico. You pay the final bill in pesos to a Mexican account — no international fees.' },
+  step3Desc:         { es: 'Consolidamos todas tus compras en una sola caja y las enviamos mediante nuestro servicio aéreo premium a tu domicilio en México, con entrega nacional por Estafeta.\n\nPagas la cuenta final en pesos a una cuenta mexicana, sin comisiones internacionales, conversiones de moneda ni complicaciones.', en: 'We consolidate all your purchases into a single box and ship them via our premium air service to your home in Mexico, with domestic delivery by Estafeta.\n\nYou pay the final bill in pesos to a Mexican account — no international fees, currency conversions, or hassles.' },
   step3Tip:          { es: 'Seguimiento en tiempo real desde tu cuenta y por WhatsApp.', en: 'Real-time tracking from your account and on WhatsApp.' },
   step3Alt:          { es: 'Recibe tu compra en México', en: 'Receive your shopping in Mexico' },
 
