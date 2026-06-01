@@ -268,6 +268,7 @@ const { t: createTranslations } = useLanguage();
 const translations = {
   dashboard: { es: 'Panel de Control', en: 'Dashboard' },
   orders: { es: 'Órdenes', en: 'Orders' },
+  operationsBoard: { es: 'Tablero de Operaciones', en: 'Operations Board' },
   boxes: { es: 'Cajas', en: 'Boxes' },
   purchaseRequests: { es: 'Compra Asistida', en: 'Assisted Purchase' },
   shoppingTrips: { es: 'Visitas en Persona', en: 'In-Person Trips' },
@@ -292,6 +293,7 @@ const t = createTranslations(translations);
 const navItems = computed(() => [
   { route: '/app/admin/dashboard', icon: Squares2X2Icon, label: t.value.dashboard },
   { route: '/app/admin/orders', icon: ShoppingBagIcon, label: t.value.orders },
+  { route: '/app/admin/operations-board', icon: CalendarDaysIcon, label: t.value.operationsBoard },
   { route: '/app/admin/boxes', icon: CubeIcon, label: t.value.boxes },
   { route: '/app/admin/purchase-requests', icon: ShoppingCartIcon, label: t.value.purchaseRequests },
   { route: '/app/admin/shopping-trips', icon: CalendarDaysIcon, label: t.value.shoppingTrips },

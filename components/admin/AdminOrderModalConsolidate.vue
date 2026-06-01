@@ -164,6 +164,18 @@
                   </div>
                 </div>
 
+                <!-- Planned Ship Date (schedules the order onto the Operations Board) -->
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-2">{{ t.shipDate }}</label>
+                  <input
+                    v-model="form.planned_ship_date"
+                    type="date"
+                    :min="todayStr"
+                    class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500 text-sm"
+                  >
+                  <p class="text-xs text-gray-500 mt-1">{{ t.shipDateHelp }}</p>
+                </div>
+
                 <!-- Payment Method Selection -->
                 <div>
                   <label class="block text-sm font-medium text-gray-700 mb-3">{{ t.paymentMethod }}</label>
@@ -336,6 +348,8 @@ import {
 const props = defineProps({
   show: { type: Boolean, default: false },
   order: { type: Object, default: null },
+  // Optional prefilled ship date (e.g. when opened by dropping a card on a day)
+  defaultShipDate: { type: String, default: '' },
 })
 
 const emit = defineEmits(['close', 'success'])
@@ -350,6 +364,14 @@ const products = ref([])
 const form = ref({
   boxes: [{ stripe_price_id: '', quantity: 1 }],
   payment_method: 'stripe',
+  planned_ship_date: '',
+})
+
+// Min selectable date = today (no scheduling in the past)
+const todayStr = computed(() => {
+  const d = new Date()
+  const tz = d.getTimezoneOffset() * 60000
+  return new Date(d - tz).toISOString().slice(0, 10)
 })
 
 const translations = {
@@ -364,6 +386,8 @@ const translations = {
   noShippingProducts: { es: 'No hay productos de envío disponibles', en: 'No shipping products available' },
   totalBoxPrice: { es: 'Precio Total de Cajas', en: 'Total Box Price' },
   invoiceAmount: { es: 'Monto a Pagar', en: 'Amount Due' },
+  shipDate: { es: 'Fecha de Envío', en: 'Ship Date' },
+  shipDateHelp: { es: 'Día en que se enviará la caja. Aparecerá en el Tablero de Operaciones.', en: 'Day the box will ship. Appears on the Operations Board.' },
   paymentMethod: { es: 'Metodo de Pago', en: 'Payment Method' },
   stripePayment: { es: 'Pago con Stripe', en: 'Stripe Payment' },
   stripeDesc: { es: 'Factura electronica', en: 'Electronic invoice' },
@@ -397,6 +421,7 @@ watch(() => props.show, (newVal) => {
     form.value = {
       boxes: [{ stripe_price_id: '', quantity: 1 }],
       payment_method: 'stripe',
+      planned_ship_date: props.defaultShipDate || '',
     }
   }
 })
@@ -415,7 +440,8 @@ const totalBoxPrice = computed(() => {
 const isValid = computed(() => {
   const hasValidBoxes = form.value.boxes.every(box => box.stripe_price_id && box.quantity >= 1)
   const hasAtLeastOneBox = form.value.boxes.length > 0
-  return hasValidBoxes && hasAtLeastOneBox
+  const hasShipDate = !!form.value.planned_ship_date
+  return hasValidBoxes && hasAtLeastOneBox && hasShipDate
 })
 
 const addBox = () => {
@@ -449,7 +475,8 @@ const handleConfirm = async () => {
       method: 'POST',
       body: {
         boxes: form.value.boxes,
-        payment_method: form.value.payment_method
+        payment_method: form.value.payment_method,
+        planned_ship_date: form.value.planned_ship_date
       }
     })
 

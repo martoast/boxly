@@ -1269,6 +1269,23 @@
                     class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                   />
                 </div>
+
+                <!-- Planned Ship Date (Operations Board) -->
+                <div>
+                  <label
+                    for="planned_ship_date"
+                    class="block text-sm font-semibold text-gray-900 mb-1.5 sm:mb-2"
+                  >
+                    {{ t.plannedShipDateLabel }}
+                  </label>
+                  <input
+                    v-model="form.planned_ship_date"
+                    type="date"
+                    id="planned_ship_date"
+                    class="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                  <p class="text-xs text-gray-500 mt-1">{{ t.plannedShipDateHelp }}</p>
+                </div>
               </div>
             </div>
 
@@ -1545,6 +1562,7 @@ const form = ref({
   shipped_at: null,
   delivered_at: null,
   estimated_delivery_date: null,
+  planned_ship_date: null,
   actual_delivery_date: null,
   deposit_invoice_id: "",
   deposit_payment_link: "",
@@ -1644,6 +1662,8 @@ const translations = {
   fullPaymentPaidAtLabel: { es: "Fecha de Pago", en: "Payment Date" },
   depositPaidAtLabel: { es: "Fecha Pago Depósito", en: "Deposit Paid At" },
   shippedAtLabel: { es: "Fecha de Envío", en: "Shipped At" },
+  plannedShipDateLabel: { es: "Fecha Programada de Envío (Tablero)", en: "Planned Ship Date (Board)" },
+  plannedShipDateHelp: { es: "Día en que se enviará. Controla el Tablero de Operaciones.", en: "Day it will ship. Drives the Operations Board." },
   readyForPickupAtLabel: { es: "Fecha Listo para Recoger", en: "Ready for Pickup At" },
   deliveredAtLabel: { es: "Fecha de Entrega", en: "Delivered At" },
   pickedUpAtLabel: { es: "Fecha de Recolección", en: "Picked Up At" },
@@ -2065,6 +2085,7 @@ const fetchOrder = async () => {
       shipped_at: formatDateTimeForInput(order.value.shipped_at),
       delivered_at: formatDateTimeForInput(order.value.delivered_at),
       estimated_delivery_date: formatDateForInput(order.value.estimated_delivery_date),
+      planned_ship_date: formatDateForInput(order.value.planned_ship_date),
       actual_delivery_date: formatDateForInput(order.value.actual_delivery_date),
       deposit_amount: parseFloat(order.value.deposit_amount) || null,
       deposit_invoice_id: order.value.deposit_invoice_id || "",
@@ -2157,6 +2178,9 @@ const handleSubmit = async () => {
     }
     if (form.value.delivered_at !== originalData.value.delivered_at) {
       formData.append('delivered_at', form.value.delivered_at ?? '');
+    }
+    if (form.value.planned_ship_date !== originalData.value.planned_ship_date) {
+      formData.append('planned_ship_date', form.value.planned_ship_date ?? '');
     }
 
     // Handle delivery address
