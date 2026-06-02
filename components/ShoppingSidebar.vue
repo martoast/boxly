@@ -209,6 +209,7 @@ import {
   IdentificationIcon,
   ChartBarIcon,
   MegaphoneIcon,
+  ShoppingBagIcon,
   ChevronDoubleLeftIcon,
   ChevronDoubleRightIcon,
   ArrowRightOnRectangleIcon,
@@ -224,6 +225,7 @@ const { t: createTranslations } = useLanguage();
 const t = createTranslations({
   purchaseRequests: { es: 'Solicitudes de Compra', en: 'Purchase Requests' },
   storeProducts:    { es: 'Productos Tienda',       en: 'Store Products' },
+  purchasedProducts:{ es: 'Productos Comprados',    en: 'Purchased' },
   storeBrands:      { es: 'Tiendas',                en: 'Stores' },
   storeCategories:  { es: 'Categorías',             en: 'Categories' },
   storeGenders:     { es: 'Géneros',                en: 'Genders' },
@@ -237,6 +239,7 @@ const t = createTranslations({
 const navItems = computed(() => [
   { route: '/app/shopping/purchase-requests', icon: ShoppingCartIcon,        label: t.value.purchaseRequests },
   { route: '/app/shopping/products',          icon: ArchiveBoxIcon,          label: t.value.storeProducts },
+  { route: '/app/shopping/purchased-products', icon: ShoppingBagIcon,        label: t.value.purchasedProducts },
   { route: '/app/shopping/stores',            icon: BuildingStorefrontIcon,  label: t.value.storeBrands },
   { route: '/app/shopping/categories',        icon: TagIcon,                 label: t.value.storeCategories },
   { route: '/app/shopping/genders',           icon: IdentificationIcon,      label: t.value.storeGenders },
