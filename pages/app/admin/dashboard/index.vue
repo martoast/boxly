@@ -1050,12 +1050,71 @@
           </div>
         </div>
       </div>
+
+      <!-- ALL-TIME BUSINESS TRAJECTORY -->
+      <div class="mt-8">
+        <div class="flex items-center justify-between gap-3 mb-4">
+          <div>
+            <h2 class="text-lg font-bold text-gray-900">{{ t.trajectoryTitle }}</h2>
+            <p class="text-xs text-gray-400 mt-0.5">{{ t.trajectorySubtitle }}</p>
+          </div>
+          <div class="inline-flex rounded-xl border border-gray-200 bg-white p-0.5 text-xs font-semibold shrink-0">
+            <button
+              @click="trajectoryMode = 'monthly'"
+              :class="trajectoryMode === 'monthly' ? 'bg-primary-500 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'"
+              class="px-3 py-1.5 rounded-lg transition-colors"
+            >{{ t.monthly }}</button>
+            <button
+              @click="trajectoryMode = 'cumulative'"
+              :class="trajectoryMode === 'cumulative' ? 'bg-primary-500 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'"
+              class="px-3 py-1.5 rounded-lg transition-colors"
+            >{{ t.cumulative }}</button>
+          </div>
+        </div>
+
+        <div v-if="trajectory === null" class="bg-white rounded-2xl border border-border p-12 text-center text-gray-300">
+          {{ t.loadingChart }}
+        </div>
+        <div v-else-if="trajectory.length === 0" class="bg-white rounded-2xl border border-border p-12 text-center text-gray-400">
+          {{ t.noData }}
+        </div>
+        <div v-else class="space-y-6">
+          <TrajectoryChart
+            :title="t.revVsExp"
+            :subtitle="trajectoryMode === 'cumulative' ? t.cumulativeHint : ''"
+            type="area"
+            format="currency"
+            :categories="categories"
+            :series="financialSeries"
+            :height="360"
+          />
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <TrajectoryChart
+              :title="t.customerGrowth"
+              type="area"
+              format="number"
+              :categories="categories"
+              :series="customerSeries"
+              :colors="['#10b981']"
+            />
+            <TrajectoryChart
+              :title="t.salesAndOrders"
+              type="bar"
+              format="number"
+              :categories="categories"
+              :series="salesSeries"
+              :colors="['#2E6BB7', '#f59e0b']"
+            />
+          </div>
+        </div>
+      </div>
     </div>
   </section>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from "vue";
+import TrajectoryChart from "~/components/admin/TrajectoryChart.vue";
 
 definePageMeta({
   layout: "admin",
@@ -1070,6 +1129,65 @@ const { t: createTranslations } = useLanguage();
 const loading = ref(true);
 const dashboardData = ref(null);
 const selectedPeriod = ref("");
+
+// All-time trajectory charts (independent of the period selector)
+const trajectory = ref(null);
+const trajectoryMode = ref("monthly"); // monthly | cumulative
+
+const fetchTimeSeries = async () => {
+  try {
+    const response = await $customFetch("/admin/dashboard/time-series");
+    trajectory.value = response.data?.months ?? [];
+  } catch (error) {
+    console.error("Error fetching time-series:", error);
+    trajectory.value = [];
+  }
+};
+
+const runningTotal = (arr) => {
+  let sum = 0;
+  return arr.map((v) => (sum += v));
+};
+
+const categories = computed(() => (trajectory.value ?? []).map((m) => m.label));
+
+const financialSeries = computed(() => {
+  const rows = trajectory.value ?? [];
+  const rev = rows.map((m) => m.revenue);
+  const exp = rows.map((m) => m.expenses);
+  const profit = rows.map((m) => m.profit);
+  const cum = trajectoryMode.value === "cumulative";
+  return [
+    { name: t.value.revenueSeries, data: cum ? runningTotal(rev) : rev },
+    { name: t.value.expensesSeries, data: cum ? runningTotal(exp) : exp },
+    { name: t.value.profitSeries, data: cum ? runningTotal(profit) : profit },
+  ];
+});
+
+const customerSeries = computed(() => {
+  const rows = trajectory.value ?? [];
+  // cumulative_customers already accumulates; monthly shows new sign-ups
+  const data =
+    trajectoryMode.value === "cumulative"
+      ? rows.map((m) => m.cumulative_customers)
+      : rows.map((m) => m.new_customers);
+  const name =
+    trajectoryMode.value === "cumulative"
+      ? t.value.totalCustomersSeries
+      : t.value.newCustomersSeries;
+  return [{ name, data }];
+});
+
+const salesSeries = computed(() => {
+  const rows = trajectory.value ?? [];
+  const sales = rows.map((m) => m.sales_count);
+  const orders = rows.map((m) => m.orders_count);
+  const cum = trajectoryMode.value === "cumulative";
+  return [
+    { name: t.value.salesSeries, data: cum ? runningTotal(sales) : sales },
+    { name: t.value.ordersSeries, data: cum ? runningTotal(orders) : orders },
+  ];
+});
 
 // Get current date
 const currentDate = new Date();
@@ -1328,6 +1446,23 @@ const translations = {
   expenses: { es: "Gastos", en: "Expenses" },
   accountsReceivable: { es: "Cuentas por Cobrar", en: "Accounts Receivable" },
   unpaidOrders: { es: "órdenes pendientes", en: "unpaid orders" },
+  trajectoryTitle: { es: "Trayectoria del negocio", en: "Business trajectory" },
+  trajectorySubtitle: { es: "Todo el historial desde el inicio", en: "Full history since inception" },
+  monthly: { es: "Mensual", en: "Monthly" },
+  cumulative: { es: "Acumulado", en: "Cumulative" },
+  cumulativeHint: { es: "Totales acumulados", en: "Running totals" },
+  revVsExp: { es: "Ingresos, Gastos y Ganancia", en: "Revenue, Expenses & Profit" },
+  revenueSeries: { es: "Ingresos", en: "Revenue" },
+  expensesSeries: { es: "Gastos", en: "Expenses" },
+  profitSeries: { es: "Ganancia", en: "Profit" },
+  customerGrowth: { es: "Crecimiento de clientes", en: "Customer growth" },
+  newCustomersSeries: { es: "Clientes nuevos", en: "New customers" },
+  totalCustomersSeries: { es: "Clientes totales", en: "Total customers" },
+  salesAndOrders: { es: "Ventas y órdenes", en: "Sales & orders" },
+  salesSeries: { es: "Ventas (PRs)", en: "Sales (PRs)" },
+  ordersSeries: { es: "Órdenes", en: "Orders" },
+  loadingChart: { es: "Cargando gráficos...", en: "Loading charts..." },
+  noData: { es: "Aún no hay datos para graficar", en: "No data to chart yet" },
 };
 
 const t = createTranslations(translations);
@@ -1415,6 +1550,7 @@ onMounted(() => {
     "0"
   )}`;
   fetchDashboard();
+  fetchTimeSeries();
 });
 </script>
 

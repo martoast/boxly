@@ -19,6 +19,7 @@
     "@tailwindcss/forms": "^0.5.10",
     "@tailwindcss/postcss": "^4.0.7",
     "@tailwindcss/typography": "^0.5.16",
+    "apexcharts": "^5.13.0",
     "canvas-confetti": "^1.9.3",
     "libphonenumber-js": "^1.12.24",
     "nuxt": "^3.17.6",
@@ -27,6 +28,7 @@
     "pinia": "^3.0.3",
     "vue": "^3.5.17",
     "vue-router": "^4.5.1",
+    "vue3-apexcharts": "^1.11.1",
     "vuedraggable": "^4.1.0"
   },
   "packageManager": "yarn@1.22.19+sha1.4ba7fc5c6e704fce2066ecbfb0b0d8976fe62447"
