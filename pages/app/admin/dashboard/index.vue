@@ -1080,16 +1080,19 @@
         </div>
         <div v-else class="space-y-6">
           <TrajectoryChart
-            :title="t.revVsExp"
+            :key="`rev-${trajectoryMode}`"
+            :title="t.revenueSeries"
             :subtitle="trajectoryMode === 'cumulative' ? t.cumulativeHint : ''"
             type="area"
             format="currency"
             :categories="categories"
             :series="financialSeries"
+            :colors="['#2E6BB7']"
             :height="360"
           />
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <TrajectoryChart
+              :key="`cust-${trajectoryMode}`"
               :title="t.customerGrowth"
               type="area"
               format="number"
@@ -1098,12 +1101,13 @@
               :colors="['#10b981']"
             />
             <TrajectoryChart
-              :title="t.salesAndOrders"
+              :key="`sales-${trajectoryMode}`"
+              :title="t.ordersSeries"
               type="bar"
               format="number"
               :categories="categories"
               :series="salesSeries"
-              :colors="['#2E6BB7', '#f59e0b']"
+              :colors="['#2E6BB7']"
             />
           </div>
         </div>
@@ -1154,14 +1158,8 @@ const categories = computed(() => (trajectory.value ?? []).map((m) => m.label));
 const financialSeries = computed(() => {
   const rows = trajectory.value ?? [];
   const rev = rows.map((m) => m.revenue);
-  const exp = rows.map((m) => m.expenses);
-  const profit = rows.map((m) => m.profit);
   const cum = trajectoryMode.value === "cumulative";
-  return [
-    { name: t.value.revenueSeries, data: cum ? runningTotal(rev) : rev },
-    { name: t.value.expensesSeries, data: cum ? runningTotal(exp) : exp },
-    { name: t.value.profitSeries, data: cum ? runningTotal(profit) : profit },
-  ];
+  return [{ name: t.value.revenueSeries, data: cum ? runningTotal(rev) : rev }];
 });
 
 const customerSeries = computed(() => {
@@ -1180,13 +1178,9 @@ const customerSeries = computed(() => {
 
 const salesSeries = computed(() => {
   const rows = trajectory.value ?? [];
-  const sales = rows.map((m) => m.sales_count);
   const orders = rows.map((m) => m.orders_count);
   const cum = trajectoryMode.value === "cumulative";
-  return [
-    { name: t.value.salesSeries, data: cum ? runningTotal(sales) : sales },
-    { name: t.value.ordersSeries, data: cum ? runningTotal(orders) : orders },
-  ];
+  return [{ name: t.value.ordersSeries, data: cum ? runningTotal(orders) : orders }];
 });
 
 // Get current date
