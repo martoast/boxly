@@ -4,16 +4,17 @@
     <div v-if="!token" class="absolute inset-0 flex items-center justify-center text-sm text-gray-400">
       Falta configurar MAPBOX_API_TOKEN
     </div>
-    <p v-if="unlocated > 0" class="text-[11px] text-gray-400 mt-2">
-      {{ unlocated }} {{ unlocatedLabel }}
-    </p>
+    <div class="flex items-center justify-between mt-2">
+      <p class="text-[11px] text-gray-400">{{ caption }}</p>
+      <p v-if="unlocated > 0" class="text-[11px] text-gray-400">{{ unlocated }} {{ unlocatedLabel }}</p>
+    </div>
   </div>
 </template>
 
 <script setup>
 const props = defineProps({
   cities: { type: Array, default: () => [] },
-  metric: { type: String, default: "customers" },
+  metric: { type: String, default: "customers" }, // customers | orders | revenue
   metricLabel: { type: String, default: "" },
   format: { type: String, default: "number" },
   token: { type: String, default: "" },
@@ -22,11 +23,13 @@ const props = defineProps({
 
 const mapEl = ref(null);
 const unlocated = ref(0);
+const dotUnit = ref(1);
 let map = null;
 let mapboxgl = null;
 let popup = null;
 
-// Normalized city name -> [lng, lat] for major Mexican cities.
+const MAX_DOTS = 1600;
+
 const norm = (s) => (s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
 const COORDS = {
   "ciudad de mexico": [-99.1332, 19.4326], "guadalajara": [-103.3496, 20.6597],
@@ -57,48 +60,65 @@ const COORDS = {
   "san pedro garza garcia": [-100.4022, 25.6585],
 };
 
-const C0 = [120, 170, 230];
-const C1 = [30, 78, 140];
-const lerp = (r) => {
-  r = Math.max(0, Math.min(1, r));
-  const c = C0.map((a, i) => Math.round(a + (C1[i] - a) * r));
-  return `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
+// Deterministic pseudo-random so dots don't reshuffle when toggling metrics.
+const hash = (s) => {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
+  return h >>> 0;
 };
+const rand = (seed) => {
+  const x = Math.sin(seed) * 43758.5453;
+  return x - Math.floor(x);
+};
+
 const fmt = (v) =>
   props.format === "currency"
     ? new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(v ?? 0)
     : new Intl.NumberFormat("es-MX").format(v ?? 0);
 
+const caption = computed(() =>
+  props.format === "currency"
+    ? `cada punto ≈ ${fmt(dotUnit.value)}`
+    : `cada punto = 1 ${(props.metricLabel || "").toLowerCase().replace(/s$/, "")}`
+);
+
 const buildGeoJson = () => {
-  let missing = 0;
-  const rows = props.cities.filter((c) => (c[props.metric] ?? 0) > 0);
-  const max = Math.max(1, ...rows.map((c) => c[props.metric] ?? 0));
+  const metric = props.metric;
+  const located = props.cities.filter((c) => (c[metric] ?? 0) > 0 && COORDS[norm(c.city)]);
+  unlocated.value = props.cities.filter((c) => (c[metric] ?? 0) > 0 && !COORDS[norm(c.city)]).length;
+
+  // For revenue, one dot per chunk so the country isn't a single mass of dots.
+  const total = located.reduce((s, c) => s + (c[metric] ?? 0), 0);
+  let unit = 1;
+  if (metric === "revenue") unit = Math.max(1, Math.round(total / 600));
+  dotUnit.value = unit;
+
+  // Cap total dots for performance.
+  let dotsWanted = located.reduce((s, c) => s + Math.max(1, Math.round((c[metric] ?? 0) / unit)), 0);
+  const scale = dotsWanted > MAX_DOTS ? MAX_DOTS / dotsWanted : 1;
+
   const features = [];
-  for (const c of rows) {
-    const coord = COORDS[norm(c.city)];
-    if (!coord) { missing++; continue; }
-    const val = c[props.metric] ?? 0;
-    const ratio = Math.sqrt(val / max);
-    features.push({
-      type: "Feature",
-      geometry: { type: "Point", coordinates: coord },
-      properties: {
-        name: c.city,
-        estado: c.estado,
-        value: val,
-        valueLabel: fmt(val),
-        radius: 6 + ratio * 26,
-        color: lerp(ratio),
-      },
-    });
+  for (const c of located) {
+    const [lng, lat] = COORDS[norm(c.city)];
+    const n = Math.max(1, Math.round(((c[metric] ?? 0) / unit) * scale));
+    const seedBase = hash(c.city + c.estado);
+    const spread = 0.06 + Math.min(0.16, Math.sqrt(n) * 0.012); // bigger cities spread a touch more
+    for (let i = 0; i < n; i++) {
+      // two samples averaged -> tighter, centre-weighted cluster
+      const jx = ((rand(seedBase + i * 2.1) + rand(seedBase + i * 7.3)) / 2 - 0.5) * 2 * spread;
+      const jy = ((rand(seedBase + i * 3.7) + rand(seedBase + i * 11.9)) / 2 - 0.5) * 2 * spread;
+      features.push({
+        type: "Feature",
+        geometry: { type: "Point", coordinates: [lng + jx, lat + jy / 1.15] },
+        properties: { city: c.city, estado: c.estado, val: fmt(c[metric] ?? 0) },
+      });
+    }
   }
-  unlocated.value = missing;
   return { type: "FeatureCollection", features };
 };
 
 const refreshData = () => {
-  if (!map || !map.getSource("cities")) return;
-  map.getSource("cities").setData(buildGeoJson());
+  if (map && map.getSource("dots")) map.getSource("dots").setData(buildGeoJson());
 };
 
 onMounted(async () => {
@@ -115,33 +135,34 @@ onMounted(async () => {
     attributionControl: false,
   });
   map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "top-right");
-  map.scrollZoom.disable(); // don't hijack page scroll
-  popup = new mapboxgl.Popup({ closeButton: false, closeOnClick: false, offset: 12 });
+  map.scrollZoom.disable();
+  popup = new mapboxgl.Popup({ closeButton: false, closeOnClick: false, offset: 10 });
 
   map.on("load", () => {
-    map.addSource("cities", { type: "geojson", data: buildGeoJson() });
+    map.addSource("dots", { type: "geojson", data: buildGeoJson() });
     map.addLayer({
-      id: "cities",
+      id: "dots",
       type: "circle",
-      source: "cities",
+      source: "dots",
       paint: {
-        "circle-radius": ["get", "radius"],
-        "circle-color": ["get", "color"],
-        "circle-opacity": 0.78,
-        "circle-stroke-width": 1.5,
-        "circle-stroke-color": "#ffffff",
+        // grow slightly with zoom so clusters read at every level
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 2.2, 6, 3.4, 9, 5],
+        "circle-color": "#2E6BB7",
+        "circle-opacity": 0.5,
+        "circle-stroke-width": 0.4,
+        "circle-stroke-color": "#1E4E8C",
       },
     });
 
-    map.on("mouseenter", "cities", (e) => {
+    map.on("mousemove", "dots", (e) => {
       map.getCanvas().style.cursor = "pointer";
       const p = e.features[0].properties;
       popup
-        .setLngLat(e.features[0].geometry.coordinates)
-        .setHTML(`<div style="font-family:inherit"><div style="font-weight:600;color:#111">${p.name}</div><div style="font-size:12px;color:#6b7280">${p.estado}</div><div style="font-size:12px;color:#374151;margin-top:2px">${props.metricLabel}: <b>${p.valueLabel}</b></div></div>`)
+        .setLngLat(e.lngLat)
+        .setHTML(`<div style="font-family:inherit"><div style="font-weight:600;color:#111">${p.city}</div><div style="font-size:12px;color:#6b7280">${p.estado}</div><div style="font-size:12px;color:#374151;margin-top:2px">${props.metricLabel}: <b>${p.val}</b></div></div>`)
         .addTo(map);
     });
-    map.on("mouseleave", "cities", () => {
+    map.on("mouseleave", "dots", () => {
       map.getCanvas().style.cursor = "";
       popup.remove();
     });
