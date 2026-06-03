@@ -188,6 +188,15 @@ const fmtMoney0 = (v) =>
   new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(v ?? 0);
 const fmtInt = (v) => new Intl.NumberFormat("es-MX").format(v ?? 0);
 
+// Plain compact axis label (no Intl "compact" — that feature fails in some envs).
+const compactAxis = (v) => {
+  const n = Number(v) || 0;
+  const a = Math.abs(n);
+  if (a >= 1e6) return (n / 1e6).toFixed(a < 1e7 ? 1 : 0).replace(/\.0$/, "") + "M";
+  if (a >= 1e3) return (n / 1e3).toFixed(a < 1e4 ? 1 : 0).replace(/\.0$/, "") + "k";
+  return String(Math.round(n));
+};
+
 // Running total — the "snowball" so cumulative growth is visible.
 const cumulative = (arr) => {
   let sum = 0;
@@ -237,9 +246,11 @@ const heroChartOptions = computed(() => ({
     labels: { style: { colors: "#94a3b8", fontSize: "11px" }, hideOverlappingLabels: true, rotate: 0 },
   },
   yaxis: {
+    forceNiceScale: true,
+    decimalsInFloat: 0,
     labels: {
       style: { colors: "#94a3b8", fontSize: "11px" },
-      formatter: (v) => (heroIsCurrency.value ? "$" : "") + new Intl.NumberFormat("es-MX", { notation: "compact", maximumFractionDigits: 1 }).format(v ?? 0),
+      formatter: (v) => (heroIsCurrency.value ? "$" : "") + compactAxis(v),
     },
   },
   tooltip: { theme: "light", y: { formatter: (v) => (heroIsCurrency.value ? fmtMoney0(v) : fmtInt(v)) } },
