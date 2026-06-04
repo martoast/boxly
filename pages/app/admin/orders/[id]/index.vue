@@ -924,6 +924,21 @@
                   <p class="text-sm text-gray-500">{{ t.totalBoxPrice }}</p>
                   <p class="font-bold text-gray-900">${{ totalBoxPrice.toFixed(2) }}</p>
                 </div>
+
+                <!-- Re-open consolidation modal to (re)generate the Stripe invoice or
+                     send bank-transfer details for an order already in awaiting_payment
+                     (e.g. boxes set manually but no invoice was ever sent). -->
+                <button
+                  v-if="canGenerateInvoice"
+                  @click="showConsolidateModal = true"
+                  type="button"
+                  class="mt-3 w-full inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-purple-700 bg-purple-50 border border-purple-200 rounded-lg hover:bg-purple-100 transition-colors"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                  </svg>
+                  {{ t.generateInvoice }}
+                </button>
               </div>
 
               <!-- Single Box Display (legacy orders without boxes array) -->
@@ -1376,6 +1391,7 @@ const translations = {
   markAllArrived: { es: "Marcar Todos Llegados", en: "Mark All Arrived" },
   startProcessing: { es: "Iniciar Procesamiento", en: "Start Processing" },
   consolidateOrder: { es: "Consolidar Orden", en: "Consolidate Order" },
+  generateInvoice: { es: "Generar Cobro / Enviar Factura", en: "Generate Charge / Send Invoice" },
   awaitingConsolidationPayment: { es: "Esperando Pago", en: "Awaiting Payment" },
   viewInvoice: { es: "Ver Factura", en: "View Invoice" },
   consolidationPayment: { es: "Pago de Cajas", en: "Box Payment" },
@@ -1488,6 +1504,14 @@ const isCrossing = computed(() => order.value?.order_type === 'crossing');
 // Check if order has boxes array with data (NEW structure)
 const hasBoxes = computed(() => {
   return order.value?.boxes && order.value.boxes.length > 0;
+});
+
+// Shipping order already in awaiting_payment but not yet paid → allow re-opening the
+// consolidation modal to (re)generate the Stripe invoice or send bank-transfer details.
+const canGenerateInvoice = computed(() => {
+  return !isCrossing.value
+    && order.value?.status === 'awaiting_payment'
+    && !order.value?.paid_at;
 });
 
 // Check if order has legacy shipping info (OLD structure - guia/gia at order level)

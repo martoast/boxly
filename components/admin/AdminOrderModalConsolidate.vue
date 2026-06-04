@@ -115,39 +115,87 @@
                     <div
                       v-for="(box, index) in form.boxes"
                       :key="index"
-                      class="flex items-start gap-2 p-3 bg-gray-50 rounded-lg"
+                      class="p-3 bg-gray-50 rounded-lg space-y-2"
                     >
-                      <div class="flex-1">
-                        <select
-                          v-model="box.stripe_price_id"
-                          class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500 text-sm"
+                      <!-- Box size + quantity + remove -->
+                      <div class="flex items-start gap-2">
+                        <div class="flex-1">
+                          <select
+                            v-model="box.stripe_price_id"
+                            class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500 text-sm"
+                          >
+                            <option value="" disabled>{{ t.selectBoxSize }}</option>
+                            <option v-for="prod in shippingProducts" :key="prod.id" :value="prod.price_id">
+                              {{ prod.name }} - ${{ prod.price }} {{ prod.currency }}
+                            </option>
+                          </select>
+                        </div>
+                        <div class="w-20">
+                          <input
+                            v-model.number="box.quantity"
+                            type="number"
+                            min="1"
+                            max="10"
+                            class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500 text-sm text-center"
+                            placeholder="Qty"
+                          >
+                        </div>
+                        <button
+                          v-if="form.boxes.length > 1"
+                          @click="removeBox(index)"
+                          type="button"
+                          class="p-2 text-gray-400 hover:text-red-500 transition-colors"
                         >
-                          <option value="" disabled>{{ t.selectBoxSize }}</option>
-                          <option v-for="prod in shippingProducts" :key="prod.id" :value="prod.price_id">
-                            {{ prod.name }} - ${{ prod.price }} {{ prod.currency }}
-                          </option>
-                        </select>
+                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                          </svg>
+                        </button>
                       </div>
-                      <div class="w-20">
-                        <input
-                          v-model.number="box.quantity"
-                          type="number"
-                          min="1"
-                          max="10"
-                          class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500 text-sm text-center"
-                          placeholder="Qty"
-                        >
+
+                      <!-- Dimensions (cm) + weight (kg) — optional -->
+                      <div class="grid grid-cols-4 gap-2">
+                        <div>
+                          <input
+                            v-model.number="box.length"
+                            type="number"
+                            min="0"
+                            step="0.1"
+                            class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500 text-sm text-center"
+                            :placeholder="t.lengthPlaceholder"
+                          >
+                        </div>
+                        <div>
+                          <input
+                            v-model.number="box.width"
+                            type="number"
+                            min="0"
+                            step="0.1"
+                            class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500 text-sm text-center"
+                            :placeholder="t.widthPlaceholder"
+                          >
+                        </div>
+                        <div>
+                          <input
+                            v-model.number="box.height"
+                            type="number"
+                            min="0"
+                            step="0.1"
+                            class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500 text-sm text-center"
+                            :placeholder="t.heightPlaceholder"
+                          >
+                        </div>
+                        <div>
+                          <input
+                            v-model.number="box.weight"
+                            type="number"
+                            min="0"
+                            step="0.1"
+                            class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500 text-sm text-center"
+                            :placeholder="t.weightPlaceholder"
+                          >
+                        </div>
                       </div>
-                      <button
-                        v-if="form.boxes.length > 1"
-                        @click="removeBox(index)"
-                        type="button"
-                        class="p-2 text-gray-400 hover:text-red-500 transition-colors"
-                      >
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                        </svg>
-                      </button>
+                      <p class="text-xs text-gray-400">{{ t.dimensionsHelp }}</p>
                     </div>
                   </div>
 
@@ -358,7 +406,7 @@ const loadingProducts = ref(false)
 const products = ref([])
 
 const form = ref({
-  boxes: [{ stripe_price_id: '', quantity: 1 }],
+  boxes: [{ stripe_price_id: '', quantity: 1, length: null, width: null, height: null, weight: null }],
   payment_method: 'stripe',
   planned_ship_date: '',
 })
@@ -378,6 +426,11 @@ const translations = {
   boxes: { es: 'Cajas', en: 'Boxes' },
   addBox: { es: 'Agregar Caja', en: 'Add Box' },
   selectBoxSize: { es: 'Seleccionar tamaño...', en: 'Select box size...' },
+  lengthPlaceholder: { es: 'Largo', en: 'Length' },
+  widthPlaceholder: { es: 'Ancho', en: 'Width' },
+  heightPlaceholder: { es: 'Alto', en: 'Height' },
+  weightPlaceholder: { es: 'Peso', en: 'Weight' },
+  dimensionsHelp: { es: 'Dimensiones en cm, peso en kg (opcional).', en: 'Dimensions in cm, weight in kg (optional).' },
   loadingProducts: { es: 'Cargando productos...', en: 'Loading products...' },
   noShippingProducts: { es: 'No hay productos de envío disponibles', en: 'No shipping products available' },
   totalBoxPrice: { es: 'Precio Total de Cajas', en: 'Total Box Price' },
@@ -411,13 +464,25 @@ const shippingProducts = computed(() => {
   return products.value.filter(p => p.shipping === 'true' || p.shipping === true)
 })
 
-// Reset form when modal opens
+// Reset form when modal opens. If the order already has boxes (e.g. it was set up
+// manually and is sitting in awaiting_payment), prefill them so the admin can review
+// and (re)generate the invoice / send bank-transfer details without re-entering everything.
 watch(() => props.show, (newVal) => {
   if (newVal) {
+    const existing = props.order?.boxes || []
     form.value = {
-      boxes: [{ stripe_price_id: '', quantity: 1 }],
+      boxes: existing.length
+        ? existing.map(b => ({
+            stripe_price_id: b.stripe_price_id || '',
+            quantity: b.quantity || 1,
+            length: b.length != null ? Number(b.length) : null,
+            width: b.width != null ? Number(b.width) : null,
+            height: b.height != null ? Number(b.height) : null,
+            weight: b.weight != null ? Number(b.weight) : null,
+          }))
+        : [{ stripe_price_id: '', quantity: 1, length: null, width: null, height: null, weight: null }],
       payment_method: 'stripe',
-      planned_ship_date: props.defaultShipDate || '',
+      planned_ship_date: props.defaultShipDate || (props.order?.planned_ship_date || '').slice(0, 10),
     }
   }
 })
@@ -441,7 +506,7 @@ const isValid = computed(() => {
 })
 
 const addBox = () => {
-  form.value.boxes.push({ stripe_price_id: '', quantity: 1 })
+  form.value.boxes.push({ stripe_price_id: '', quantity: 1, length: null, width: null, height: null, weight: null })
 }
 
 const removeBox = (index) => {
