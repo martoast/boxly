@@ -258,6 +258,7 @@ import {
   ChevronDoubleRightIcon,
   UserCircleIcon,
   ArrowRightOnRectangleIcon,
+  ClipboardDocumentCheckIcon,
 } from '@heroicons/vue/24/outline';
 
 const { $customFetch } = useNuxtApp();
@@ -274,6 +275,7 @@ const translations = {
   operationsBoard: { es: 'Tablero de Operaciones', en: 'Operations Board' },
   boxes: { es: 'Cajas', en: 'Boxes' },
   purchaseRequests: { es: 'Compra Asistida', en: 'Assisted Purchase' },
+  purchasedProducts: { es: 'Productos Comprados', en: 'Purchased Products' },
   shoppingTrips: { es: 'Visitas en Persona', en: 'In-Person Trips' },
   packages: { es: 'Paquetes', en: 'Packages' },
   customers: { es: 'Clientes', en: 'Customers' },
@@ -301,6 +303,7 @@ const navItems = computed(() => [
   { route: '/app/admin/operations-board', icon: CalendarDaysIcon, label: t.value.operationsBoard },
   { route: '/app/admin/boxes', icon: CubeIcon, label: t.value.boxes },
   { route: '/app/admin/purchase-requests', icon: ShoppingCartIcon, label: t.value.purchaseRequests },
+  { route: '/app/admin/purchased-products', icon: ClipboardDocumentCheckIcon, label: t.value.purchasedProducts },
   { route: '/app/admin/shopping-trips', icon: CalendarDaysIcon, label: t.value.shoppingTrips },
   { route: '/app/admin/packages', icon: ArchiveBoxIcon, label: t.value.packages },
   { route: '/app/admin/customers', icon: UsersIcon, label: t.value.customers },

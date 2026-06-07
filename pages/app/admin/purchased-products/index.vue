@@ -1,12 +1,12 @@
 <template>
-  <PurchasedProductsList base-path="/app/shopping/purchased-products" />
+  <PurchasedProductsList base-path="/app/admin/purchased-products" />
 </template>
 
 <script setup>
 import PurchasedProductsList from '~/components/admin/PurchasedProductsList.vue'
 
 definePageMeta({
-  layout: 'shopping',
-  middleware: ['auth', 'shopping'],
+  layout: 'admin',
+  middleware: ['auth', 'admin'],
 })
 </script>

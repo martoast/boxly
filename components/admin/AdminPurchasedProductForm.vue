@@ -52,6 +52,7 @@ import AdminCustomerSearch from '~/components/admin/AdminCustomerSearch.vue'
 
 const props = defineProps({
   existingRecord: { type: Object, default: null },
+  cancelTo: { type: String, default: '/app/shopping/purchased-products' },
 })
 const emit = defineEmits(['submit'])
 
@@ -59,8 +60,6 @@ const emit = defineEmits(['submit'])
 const onCustomerSelect = (customer) => {
   if (customer?.phone) form.value.contact_phone = customer.phone
 }
-
-const cancelTo = '/app/shopping/purchased-products'
 
 const recordId = computed(() => props.existingRecord?.id)
 
