@@ -563,7 +563,7 @@ const fetchOrder = async (background = false) => {
 
 const editItem = (item) => {
     editingItemId.value = item.id;
-    itemForm.value = { product_name: item.product_name, product_url: item.product_url || '', merchant_order_id: item.merchant_order_id || '', quantity: item.quantity, declared_value: item.declared_value || '', tracking_number: item.tracking_number || '', estimated_delivery_date: item.estimated_delivery_date ? item.estimated_delivery_date.split('T')[0] : '' };
+    itemForm.value = { product_name: item.product_name, product_url: item.product_url || '', merchant_order_id: item.merchant_order_id || '', quantity: item.quantity, declared_value: item.declared_value || '', tracking_number: item.tracking_number || item.tracking_url || '', estimated_delivery_date: item.estimated_delivery_date ? item.estimated_delivery_date.split('T')[0] : '' };
     existingFiles.value = { image: { url: item.product_image_url, name: item.product_image_filename || 'Product Image' } };
     markedForDeletion.value = { image: false };
     selectedProductImage.value = null; showDetails.value = true;
@@ -591,7 +591,12 @@ const handleSubmit = async () => {
     formData.append("product_url", itemForm.value.product_url || '');
     formData.append("merchant_order_id", itemForm.value.merchant_order_id || '');
     formData.append("declared_value", itemForm.value.declared_value || '');
-    formData.append("tracking_number", itemForm.value.tracking_number || '');
+    // A pasted tracking LINK belongs in tracking_url (max 1000), not
+    // tracking_number (max 100) — otherwise a long URL fails validation.
+    const trackingValue = (itemForm.value.tracking_number || '').trim();
+    const trackingIsUrl = /^https?:\/\//i.test(trackingValue);
+    formData.append("tracking_number", trackingIsUrl ? '' : trackingValue);
+    formData.append("tracking_url", trackingIsUrl ? trackingValue : '');
     formData.append("estimated_delivery_date", itemForm.value.estimated_delivery_date || '');
     
     // Product image - only send if new file selected
@@ -624,7 +629,10 @@ const handleSubmit = async () => {
     
   } catch (error) {
     console.error('Error saving product:', error);
-    $toast.error("Error saving product");
+    // Surface the real server message (e.g. validation errors) instead of a
+    // generic toast, so the customer knows exactly what to fix.
+    const firstFieldError = error?.data?.errors ? Object.values(error.data.errors)[0]?.[0] : null;
+    $toast.error(firstFieldError || error?.data?.message || "Error saving product");
   } finally {
     submitting.value = false;
   }
