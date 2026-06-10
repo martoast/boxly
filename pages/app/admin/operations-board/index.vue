@@ -64,22 +64,27 @@
                 <span class="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0"></span>
                 <h3 class="text-[11px] font-bold text-amber-700 uppercase tracking-wider truncate">{{ t.backlog }}</h3>
               </div>
-              <span class="text-[11px] font-medium text-amber-500 tabular-nums">{{ displayBacklog.length }}</span>
+              <span class="text-[11px] font-medium text-amber-500 tabular-nums">{{ backlogTotal }}</span>
             </div>
-            <draggable
-              v-model="backlog"
-              :group="{ name: 'board', pull: true, put: true }"
-              item-key="id"
-              class="rounded-xl bg-amber-50/40 border border-amber-100 p-1.5 space-y-1.5 flex-1 min-h-0 overflow-y-auto"
-              ghost-class="ops-ghost"
-              @change="(e) => onChange(e, null)"
-            >
-              <template #item="{ element }">
-                <div v-show="cardMatches(element)">
-                  <OpsCard :card="element" :badge-meta="badgeMeta" :lang="lang" @open="openDetail(element)" />
-                </div>
-              </template>
-            </draggable>
+            <div class="flex-1 min-h-0 overflow-y-auto rounded-xl bg-amber-50/40 border border-amber-100" @scroll.passive="onBacklogScroll">
+              <draggable
+                v-model="backlog"
+                :group="{ name: 'board', pull: true, put: true }"
+                item-key="id"
+                class="p-1.5 space-y-1.5 min-h-full"
+                ghost-class="ops-ghost"
+                @change="(e) => onChange(e, null)"
+              >
+                <template #item="{ element }">
+                  <div v-show="cardMatches(element)">
+                    <OpsCard :card="element" :badge-meta="badgeMeta" :lang="lang" @open="openDetail(element)" />
+                  </div>
+                </template>
+              </draggable>
+              <div v-if="loadingMore" class="py-2 flex justify-center">
+                <svg class="animate-spin h-4 w-4 text-amber-500" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+              </div>
+            </div>
           </section>
 
           <!-- Weekday columns -->
@@ -229,7 +234,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import draggable from 'vuedraggable'
 import OpsCard from '~/components/admin/OpsCard.vue'
 import OpsOrderModal from '~/components/admin/OpsOrderModal.vue'
@@ -297,9 +302,16 @@ const loading = ref(true)
 const startDate = ref('') // first working day shown
 const backlog = ref([])
 const daysMap = ref({})
-const inProgress = ref([])
 
-// --- search (client-side filter by customer name / phone) ---
+// --- backlog pagination (infinite scroll) ---
+const backlogPage = ref(1)
+const backlogTotal = ref(0)
+const backlogHasMore = ref(false)
+const loadingMore = ref(false)
+
+// --- search ---
+// The backlog is searched server-side (it's paginated); the small, fully-loaded
+// weekday columns are filtered client-side via cardMatches below.
 const searchTerm = ref('')
 const isSearching = computed(() => !!searchTerm.value.trim())
 const digitsOnly = (s) => (s ?? '').toString().replace(/\D/g, '')
@@ -309,15 +321,12 @@ const cardMatches = (card) => {
   if ((card.customer_name || '').toLowerCase().includes(q)) return true
   const qDigits = digitsOnly(q)
   if (qDigits && digitsOnly(card.customer_phone).includes(qDigits)) return true
-  // bonus matches so a card is also findable by what's printed on it
   if ((card.customer_email || '').toLowerCase().includes(q)) return true
   if ((card.order_number || '').toLowerCase().includes(q)) return true
   if ((card.tracking_number || '').toLowerCase().includes(q)) return true
   return false
 }
-// While searching, render filtered copies (drag is disabled, so they're never
-// mutated). With no search, return the real arrays so drag still mutates source.
-const displayBacklog = computed(() => isSearching.value ? backlog.value.filter(cardMatches) : backlog.value)
+// Weekday-column count reflects matches while searching.
 const displayDays = (date) => {
   const list = daysMap.value[date] || (daysMap.value[date] = [])
   return isSearching.value ? list.filter(cardMatches) : list
@@ -364,15 +373,35 @@ const rangeLabel = computed(() => {
     : `${a.getDate()} ${monthsEs[a.getMonth()]} – ${b.getDate()} ${monthsEs[b.getMonth()]}`
 })
 
-const fetchBoard = async () => {
-  loading.value = true
+const BACKLOG_PER_PAGE = 30
+
+const boardParams = (page) => {
+  const cols = workingDays(startDate.value, 5)
+  return {
+    start_date: cols[0],
+    end_date: cols[cols.length - 1],
+    page,
+    per_page: BACKLOG_PER_PAGE,
+    search: searchTerm.value.trim() || undefined,
+  }
+}
+
+const applyBacklogMeta = (res) => {
+  const meta = res.needs_ship_date_meta || {}
+  backlogPage.value = meta.current_page || 1
+  backlogTotal.value = meta.total ?? (res.needs_ship_date || []).length
+  backlogHasMore.value = !!meta.has_more
+}
+
+// Reset + load page 1 of the backlog, plus the (bounded) weekday columns.
+// `silent` skips the full-screen loader (used for the live search refetch).
+const fetchBoard = async (silent = false) => {
+  if (!silent) loading.value = true
   try {
     const cols = workingDays(startDate.value, 5)
-    const res = await $customFetch('/admin/operations-board', {
-      params: { start_date: cols[0], end_date: cols[cols.length - 1] },
-    })
+    const res = await $customFetch('/admin/operations-board', { params: boardParams(1) })
     backlog.value = res.needs_ship_date || []
-    inProgress.value = res.in_progress || []
+    applyBacklogMeta(res)
     const map = {}
     cols.forEach((d) => { map[d] = [] })
     Object.entries(res.days || {}).forEach(([date, cards]) => { map[date] = cards })
@@ -381,9 +410,36 @@ const fetchBoard = async () => {
     console.error(e)
     $toast?.error(t.value.error)
   } finally {
-    loading.value = false
+    if (!silent) loading.value = false
   }
 }
+
+// Append the next backlog page (called as the column is scrolled near its end).
+const loadMoreBacklog = async () => {
+  if (loadingMore.value || !backlogHasMore.value) return
+  loadingMore.value = true
+  try {
+    const res = await $customFetch('/admin/operations-board', { params: boardParams(backlogPage.value + 1) })
+    backlog.value = [...backlog.value, ...(res.needs_ship_date || [])]
+    applyBacklogMeta(res)
+  } catch (e) {
+    console.error(e)
+  } finally {
+    loadingMore.value = false
+  }
+}
+
+const onBacklogScroll = (e) => {
+  const el = e.target
+  if (el.scrollHeight - el.scrollTop - el.clientHeight < 240) loadMoreBacklog()
+}
+
+// Debounced server-side search for the backlog (weekday columns filter live).
+let searchTimer = null
+watch(searchTerm, () => {
+  if (searchTimer) clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => fetchBoard(true), 300)
+})
 
 const shiftWindow = (dir) => {
   if (dir > 0) {
