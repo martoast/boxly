@@ -463,7 +463,7 @@ const onChange = async (evt, date) => {
       // Already quoted/invoiced — confirm + offer to email the customer.
       pendingCard.value = card
       pendingDate.value = date
-      notifyCustomer.value = true
+      notifyCustomer.value = false // never auto-email on a drag; admin opts in
       showReschedule.value = true
     } else {
       // Not consolidated yet — just schedule it on that day (planning only,
@@ -502,7 +502,7 @@ const niceDate = (s) => {
 const showReschedule = ref(false)
 const pendingCard = ref(null)
 const pendingDate = ref('')
-const notifyCustomer = ref(true)
+const notifyCustomer = ref(false)
 const confirmReschedule = async () => {
   const card = pendingCard.value
   const date = pendingDate.value

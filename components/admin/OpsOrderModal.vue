@@ -138,7 +138,7 @@ const loading = ref(false)
 const saving = ref(false)
 const detail = ref(null)
 const shipDate = ref('')
-const notifyCustomer = ref(true)
+const notifyCustomer = ref(false)
 
 const z = (n) => String(n).padStart(2, '0')
 const todayStr = computed(() => { const d = new Date(); return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}` })
@@ -153,7 +153,7 @@ const address = computed(() => {
 watch(() => props.show, async (open) => {
   if (!open || !props.card) return
   shipDate.value = props.card.planned_ship_date || ''
-  notifyCustomer.value = true
+  notifyCustomer.value = false // opt-in only; changing a date never auto-emails
   detail.value = null
   loading.value = true
   try {
