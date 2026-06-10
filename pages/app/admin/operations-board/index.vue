@@ -181,11 +181,26 @@
         <div class="mt-4">
           <label class="block text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-1.5">{{ t.customer }}</label>
           <AdminCustomerSearch v-model="createSearch" endpoint="/admin/customers" :placeholder="t.searchPlaceholder" @select="onSelectCustomer" />
-          <p v-if="createCustomer" class="text-xs mt-1.5"
-            :class="(createType === 'crossing' || createHasAddress) ? 'text-gray-500' : 'text-amber-600'">
-            {{ createType === 'crossing' ? createCustomer.email
-              : (createHasAddress ? t.addressOnFile : t.noAddressNote) }}
-          </p>
+
+          <div v-if="createCustomer" class="mt-3">
+            <!-- Crossing: no delivery address needed -->
+            <p v-if="createType === 'crossing'" class="text-xs text-gray-500">{{ createCustomer.email }}</p>
+
+            <!-- Shipping with a saved address: let the admin choose to use it -->
+            <div v-else-if="createHasAddress" class="rounded-xl border border-gray-200 bg-gray-50/60 p-3">
+              <label class="flex items-start gap-2.5 cursor-pointer select-none">
+                <input type="checkbox" v-model="useSavedAddress" class="mt-0.5 w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
+                <span class="min-w-0">
+                  <span class="block text-xs font-semibold text-gray-700">{{ t.useSavedAddress }}</span>
+                  <span class="block text-xs text-gray-500 mt-0.5 break-words">{{ savedAddressText }}</span>
+                </span>
+              </label>
+              <p v-if="!useSavedAddress" class="text-xs text-amber-600 mt-2">{{ t.noAddressNote }}</p>
+            </div>
+
+            <!-- Shipping, no saved address: just stub it -->
+            <p v-else class="text-xs text-amber-600">{{ t.noAddressNote }}</p>
+          </div>
         </div>
 
         <div class="mt-5 flex gap-2.5">
@@ -244,7 +259,7 @@ const translations = {
   crossing: { es: 'Cruce', en: 'Crossing' },
   customer: { es: 'Cliente', en: 'Customer' },
   searchPlaceholder: { es: 'Buscar por nombre, email o teléfono…', en: 'Search by name, email or phone…' },
-  addressOnFile: { es: 'Dirección en archivo · se copiará', en: 'Address on file · will be copied' },
+  useSavedAddress: { es: 'Usar dirección guardada', en: 'Use saved address' },
   noAddressNote: { es: 'Sin dirección — se añade después', en: 'No address — added later' },
   create: { es: 'Crear', en: 'Create' },
   orderCreated: { es: 'Orden creada', en: 'Order created' },
@@ -461,20 +476,26 @@ const createType = ref('shipping')
 const createSearch = ref('')
 const createCustomer = ref(null)
 const creatingShell = ref(false)
+const useSavedAddress = ref(true)
 
-const createHasAddress = computed(() => {
+// The customer's saved address as a single line (empty string if none on file).
+const savedAddressText = computed(() => {
   const c = createCustomer.value
-  return !!(c && (c.full_address || c.street))
+  if (!c) return ''
+  return c.full_address
+    || [c.street, c.exterior_number, c.colonia, c.municipio, c.estado, c.postal_code].filter(Boolean).join(', ')
 })
+const createHasAddress = computed(() => !!savedAddressText.value)
 
 const openCreate = () => {
   createType.value = 'shipping'
   createSearch.value = ''
   createCustomer.value = null
+  useSavedAddress.value = true
   showCreate.value = true
 }
 const closeCreate = () => { showCreate.value = false }
-const onSelectCustomer = (c) => { createCustomer.value = c }
+const onSelectCustomer = (c) => { createCustomer.value = c; useSavedAddress.value = true }
 
 const createShell = async () => {
   if (!createCustomer.value || creatingShell.value) return
@@ -482,11 +503,9 @@ const createShell = async () => {
   try {
     const c = createCustomer.value
     const body = { user_id: c.id, status: 'collecting', order_type: createType.value, shell: true }
-    // Pre-fill the saved address for shipping shells; otherwise it's added later.
-    if (createType.value === 'shipping') {
-      const full = c.full_address
-        || [c.street, c.exterior_number, c.colonia, c.municipio, c.estado, c.postal_code].filter(Boolean).join(', ')
-      if (full) body.delivery_address = { full_address: full }
+    // Use the saved address only when shipping, one exists, and the admin opted in.
+    if (createType.value === 'shipping' && useSavedAddress.value && savedAddressText.value) {
+      body.delivery_address = { full_address: savedAddressText.value }
     }
     await $customFetch('/admin/management/orders', { method: 'POST', body })
     $toast?.success(t.value.orderCreated)
