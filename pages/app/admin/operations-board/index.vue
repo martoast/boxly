@@ -67,8 +67,7 @@
               <span class="text-[11px] font-medium text-amber-500 tabular-nums">{{ displayBacklog.length }}</span>
             </div>
             <draggable
-              :list="displayBacklog"
-              :disabled="isSearching"
+              v-model="backlog"
               :group="{ name: 'board', pull: true, put: true }"
               item-key="id"
               class="rounded-xl bg-amber-50/40 border border-amber-100 p-1.5 space-y-1.5 flex-1 min-h-0 overflow-y-auto"
@@ -76,7 +75,9 @@
               @change="(e) => onChange(e, null)"
             >
               <template #item="{ element }">
-                <OpsCard :card="element" :badge-meta="badgeMeta" :lang="lang" @open="openDetail(element)" />
+                <div v-show="cardMatches(element)">
+                  <OpsCard :card="element" :badge-meta="badgeMeta" :lang="lang" @open="openDetail(element)" />
+                </div>
               </template>
             </draggable>
           </section>
@@ -91,8 +92,7 @@
               <span class="text-[11px] font-medium tabular-nums" :class="col.isToday ? 'text-primary-500' : 'text-gray-300'">{{ displayDays(col.date).length }}</span>
             </div>
             <draggable
-              :list="displayDays(col.date)"
-              :disabled="isSearching"
+              :list="daysMap[col.date] || (daysMap[col.date] = [])"
               :group="{ name: 'board', pull: true, put: true }"
               item-key="id"
               class="rounded-xl border p-1.5 space-y-1.5 flex-1 min-h-0 overflow-y-auto transition-colors"
@@ -101,7 +101,9 @@
               @change="(e) => onChange(e, col.date)"
             >
               <template #item="{ element }">
-                <OpsCard :card="element" :badge-meta="badgeMeta" :lang="lang" @open="openDetail(element)" />
+                <div v-show="cardMatches(element)">
+                  <OpsCard :card="element" :badge-meta="badgeMeta" :lang="lang" @open="openDetail(element)" />
+                </div>
               </template>
             </draggable>
           </section>
