@@ -20,6 +20,11 @@
           </div>
           <span class="text-[13px] font-medium text-gray-400 hidden sm:inline">{{ rangeLabel }}</span>
 
+          <button @click="openCreate" class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-gray-900 text-white text-[13px] font-semibold rounded-lg hover:bg-black active:scale-[0.98] transition-all shadow-sm">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+            {{ t.newOrder }}
+          </button>
+
           <button @click="openWarehouseList" class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-primary-600 text-white text-[13px] font-semibold rounded-lg hover:bg-primary-700 active:scale-[0.98] transition-all shadow-sm">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
             {{ t.generateList }}
@@ -152,6 +157,46 @@
         </div>
       </div>
     </div>
+
+    <!-- Quick-create order shell -->
+    <div v-if="showCreate" class="fixed inset-0 z-[60] flex items-center justify-center p-4" @click.self="closeCreate">
+      <div class="absolute inset-0 bg-gray-900/40 backdrop-blur-sm" @click="closeCreate"></div>
+      <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-5">
+        <h2 class="text-base font-bold text-gray-900">{{ t.newOrderTitle }}</h2>
+        <p class="text-sm text-gray-500 mt-0.5">{{ t.newOrderSubtitle }}</p>
+
+        <!-- Order type -->
+        <div class="mt-4 grid grid-cols-2 gap-2">
+          <button type="button" @click="createType = 'shipping'"
+            :class="['px-3 py-2 text-sm font-semibold rounded-xl border transition-colors', createType === 'shipping' ? 'bg-blue-50 border-blue-300 text-blue-800' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50']">
+            {{ t.shipping }}
+          </button>
+          <button type="button" @click="createType = 'crossing'"
+            :class="['px-3 py-2 text-sm font-semibold rounded-xl border transition-colors', createType === 'crossing' ? 'bg-amber-50 border-amber-300 text-amber-800' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50']">
+            {{ t.crossing }}
+          </button>
+        </div>
+
+        <!-- Customer -->
+        <div class="mt-4">
+          <label class="block text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-1.5">{{ t.customer }}</label>
+          <AdminCustomerSearch v-model="createSearch" endpoint="/admin/customers" :placeholder="t.searchPlaceholder" @select="onSelectCustomer" />
+          <p v-if="createCustomer" class="text-xs mt-1.5"
+            :class="(createType === 'crossing' || createHasAddress) ? 'text-gray-500' : 'text-amber-600'">
+            {{ createType === 'crossing' ? createCustomer.email
+              : (createHasAddress ? t.addressOnFile : t.noAddressNote) }}
+          </p>
+        </div>
+
+        <div class="mt-5 flex gap-2.5">
+          <button @click="closeCreate" class="flex-1 px-4 py-2.5 text-sm font-semibold text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors">{{ t.cancel }}</button>
+          <button @click="createShell" :disabled="!createCustomer || creatingShell"
+            class="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-gray-900 rounded-xl hover:bg-black transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+            {{ creatingShell ? '…' : t.create }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -191,6 +236,18 @@ const translations = {
   confirm: { es: 'Confirmar', en: 'Confirm' },
   cancel: { es: 'Cancelar', en: 'Cancel' },
   error: { es: 'Algo salió mal', en: 'Something went wrong' },
+  // Quick-create order shell
+  newOrder: { es: 'Nueva Orden', en: 'New Order' },
+  newOrderTitle: { es: 'Crear orden', en: 'Create order' },
+  newOrderSubtitle: { es: 'Genera el shell de una orden para un cliente.', en: 'Stub an order for a customer.' },
+  shipping: { es: 'Envío', en: 'Shipping' },
+  crossing: { es: 'Cruce', en: 'Crossing' },
+  customer: { es: 'Cliente', en: 'Customer' },
+  searchPlaceholder: { es: 'Buscar por nombre, email o teléfono…', en: 'Search by name, email or phone…' },
+  addressOnFile: { es: 'Dirección en archivo · se copiará', en: 'Address on file · will be copied' },
+  noAddressNote: { es: 'Sin dirección — se añade después', en: 'No address — added later' },
+  create: { es: 'Crear', en: 'Create' },
+  orderCreated: { es: 'Orden creada', en: 'Order created' },
 }
 const t = createTranslations(translations)
 const lang = computed(() => (language.value === 'en' ? 'en' : 'es'))
@@ -396,6 +453,50 @@ const buildWarehouseText = (res) => {
 
 const copyWarehouse = async () => {
   try { await navigator.clipboard.writeText(warehouseText.value); copied.value = true; setTimeout(() => (copied.value = false), 1500) } catch (e) {}
+}
+
+// --- quick-create order shell ---
+const showCreate = ref(false)
+const createType = ref('shipping')
+const createSearch = ref('')
+const createCustomer = ref(null)
+const creatingShell = ref(false)
+
+const createHasAddress = computed(() => {
+  const c = createCustomer.value
+  return !!(c && (c.full_address || c.street))
+})
+
+const openCreate = () => {
+  createType.value = 'shipping'
+  createSearch.value = ''
+  createCustomer.value = null
+  showCreate.value = true
+}
+const closeCreate = () => { showCreate.value = false }
+const onSelectCustomer = (c) => { createCustomer.value = c }
+
+const createShell = async () => {
+  if (!createCustomer.value || creatingShell.value) return
+  creatingShell.value = true
+  try {
+    const c = createCustomer.value
+    const body = { user_id: c.id, status: 'collecting', order_type: createType.value, shell: true }
+    // Pre-fill the saved address for shipping shells; otherwise it's added later.
+    if (createType.value === 'shipping') {
+      const full = c.full_address
+        || [c.street, c.exterior_number, c.colonia, c.municipio, c.estado, c.postal_code].filter(Boolean).join(', ')
+      if (full) body.delivery_address = { full_address: full }
+    }
+    await $customFetch('/admin/management/orders', { method: 'POST', body })
+    $toast?.success(t.value.orderCreated)
+    showCreate.value = false
+    await fetchBoard()
+  } catch (e) {
+    $toast?.error(e.data?.message || t.value.error)
+  } finally {
+    creatingShell.value = false
+  }
 }
 
 onMounted(() => { startDate.value = firstWorkingFrom(todayStr); fetchBoard() })
