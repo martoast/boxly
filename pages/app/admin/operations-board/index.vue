@@ -262,6 +262,7 @@ const translations = {
   readyToShip: { es: 'LISTO PARA ENVIAR', en: 'READY TO SHIP' },
   activeBoxes: { es: 'CAJAS ACTIVAS', en: 'ACTIVE BOXES' },
   needsShipDate: { es: 'FALTA FECHA', en: 'NEEDS SHIP DATE' },
+  scheduled: { es: 'Programado', en: 'Scheduled' },
   rescheduled: { es: 'Fecha de envío actualizada', en: 'Ship date updated' },
   unscheduled: { es: 'Fecha de envío quitada', en: 'Ship date removed' },
   rescheduleTitle: { es: '¿Cambiar fecha de envío?', en: 'Change ship date?' },
@@ -459,25 +460,21 @@ const onChange = async (evt, date) => {
 
   if (date) {
     if (card.consolidated) {
-      // Confirm + email choice before persisting (the card has already moved visually)
+      // Already quoted/invoiced — confirm + offer to email the customer.
       pendingCard.value = card
       pendingDate.value = date
       notifyCustomer.value = true
       showReschedule.value = true
     } else {
-      consolidateOrder.value = { id: card.id, order_number: card.order_number, user: { name: card.customer_name, email: card.customer_email } }
-      consolidateDate.value = date
-      showConsolidate.value = true
-      await fetchBoard()
+      // Not consolidated yet — just schedule it on that day (planning only,
+      // no customer email). Consolidation stays a separate step on the card.
+      await setShipDate(card.id, date, t.value.scheduled, false)
     }
     return
   }
 
-  if (card.consolidated) {
-    await setShipDate(card.id, null, t.value.unscheduled, false)
-  } else {
-    await fetchBoard()
-  }
+  // Dropped back into the backlog — un-schedule (clear the ship date).
+  await setShipDate(card.id, null, t.value.unscheduled, false)
 }
 
 const setShipDate = async (orderId, date, successMsg, notify = true) => {
@@ -530,7 +527,7 @@ const onConsolidated = async () => { showConsolidate.value = false; await fetchB
 const onConsolidateFromDetail = (card) => {
   showDetail.value = false
   consolidateOrder.value = { id: card.id, order_number: card.order_number, user: { name: card.customer_name, email: card.customer_email } }
-  consolidateDate.value = ''
+  consolidateDate.value = card.planned_ship_date || '' // preserve a day it was already dragged onto
   showConsolidate.value = true
 }
 

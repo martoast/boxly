@@ -52,13 +52,18 @@
                 <button v-if="card?.planned_ship_date" @click="saveShipDate(null)" :disabled="saving" class="mt-2 text-xs text-gray-400 hover:text-red-500 transition-colors">{{ t.clearDate }}</button>
               </template>
 
-              <template v-else-if="card?.status === 'packages_complete'">
-                <p class="text-xs text-amber-700/90 mb-2.5">{{ t.scheduleAtConsolidate }}</p>
-                <button @click="$emit('consolidate', card)" class="w-full px-3 py-2 bg-amber-500 text-white text-sm font-semibold rounded-lg hover:bg-amber-600 transition-colors">{{ t.consolidateNow }}</button>
-              </template>
-
               <template v-else>
-                <p class="text-xs text-gray-500">{{ t.stillInProgress }}</p>
+                <!-- Not consolidated: schedule directly for planning (no customer email). -->
+                <div class="flex items-center gap-2">
+                  <input v-model="shipDate" type="date" :min="todayStr" class="flex-1 px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white" />
+                  <button @click="saveShipDate(shipDate)" :disabled="saving || !shipDate || shipDate === (card?.planned_ship_date || '')" class="px-3.5 py-2 bg-gray-900 text-white text-sm font-semibold rounded-lg hover:bg-black transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                    {{ saving ? '…' : t.save }}
+                  </button>
+                </div>
+                <button v-if="card?.planned_ship_date" @click="saveShipDate(null)" :disabled="saving" class="mt-2 text-xs text-gray-400 hover:text-red-500 transition-colors">{{ t.clearDate }}</button>
+                <div v-if="card?.status === 'packages_complete'" class="mt-3 pt-3 border-t border-amber-100">
+                  <button @click="$emit('consolidate', card)" class="w-full px-3 py-2 bg-amber-500 text-white text-sm font-semibold rounded-lg hover:bg-amber-600 transition-colors">{{ t.consolidateNow }}</button>
+                </div>
               </template>
             </div>
 
@@ -165,9 +170,12 @@ const saveShipDate = async (value) => {
   if (!props.card) return
   saving.value = true
   try {
+    // Only consolidated orders can notify the customer; planning a not-yet-
+    // consolidated order never emails them.
+    const notify = props.card.consolidated ? (value ? notifyCustomer.value : false) : false
     await $customFetch(`/admin/orders/${props.card.id}/ship-date`, {
       method: 'POST',
-      body: { planned_ship_date: value, notify: value ? notifyCustomer.value : false },
+      body: { planned_ship_date: value, notify },
     })
     shipDate.value = value || ''
     $toast?.success(value ? t.value.save + ' ✓' : t.value.clearDate + ' ✓')
