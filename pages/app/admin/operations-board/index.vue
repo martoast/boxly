@@ -32,6 +32,15 @@
         </div>
       </div>
 
+      <!-- Search -->
+      <div class="relative mt-3 w-full sm:max-w-xs">
+        <svg class="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M11 17a6 6 0 100-12 6 6 0 000 12z"/></svg>
+        <input v-model="searchTerm" type="text" :placeholder="t.searchCards" class="w-full border border-gray-200 rounded-lg pl-9 pr-8 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
+        <button v-if="searchTerm" @click="searchTerm = ''" class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600" :title="t.cancel">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
       <!-- Legend -->
       <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-3">
         <span v-for="key in legendKeys" :key="key" class="inline-flex items-center gap-1.5 text-[11px] text-gray-400">
@@ -55,10 +64,11 @@
                 <span class="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0"></span>
                 <h3 class="text-[11px] font-bold text-amber-700 uppercase tracking-wider truncate">{{ t.backlog }}</h3>
               </div>
-              <span class="text-[11px] font-medium text-amber-500 tabular-nums">{{ backlog.length }}</span>
+              <span class="text-[11px] font-medium text-amber-500 tabular-nums">{{ displayBacklog.length }}</span>
             </div>
             <draggable
-              v-model="backlog"
+              :list="displayBacklog"
+              :disabled="isSearching"
               :group="{ name: 'board', pull: true, put: true }"
               item-key="id"
               class="rounded-xl bg-amber-50/40 border border-amber-100 p-1.5 space-y-1.5 flex-1 min-h-0 overflow-y-auto"
@@ -78,10 +88,11 @@
                 <h3 class="text-[11px] font-bold uppercase tracking-wider truncate" :class="col.isToday ? 'text-primary-600' : 'text-gray-500'">{{ col.label }}</h3>
                 <span class="text-[10px] font-medium" :class="col.isToday ? 'text-primary-400' : 'text-gray-300'">{{ col.dayNum }}</span>
               </div>
-              <span class="text-[11px] font-medium tabular-nums" :class="col.isToday ? 'text-primary-500' : 'text-gray-300'">{{ (daysMap[col.date] || []).length }}</span>
+              <span class="text-[11px] font-medium tabular-nums" :class="col.isToday ? 'text-primary-500' : 'text-gray-300'">{{ displayDays(col.date).length }}</span>
             </div>
             <draggable
-              :list="daysMap[col.date] || (daysMap[col.date] = [])"
+              :list="displayDays(col.date)"
+              :disabled="isSearching"
               :group="{ name: 'board', pull: true, put: true }"
               item-key="id"
               class="rounded-xl border p-1.5 space-y-1.5 flex-1 min-h-0 overflow-y-auto transition-colors"
@@ -229,6 +240,7 @@ const { t: createTranslations, language } = useLanguage()
 const translations = {
   title: { es: 'Tablero de Operaciones', en: 'Operations Board' },
   subtitle: { es: 'Una pantalla. La verdad de toda la semana.', en: 'One screen. The truth for the whole week.' },
+  searchCards: { es: 'Buscar por nombre o teléfono…', en: 'Search by name or phone…' },
   prevWeek: { es: 'Días anteriores', en: 'Previous days' },
   nextWeek: { es: 'Días siguientes', en: 'Next days' },
   thisWeek: { es: 'Hoy', en: 'Today' },
@@ -284,6 +296,30 @@ const startDate = ref('') // first working day shown
 const backlog = ref([])
 const daysMap = ref({})
 const inProgress = ref([])
+
+// --- search (client-side filter by customer name / phone) ---
+const searchTerm = ref('')
+const isSearching = computed(() => !!searchTerm.value.trim())
+const digitsOnly = (s) => (s ?? '').toString().replace(/\D/g, '')
+const cardMatches = (card) => {
+  const q = searchTerm.value.trim().toLowerCase()
+  if (!q) return true
+  if ((card.customer_name || '').toLowerCase().includes(q)) return true
+  const qDigits = digitsOnly(q)
+  if (qDigits && digitsOnly(card.customer_phone).includes(qDigits)) return true
+  // bonus matches so a card is also findable by what's printed on it
+  if ((card.customer_email || '').toLowerCase().includes(q)) return true
+  if ((card.order_number || '').toLowerCase().includes(q)) return true
+  if ((card.tracking_number || '').toLowerCase().includes(q)) return true
+  return false
+}
+// While searching, render filtered copies (drag is disabled, so they're never
+// mutated). With no search, return the real arrays so drag still mutates source.
+const displayBacklog = computed(() => isSearching.value ? backlog.value.filter(cardMatches) : backlog.value)
+const displayDays = (date) => {
+  const list = daysMap.value[date] || (daysMap.value[date] = [])
+  return isSearching.value ? list.filter(cardMatches) : list
+}
 
 // --- date helpers (local-time safe) ---
 const z = (n) => String(n).padStart(2, '0')
