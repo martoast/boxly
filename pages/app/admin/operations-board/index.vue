@@ -202,8 +202,10 @@ const badgeMeta = {
   inventory_expected: { es: 'Esperando Inventario', en: 'Inventory Expected', hex: '#eab308' },
   collecting: { es: 'Recolectando', en: 'Collecting', hex: '#9ca3af' },
 }
-// Only these two statuses live on the board now (backlog + weekday columns)
-const legendKeys = ['needs_ship_date', 'ready_to_ship']
+// Badges now shown on the board: the backlog holds every order still needing a
+// ship date (collecting → inventory expected → active box → needs date), plus
+// ready-to-ship cards land on their weekday column.
+const legendKeys = ['collecting', 'inventory_expected', 'active_box', 'needs_ship_date', 'ready_to_ship']
 
 const loading = ref(true)
 const startDate = ref('') // first working day shown
