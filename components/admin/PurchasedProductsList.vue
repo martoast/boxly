@@ -43,7 +43,36 @@
         <p class="text-gray-400 text-sm mt-1">Las compras se agregan aquí automáticamente al marcar una solicitud como comprada, o puedes crear una manual.</p>
       </div>
       <div v-else class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <table class="w-full text-sm">
+        <!-- Mobile: tappable cards (the desktop table's edit action gets clipped off-screen on phones) -->
+        <div class="sm:hidden divide-y divide-gray-100">
+          <NuxtLink
+            v-for="r in records"
+            :key="r.id"
+            :to="`${basePath}/${r.id}/edit`"
+            class="block px-4 py-3.5 active:bg-gray-50 transition-colors"
+          >
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <p class="font-semibold text-gray-900 truncate">{{ r.customer_name }}</p>
+                <p v-if="r.contact_phone" class="text-xs text-gray-400">{{ r.contact_phone }}</p>
+              </div>
+              <span :class="r.status === 'delivered' ? 'bg-green-50 text-green-700 border-green-100' : 'bg-amber-50 text-amber-700 border-amber-100'" class="shrink-0 inline-flex px-2 py-0.5 rounded-full text-xs font-semibold border">
+                {{ r.status === 'delivered' ? 'Entregado' : 'Pendiente' }}
+              </span>
+            </div>
+            <p class="text-sm text-gray-600 whitespace-pre-line mt-1.5 line-clamp-3">{{ r.items || '—' }}</p>
+            <div class="flex items-center justify-between gap-2 mt-2">
+              <span v-if="r.order_number" class="font-mono text-xs text-gray-500 truncate">{{ r.order_number }}</span>
+              <span v-else class="text-xs font-semibold text-amber-600">+ Agregar # de orden</span>
+              <span class="inline-flex items-center gap-1 text-primary-600 font-semibold text-sm shrink-0">
+                Editar
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+              </span>
+            </div>
+          </NuxtLink>
+        </div>
+
+        <table class="hidden sm:table w-full text-sm">
           <thead class="bg-gray-50 border-b border-gray-100">
             <tr class="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
               <th class="px-4 py-3">Cliente</th>
