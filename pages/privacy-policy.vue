@@ -136,7 +136,7 @@
                 <li>{{ t.metaItem3 }}</li>
                 <li>{{ t.metaItem4 }}</li>
               </ul>
-              <p>{{ t.metaClosing }}</p>
+              <p v-html="t.metaClosing"></p>
             </section>
 
             <!-- Section 12: Contact -->
@@ -369,8 +369,8 @@
       en: 'Ad leads (Lead Ads): the data a person submits in an ad form (name, email, phone, and answers), to automatically record them as contacts in your CRM.'
     },
     metaClosing: {
-      es: 'Usamos esta información exclusivamente para prestarte el servicio de Boxly. No vendemos esta información ni la compartimos con terceros para fines de publicidad propios. El tratamiento de los datos obtenidos de Meta se realiza conforme a las Condiciones de la Plataforma de Meta (https://developers.facebook.com/terms/). Puedes desconectar tus cuentas de Meta en cualquier momento desde la configuración de Boxly o revocando el acceso desde la configuración de tu cuenta de Facebook; también puedes solicitar la eliminación de estos datos escribiendo a contact@boxly.mx, conforme a la sección de derechos de esta política.',
-      en: 'We use this information exclusively to provide you the Boxly service. We do not sell this information nor share it with third parties for our own advertising purposes. Data obtained from Meta is processed in accordance with the Meta Platform Terms (https://developers.facebook.com/terms/). You can disconnect your Meta accounts at any time from your Boxly settings or by revoking access from your Facebook account settings; you may also request deletion of this data by writing to contact@boxly.mx, in accordance with the rights section of this policy.'
+      es: 'Usamos esta información exclusivamente para prestarte el servicio de Boxly. No vendemos esta información ni la compartimos con terceros para fines de publicidad propios. El tratamiento de los datos obtenidos de Meta se realiza conforme a las <a href="https://developers.facebook.com/terms/" target="_blank" rel="noopener noreferrer" class="text-primary-600 hover:underline">Condiciones de la Plataforma de Meta</a>. Puedes desconectar tus cuentas de Meta en cualquier momento desde la configuración de Boxly o revocando el acceso desde la configuración de tu cuenta de Facebook; también puedes solicitar la eliminación de estos datos escribiendo a <a href="mailto:contact@boxly.mx" class="text-primary-600 hover:underline">contact@boxly.mx</a>, conforme a la sección de derechos de esta política.',
+      en: 'We use this information exclusively to provide you the Boxly service. We do not sell this information nor share it with third parties for our own advertising purposes. Data obtained from Meta is processed in accordance with the <a href="https://developers.facebook.com/terms/" target="_blank" rel="noopener noreferrer" class="text-primary-600 hover:underline">Meta Platform Terms</a>. You can disconnect your Meta accounts at any time from your Boxly settings or by revoking access from your Facebook account settings; you may also request deletion of this data by writing to <a href="mailto:contact@boxly.mx" class="text-primary-600 hover:underline">contact@boxly.mx</a>, in accordance with the rights section of this policy.'
     },
     contactTitle: {
       es: 'Contáctenos',
