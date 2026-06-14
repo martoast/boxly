@@ -124,10 +124,25 @@
               <p>{{ t.changesText }}</p>
             </section>
   
-            <!-- Section 11: Contact -->
+            <!-- Section 11: Meta integrations -->
             <section>
               <h2 class="text-xl font-semibold text-gray-900 mb-4">
-                11. {{ t.contactTitle }}
+                11. {{ t.metaTitle }}
+              </h2>
+              <p class="mb-4">{{ t.metaIntro }}</p>
+              <ul class="list-disc pl-6 space-y-2 mb-4">
+                <li>{{ t.metaItem1 }}</li>
+                <li>{{ t.metaItem2 }}</li>
+                <li>{{ t.metaItem3 }}</li>
+                <li>{{ t.metaItem4 }}</li>
+              </ul>
+              <p>{{ t.metaClosing }}</p>
+            </section>
+
+            <!-- Section 12: Contact -->
+            <section>
+              <h2 class="text-xl font-semibold text-gray-900 mb-4">
+                12. {{ t.contactTitle }}
               </h2>
               <p class="mb-4">{{ t.contactText }}</p>
               <div class="mt-4 p-4 bg-gray-100 rounded-lg">
@@ -328,6 +343,34 @@
     changesText: {
       es: 'Podemos actualizar esta política de privacidad ocasionalmente. Le notificaremos sobre cambios significativos publicando la nueva política en nuestro sitio web.',
       en: 'We may update this privacy policy occasionally. We will notify you of significant changes by posting the new policy on our website.'
+    },
+    metaTitle: {
+      es: 'Integraciones con Meta (Facebook, Messenger e Instagram)',
+      en: 'Meta Integrations (Facebook, Messenger, and Instagram)'
+    },
+    metaIntro: {
+      es: 'Boxly se integra con las plataformas de Meta Platforms, Inc. (Facebook, Messenger e Instagram) para operar tu cuenta comercial. Cuando conectas tu página de Facebook, cuenta de Instagram o cuenta publicitaria, accedemos —únicamente con tu autorización— a la siguiente información a través de las APIs oficiales de Meta:',
+      en: 'Boxly integrates with the platforms of Meta Platforms, Inc. (Facebook, Messenger, and Instagram) to operate your business account. When you connect your Facebook Page, Instagram account, or ad account, we access —only with your authorization— the following information through Meta\'s official APIs:'
+    },
+    metaItem1: {
+      es: 'Mensajes de Facebook Messenger e Instagram Direct: para mostrar tus conversaciones en una bandeja de entrada unificada y permitir que tú (o tu asistente automatizado) respondas a tus clientes.',
+      en: 'Facebook Messenger and Instagram Direct messages: to display your conversations in a unified inbox and allow you (or your automated assistant) to reply to your customers.'
+    },
+    metaItem2: {
+      es: 'Páginas de Facebook: nombre, identificador y metadatos de la página, para vincularla y recibir mensajes y notificaciones.',
+      en: 'Facebook Pages: the page name, identifier, and metadata, to link it and receive messages and notifications.'
+    },
+    metaItem3: {
+      es: 'Cuentas publicitarias (Marketing API): campañas, métricas de rendimiento y configuración, para mostrar reportes y permitirte crear y administrar anuncios desde Boxly.',
+      en: 'Ad accounts (Marketing API): campaigns, performance metrics, and settings, to show reports and let you create and manage ads from Boxly.'
+    },
+    metaItem4: {
+      es: 'Clientes potenciales de anuncios (Lead Ads): los datos que una persona envía en un formulario de anuncio (nombre, correo, teléfono y respuestas), para registrarlos automáticamente como contactos en tu CRM.',
+      en: 'Ad leads (Lead Ads): the data a person submits in an ad form (name, email, phone, and answers), to automatically record them as contacts in your CRM.'
+    },
+    metaClosing: {
+      es: 'Usamos esta información exclusivamente para prestarte el servicio de Boxly. No vendemos esta información ni la compartimos con terceros para fines de publicidad propios. El tratamiento de los datos obtenidos de Meta se realiza conforme a las Condiciones de la Plataforma de Meta (https://developers.facebook.com/terms/). Puedes desconectar tus cuentas de Meta en cualquier momento desde la configuración de Boxly o revocando el acceso desde la configuración de tu cuenta de Facebook; también puedes solicitar la eliminación de estos datos escribiendo a contact@boxly.mx, conforme a la sección de derechos de esta política.',
+      en: 'We use this information exclusively to provide you the Boxly service. We do not sell this information nor share it with third parties for our own advertising purposes. Data obtained from Meta is processed in accordance with the Meta Platform Terms (https://developers.facebook.com/terms/). You can disconnect your Meta accounts at any time from your Boxly settings or by revoking access from your Facebook account settings; you may also request deletion of this data by writing to contact@boxly.mx, in accordance with the rights section of this policy.'
     },
     contactTitle: {
       es: 'Contáctenos',
