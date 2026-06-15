@@ -7,7 +7,7 @@
     <div class="bg-white border-b border-gray-200">
       <div class="max-w-3xl mx-auto px-4 py-5">
         <div class="flex items-start gap-3 mb-5">
-          <NuxtLink to="/shop/in-person/stores" class="p-2 -ml-2 hover:bg-gray-100 rounded-lg" :aria-label="t.back">
+          <NuxtLink to="/in-person/stores" class="p-2 -ml-2 hover:bg-gray-100 rounded-lg" :aria-label="t.back">
             <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
           </NuxtLink>
           <div class="flex-1 min-w-0">
@@ -153,7 +153,7 @@
       <div class="max-w-3xl mx-auto">
         <NuxtLink
           v-if="canContinue"
-          to="/shop/in-person/review"
+          to="/in-person/review"
           class="w-full inline-flex items-center justify-center gap-2 py-3.5 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-xl transition-colors"
         >
           {{ t.continue }}
@@ -169,7 +169,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 
 definePageMeta({
-  layout: 'shop',
+  layout: 'default',
   middleware: ['auth', 'customer', 'complete-profile'],
 })
 
@@ -280,11 +280,11 @@ function shortUrl(url) {
 
 onMounted(async () => {
   // This step has been removed — redirect to review.
-  return router.replace('/shop/in-person/review')
+  return router.replace('/in-person/review')
 
   try {
     const [catsRes, storesRes] = await Promise.all([
-      $customFetch('/store/categories'),
+      $customFetch('/shopping-trips/categories'),
       $customFetch('/shopping-trips/in-person-stores'),
     ])
     categories.value = catsRes?.data ?? catsRes ?? []

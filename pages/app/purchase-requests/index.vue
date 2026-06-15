@@ -51,7 +51,7 @@
 
             <!-- In-person shopping path -->
             <NuxtLink
-              to="/shop/in-person"
+              to="/in-person"
               class="group block bg-white rounded-2xl overflow-hidden border border-gray-200/80 hover:border-gray-300 transition-all shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)]"
             >
               <div class="relative aspect-[4/3] overflow-hidden bg-gray-100">

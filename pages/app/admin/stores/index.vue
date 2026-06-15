@@ -27,7 +27,6 @@
             <tr class="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
               <th class="px-4 py-3">Tienda</th>
               <th class="px-4 py-3">Slug</th>
-              <th class="px-4 py-3 text-right">Productos</th>
               <th class="px-4 py-3">Estado</th>
               <th class="px-4 py-3"></th>
             </tr>
@@ -42,12 +41,10 @@
                   </div>
                   <div>
                     <p class="font-medium text-gray-900">{{ s.name }}</p>
-                    <p v-if="s.base_url" class="text-xs text-gray-400">{{ s.base_url }}</p>
                   </div>
                 </div>
               </td>
               <td class="px-4 py-3 text-gray-500 font-mono text-xs">{{ s.slug }}</td>
-              <td class="px-4 py-3 text-right text-gray-700">{{ s.products_count ?? 0 }}</td>
               <td class="px-4 py-3">
                 <span :class="s.is_active ? 'bg-green-50 text-green-700 border-green-100' : 'bg-gray-50 text-gray-500 border-gray-100'" class="inline-flex px-2 py-0.5 rounded-full text-xs font-semibold border">
                   {{ s.is_active ? 'Activa' : 'Inactiva' }}

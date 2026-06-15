@@ -13,11 +13,6 @@
       </div>
 
       <div>
-        <label class="block text-sm font-semibold text-gray-900 mb-1">URL del sitio (base)</label>
-        <input v-model="form.base_url" type="url" placeholder="https://www.youngla.com" class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
-      </div>
-
-      <div>
         <label class="block text-sm font-semibold text-gray-900 mb-1">Logo</label>
         <div class="flex items-center gap-4">
           <div class="w-20 h-20 rounded-xl bg-gray-100 overflow-hidden flex items-center justify-center text-gray-400 text-sm shrink-0">
@@ -35,24 +30,6 @@
       </div>
 
       <div>
-        <label class="block text-sm font-semibold text-gray-900 mb-1">Imagen de portada</label>
-        <p class="text-xs text-gray-400 mb-2">Foto editorial usada en el showcase de marcas en /shop. Idealmente 4:5 vertical.</p>
-        <div class="flex items-center gap-4">
-          <div class="w-20 h-24 rounded-xl bg-gray-100 overflow-hidden flex items-center justify-center text-gray-400 text-xs shrink-0">
-            <img v-if="form.cover_image_url" :src="form.cover_image_url" alt="" class="w-full h-full object-cover" />
-            <span v-else>Sin imagen</span>
-          </div>
-          <div class="flex-1 space-y-2">
-            <input v-model="form.cover_image_url" type="url" placeholder="URL pública de la portada" class="w-full border border-gray-200 rounded-xl px-4 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary-500" />
-            <div v-if="storeId" class="flex items-center gap-2">
-              <input ref="coverFileInput" type="file" accept="image/*" class="text-xs" @change="onCoverFile" />
-              <span v-if="uploadingCover" class="text-xs text-gray-500">Subiendo...</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div>
         <label class="block text-sm font-semibold text-gray-900 mb-1">Descripción</label>
         <textarea v-model="form.description" rows="3" class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"></textarea>
       </div>
@@ -61,13 +38,6 @@
         <label class="flex items-center gap-2 text-sm">
           <input type="checkbox" v-model="form.is_active" class="rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
           <span class="font-semibold text-gray-900">Activa</span>
-        </label>
-        <label class="flex items-start gap-2 text-sm">
-          <input type="checkbox" v-model="form.show_on_landing" class="mt-0.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
-          <span>
-            <span class="font-semibold text-gray-900 block">Mostrar en página principal</span>
-            <span class="text-xs text-gray-500">Aparece en el showcase de marcas en /shop. Recomendado: 5 marcas máximo.</span>
-          </span>
         </label>
         <label class="flex items-start gap-2 text-sm">
           <input type="checkbox" v-model="form.is_in_person_available" class="mt-0.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
@@ -96,7 +66,7 @@
 const props = defineProps({
   existingStore: { type: Object, default: null },
 })
-const emit = defineEmits(['submit', 'upload-logo', 'upload-cover-image'])
+const emit = defineEmits(['submit', 'upload-logo'])
 
 const route = useRoute()
 const cancelTo = computed(() =>
@@ -108,12 +78,9 @@ const storeId = computed(() => props.existingStore?.id)
 const form = ref({
   name: '',
   slug: '',
-  base_url: '',
   logo_url: '',
-  cover_image_url: '',
   description: '',
   is_active: true,
-  show_on_landing: false,
   is_in_person_available: false,
   sort_order: 0,
 })
@@ -123,12 +90,9 @@ watch(() => props.existingStore, (s) => {
     form.value = {
       name: s.name ?? '',
       slug: s.slug ?? '',
-      base_url: s.base_url ?? '',
       logo_url: s.logo_url ?? '',
-      cover_image_url: s.cover_image_url ?? '',
       description: s.description ?? '',
       is_active: s.is_active ?? true,
-      show_on_landing: s.show_on_landing ?? false,
       is_in_person_available: s.is_in_person_available ?? false,
       sort_order: s.sort_order ?? 0,
     }
@@ -141,9 +105,7 @@ const autoSlugHint = computed(() =>
 
 const saving = ref(false)
 const uploadingLogo = ref(false)
-const uploadingCover = ref(false)
 const logoFileInput = ref(null)
-const coverFileInput = ref(null)
 
 const onSubmit = async () => {
   saving.value = true
@@ -165,20 +127,6 @@ const onLogoFile = async (e) => {
     if (logoFileInput.value) logoFileInput.value.value = ''
   } finally {
     uploadingLogo.value = false
-  }
-}
-
-const onCoverFile = async (e) => {
-  const file = e.target.files?.[0]
-  if (!file) return
-  uploadingCover.value = true
-  try {
-    const fd = new FormData()
-    fd.append('image', file)
-    await emit('upload-cover-image', fd)
-    if (coverFileInput.value) coverFileInput.value.value = ''
-  } finally {
-    uploadingCover.value = false
   }
 }
 </script>

@@ -155,7 +155,7 @@
       </div>
 
       <!-- In-person context — renders only for source=in_person PRs.
-           Surfaces what the customer asked for on the /shop/in-person
+           Surfaces what the customer asked for on the /in-person
            flow: trip date, mall, stores to visit, categories of interest,
            minimum budget, and customer-facing notes. Items below remain
            the source of truth for billing — wishlist items there are

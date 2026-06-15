@@ -688,7 +688,7 @@ const lanes = computed(() => [
   },
   {
     key: 'in-person',
-    href: '/shop/in-person?from=/app',
+    href: '/in-person?from=/app',
     image: '/images/lane-in-person.png',
     imageAlt: t.value.laneInPersonAlt,
     badge: t.value.laneInPersonBadge,

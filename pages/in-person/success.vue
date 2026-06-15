@@ -39,7 +39,7 @@
 import { computed, onMounted } from 'vue'
 
 definePageMeta({
-  layout: 'shop',
+  layout: 'default',
   middleware: ['auth', 'customer', 'complete-profile'],
 })
 

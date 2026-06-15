@@ -1,6 +1,6 @@
 <template>
   <!-- Admin CRUD for in-person shopping trips. The customer-facing date
-       picker on /shop/in-person reads the open trips this page creates.
+       picker on /in-person reads the open trips this page creates.
        Single-file with an inline modal for create/edit — admin tool,
        used by Alex/Erick only, doesn't justify a 3-file split. -->
   <section class="min-h-screen bg-gray-50">

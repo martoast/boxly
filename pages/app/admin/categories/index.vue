@@ -27,7 +27,6 @@
             <tr class="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
               <th class="px-4 py-3">Categoría</th>
               <th class="px-4 py-3">Slug</th>
-              <th class="px-4 py-3 text-right">Productos</th>
               <th class="px-4 py-3">Estado</th>
               <th class="px-4 py-3"></th>
             </tr>
@@ -47,7 +46,6 @@
                 </div>
               </td>
               <td class="px-4 py-3 text-gray-500 font-mono text-xs">{{ c.slug }}</td>
-              <td class="px-4 py-3 text-right text-gray-700">{{ c.products_count ?? 0 }}</td>
               <td class="px-4 py-3">
                 <span :class="c.is_active ? 'bg-green-50 text-green-700 border-green-100' : 'bg-gray-50 text-gray-500 border-gray-100'" class="inline-flex px-2 py-0.5 rounded-full text-xs font-semibold border">
                   {{ c.is_active ? 'Activa' : 'Inactiva' }}

@@ -1,5 +1,5 @@
 <template>
-  <!-- 4-step progress indicator for the /shop/in-person/* flow. -->
+  <!-- 4-step progress indicator for the /in-person/* flow. -->
   <div class="flex items-center gap-2 sm:gap-3">
     <template v-for="(label, i) in steps" :key="i">
       <div class="flex items-center gap-2 min-w-0">

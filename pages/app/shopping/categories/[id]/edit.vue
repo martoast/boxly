@@ -12,7 +12,7 @@
       </div>
 
       <div v-if="loading" class="bg-white rounded-2xl border border-gray-100 p-8 text-center text-gray-400">Cargando...</div>
-      <AdminCategoryForm v-else :existing-category="category" @submit="onSubmit" @upload-image="onUploadImage" />
+      <AdminCategoryForm v-else :existing-category="category" @submit="onSubmit" />
     </div>
   </section>
 </template>
@@ -58,19 +58,6 @@ const onSubmit = async (form) => {
   }
 }
 
-const onUploadImage = async (formData) => {
-  try {
-    const res = await $customFetch(`${apiNs.value}/categories/${route.params.id}/image`, {
-      method: 'POST',
-      body: formData,
-    })
-    category.value = res.data
-    toast.success('Imagen actualizada')
-  } catch (e) {
-    console.error(e)
-    toast.error(e?.data?.message ?? 'Error al subir imagen')
-  }
-}
 
 const onDelete = async () => {
   if (!confirm('¿Eliminar esta categoría? Los productos pierden la asociación.')) return

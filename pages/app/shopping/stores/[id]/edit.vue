@@ -12,7 +12,7 @@
       </div>
 
       <div v-if="loading" class="bg-white rounded-2xl border border-gray-100 p-8 text-center text-gray-400">Cargando...</div>
-      <AdminStoreForm v-else :existing-store="store" @submit="onSubmit" @upload-logo="onUploadLogo" @upload-cover-image="onUploadCoverImage" />
+      <AdminStoreForm v-else :existing-store="store" @submit="onSubmit" @upload-logo="onUploadLogo" />
     </div>
   </section>
 </template>
@@ -72,19 +72,6 @@ const onUploadLogo = async (formData) => {
   }
 }
 
-const onUploadCoverImage = async (formData) => {
-  try {
-    const res = await $customFetch(`${apiNs.value}/stores/${route.params.id}/cover-image`, {
-      method: 'POST',
-      body: formData,
-    })
-    store.value = res.data
-    toast.success('Imagen de portada actualizada')
-  } catch (e) {
-    console.error(e)
-    toast.error(e?.data?.message ?? 'Error al subir imagen')
-  }
-}
 
 const onDelete = async () => {
   if (!confirm('¿Eliminar esta tienda? Los productos quedarán sin tienda asignada.')) return

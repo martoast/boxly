@@ -68,7 +68,7 @@
  <div v-if="selectedTrip" class="fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 px-4 py-4 shadow-lg">
  <div class="max-w-3xl mx-auto">
  <NuxtLink
- to="/shop/in-person/stores"
+ to="/in-person/stores"
  class="w-full inline-flex items-center justify-center gap-2 py-3.5 bg-primary-600 hover:bg-primary-700 text-white font-bold rounded-xl transition-colors"
  >
  {{ t.continue }}
@@ -83,7 +83,7 @@
 import { ref, computed, onMounted } from 'vue'
 
 definePageMeta({
- layout: 'shop',
+ layout: 'default',
  middleware: ['auth', 'customer', 'complete-profile'],
 })
 

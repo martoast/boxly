@@ -87,7 +87,7 @@
 
           <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
             <NuxtLink
-              to="/shop/in-person"
+              to="/in-person"
               class="inline-flex items-center justify-center gap-2 px-8 py-4 bg-white text-primary-700 font-bold rounded-full shadow-lg hover:bg-gray-100 transition-all duration-300"
             >
               {{ t.ctaButton }}

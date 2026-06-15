@@ -13,23 +13,6 @@
       </div>
 
       <div>
-        <label class="block text-sm font-semibold text-gray-900 mb-1">Imagen / banner</label>
-        <div class="flex items-center gap-4">
-          <div class="w-20 h-20 rounded-xl bg-gray-100 overflow-hidden flex items-center justify-center text-gray-400 text-xs shrink-0">
-            <img v-if="form.image_url" :src="form.image_url" alt="" class="w-full h-full object-cover" />
-            <span v-else>Sin imagen</span>
-          </div>
-          <div class="flex-1 space-y-2">
-            <input v-model="form.image_url" type="url" placeholder="URL pública de la imagen" class="w-full border border-gray-200 rounded-xl px-4 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary-500" />
-            <div v-if="categoryId" class="flex items-center gap-2">
-              <input ref="imageFileInput" type="file" accept="image/*" class="text-xs" @change="onImageFile" />
-              <span v-if="uploading" class="text-xs text-gray-500">Subiendo...</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div>
         <label class="block text-sm font-semibold text-gray-900 mb-1">Descripción</label>
         <textarea v-model="form.description" rows="3" class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"></textarea>
       </div>
@@ -59,7 +42,7 @@
 const props = defineProps({
   existingCategory: { type: Object, default: null },
 })
-const emit = defineEmits(['submit', 'upload-image'])
+const emit = defineEmits(['submit'])
 
 const route = useRoute()
 const cancelTo = computed(() =>
@@ -71,7 +54,6 @@ const categoryId = computed(() => props.existingCategory?.id)
 const form = ref({
   name: '',
   slug: '',
-  image_url: '',
   description: '',
   is_active: true,
   sort_order: 0,
@@ -82,7 +64,6 @@ watch(() => props.existingCategory, (c) => {
     form.value = {
       name: c.name ?? '',
       slug: c.slug ?? '',
-      image_url: c.image_url ?? '',
       description: c.description ?? '',
       is_active: c.is_active ?? true,
       sort_order: c.sort_order ?? 0,
@@ -95,8 +76,6 @@ const autoSlugHint = computed(() =>
 )
 
 const saving = ref(false)
-const uploading = ref(false)
-const imageFileInput = ref(null)
 
 const onSubmit = async () => {
   saving.value = true
@@ -104,20 +83,6 @@ const onSubmit = async () => {
     await emit('submit', form.value)
   } finally {
     saving.value = false
-  }
-}
-
-const onImageFile = async (e) => {
-  const file = e.target.files?.[0]
-  if (!file) return
-  uploading.value = true
-  try {
-    const fd = new FormData()
-    fd.append('image', file)
-    await emit('upload-image', fd)
-    if (imageFileInput.value) imageFileInput.value.value = ''
-  } finally {
-    uploading.value = false
   }
 }
 </script>

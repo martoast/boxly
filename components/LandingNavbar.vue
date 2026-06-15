@@ -34,26 +34,6 @@
             {{ t.howItWorks }}
           </NuxtLink>
 
-          <NuxtLink
-            to="/shop"
-            @mouseenter="prefetchShop"
-            @focus="prefetchShop"
-            @touchstart.passive="prefetchShop"
-            :class="[
-              $route.path.startsWith('/shop')
-                ? 'text-primary-600 font-semibold'
-                : 'text-gray-700 hover:text-primary-600',
-              'transition-colors duration-200 flex items-center gap-1'
-            ]"
-          >
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
-            </svg>
-            {{ t.shop }}
-          </NuxtLink>
-
-         
-
           <!-- HIDDEN: Track my package page temporarily disabled
           <NuxtLink
             to="/track"
@@ -138,21 +118,6 @@
 
         <!-- Right Side Actions -->
         <div class="flex items-center gap-3">
-          <!-- Cart icon -->
-          <NuxtLink
-            to="/cart"
-            class="relative p-2 rounded-full text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
-            :aria-label="t.cart"
-          >
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
-            </svg>
-            <span
-              v-if="cartCount > 0"
-              class="absolute -top-1 -right-1 bg-primary-500 text-white text-[10px] font-bold rounded-full h-5 min-w-5 px-1 flex items-center justify-center"
-            >{{ cartCount }}</span>
-          </NuxtLink>
-
           <!-- Language Toggle -->
           <LanguageToggle />
           
@@ -236,23 +201,6 @@
             {{ t.howItWorks }}
           </NuxtLink>
 
-          <NuxtLink
-            to="/shop"
-            @click="mobileMenuOpen = false"
-            @touchstart.passive="prefetchShop"
-            class="flex items-center gap-2 px-3 py-2 rounded-md text-base font-medium"
-            :class="[
-              $route.path.startsWith('/shop')
-                ? 'bg-primary-50 text-primary-600'
-                : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
-            ]"
-          >
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
-            </svg>
-            {{ t.shop }}
-          </NuxtLink>
-
           <!-- HIDDEN: Track my package page temporarily disabled
           <NuxtLink
             to="/track"
@@ -330,16 +278,6 @@ const { t: createTranslations } = useLanguage()
 const showServicesDropdown = ref(false)
 const showHelpDropdown = ref(false)
 const mobileMenuOpen = ref(false)
-
-// Cart count (Boxly Store)
-const { totalItems: cartCount } = useStoreCart()
-
-// Prefetch /shop's data + hero image when the user shows intent
-// (hover, focus, or first-touch on mobile). The composable is
-// idempotent — fires once per session, cached in Nuxt's payload
-// store, so when the user actually clicks the link the destination
-// page is already populated and renders ~instantly.
-const { prefetch: prefetchShop } = useShopLandingPrefetch()
 
 // Check if current route matches
 const isActiveRoute = (path) => {

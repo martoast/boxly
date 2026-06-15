@@ -2,7 +2,7 @@
   <!-- Full-width premium section dedicated to the in-person concierge.
        Distinct visual energy from the rest of the landing — this is the
        wow lane and gets its own room. Aspirational copy, image of an
-       outlet shopping vibe, single strong CTA into /shop/in-person. -->
+       outlet shopping vibe, single strong CTA into /in-person. -->
   <section class="bg-white py-12 sm:py-20">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary-800 via-primary-700 to-primary-500 text-white shadow-xl">
@@ -25,7 +25,7 @@
 
             <div class="flex flex-col sm:flex-row gap-3">
               <NuxtLink
-                to="/shop/in-person"
+                to="/in-person"
                 class="inline-flex items-center justify-center gap-2 px-7 py-4 bg-white text-primary-700 font-bold rounded-full shadow-lg hover:shadow-xl hover:bg-gray-100 transition-all text-base"
               >
                 {{ t.cta }}
