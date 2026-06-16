@@ -182,7 +182,11 @@ const chat = new Chat({
   },
 })
 
-onMounted(async () => { if (user.value) await initLoggedIn() })
+// Init on the client once the user is known — covers both "already logged in
+// at mount" and "logs in slightly after mount" (user state hydrates async).
+onMounted(() => {
+  watch(user, (u) => { if (u && !token.value) initLoggedIn() }, { immediate: true })
+})
 
 async function initLoggedIn() {
   try {
@@ -190,6 +194,18 @@ async function initLoggedIn() {
     shoppingProfile.value = (await $customFetch('/me/shopping-profile')).data
     await loadConversations()
   } catch (e) { console.error('assistant init failed', e) }
+}
+
+// Create the thread the instant the user sends their first message (like
+// ChatGPT) — it shows in the sidebar immediately, before the AI even responds.
+async function ensureConversation(firstText) {
+  if (!user.value || activeId.value) return
+  try {
+    const title = (firstText || '').replace(/\s+/g, ' ').trim().slice(0, 60) || 'Nuevo chat'
+    const c = (await $customFetch('/conversations', { method: 'POST', body: { title } })).data
+    activeId.value = c.id
+    conversations.value = [c, ...conversations.value.filter((x) => x.id !== c.id)]
+  } catch (e) { console.error('create conversation failed', e) }
 }
 
 async function loadConversations() {
@@ -201,6 +217,7 @@ function onComposerSend({ files } = {}) {
   if (isBusy.value) return
   if (!text && !(files && files.length)) return
   input.value = ''
+  ensureConversation(text)
   chat.sendMessage({ text: text || undefined, files: files || undefined })
   scrollDown()
 }
@@ -209,7 +226,9 @@ function quickSend(text) { input.value = text; onComposerSend() }
 function onPickProduct(p) {
   if (isBusy.value) return
   const price = p.price ? ` (~$${p.price} USD)` : ''
-  chat.sendMessage({ text: `Quiero pedir este: ${p.title}${price} — ${p.url}` })
+  const text = `Quiero pedir este: ${p.title}${price} — ${p.url}`
+  ensureConversation(text)
+  chat.sendMessage({ text })
   scrollDown()
 }
 
