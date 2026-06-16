@@ -360,8 +360,11 @@
     </div>
   </div>
 </div>
+
+            <!-- Connect your AI (MCP) -->
+            <AiConnectCard />
           </div>
-  
+
           <!-- Right Column - Stats & Actions -->
           <div class="space-y-6">
             <!-- Account Stats -->
