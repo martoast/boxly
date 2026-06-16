@@ -1,5 +1,5 @@
 <template>
-  <div class="flex h-[calc(100dvh-4rem)] bg-gray-50 overflow-hidden relative">
+  <div class="flex bg-gray-50 overflow-hidden relative" :class="fullscreenMobile ? 'h-[100dvh] md:h-[calc(100dvh-4rem)]' : 'h-[calc(100dvh-4rem)]'">
     <!-- ===== Mobile history drawer ===== -->
     <Transition name="backdrop">
       <div v-if="user && drawerOpen" class="md:hidden absolute inset-0 z-40 bg-black/30 backdrop-blur-sm" @click="drawerOpen = false" />
@@ -18,7 +18,7 @@
     <!-- ===== Chat area ===== -->
     <main class="flex-1 flex flex-col min-w-0">
       <!-- Mobile top bar (logged-in: history access) -->
-      <header v-if="user" class="md:hidden flex items-center justify-between px-3 h-12 border-b border-gray-100 bg-white/80 backdrop-blur shrink-0">
+      <header v-if="user" class="md:hidden flex items-center justify-between px-3 min-h-[3rem] border-b border-gray-100 bg-white/80 backdrop-blur shrink-0" :class="fullscreenMobile ? 'pt-[env(safe-area-inset-top)]' : ''">
         <button @click="drawerOpen = true" class="p-2 -ml-1 rounded-lg text-gray-600 active:scale-90 transition-transform" aria-label="Historial">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
         </button>
@@ -128,6 +128,13 @@
 <script setup>
 import { Chat } from '@ai-sdk/vue'
 import { DefaultChatTransport, lastAssistantMessageIsCompleteWithToolCalls } from 'ai'
+
+const props = defineProps({
+  // When true (in-app page), go full-screen on mobile since the site navbar is
+  // hidden there — the chat's own header is the single top bar.
+  fullscreenMobile: { type: Boolean, default: false },
+})
+const { fullscreenMobile } = toRefs(props)
 
 const { $customFetch } = useNuxtApp()
 const user = useState('user')
