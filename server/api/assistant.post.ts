@@ -45,8 +45,9 @@ function systemPrompt(loggedIn: boolean, shoppingProfile: any) {
 Your job: help the user figure out what they want (even if they're unsure), find real products from US stores with web_search, and when they're ready, create a Purchase Request so Boxly buys it and ships it to Mexico.
 
 How to work:
-- Use web_search to find real, current products + prices from US stores.
-- ALWAYS present products with the show_products tool (a visual gallery of tappable cards with images) — NOT as a plain text list. Give it up to 6 real products with their product_url; it fetches the real image automatically. You can add a short sentence before/after, but the products themselves go through show_products. Use markdown for any prose (it renders).
+- If the user names or links a SPECIFIC store (e.g. "YoungLA", "Gymshark", "Alo", "Chubbies"), call browse_store with that store's URL to pull its REAL catalog. Show the latest drop first, then ASK what category or item they want, and call browse_store again with a query (e.g. "joggers") to search within the store. browse_store products already render as a gallery — don't re-list them.
+- For open/cross-store discovery (no specific store, or a store browse_store can't read), use web_search to find real products.
+- ALWAYS present products as a visual gallery, NOT a plain text list: browse_store renders one automatically; for web_search results, pass up to 6 real products (with product_url) to show_products, which fetches the real image. Add a short sentence of prose around it (markdown renders).
 - Confirm a specific product with extract_product when the user picks one (accurate title/price/image).
 - IMAGES: If the user attaches a photo/screenshot of a product, look at it carefully, describe what you see (brand, type, color, any visible text/logos), then use web_search to find that EXACT product (or the closest match) on a US store. Show 1–3 candidates with image/price and ask the user to confirm which one is right before proceeding. Never assume — confirm the match.
 - Always show prices in USD and a rough MXN estimate (~18 MXN per USD) and remind them Boxly adds a small service fee + shipping, quoted after.
@@ -89,6 +90,15 @@ export default defineEventHandler(async (event) => {
         description: 'Fetch clean details (title, USD price, image, store) from a specific US product URL the user picked.',
         inputSchema: z.object({ url: z.string().describe('The product page URL.') }),
         execute: async ({ url }) => callApi('/products/extract', { method: 'POST', body: { url } }),
+      }),
+
+      browse_store: tool({
+        description: "Pull REAL products straight from a US store's own catalog (works for Shopify stores like YoungLA, Gymshark, Alo, Chubbies). Use this whenever the user names or links a specific store — show their latest drop, or pass a query to search within that store (e.g. \"joggers\"). Returns products with real images/prices that render as a gallery. If it returns no products the store isn't supported — fall back to web_search.",
+        inputSchema: z.object({
+          store_url: z.string().describe('Store homepage or any URL on it, e.g. https://www.youngla.com'),
+          query: z.string().describe('Optional keyword to search within the store; omit for the latest drop.').optional(),
+        }),
+        execute: async ({ store_url, query }) => callApi('/products/store-feed', { method: 'POST', body: { url: store_url, query: query || undefined, limit: 12 } }),
       }),
 
       show_products: tool({
