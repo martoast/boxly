@@ -1,6 +1,9 @@
 <template>
   <div class="-mx-1">
-    <div class="grid grid-rows-2 grid-flow-col auto-cols-[10.5rem] md:auto-cols-[11.5rem] gap-3 overflow-x-auto pb-2 px-1 snap-x scrollbar-thin">
+    <div
+      class="grid grid-flow-col auto-cols-[10.5rem] md:auto-cols-[11.5rem] gap-3 overflow-x-auto pb-2 px-1 snap-x scrollbar-thin"
+      :class="rows === 2 ? 'grid-rows-2' : 'grid-rows-1'"
+    >
       <div
         v-for="(p, i) in normalized"
         :key="i"
@@ -59,6 +62,10 @@ const normalized = computed(() =>
     broken: false,
   }))
 )
+
+// Two rows only when there are enough products to roughly fill them — otherwise
+// a single item in a 2-row grid leaves a big empty row (the blank-space bug).
+const rows = computed(() => (normalized.value.length >= 5 ? 2 : 1))
 </script>
 
 <style scoped>
