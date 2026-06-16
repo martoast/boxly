@@ -20,7 +20,7 @@ import { z } from 'zod'
 const API_BASE = (process.env.API_URL || 'https://api.boxly.mx').replace(/\/$/, '')
 const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6'
 
-async function callApi(path: string, opts: { method?: string; body?: any; token?: string } = {}) {
+async function callApi(path: string, opts: { method?: string; body?: any; token?: string; timeoutMs?: number } = {}) {
   // No Origin header: this is a server-to-server call. Sending Origin:api.boxly.mx
   // makes Sanctum treat it as a stateful (browser) request and enforce CSRF,
   // which 419s these tokenless public calls. CORS doesn't apply server-side.
@@ -31,12 +31,29 @@ async function callApi(path: string, opts: { method?: string; body?: any; token?
     method: opts.method || 'GET',
     headers,
     body: opts.body ? JSON.stringify(opts.body) : undefined,
+    signal: opts.timeoutMs ? AbortSignal.timeout(opts.timeoutMs) : undefined,
   })
   const text = await res.text()
   let data: any
   try { data = JSON.parse(text) } catch { data = { raw: text } }
   if (!res.ok) return { ok: false, status: res.status, ...(data || {}) }
   return data?.data ?? data
+}
+
+// Drop tool-call parts that never reached a terminal state (no output) before
+// replaying history to the model. A tool_use without a matching tool_result is
+// invalid for Anthropic and makes the next turn fail silently — which happens
+// if a tool call gets cut off at the end of a stream (e.g. a slow enrichment).
+function stripIncompleteToolCalls(messages: any[]) {
+  return (messages || []).map((m) => {
+    if (m?.role !== 'assistant' || !Array.isArray(m.parts)) return m
+    const parts = m.parts.filter((p: any) =>
+      typeof p?.type === 'string' && p.type.startsWith('tool-')
+        ? p.state === 'output-available' || p.state === 'output-error'
+        : true
+    )
+    return { ...m, parts }
+  })
 }
 
 function systemPrompt(loggedIn: boolean, shoppingProfile: any) {
@@ -47,7 +64,9 @@ function systemPrompt(loggedIn: boolean, shoppingProfile: any) {
 
 Your job: help the user figure out what they want (even if they're unsure), find real products from US stores with web_search, and when they're ready, create a Purchase Request so Boxly buys it and ships it to Mexico.
 
-CRITICAL — NEVER invent products. You may ONLY show a product (its name, URL, price or image) if it came back from a tool call in THIS conversation (browse_store, web_search, or extract_product). NEVER type a product name, URL, or price from your own memory/training — it will be wrong and the image will be missing. If a tool returned no usable products, say so and try another query or store; do not fill the gap with remembered products. When you call show_products, every product_url MUST be copied verbatim from a tool result (a browse_store item's url or a real web_search result URL) — never a guessed or constructed URL.
+CRITICAL — NEVER invent products. You may ONLY show a product (its name, URL, price or image) if it came back from a tool call in THIS conversation (browse_store, web_search, or extract_product). NEVER type a product name, URL, or price from your own memory/training — it will be wrong and the image will be missing. If a tool returned no usable products, say so and try another query or store; do not fill the gap with remembered products.
+
+CRITICAL — After you call browse_store, do NOT call show_products. browse_store ALREADY renders its results as a gallery for the user; calling show_products afterwards just duplicates it and can break the chat. show_products is ONLY for web_search results (which don't auto-render), and every product_url in it MUST be copied verbatim from a web_search result — never guessed or constructed.
 
 How to work:
 - If the user names or links a SPECIFIC store (e.g. "YoungLA", "Gymshark", "Alo", "Chubbies"), you MUST call browse_store with that store's URL to pull its REAL catalog — do NOT use web_search for a named store, browse_store returns real images and prices. Show the latest drop first, then ASK what category or item they want, and call browse_store again with a query (e.g. "joggers") to search within the store. browse_store's results already render as a gallery — present THOSE exact items; do not re-type them into show_products and do not add items it didn't return.
@@ -85,7 +104,7 @@ export default defineEventHandler(async (event) => {
   const result = streamText({
     model: anthropic(MODEL),
     system: systemPrompt(!!token, shoppingProfile),
-    messages: await convertToModelMessages(messages),
+    messages: await convertToModelMessages(stripIncompleteToolCalls(messages)),
     stopWhen: stepCountIs(10),
     onError: ({ error }) => console.error('[assistant] error:', error instanceof Error ? error.message : error),
     tools: {
@@ -123,7 +142,7 @@ export default defineEventHandler(async (event) => {
             let price = p.price ?? null
             let store = p.store ?? null
             try {
-              const ex: any = await callApi('/products/extract', { method: 'POST', body: { url: p.product_url } })
+              const ex: any = await callApi('/products/extract', { method: 'POST', body: { url: p.product_url }, timeoutMs: 8000 })
               if (ex && ex.image) image = ex.image
               if (price == null && ex?.price != null) price = ex.price
               if (!store && ex?.store) store = ex.store

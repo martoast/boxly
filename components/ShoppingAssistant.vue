@@ -335,7 +335,11 @@ async function deleteConversation(id) {
 // Don't persist base64 image data-URLs to the DB — replace file parts with a
 // lightweight marker (the product was already identified in the conversation).
 function cleanParts(parts) {
-  return (parts || []).map((p) => (p?.type === 'file' ? { type: 'text', text: '📎 (imagen)' } : p))
+  return (parts || [])
+    // Drop tool calls that never produced output — a dangling tool_use breaks
+    // the next request to the model when this history is replayed.
+    .filter((p) => !(typeof p?.type === 'string' && p.type.startsWith('tool-') && p.state !== 'output-available' && p.state !== 'output-error'))
+    .map((p) => (p?.type === 'file' ? { type: 'text', text: '📎 (imagen)' } : p))
 }
 
 function scrollDown() {
