@@ -79,6 +79,9 @@
                 </div>
               </div>
             </div>
+
+            <!-- Connect your AI (MCP) -->
+            <AiConnectCard />
   
            
           </div>
