@@ -56,6 +56,15 @@ function stripIncompleteToolCalls(messages: any[]) {
   })
 }
 
+// Round-robin merge so a multi-store gallery alternates brands instead of
+// showing all of store A then all of store B.
+function interleave(arrays: any[][]) {
+  const out: any[] = []
+  const max = arrays.reduce((m, a) => Math.max(m, a.length), 0)
+  for (let i = 0; i < max; i++) for (const a of arrays) if (a[i]) out.push(a[i])
+  return out
+}
+
 function systemPrompt(loggedIn: boolean, shoppingProfile: any) {
   const profileBlock = shoppingProfile && Object.keys(shoppingProfile).length
     ? `\n\nWhat you already know about this shopper (use it to refine searches; keep it updated via update_shopping_profile when you learn something durable):\n${JSON.stringify(shoppingProfile)}`
@@ -68,7 +77,14 @@ CRITICAL — NEVER invent products. You may ONLY show a product (its name, URL, 
 
 CRITICAL — After you call browse_store, do NOT call show_products. browse_store ALREADY renders its results as a gallery for the user; calling show_products afterwards just duplicates it and can break the chat. show_products is ONLY for web_search results (which don't auto-render), and every product_url in it MUST be copied verbatim from a web_search result — never guessed or constructed.
 
+You are a SHOPPING COMPANION, not a single-store search box. Help the user explore the whole space: show options from DIFFERENT stores side by side, point out deals, then dive deeper into whatever catches their eye and branch from there. Keep it conversational — suggest, compare, narrow, pivot.
+
 How to work:
+- For a BROAD or category request (e.g. "gym clothes", "cozy hoodies", "something for the beach", "ropa de gym") — i.e. no single store named — use browse_stores across 3-4 relevant stores to show VARIETY across brands in one gallery. Then ask what direction they like (a brand, a category, a vibe) and refine: browse_stores again with a query, or browse_store to go deep on the one they gravitate to.
+- DEALS: when the user wants deals/offers/"what's on sale", or to spice up a broad result, call browse_stores with sale:true across several stores.
+- STORE DIRECTORY (verified Shopify stores you can browse_store / browse_stores directly):
+  • Gym & activewear: YoungLA https://www.youngla.com (men+women) · Alphalete https://www.alphaleteathletics.com · NVGTN https://www.nvgtn.com (women) · Ryderwear https://www.ryderwear.com · DARC SPORT https://www.darcsport.com · Ten Thousand https://www.tenthousand.cc (men's training)
+  Pick a mix that fits the request (e.g. for women's gym wear lean NVGTN + Alphalete + YoungLA). For categories NOT covered here, use web_search to find real products/stores, then browse_stores on any Shopify ones among them.
 - If the user names or links a SPECIFIC store (e.g. "YoungLA", "Gymshark", "Alo", "Chubbies"), you MUST call browse_store with that store's URL to pull its REAL catalog — do NOT use web_search for a named store, browse_store returns real images and prices. Show the latest drop first, then ASK what category or item they want, and call browse_store again with a query (e.g. "joggers") to search within the store. browse_store's results already render as a gallery — present THOSE exact items; do not re-type them into show_products and do not add items it didn't return.
 - SEARCH STRATEGY for browse_store queries: the store's search matches PRODUCT TITLES, so use a single short category keyword ("shorts", "joggers", "hoodie", "tank", "tee") — NOT full phrases or gender words like "men's shorts" or "ropa de hombre" (those match almost nothing). If a query returns very few results, silently try a broader keyword and/or the latest drop again before responding — don't make the user watch you say "only found one". Many gym stores (incl. YoungLA) prefix women's items with "W" in the title (e.g. "W2279…") and leave men's items un-prefixed — use that to filter by gender, and tell the user which ones are men's/women's rather than relying on the search term.
 - Only use web_search for open/cross-store discovery (the user named no store, or browse_store returned zero products). Then pass up to 6 of the ACTUAL products from the search results (each with its real product_url copied from the result) to show_products so they render with images.
@@ -124,6 +140,33 @@ export default defineEventHandler(async (event) => {
           query: z.string().describe('Optional keyword to search within the store; omit for the latest drop.').optional(),
         }),
         execute: async ({ store_url, query }) => callApi('/products/store-feed', { method: 'POST', body: { url: store_url, query: query || undefined, limit: 12 } }),
+      }),
+
+      browse_stores: tool({
+        description: "Browse MULTIPLE US stores AT ONCE and return a single mixed gallery of real products tagged by store. Use this for broad/category requests (e.g. 'gym clothes', 'cozy hoodies', 'something for the beach') to show variety across brands, or with sale:true to surface current DEALS across stores. Pass 2-5 Shopify store URLs (use the store directory in your instructions, or stores you found via web_search). Results render as a gallery the user can filter by store. If a store returns nothing it's skipped.",
+        inputSchema: z.object({
+          stores: z.array(z.object({
+            name: z.string().describe('Display/brand name, e.g. "YoungLA".').optional(),
+            url: z.string().describe('Store homepage URL, e.g. https://www.youngla.com'),
+          })).min(1).max(6),
+          query: z.string().describe('Optional keyword to search within each store, e.g. "joggers"; omit for each store\'s latest drop.').optional(),
+          sale: z.boolean().describe('If true, return only items currently on sale (deals).').optional(),
+        }),
+        execute: async ({ stores, query, sale }) => {
+          const list = (stores || []).slice(0, 6)
+          const per = list.length >= 5 ? 3 : list.length >= 3 ? 4 : 6
+          const perStore = await Promise.all(list.map(async (s) => {
+            try {
+              const r: any = await callApi('/products/store-feed', {
+                method: 'POST',
+                body: { url: s.url, query: query || undefined, sale: sale || undefined, limit: per },
+                timeoutMs: 20000,
+              })
+              return (r?.products || []).map((p: any) => ({ ...p, store: s.name || r?.store || p.store }))
+            } catch { return [] }
+          }))
+          return { products: interleave(perStore) }
+        },
       }),
 
       show_products: tool({
