@@ -71,7 +71,7 @@
           </div>
         </div>
 
-        <!-- Setup: Claude Code command -->
+        <!-- Setup: Claude Code command (one line, no install) -->
         <div>
           <label class="block text-xs font-semibold text-gray-500 uppercase mb-1.5">{{ c.setupClaudeCode }}</label>
           <div class="relative">
@@ -82,14 +82,18 @@
           </div>
         </div>
 
-        <!-- Setup: Claude Desktop JSON -->
+        <!-- Manual: server URL for any other MCP client -->
         <details class="group">
-          <summary class="cursor-pointer text-xs font-semibold text-primary-600 hover:text-primary-700">{{ c.setupDesktop }}</summary>
-          <div class="relative mt-2">
-            <pre class="bg-gray-900 text-gray-100 rounded-xl p-3 pr-20 text-xs font-mono overflow-x-auto whitespace-pre-wrap break-all">{{ desktopJson }}</pre>
-            <button @click="copy(desktopJson, 'json')" class="absolute top-2 right-2 px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-semibold">
-              {{ copied === 'json' ? c.copied : c.copy }}
-            </button>
+          <summary class="cursor-pointer text-xs font-semibold text-primary-600 hover:text-primary-700">{{ c.otherClients }}</summary>
+          <div class="mt-2 space-y-2">
+            <p class="text-xs text-gray-500">{{ c.otherClientsHint }}</p>
+            <div class="flex items-stretch gap-2">
+              <code class="flex-1 min-w-0 truncate bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-sm font-mono text-gray-800">{{ mcpUrl }}</code>
+              <button @click="copy(mcpUrl, 'url')" class="px-3 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50 text-xs font-semibold">
+                {{ copied === 'url' ? c.copied : c.copy }}
+              </button>
+            </div>
+            <p class="text-xs text-gray-500">{{ c.authHeader }} <code class="text-gray-700">Authorization: Bearer &lt;token&gt;</code></p>
           </div>
         </details>
 
@@ -129,20 +133,10 @@ const maskedToken = computed(() => {
   return t.length > 12 ? `${t.slice(0, 6)}${'•'.repeat(18)}${t.slice(-4)}` : t
 })
 
-const claudeCmd = computed(() =>
-  `claude mcp add boxly \\\n  --env BOXLY_TOKEN=${token.value ?? '<token>'} \\\n  --env BOXLY_API_URL=${apiUrl.value || 'https://api.boxly.mx'} \\\n  -- npx -y @boxly/mcp`
-)
+const mcpUrl = computed(() => `${apiUrl.value || 'https://api.boxly.mx'}/mcp/boxly`)
 
-const desktopJson = computed(() =>
-  JSON.stringify({
-    mcpServers: {
-      boxly: {
-        command: 'npx',
-        args: ['-y', '@boxly/mcp'],
-        env: { BOXLY_TOKEN: token.value ?? '<token>', BOXLY_API_URL: apiUrl.value || 'https://api.boxly.mx' },
-      },
-    },
-  }, null, 2)
+const claudeCmd = computed(() =>
+  `claude mcp add --transport http boxly ${mcpUrl.value} \\\n  --header "Authorization: Bearer ${token.value ?? '<token>'}"`
 )
 
 const generate = async () => {
@@ -193,10 +187,12 @@ const COPY = {
     show: 'Ver', hide: 'Ocultar', copy: 'Copiar', copied: '¡Copiado!',
     warning: 'Trátalo como una contraseña: da acceso a tu cuenta. No lo compartas. Solo se muestra una vez; si lo pierdes, genera otro.',
     step1: 'Copia tu token (abajo).',
-    step2: 'Pega el comando de abajo en tu terminal (Claude Code), o usa el JSON para Claude Desktop.',
+    step2: 'Pega el comando de abajo en tu terminal (Claude Code). No hay que instalar nada.',
     step3: 'Abre Claude y pregúntale por tu cuenta de Boxly.',
     setupClaudeCode: 'Comando para Claude Code',
-    setupDesktop: 'Configuración en Claude Desktop (JSON)',
+    otherClients: 'Otros clientes de IA (URL del servidor)',
+    otherClientsHint: 'Para cualquier cliente MCP: agrega esta URL del servidor con autenticación Bearer usando tu token.',
+    authHeader: 'Encabezado de autenticación:',
     tryIt: 'Pruébalo en Claude:',
     ex1: 'Muéstrame mis pedidos de Boxly',
     ex2: '¿Cuál es mi dirección de casillero en EE.UU.?',
@@ -214,10 +210,12 @@ const COPY = {
     show: 'Show', hide: 'Hide', copy: 'Copy', copied: 'Copied!',
     warning: 'Treat it like a password: it grants access to your account. Don’t share it. Shown only once — if you lose it, generate a new one.',
     step1: 'Copy your token (below).',
-    step2: 'Paste the command below into your terminal (Claude Code), or use the JSON for Claude Desktop.',
+    step2: 'Paste the command below into your terminal (Claude Code). Nothing to install.',
     step3: 'Open Claude and ask it about your Boxly account.',
     setupClaudeCode: 'Command for Claude Code',
-    setupDesktop: 'Set up in Claude Desktop (JSON)',
+    otherClients: 'Other AI clients (server URL)',
+    otherClientsHint: 'For any MCP client: add this server URL with Bearer authentication using your token.',
+    authHeader: 'Auth header:',
     tryIt: 'Try it in Claude:',
     ex1: 'Show me my Boxly orders',
     ex2: 'What is my US warehouse (casillero) address?',
