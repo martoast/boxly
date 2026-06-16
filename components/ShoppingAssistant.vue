@@ -143,6 +143,7 @@ const drawerOpen = ref(false)
 
 const { recording: micRecording, transcribing: micTranscribing, toggle: micToggle } = useVoiceInput()
 
+const retitled = ref(false)
 const pendingAccount = ref(null)
 const acct = reactive({ name: '', email: '', phone: '' })
 const acctLoading = ref(false)
@@ -264,8 +265,29 @@ async function submitAccount() {
 
 watch(() => chat.status, async (s) => {
   scrollDown()
-  if (s === 'ready' && user.value && chat.messages.length > savedCount.value) await persist()
+  if (s === 'ready' && user.value && chat.messages.length > savedCount.value) {
+    await persist()
+    maybeRetitle()
+  }
 })
+
+// ChatGPT-style: after the first reply, ask a fast model for a concise title
+// based on what the user actually wants, then rename the thread. Best-effort.
+async function maybeRetitle() {
+  if (retitled.value || !activeId.value) return
+  const firstText = (m) => (m?.parts || []).filter((p) => p.type === 'text').map((p) => p.text).join(' ').trim()
+  const userText = firstText(chat.messages.find((m) => m.role === 'user'))
+  const assistantText = firstText(chat.messages.find((m) => m.role === 'assistant'))
+  if (!userText || !assistantText) return
+  retitled.value = true
+  try {
+    const { title } = await $fetch('/api/title', { method: 'POST', body: { user: userText, assistant: assistantText } })
+    if (!title) return
+    await $customFetch(`/conversations/${activeId.value}`, { method: 'PATCH', body: { title } })
+    const c = conversations.value.find((x) => x.id === activeId.value)
+    if (c) c.title = title
+  } catch (e) { console.error('retitle failed', e) }
+}
 
 async function persist() {
   try {
@@ -282,6 +304,7 @@ function newChat() {
   chat.messages = []
   activeId.value = null
   savedCount.value = 0
+  retitled.value = false
   drawerOpen.value = false
 }
 
@@ -295,6 +318,7 @@ async function openChat(id) {
     }))
     activeId.value = id
     savedCount.value = chat.messages.length
+    retitled.value = true
     drawerOpen.value = false
     scrollDown()
   } catch (e) { console.error(e) }
