@@ -66,7 +66,7 @@
 
                   <img v-else-if="part.type === 'file' && String(part.mediaType).startsWith('image/')" :src="part.url" class="rounded-2xl max-h-56 w-auto border border-gray-200 shadow-sm" :class="m.role === 'user' ? 'ml-auto' : ''" />
 
-                  <div v-else-if="part.type === 'tool-web_search'" class="flex items-center gap-2 text-xs text-gray-400 pl-1">
+                  <div v-else-if="part.type === 'tool-web_search' && part.state !== 'output-available'" class="flex items-center gap-2 text-xs text-gray-400 pl-1">
                     <svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
                     Buscando en internet…
                   </div>
@@ -76,7 +76,7 @@
                     <div class="min-w-0">
                       <p class="text-sm font-semibold text-gray-900 line-clamp-2 leading-snug">{{ part.output?.title }}</p>
                       <p class="text-xs text-gray-400 mt-0.5">{{ part.output?.store }}</p>
-                      <p v-if="part.output?.price" class="text-sm font-bold text-gray-900 mt-1">${{ part.output.price }} <span class="text-xs font-medium text-gray-400">USD · ≈ ${{ Math.round(part.output.price * 18) }} MXN</span></p>
+                      <p v-if="part.output?.price" class="text-sm font-bold text-gray-900 mt-1">${{ part.output.price }} <span class="text-xs font-medium text-gray-400">USD</span></p>
                     </div>
                   </div>
 
