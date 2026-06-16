@@ -21,7 +21,10 @@ const API_BASE = (process.env.API_URL || 'https://api.boxly.mx').replace(/\/$/, 
 const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6'
 
 async function callApi(path: string, opts: { method?: string; body?: any; token?: string } = {}) {
-  const headers: Record<string, string> = { Accept: 'application/json', Origin: API_BASE }
+  // No Origin header: this is a server-to-server call. Sending Origin:api.boxly.mx
+  // makes Sanctum treat it as a stateful (browser) request and enforce CSRF,
+  // which 419s these tokenless public calls. CORS doesn't apply server-side.
+  const headers: Record<string, string> = { Accept: 'application/json' }
   if (opts.body) headers['Content-Type'] = 'application/json'
   if (opts.token) headers['Authorization'] = `Bearer ${opts.token}`
   const res = await fetch(`${API_BASE}${path}`, {

@@ -1,10 +1,10 @@
 <template>
   <div class="-mx-1">
-    <div class="flex gap-3 overflow-x-auto pb-2 px-1 snap-x snap-mandatory scrollbar-thin">
+    <div class="grid grid-rows-2 grid-flow-col auto-cols-[10.5rem] md:auto-cols-[11.5rem] gap-3 overflow-x-auto pb-2 px-1 snap-x scrollbar-thin">
       <div
         v-for="(p, i) in normalized"
         :key="i"
-        class="group snap-start shrink-0 w-[10.5rem] md:w-48 bg-white border border-gray-200/80 rounded-2xl overflow-hidden shadow-sm hover:shadow-lg hover:border-gray-300 hover:-translate-y-1 transition-all duration-200 flex flex-col"
+        class="group snap-start bg-white border border-gray-200/80 rounded-2xl overflow-hidden shadow-sm hover:shadow-lg hover:border-gray-300 hover:-translate-y-1 transition-all duration-200 flex flex-col"
       >
         <a :href="p.url" target="_blank" rel="noopener noreferrer" class="block relative">
           <div class="aspect-square overflow-hidden bg-gray-50">
