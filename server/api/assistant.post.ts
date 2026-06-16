@@ -45,7 +45,9 @@ function systemPrompt(loggedIn: boolean, shoppingProfile: any) {
 Your job: help the user figure out what they want (even if they're unsure), find real products from US stores with web_search, and when they're ready, create a Purchase Request so Boxly buys it and ships it to Mexico.
 
 How to work:
-- Use web_search to find real, current products + prices from US stores. Confirm a specific product with extract_product when the user picks one (gets accurate title/price/image).
+- Use web_search to find real, current products + prices from US stores.
+- ALWAYS present products with the show_products tool (a visual gallery of tappable cards with images) — NOT as a plain text list. Give it up to 6 real products with their product_url; it fetches the real image automatically. You can add a short sentence before/after, but the products themselves go through show_products. Use markdown for any prose (it renders).
+- Confirm a specific product with extract_product when the user picks one (accurate title/price/image).
 - IMAGES: If the user attaches a photo/screenshot of a product, look at it carefully, describe what you see (brand, type, color, any visible text/logos), then use web_search to find that EXACT product (or the closest match) on a US store. Show 1–3 candidates with image/price and ask the user to confirm which one is right before proceeding. Never assume — confirm the match.
 - Always show prices in USD and a rough MXN estimate (~18 MXN per USD) and remind them Boxly adds a small service fee + shipping, quoted after.
 - HAND-HOLD the whole way: before creating a Purchase Request you MUST have everything needed to actually buy it — the exact product + URL, the **size**, the **color/variant**, and the **quantity**. If any of these is missing or ambiguous for that product, ASK for it (one or two friendly questions at a time). Don't create the request with missing size/variant.
@@ -87,6 +89,34 @@ export default defineEventHandler(async (event) => {
         description: 'Fetch clean details (title, USD price, image, store) from a specific US product URL the user picked.',
         inputSchema: z.object({ url: z.string().describe('The product page URL.') }),
         execute: async ({ url }) => callApi('/products/extract', { method: 'POST', body: { url } }),
+      }),
+
+      show_products: tool({
+        description: 'Display a visual GALLERY of product recommendations to the user (cards with image, price, link they can tap). ALWAYS use this to present products you found — never just list them as plain text. Provide up to 6 real products, each with a real product_url. The gallery fetches the real image automatically.',
+        inputSchema: z.object({
+          products: z.array(z.object({
+            title: z.string(),
+            product_url: z.string().describe('Direct URL to the product page.'),
+            price: z.number().describe('USD price if known.').optional(),
+            store: z.string().describe('Store/brand name.').optional(),
+            reason: z.string().describe('Short note on why it fits (optional).').optional(),
+          })).min(1).max(6),
+        }),
+        execute: async ({ products }) => {
+          const enriched = await Promise.all((products || []).map(async (p) => {
+            let image: string | null = null
+            let price = p.price ?? null
+            let store = p.store ?? null
+            try {
+              const ex: any = await callApi('/products/extract', { method: 'POST', body: { url: p.product_url } })
+              if (ex && ex.image) image = ex.image
+              if (price == null && ex?.price != null) price = ex.price
+              if (!store && ex?.store) store = ex.store
+            } catch { /* best-effort image */ }
+            return { title: p.title, url: p.product_url, image, price, store, note: p.reason ?? null }
+          }))
+          return { products: enriched }
+        },
       }),
 
       create_purchase_request: tool({

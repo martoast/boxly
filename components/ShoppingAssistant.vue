@@ -54,7 +54,10 @@
             <div v-for="m in chat.messages" :key="m.id" :class="m.role === 'user' ? 'flex justify-end' : 'flex justify-start'">
               <div :class="m.role === 'user' ? 'bg-primary-500 text-white rounded-3xl rounded-br-lg px-4 py-2.5 max-w-[85%] shadow-sm' : 'w-full max-w-[95%] space-y-3'">
                 <template v-for="(part, i) in m.parts" :key="i">
-                  <div v-if="part.type === 'text'" :class="m.role === 'user' ? 'whitespace-pre-wrap text-[15px] leading-relaxed' : 'prose prose-sm max-w-none text-gray-800 whitespace-pre-wrap leading-relaxed bg-white border border-gray-100 rounded-3xl rounded-bl-lg px-4 py-3 shadow-sm text-[15px]'">{{ part.text }}</div>
+                  <div v-if="part.type === 'text' && m.role === 'user'" class="whitespace-pre-wrap text-[15px] leading-relaxed">{{ part.text }}</div>
+                  <div v-else-if="part.type === 'text'" class="bg-white border border-gray-100 rounded-3xl rounded-bl-lg px-4 py-3 shadow-sm text-[15px]"><MarkdownText :text="part.text" /></div>
+
+                  <ProductGallery v-else-if="part.type === 'tool-show_products' && part.state === 'output-available'" :products="part.output?.products || []" @pick="onPickProduct" />
 
                   <img v-else-if="part.type === 'file' && String(part.mediaType).startsWith('image/')" :src="part.url" class="rounded-2xl max-h-56 w-auto border border-gray-200 shadow-sm" :class="m.role === 'user' ? 'ml-auto' : ''" />
 
@@ -197,6 +200,13 @@ function onComposerSend({ files } = {}) {
   scrollDown()
 }
 function quickSend(text) { input.value = text; onComposerSend() }
+
+function onPickProduct(p) {
+  if (isBusy.value) return
+  const price = p.price ? ` (~$${p.price} USD)` : ''
+  chat.sendMessage({ text: `Quiero pedir este: ${p.title}${price} — ${p.url}` })
+  scrollDown()
+}
 
 async function toggleMic() {
   const text = await micToggle()
