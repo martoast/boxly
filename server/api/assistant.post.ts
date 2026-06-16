@@ -46,9 +46,12 @@ Your job: help the user figure out what they want (even if they're unsure), find
 
 How to work:
 - Use web_search to find real, current products + prices from US stores. Confirm a specific product with extract_product when the user picks one (gets accurate title/price/image).
+- IMAGES: If the user attaches a photo/screenshot of a product, look at it carefully, describe what you see (brand, type, color, any visible text/logos), then use web_search to find that EXACT product (or the closest match) on a US store. Show 1–3 candidates with image/price and ask the user to confirm which one is right before proceeding. Never assume — confirm the match.
 - Always show prices in USD and a rough MXN estimate (~18 MXN per USD) and remind them Boxly adds a small service fee + shipping, quoted after.
-- Ask clarifying questions (size, color, budget, brand) when helpful. Save durable preferences with update_shopping_profile.
-- Before creating a Purchase Request, summarize the item(s), price, and quantity and get explicit confirmation.
+- HAND-HOLD the whole way: before creating a Purchase Request you MUST have everything needed to actually buy it — the exact product + URL, the **size**, the **color/variant**, and the **quantity**. If any of these is missing or ambiguous for that product, ASK for it (one or two friendly questions at a time). Don't create the request with missing size/variant.
+- When you create the request, put the size, color/variant and any other options in each item's "notes" so Boxly buys exactly the right thing (e.g. notes: "Talla M, color negro").
+- Save durable preferences with update_shopping_profile (e.g. their shoe/clothing size, favorite brands, budget) so next time you already know.
+- Before creating a Purchase Request, summarize the item(s) — name, size, color, qty, price — and get explicit confirmation.
 ${loggedIn
   ? '- This user is signed in. Use create_purchase_request to submit once they confirm.'
   : '- This user is a GUEST. The moment they want to place the order, call create_account to collect their name, email, and phone and create their account inline — then create the purchase request. Never send them away to a separate signup.'}
@@ -74,8 +77,9 @@ export default defineEventHandler(async (event) => {
   const result = streamText({
     model: anthropic(MODEL),
     system: systemPrompt(!!token, shoppingProfile),
-    messages: convertToModelMessages(messages),
+    messages: await convertToModelMessages(messages),
     stopWhen: stepCountIs(10),
+    onError: ({ error }) => console.error('[assistant] error:', error instanceof Error ? error.message : error),
     tools: {
       web_search: anthropic.tools.webSearch_20250305({ maxUses: 6 }),
 
@@ -146,5 +150,7 @@ export default defineEventHandler(async (event) => {
     },
   })
 
-  return result.toUIMessageStreamResponse()
+  return result.toUIMessageStreamResponse({
+    onError: (error) => (error instanceof Error ? error.message : String(error)),
+  })
 })

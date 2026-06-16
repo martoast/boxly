@@ -1,0 +1,105 @@
+<template>
+  <div>
+    <!-- attached image thumbnails -->
+    <div v-if="previews.length" class="flex flex-wrap gap-2 mb-2 px-1">
+      <div v-for="(p, i) in previews" :key="p.url" class="relative group">
+        <img :src="p.url" class="w-16 h-16 rounded-xl object-cover border border-gray-200" />
+        <button type="button" @click="removeAt(i)" class="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-gray-900/80 text-white grid place-items-center text-xs hover:bg-gray-900" aria-label="Quitar">
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- composer pill -->
+    <div
+      :class="['flex items-center gap-1 bg-white border rounded-[1.6rem] pl-2 pr-2 py-2 shadow-sm transition-all', dragOver ? 'border-primary-500 ring-2 ring-primary-200' : 'border-gray-200 focus-within:border-primary-400 focus-within:shadow-md']"
+      @dragover.prevent="dragOver = true"
+      @dragleave.prevent="dragOver = false"
+      @drop.prevent="onDrop"
+    >
+      <!-- attach image -->
+      <button type="button" @click="pick" class="shrink-0 grid place-items-center w-9 h-9 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 active:scale-90 transition-all" aria-label="Adjuntar foto">
+        <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+      </button>
+      <input ref="fileInput" type="file" accept="image/*" multiple class="hidden" @change="onFiles" />
+
+      <textarea
+        :value="text"
+        @input="$emit('update:text', $event.target.value)"
+        @keydown.enter.exact.prevent="doSend"
+        @paste="onPaste"
+        rows="1"
+        :placeholder="micRecording ? 'Escuchando…' : placeholder"
+        style="field-sizing:content"
+        class="flex-1 resize-none border-0 bg-transparent px-1 py-1 text-[15px] leading-6 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-0 max-h-40"
+      ></textarea>
+
+      <!-- mic -->
+      <button type="button" @click="$emit('mic')" :disabled="micTranscribing" :class="micBtnClass" :aria-label="micRecording ? 'Detener' : 'Hablar'">
+        <span v-if="micRecording" class="absolute inset-0 rounded-full bg-red-500/40 animate-ping" />
+        <svg v-if="micTranscribing" class="w-4 h-4 animate-spin relative" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
+        <svg v-else class="w-[18px] h-[18px] relative" viewBox="0 0 24 24" fill="currentColor"><path d="M12 15a3 3 0 003-3V6a3 3 0 10-6 0v6a3 3 0 003 3z"/><path d="M6.75 10.5a.75.75 0 011.5 0 3.75 3.75 0 007.5 0 .75.75 0 011.5 0 5.25 5.25 0 01-4.5 5.2V18a.75.75 0 01-1.5 0v-2.3a5.25 5.25 0 01-4.5-5.2z"/></svg>
+      </button>
+
+      <!-- send -->
+      <button type="button" @click="doSend" :disabled="!canSend" class="shrink-0 grid place-items-center w-9 h-9 rounded-full bg-primary-500 text-white hover:bg-primary-600 active:scale-90 disabled:bg-gray-200 disabled:text-gray-400 disabled:active:scale-100 transition-all" aria-label="Enviar">
+        <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.3" d="M5 10l7-7m0 0l7 7m-7-7v18"/></svg>
+      </button>
+    </div>
+  </div>
+</template>
+
+<script setup>
+const props = defineProps({
+  text: { type: String, default: '' },
+  micRecording: { type: Boolean, default: false },
+  micTranscribing: { type: Boolean, default: false },
+  busy: { type: Boolean, default: false },
+  placeholder: { type: String, default: 'Describe lo que buscas o pega un link…' },
+})
+const emit = defineEmits(['update:text', 'send', 'mic'])
+
+const fileInput = ref(null)
+const attachments = ref([]) // File[]
+const dragOver = ref(false)
+
+const previews = computed(() => attachments.value.map((f) => ({ url: URL.createObjectURL(f) })))
+
+const canSend = computed(() => !props.busy && (props.text.trim().length > 0 || attachments.value.length > 0))
+
+const micBtnClass = computed(() => [
+  'relative shrink-0 grid place-items-center w-9 h-9 rounded-full transition-colors',
+  props.micRecording ? 'bg-red-500 text-white' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100 active:scale-90',
+])
+
+function pick() { fileInput.value?.click() }
+
+function addImages(files) {
+  for (const f of files) {
+    if (f && f.type.startsWith('image/')) attachments.value.push(f)
+  }
+}
+function onFiles(e) { addImages(e.target.files || []); e.target.value = '' }
+function onDrop(e) { dragOver.value = false; addImages(e.dataTransfer?.files || []) }
+function onPaste(e) {
+  const items = e.clipboardData?.items || []
+  const imgs = []
+  for (const it of items) { if (it.type?.startsWith('image/')) { const f = it.getAsFile(); if (f) imgs.push(f) } }
+  if (imgs.length) { e.preventDefault(); addImages(imgs) }
+}
+function removeAt(i) { attachments.value.splice(i, 1) }
+
+function buildFileList() {
+  if (!attachments.value.length) return null
+  const dt = new DataTransfer()
+  attachments.value.forEach((f) => dt.items.add(f))
+  return dt.files
+}
+
+function doSend() {
+  if (!canSend.value) return
+  const files = buildFileList()
+  emit('send', { files })
+  attachments.value = []
+}
+</script>

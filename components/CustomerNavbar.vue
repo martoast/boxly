@@ -48,7 +48,22 @@
               </svg>
               {{ t.dashboard }}
             </button>
-            
+
+            <!-- AI Assistant -->
+            <button
+              type="button"
+              @click="handleNavigation('/app/assistant')"
+              class="inline-flex items-center gap-2 px-1 pt-1 border-b-2 text-sm font-medium transition-colors duration-200"
+              :class="[
+                isActiveRoute('/app/assistant')
+                  ? 'border-primary-500 text-gray-900'
+                  : 'border-transparent text-gray-600 hover:border-gray-300 hover:text-gray-900',
+              ]"
+            >
+              <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-4.714 2.143L14 21l-2.286-6.857L7 12l4.714-2.143L14 5z"/></svg>
+              <span class="whitespace-nowrap">{{ t.assistant }}</span>
+            </button>
+
             <!-- Orders Dropdown -->
             <div
               class="relative inline-flex h-full group"
@@ -343,7 +358,24 @@
             {{ t.dashboard }}
           </div>
         </DisclosureButton>
-        
+
+        <!-- AI Assistant -->
+        <DisclosureButton
+          as="button"
+          @click="handleNavigation('/app/assistant')"
+          :class="[
+            isActiveRoute('/app/assistant')
+              ? 'bg-primary-50 border-primary-500 text-primary-600'
+              : 'border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900',
+            'block border-l-4 py-2 pl-3 pr-4 text-base font-medium sm:pl-5 sm:pr-6 w-full text-left',
+          ]"
+        >
+          <div class="flex items-center">
+            <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-4.714 2.143L14 21l-2.286-6.857L7 12l4.714-2.143L14 5z"/></svg>
+            {{ t.assistant }}
+          </div>
+        </DisclosureButton>
+
         <!-- Mobile Orders Section -->
         <div class="pl-4">
           <p class="px-3 pt-2 pb-1 text-xs font-semibold text-gray-500 uppercase tracking-wider">{{ t.orders }}</p>
@@ -503,6 +535,7 @@ const { t: createTranslations } = useLanguage();
 const translations = {
   appName: { es: 'Tu Casillero USA', en: 'Your USA Address' },
   dashboard: { es: 'Panel Principal', en: 'Dashboard' },
+  assistant: { es: 'Asistente IA', en: 'AI Assistant' },
   orders: { es: 'Mis Envios', en: 'My Orders' },
   allOrders: { es: 'Todos los Envios', en: 'All Orders' },
   allOrdersDesc: { es: 'Ver historial completo', en: 'View complete history' },
