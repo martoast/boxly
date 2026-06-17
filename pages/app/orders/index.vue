@@ -255,14 +255,14 @@
                     {{ order.tracking_number }}
                   </p>
                 </div>
-                <!-- Use Composable for Color and Label -->
+                <!-- Customer-facing condensed status -->
                 <span
                   :class="[
                     'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium',
-                    getStatusColor(order.status),
+                    getCustomerStatus(order).badge,
                   ]"
                 >
-                  {{ getStatusLabel(order.status) }}
+                  {{ getCustomerStatus(order).label }}
                 </span>
               </div>
 
@@ -372,14 +372,14 @@
                     </div>
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap">
-                    <!-- Use Composable -->
+                    <!-- Customer-facing condensed status -->
                     <span
                       :class="[
                         'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium',
-                        getStatusColor(order.status),
+                        getCustomerStatus(order).badge,
                       ]"
                     >
-                      {{ getStatusLabel(order.status) }}
+                      {{ getCustomerStatus(order).label }}
                     </span>
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap">
@@ -485,7 +485,7 @@ definePageMeta({
 });
 
 // Use composable for status colors/labels
-const { getStatusColor, getStatusLabel } = useOrderStatus();
+const { getStatusColor, getStatusLabel, getCustomerStatus } = useOrderStatus();
 
 // Nuxt imports
 const { $customFetch } = useNuxtApp();
