@@ -1,5 +1,5 @@
 <template>
-  <div class="flex bg-gray-50 overflow-hidden relative" :class="fullscreenMobile ? 'h-[100dvh] md:h-[calc(100dvh-4rem)]' : 'h-[calc(100dvh-4rem)]'" :style="rootStyle">
+  <div class="flex bg-gray-50 overflow-hidden relative" :class="fullscreenMobile ? 'h-[100dvh] md:h-[calc(100dvh-4rem)]' : 'h-[calc(100dvh-4rem)]'">
     <!-- ===== Mobile history drawer ===== -->
     <Transition name="backdrop">
       <div v-if="user && drawerOpen" class="md:hidden absolute inset-0 z-40 bg-black/30 backdrop-blur-sm" @click="drawerOpen = false" />
@@ -157,32 +157,6 @@ const savedCount = ref(0)
 const input = ref('')
 const scroller = ref(null)
 const drawerOpen = ref(false)
-
-// Keyboard-aware layout (iOS Safari): bind the full-screen mobile height to the
-// visual viewport so the composer pins right above the keyboard instead of
-// being covered by it. Desktop keeps the CSS height (Tailwind class).
-const vvHeight = ref(0)
-const isMobile = ref(false)
-const rootStyle = computed(() =>
-  fullscreenMobile.value && isMobile.value && vvHeight.value ? { height: vvHeight.value + 'px' } : null
-)
-function onViewportChange() {
-  if (import.meta.server) return
-  isMobile.value = window.innerWidth < 768
-  if (window.visualViewport) vvHeight.value = Math.round(window.visualViewport.height)
-  scrollDown()
-}
-onMounted(() => {
-  onViewportChange()
-  window.visualViewport?.addEventListener('resize', onViewportChange)
-  window.visualViewport?.addEventListener('scroll', onViewportChange)
-  window.addEventListener('resize', onViewportChange)
-})
-onBeforeUnmount(() => {
-  window.visualViewport?.removeEventListener('resize', onViewportChange)
-  window.visualViewport?.removeEventListener('scroll', onViewportChange)
-  window.removeEventListener('resize', onViewportChange)
-})
 
 const { recording: micRecording, transcribing: micTranscribing, levels: micLevels, error: micError, toggle: micToggle } = useVoiceInput()
 
