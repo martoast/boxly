@@ -82,7 +82,7 @@
                   <div v-if="part.type === 'text' && m.role === 'user'" class="whitespace-pre-wrap text-[15px] leading-relaxed">{{ part.text }}</div>
                   <div v-else-if="part.type === 'text'" class="bg-white border border-gray-100 rounded-3xl rounded-bl-lg px-4 py-3 shadow-sm text-[15px]"><MarkdownText :text="part.text" /></div>
 
-                  <ProductGallery v-else-if="(part.type === 'tool-show_products' || part.type === 'tool-browse_store' || part.type === 'tool-browse_stores' || part.type === 'tool-search_products') && part.state === 'output-available'" :products="part.output?.products || []" @pick="onPickProduct" />
+                  <ProductGallery v-else-if="(part.type === 'tool-show_products' || part.type === 'tool-browse_store' || part.type === 'tool-browse_stores' || part.type === 'tool-search_products') && part.state === 'output-available'" :products="part.output?.products || []" @open="openProduct" />
 
                   <div v-else-if="part.type === 'tool-search_products'" class="flex items-center gap-2 text-xs text-gray-400 pl-1">
                     <svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
@@ -157,6 +157,9 @@
         </div>
       </template>
     </main>
+
+    <!-- Full-screen product detail modal -->
+    <ProductModal :product="selectedProduct" @close="selectedProduct = null" @pick="onModalPick" />
   </div>
 </template>
 
@@ -194,6 +197,7 @@ const input = ref('')
 const scroller = ref(null)
 const drawerOpen = ref(false)
 const loadingChat = ref(false)
+const selectedProduct = ref(null)
 let openSeq = 0
 // In-memory cache of opened conversations (id -> { messages, oldestId, hasMore })
 // for instant re-open. Pagination state for the ACTIVE thread:
@@ -326,6 +330,9 @@ function onPickProduct(p) {
   chat.sendMessage({ text })
   scrollDown()
 }
+
+function openProduct(p) { selectedProduct.value = p }
+function onModalPick(p) { selectedProduct.value = null; onPickProduct(p) }
 
 async function toggleMic() {
   const text = await micToggle()
