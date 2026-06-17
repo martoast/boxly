@@ -2,9 +2,16 @@
   <Teleport to="body">
     <Transition name="pm">
       <div v-if="product" class="fixed inset-0 z-[100] flex items-end md:items-center justify-center" role="dialog" aria-modal="true">
-        <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="$emit('close')"></div>
+        <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="$emit('close')" @touchmove.prevent></div>
 
-        <div class="pm-card relative w-full md:max-w-md bg-white rounded-t-3xl md:rounded-3xl shadow-2xl max-h-[92dvh] overflow-y-auto overscroll-contain">
+        <div
+          ref="card"
+          class="pm-card relative w-full md:max-w-md bg-white rounded-t-3xl md:rounded-3xl shadow-2xl max-h-[92dvh] overflow-y-auto overscroll-contain"
+          :style="dragY ? { transform: `translateY(${dragY}px)`, transition: 'none' } : null"
+          @touchstart.passive="onTouchStart"
+          @touchmove="onTouchMove"
+          @touchend="onTouchEnd"
+        >
           <!-- drag handle (mobile) + close -->
           <div class="md:hidden sticky top-0 z-10 flex justify-center pt-2.5 pb-1 bg-white/80 backdrop-blur">
             <span class="h-1.5 w-10 rounded-full bg-gray-300"></span>
@@ -54,13 +61,46 @@
 </template>
 
 <script setup>
-defineProps({ product: { type: Object, default: null } })
-defineEmits(['close', 'pick'])
+const props = defineProps({ product: { type: Object, default: null } })
+const emit = defineEmits(['close', 'pick'])
 
 function formatReviews(n) {
   const v = Number(n) || 0
   return v >= 1000 ? (v / 1000).toFixed(1).replace('.0', '') + 'k' : String(v)
 }
+
+// --- Swipe down to close (only when the sheet is scrolled to the top) ---
+const card = ref(null)
+const dragY = ref(0)
+let startY = 0
+let dragging = false
+function onTouchStart(e) {
+  startY = e.touches[0].clientY
+  dragging = false
+}
+function onTouchMove(e) {
+  const dy = e.touches[0].clientY - startY
+  if (!dragging && dy > 6 && (card.value?.scrollTop || 0) <= 0) dragging = true
+  if (dragging) {
+    e.preventDefault() // take over from content scroll
+    dragY.value = Math.max(0, dy)
+  }
+}
+function onTouchEnd() {
+  if (dragging && dragY.value > 110) emit('close')
+  dragY.value = 0
+  dragging = false
+}
+
+// --- Lock background scroll while the modal is open ---
+function setLock(on) {
+  if (import.meta.server) return
+  const el = document.documentElement
+  if (on) { el.style.overflow = 'hidden'; document.body.style.overflow = 'hidden' }
+  else { el.style.overflow = ''; document.body.style.overflow = '' }
+}
+watch(() => props.product, (p) => setLock(!!p), { immediate: true })
+onBeforeUnmount(() => setLock(false))
 </script>
 
 <style scoped>
