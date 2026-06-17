@@ -196,10 +196,10 @@ const acctLoading = ref(false)
 const acctError = ref('')
 
 const suggestions = [
-  { emoji: '👟', text: 'Tenis para correr' },
-  { emoji: '👜', text: 'Una bolsa bonita' },
-  { emoji: '🏋️', text: 'Ropa para el gym' },
-  { emoji: '🎁', text: 'Ideas de regalo' },
+  { emoji: '💪', text: 'Ropa de YoungLA' },
+  { emoji: '👟', text: 'Tenis New Balance' },
+  { emoji: '🦅', text: 'Jeans American Eagle' },
+  { emoji: '💧', text: 'Botellas Owala' },
 ]
 
 const isBusy = computed(() => chat.status === 'streaming' || chat.status === 'submitted')
