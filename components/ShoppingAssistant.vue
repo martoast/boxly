@@ -157,6 +157,8 @@ const savedCount = ref(0)
 const input = ref('')
 const scroller = ref(null)
 const drawerOpen = ref(false)
+// In-memory cache of opened conversations (id -> messages) for instant re-open.
+const msgCache = new Map()
 
 const { recording: micRecording, transcribing: micTranscribing, levels: micLevels, error: micError, toggle: micToggle } = useVoiceInput()
 
@@ -200,18 +202,36 @@ const chat = new Chat({
   },
 })
 
-// Init on the client once the user is known — covers both "already logged in
-// at mount" and "logs in slightly after mount" (user state hydrates async).
+// Init on the client once the user is known. Load history + profile in PARALLEL
+// so the sidebar shows fast; the chat token is only needed to SEND (authed
+// tools), so it's minted in the background, off the load path.
+let inited = false
 onMounted(() => {
-  watch(user, (u) => { if (u && !token.value) initLoggedIn() }, { immediate: true })
+  watch(user, (u) => { if (u && !inited) initLoggedIn() }, { immediate: true })
 })
 
 async function initLoggedIn() {
-  try {
-    token.value = (await $customFetch('/me/mcp-token', { method: 'POST' })).token
-    shoppingProfile.value = (await $customFetch('/me/shopping-profile')).data
-    await loadConversations()
-  } catch (e) { console.error('assistant init failed', e) }
+  if (inited) return
+  inited = true
+  await Promise.all([loadConversations(), loadProfile()])
+  ensureChatToken()
+}
+
+async function loadProfile() {
+  try { shoppingProfile.value = (await $customFetch('/me/shopping-profile')).data } catch {}
+}
+
+// Mint the chat token once (background). Distinct from the MCP token so it never
+// clobbers the user's Claude Desktop connection.
+let tokenPromise = null
+function ensureChatToken() {
+  if (token.value) return
+  if (!tokenPromise) {
+    tokenPromise = $customFetch('/me/chat-token', { method: 'POST' })
+      .then((r) => { token.value = r.token })
+      .catch((e) => { console.error('chat token failed', e); tokenPromise = null })
+  }
+  return tokenPromise
 }
 
 // Create the thread the instant the user sends their first message (like
@@ -235,6 +255,7 @@ function onComposerSend({ files } = {}) {
   if (isBusy.value) return
   if (!text && !(files && files.length)) return
   input.value = ''
+  ensureChatToken()
   ensureConversation(text)
   chat.sendMessage({ text: text || undefined, files: files || undefined })
   scrollDown()
@@ -318,8 +339,17 @@ async function persist() {
     if (!activeId.value) activeId.value = (await $customFetch('/conversations', { method: 'POST', body: {} })).data.id
     await $customFetch(`/conversations/${activeId.value}/messages`, { method: 'POST', body: { messages: delta } })
     savedCount.value = chat.messages.length
-    await loadConversations()
+    // Keep state local — no full list refetch every turn. Cache the thread and
+    // bump it to the top of the sidebar.
+    msgCache.set(activeId.value, chat.messages)
+    bumpActiveToTop()
   } catch (e) { console.error('persist failed', e) }
+}
+
+function bumpActiveToTop() {
+  const list = conversations.value
+  const i = list.findIndex((c) => c.id === activeId.value)
+  if (i > 0) conversations.value = [list[i], ...list.slice(0, i), ...list.slice(i + 1)]
 }
 
 function newChat() {
@@ -331,27 +361,37 @@ function newChat() {
 }
 
 async function openChat(id) {
+  // Highlight + close drawer instantly; serve from cache if we have it.
+  activeId.value = id
+  retitled.value = true
+  drawerOpen.value = false
+  if (msgCache.has(id)) {
+    chat.messages = msgCache.get(id)
+    savedCount.value = chat.messages.length
+    scrollDown()
+    return
+  }
   try {
     const r = await $customFetch(`/conversations/${id}`)
-    chat.messages = r.data.messages.map((m) => ({
+    const msgs = r.data.messages.map((m) => ({
       id: String(m.id),
       role: m.role,
       parts: (m.content && m.content.parts) || [{ type: 'text', text: typeof m.content === 'string' ? m.content : (m.content?.text || '') }],
     }))
-    activeId.value = id
-    savedCount.value = chat.messages.length
-    retitled.value = true
-    drawerOpen.value = false
+    chat.messages = msgs
+    msgCache.set(id, msgs)
+    savedCount.value = msgs.length
     scrollDown()
   } catch (e) { console.error(e) }
 }
 
 async function deleteConversation(id) {
-  try {
-    await $customFetch(`/conversations/${id}`, { method: 'DELETE' })
-    if (activeId.value === id) newChat()
-    await loadConversations()
-  } catch (e) { console.error(e) }
+  // Optimistic: drop it from the sidebar + cache immediately, then sync.
+  conversations.value = conversations.value.filter((c) => c.id !== id)
+  msgCache.delete(id)
+  if (activeId.value === id) newChat()
+  try { await $customFetch(`/conversations/${id}`, { method: 'DELETE' }) }
+  catch (e) { console.error(e); loadConversations() }
 }
 
 // Don't persist base64 image data-URLs to the DB — replace file parts with a
