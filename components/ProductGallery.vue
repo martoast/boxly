@@ -68,6 +68,13 @@
       <!-- Edge fades: hint there's more to either side -->
       <div v-show="canScroll && !atEnd" class="pointer-events-none absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-gray-50 to-transparent"></div>
       <div v-show="canScroll && !atStart" class="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-gray-50 to-transparent"></div>
+
+      <!-- Faint nudging arrow: swipe-right cue -->
+      <div v-show="canScroll && !atEnd" class="swipe-arrow pointer-events-none absolute right-1.5 top-1/2">
+        <span class="grid place-items-center w-7 h-7 rounded-full bg-white/80 shadow-md ring-1 ring-black/5">
+          <svg class="w-4 h-4 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        </span>
+      </div>
     </div>
 
     <!-- Swipe affordance: progress bar + hint (only when scrollable) -->
@@ -158,4 +165,14 @@ watch(visible, () => nextTick(measure))
 
 .hint-enter-from, .hint-leave-to { opacity: 0; }
 .hint-enter-active, .hint-leave-active { transition: opacity .2s ease; }
+
+/* Faint, gently nudging swipe-right arrow (transform also vertically centers). */
+.swipe-arrow { animation: swipe-arrow 1.5s ease-in-out infinite; }
+@keyframes swipe-arrow {
+  0%, 100% { transform: translate(0, -50%); opacity: .45; }
+  50%      { transform: translate(6px, -50%); opacity: .9; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .swipe-arrow { animation: none; transform: translateY(-50%); opacity: .55; }
+}
 </style>
