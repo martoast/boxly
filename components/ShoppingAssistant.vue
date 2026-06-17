@@ -151,7 +151,18 @@
 
 <script setup>
 import { Chat } from '@ai-sdk/vue'
-import { DefaultChatTransport, lastAssistantMessageIsCompleteWithToolCalls } from 'ai'
+import { DefaultChatTransport } from 'ai'
+
+// Auto-continue ONLY for the client-side create_account tool once it has a
+// result. Server tools (search_products/browse_store/…) are fully resolved
+// server-side; auto-sending after them re-runs the model and duplicates the
+// reply (the "message sent twice" bug).
+function continueAfterAccount({ messages }) {
+  const last = messages?.[messages.length - 1]
+  if (!last || last.role !== 'assistant') return false
+  const acct = (last.parts || []).find((p) => p.type === 'tool-create_account')
+  return !!acct && acct.state === 'output-available'
+}
 
 const props = defineProps({
   // When true (in-app page), go full-screen on mobile since the site navbar is
@@ -217,7 +228,7 @@ const chat = new Chat({
       return { body: { messages, token: token.value, shoppingProfile: shoppingProfile.value } }
     },
   }),
-  sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
+  sendAutomaticallyWhen: continueAfterAccount,
   onToolCall({ toolCall }) {
     if (toolCall.toolName === 'create_account') {
       const inp = toolCall.input || {}

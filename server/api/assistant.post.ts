@@ -136,8 +136,9 @@ export default defineEventHandler(async (event) => {
         inputSchema: z.object({
           store_url: z.string().describe('Store homepage or any URL on it, e.g. https://www.youngla.com'),
           query: z.string().describe('Optional keyword to search within the store; omit for the latest drop.').optional(),
+          sale: z.boolean().describe('If true, return only items currently on sale (deals) at this store.').optional(),
         }),
-        execute: async ({ store_url, query }) => callApi('/products/store-feed', { method: 'POST', body: { url: store_url, query: query || undefined, limit: 12 } }),
+        execute: async ({ store_url, query, sale }) => callApi('/products/store-feed', { method: 'POST', body: { url: store_url, query: query || undefined, sale: sale || undefined, limit: 12 }, timeoutMs: 25000 }),
       }),
 
       browse_stores: tool({
