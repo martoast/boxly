@@ -20,10 +20,25 @@
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
 
-          <!-- image -->
-          <div class="bg-gray-50 flex items-center justify-center p-6 h-72">
-            <img v-if="product.image" :src="product.image" :alt="product.title" referrerpolicy="no-referrer" class="max-h-full max-w-full object-contain" />
-            <span v-else class="text-base font-bold text-gray-400 uppercase tracking-wide text-center px-6">{{ product.store || product.title }}</span>
+          <!-- image carousel (swipe through fetched images) -->
+          <div class="relative bg-gray-50">
+            <div ref="imgTrack" @scroll.passive="onImgScroll" class="flex overflow-x-auto snap-x snap-mandatory no-scrollbar h-72">
+              <div v-if="!gallery.length" class="shrink-0 w-full h-72 grid place-items-center">
+                <span class="text-base font-bold text-gray-400 uppercase tracking-wide text-center px-6">{{ product.store || product.title }}</span>
+              </div>
+              <div v-for="(img, idx) in gallery" :key="idx" class="snap-center shrink-0 w-full h-72 flex items-center justify-center p-6">
+                <img :src="img" :alt="product.title" referrerpolicy="no-referrer" class="max-h-full max-w-full object-contain" @error="onImgError(img)" />
+              </div>
+            </div>
+            <!-- dots -->
+            <div v-if="gallery.length > 1" class="absolute bottom-2.5 left-0 right-0 flex justify-center gap-1.5">
+              <span v-for="(img, idx) in gallery" :key="idx" class="h-1.5 rounded-full transition-all" :class="idx === imgIndex ? 'w-4 bg-gray-700' : 'w-1.5 bg-gray-300'"></span>
+            </div>
+            <!-- loading more images -->
+            <div v-if="loadingImages" class="absolute top-2.5 left-2.5 flex items-center gap-1.5 bg-white/85 rounded-full pl-1.5 pr-2.5 py-1 shadow-sm">
+              <svg class="w-3.5 h-3.5 animate-spin text-gray-400" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
+              <span class="text-[11px] text-gray-500 font-medium">Cargando fotos…</span>
+            </div>
           </div>
 
           <div class="p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
@@ -43,13 +58,13 @@
             </div>
             <p class="text-xs text-gray-400 mt-1">Precio de tienda · Boxly suma su comisión y el envío (se cotiza después).</p>
 
-            <p v-if="product.snippet" class="text-sm text-gray-600 leading-relaxed mt-4">{{ product.snippet }}</p>
+            <p v-if="description" class="text-sm text-gray-600 leading-relaxed mt-4 whitespace-pre-line">{{ description }}</p>
 
             <!-- CTAs -->
-            <button @click="$emit('pick', product)" class="mt-5 w-full py-3 rounded-2xl bg-primary-500 hover:bg-primary-600 active:scale-[.98] text-white text-[15px] font-bold shadow-sm shadow-primary-500/25 transition-all">
+            <button @click="pick" class="mt-5 w-full py-3 rounded-2xl bg-primary-500 hover:bg-primary-600 active:scale-[.98] text-white text-[15px] font-bold shadow-sm shadow-primary-500/25 transition-all">
               Pedir este producto
             </button>
-            <a :href="product.url" target="_blank" rel="noopener noreferrer" class="mt-2 w-full flex items-center justify-center gap-1.5 py-3 rounded-2xl border border-gray-200 text-gray-700 text-[15px] font-semibold hover:bg-gray-50 active:scale-[.98] transition-all">
+            <a :href="bestLink" target="_blank" rel="noopener noreferrer" class="mt-2 w-full flex items-center justify-center gap-1.5 py-3 rounded-2xl border border-gray-200 text-gray-700 text-[15px] font-semibold hover:bg-gray-50 active:scale-[.98] transition-all">
               Ver en línea
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
             </a>
@@ -63,11 +78,63 @@
 <script setup>
 const props = defineProps({ product: { type: Object, default: null } })
 const emit = defineEmits(['close', 'pick'])
+const { $customFetch } = useNuxtApp()
 
 function formatReviews(n) {
   const v = Number(n) || 0
   return v >= 1000 ? (v / 1000).toFixed(1).replace('.0', '') + 'k' : String(v)
 }
+
+// --- Lazily fetched detail: more images, description, direct seller link ---
+const fetchedImages = ref([])
+const fetchedDesc = ref(null)
+const fetchedLink = ref(null)
+const loadingImages = ref(false)
+const broken = ref(new Set())
+
+const gallery = computed(() => {
+  const base = fetchedImages.value.length ? fetchedImages.value : (props.product?.image ? [props.product.image] : [])
+  return base.filter((u) => !broken.value.has(u))
+})
+const description = computed(() => fetchedDesc.value || props.product?.snippet || null)
+const bestLink = computed(() => fetchedLink.value || props.product?.url || '#')
+
+const imgTrack = ref(null)
+const imgIndex = ref(0)
+function onImgScroll() {
+  const el = imgTrack.value
+  if (el && el.clientWidth) imgIndex.value = Math.round(el.scrollLeft / el.clientWidth)
+}
+function onImgError(url) { broken.value = new Set([...broken.value, url]) }
+
+async function loadDetails(token) {
+  loadingImages.value = true
+  try {
+    const r = await $customFetch('/products/details', { method: 'POST', body: { token } })
+    const d = r.data || {}
+    if (Array.isArray(d.images) && d.images.length) fetchedImages.value = d.images
+    if (d.description) fetchedDesc.value = d.description
+    if (d.link) fetchedLink.value = d.link
+  } catch { /* keep the single thumbnail */ } finally {
+    loadingImages.value = false
+  }
+}
+
+function pick() {
+  // Prefer the resolved direct merchant link for the purchase request.
+  emit('pick', { ...props.product, url: bestLink.value })
+}
+
+watch(() => props.product, (p) => {
+  fetchedImages.value = []
+  fetchedDesc.value = null
+  fetchedLink.value = null
+  loadingImages.value = false
+  broken.value = new Set()
+  imgIndex.value = 0
+  if (imgTrack.value) imgTrack.value.scrollLeft = 0
+  if (p?.token) loadDetails(p.token)
+})
 
 // --- Swipe down to close (only when the sheet is scrolled to the top) ---
 const card = ref(null)
@@ -104,6 +171,9 @@ onBeforeUnmount(() => setLock(false))
 </script>
 
 <style scoped>
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
 .pm-enter-from, .pm-leave-to { opacity: 0; }
 .pm-enter-active, .pm-leave-active { transition: opacity .25s ease; }
 .pm-enter-from .pm-card, .pm-leave-to .pm-card { transform: translateY(24px); }

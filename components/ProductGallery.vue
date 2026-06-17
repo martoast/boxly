@@ -105,6 +105,7 @@ const normalized = computed(() =>
     snippet: p.snippet || null,
     rating: p.rating ?? null,
     reviews: p.reviews ?? null,
+    token: p.token || null,
     broken: false,
   }))
 )
