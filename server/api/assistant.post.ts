@@ -81,7 +81,11 @@ You are a SHOPPING COMPANION, not a single-store search box. Show options from D
 
 Your tools, and when to use them:
 - search_products(query, store?) — YOUR DEFAULT for finding products from any store NOT in the directory (Hollister, Gymshark, Nike, Lululemon, Zara…) AND for open/cross-store discovery. It's FAST (~2-5s) and reliable. One call returns a rich gallery (often 12-16 items) with images, prices, and the store each is from. Pass the brand as store for a specific shop (e.g. {query:"tank tops women", store:"Hollister"}). If it ever returns NO products, fall back to web_search + show_products.
-- REFINING / FILTERING (CRITICAL): when the user narrows what they want — "the wide-leg ones", "only black", "más baratos", "size M", "no skinny" — you MUST run a NEW search_products call with an UPDATED query that bakes in the refinement (e.g. {query:"wide leg jeans women", store:"American Eagle"}). NEVER try to re-show or hand-pick a subset of the previous gallery (you can't re-display past search_products items — they will all drop and you'll show an empty result, which is the #1 failure here). Every time you want to change what's on screen, it's a fresh search_products call.
+- REFINING / FILTERING (CRITICAL): whenever the user narrows what they want, run a NEW search_products call carrying ALL active filters (keep the ones from before and add the new one). Map each kind of filter correctly:
+  • color, size, gender (men/women/kids), fit/style ("wide-leg", "oversized", "slim"), material, category → put them in the QUERY text (e.g. {query:"black wide-leg jeans women size 30", store:"American Eagle"}). Google matches these from text; there are no separate params for them.
+  • budget / price ("menos de $50", "between $20 and $40", "barato") → use max_price / min_price (e.g. max_price:50).
+  • "en oferta" / "on sale" / "deals" → sale:true.
+  NEVER try to re-show or hand-pick a subset of the previous gallery (past search_products items can't be re-displayed — they all drop and you show an empty result, the #1 failure). Every change on screen = a fresh search_products call with the updated query/params.
 - web_search + show_products — the FALLBACK when search_products returns nothing, and the way to RESOLVE a real buy URL at order time. web_search the store + item, then pass 5-8 real product-page URLs (paths like /p/… or /products/…, copied verbatim — never category pages or invented slugs) to show_products, which pulls image + price from each page.
 - browse_store(store_url, query?) / browse_stores([...], query?, sale?) — for the verified Shopify DIRECTORY only. Richer than search for these: full latest-drop catalogs, in-store search, and REAL deals (sale:true, via compare_at price). Prefer these for directory brands and for "what's on sale". browse_store search matches PRODUCT TITLES — use short category keywords ("shorts", "joggers", "hoodie"), NOT phrases/gender words; if thin, silently broaden. Many gym stores prefix women's items with "W" (e.g. "W2279…") and leave men's un-prefixed — use that to tell gender.
   STORE DIRECTORY: Gym & activewear — YoungLA https://www.youngla.com (men+women) · Alphalete https://www.alphaleteathletics.com · NVGTN https://www.nvgtn.com (women) · Ryderwear https://www.ryderwear.com · DARC SPORT https://www.darcsport.com · Ten Thousand https://www.tenthousand.cc (men's training).
@@ -169,12 +173,15 @@ export default defineEventHandler(async (event) => {
       }),
 
       search_products: tool({
-        description: "THE UNIVERSAL product search — searches the entire US market via Google Shopping, so it works for ANY store/brand on ANY platform (Shopify, headless, JS-rendered, Cloudflare-blocked: Gymshark, Nike, Lululemon, Alo, boutiques, etc.). Use as the DEFAULT for broad/category discovery, for any specific store NOT in the directory (set store to the brand name), and whenever browse_store/browse_stores can't reach a store. Returns a gallery with real images, prices, and the source store of each item.",
+        description: "THE UNIVERSAL product search — searches the entire US market via Google Shopping, so it works for ANY store/brand on ANY platform (Shopify, headless, JS-rendered, Cloudflare-blocked: Gymshark, Nike, Lululemon, Alo, boutiques, etc.). Use as the DEFAULT for broad/category discovery, for any specific store NOT in the directory (set store to the brand name), and whenever browse_store/browse_stores can't reach a store. Returns a gallery with real images, prices (incl. sale prices), and the source store of each item. Put descriptive attributes (color, size, gender, fit/style, material, category) IN the query; use the structured params for budget and deals.",
         inputSchema: z.object({
-          query: z.string().describe('What to find, e.g. "fleece joggers", "running shoes under 150", "minimalist white sneakers".'),
-          store: z.string().describe('Optional brand/store to focus on, e.g. "Gymshark", "Nike".').optional(),
+          query: z.string().describe('What to find, WITH every descriptive attribute the user gave: category + gender + color + size + fit/style + material + brand. E.g. "black wide-leg jeans women size 30", "men running shoes wide", "leather crossbody bag".'),
+          store: z.string().describe('Optional brand/store to focus on, e.g. "Gymshark", "American Eagle".').optional(),
+          min_price: z.number().describe('Minimum USD price.').optional(),
+          max_price: z.number().describe('Maximum USD price — use for budgets like "under $50" (max_price: 50).').optional(),
+          sale: z.boolean().describe('True to return ONLY items currently on sale (discounted).').optional(),
         }),
-        execute: async ({ query, store }) => callApi('/products/search', { method: 'POST', body: { query, store: store || undefined, limit: 16 }, timeoutMs: 50000 }),
+        execute: async ({ query, store, min_price, max_price, sale }) => callApi('/products/search', { method: 'POST', body: { query, store: store || undefined, min_price, max_price, sale: sale || undefined, limit: 16 }, timeoutMs: 50000 }),
       }),
 
       show_products: tool({
