@@ -82,7 +82,7 @@
                   <div v-if="part.type === 'text' && m.role === 'user'" class="whitespace-pre-wrap text-[15px] leading-relaxed">{{ part.text }}</div>
                   <div v-else-if="part.type === 'text'" class="bg-white border border-gray-100 rounded-3xl rounded-bl-lg px-4 py-3 shadow-sm text-[15px]"><MarkdownText :text="part.text" /></div>
 
-                  <ProductGallery v-else-if="(part.type === 'tool-show_products' || part.type === 'tool-browse_store' || part.type === 'tool-browse_stores' || part.type === 'tool-search_products') && part.state === 'output-available'" :products="part.output?.products || []" @open="openProduct" />
+                  <ProductGallery v-else-if="(part.type === 'tool-show_products' || part.type === 'tool-browse_store' || part.type === 'tool-browse_stores' || part.type === 'tool-search_products' || part.type === 'tool-show_saved_products') && part.state === 'output-available'" :products="part.output?.products || []" @open="openProduct" />
 
                   <div v-else-if="part.type === 'tool-search_products'" class="flex items-center gap-2 text-xs text-gray-400 pl-1">
                     <svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
@@ -199,9 +199,52 @@ const drawerOpen = ref(false)
 const loadingChat = ref(false)
 const selectedProduct = ref(null)
 let openSeq = 0
-// In-memory cache of opened conversations (id -> { messages, oldestId, hasMore })
-// for instant re-open. Pagination state for the ACTIVE thread:
+// In-memory cache of opened conversations (id -> { messages, oldestId, hasMore,
+// products }) for instant re-open. Pagination state for the ACTIVE thread:
 const msgCache = new Map()
+
+// Single source of truth: every product shown in the active chat (deduped),
+// so the assistant can re-display earlier items even after pagination.
+const savedProducts = ref([])
+// FNV-1a 32-bit → base36. MUST match ConversationController::productId (PHP).
+function pid(raw) {
+  const s = raw.url || raw.product_url || ((raw.title || '') + (raw.store || ''))
+  let h = 2166136261
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0 }
+  return 'p' + h.toString(36)
+}
+function registerProducts(list) {
+  if (!Array.isArray(list) || !list.length) return
+  const byId = new Map(savedProducts.value.map((p) => [p.id, p]))
+  for (const raw of list) {
+    const url = raw.url || raw.product_url || null
+    const title = raw.title || raw.name || null
+    if (!title && !url) continue
+    const id = raw.id || pid({ url, title, store: raw.store })
+    let img = raw.image || raw.image_url || null
+    if (typeof img === 'string' && img.startsWith('data:')) img = null
+    const prev = byId.get(id) || {}
+    byId.set(id, {
+      id, title, url,
+      store: raw.store ?? prev.store ?? null,
+      price: raw.price ?? raw.price_usd ?? prev.price ?? null,
+      was: raw.was ?? prev.was ?? null,
+      on_sale: raw.on_sale ?? raw.onSale ?? prev.on_sale ?? false,
+      image: img || prev.image || null,
+      snippet: raw.snippet ?? prev.snippet ?? null,
+      token: raw.token ?? prev.token ?? null,
+    })
+  }
+  savedProducts.value = [...byId.values()].slice(-80)
+}
+function registerFromMessages() {
+  for (const m of chat.messages) {
+    if (m.role !== 'assistant') continue
+    for (const part of (m.parts || [])) {
+      if (Array.isArray(part?.output?.products)) registerProducts(part.output.products)
+    }
+  }
+}
 const oldestLoadedId = ref(null)
 const hasMoreOlder = ref(false)
 const loadingOlder = ref(false)
@@ -242,7 +285,7 @@ const chat = new Chat({
   transport: new DefaultChatTransport({
     api: '/api/assistant',
     prepareSendMessagesRequest({ messages }) {
-      return { body: { messages, token: token.value, shoppingProfile: shoppingProfile.value } }
+      return { body: { messages, token: token.value, shoppingProfile: shoppingProfile.value, savedProducts: savedProducts.value } }
     },
   }),
   sendAutomaticallyWhen: continueAfterAccount,
@@ -369,6 +412,7 @@ async function submitAccount() {
 
 watch(() => chat.status, async (s) => {
   scrollDown()
+  registerFromMessages() // keep the product registry current with what's shown
   if (s === 'ready' && user.value && chat.messages.length > savedCount.value) {
     await persist()
     maybeRetitle()
@@ -402,7 +446,7 @@ async function persist() {
     savedCount.value = chat.messages.length
     // Keep state local — no full list refetch every turn. Cache the thread and
     // bump it to the top of the sidebar.
-    msgCache.set(activeId.value, { messages: chat.messages, oldestId: oldestLoadedId.value, hasMore: hasMoreOlder.value })
+    msgCache.set(activeId.value, { messages: chat.messages, oldestId: oldestLoadedId.value, hasMore: hasMoreOlder.value, products: savedProducts.value })
     bumpActiveToTop()
   } catch (e) { console.error('persist failed', e) }
 }
@@ -422,6 +466,7 @@ function newChat() {
   retitled.value = false
   oldestLoadedId.value = null
   hasMoreOlder.value = false
+  savedProducts.value = []
   drawerOpen.value = false
 }
 
@@ -436,6 +481,7 @@ async function openChat(id) {
     chat.messages = cached.messages
     oldestLoadedId.value = cached.oldestId
     hasMoreOlder.value = cached.hasMore
+    savedProducts.value = cached.products || []
     savedCount.value = chat.messages.length
     scrollDown()
     return
@@ -445,6 +491,7 @@ async function openChat(id) {
   const seq = ++openSeq
   loadingChat.value = true
   chat.messages = []
+  savedProducts.value = []
   try {
     const r = await $customFetch(`/conversations/${id}?limit=${PAGE}`)
     if (seq !== openSeq) return // a newer open won
@@ -452,8 +499,9 @@ async function openChat(id) {
     chat.messages = msgs
     oldestLoadedId.value = msgs.length ? msgs[0].id : null
     hasMoreOlder.value = !!r.data.has_more
+    savedProducts.value = r.data.products || [] // full registry, derived from all history
     savedCount.value = msgs.length
-    msgCache.set(id, { messages: msgs, oldestId: oldestLoadedId.value, hasMore: hasMoreOlder.value })
+    msgCache.set(id, { messages: msgs, oldestId: oldestLoadedId.value, hasMore: hasMoreOlder.value, products: savedProducts.value })
     scrollDown()
   } catch (e) {
     console.error(e)
@@ -477,7 +525,7 @@ async function loadOlder() {
       savedCount.value += older.length // prepended messages are already saved
       oldestLoadedId.value = older[0].id
       hasMoreOlder.value = !!r.data.has_more
-      msgCache.set(activeId.value, { messages: chat.messages, oldestId: oldestLoadedId.value, hasMore: hasMoreOlder.value })
+      msgCache.set(activeId.value, { messages: chat.messages, oldestId: oldestLoadedId.value, hasMore: hasMoreOlder.value, products: savedProducts.value })
       nextTick(() => {
         if (!el) return
         const prev = el.style.scrollBehavior

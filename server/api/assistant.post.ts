@@ -65,9 +65,13 @@ function interleave(arrays: any[][]) {
   return out
 }
 
-function systemPrompt(loggedIn: boolean, shoppingProfile: any) {
+function systemPrompt(loggedIn: boolean, shoppingProfile: any, savedProducts: any[] = []) {
   const profileBlock = shoppingProfile && Object.keys(shoppingProfile).length
     ? `\n\nWhat you already know about this shopper (use it to refine searches; keep it updated via update_shopping_profile when you learn something durable):\n${JSON.stringify(shoppingProfile)}`
+    : ''
+  const savedBlock = savedProducts && savedProducts.length
+    ? `\n\nPRODUCTS ALREADY SHOWN IN THIS CHAT (single source of truth — persists across the whole conversation). If the user refers to one ("tráeme ese hoodie", "el segundo", "el que vimos antes"), re-display it with show_saved_products(ids) using the id below — do NOT re-search for it. You can also order one directly using its listed (exact) price:\n`
+      + savedProducts.slice(-40).map((p: any) => `- ${p.id}: ${p.title}${p.store ? ' — ' + p.store : ''}${p.price ? ' — $' + p.price + (p.on_sale && p.was ? ' (oferta, antes $' + p.was + ')' : '') : ''}`).join('\n')
     : ''
   return `You are Boxly's AI shopping assistant. Boxly lets people in Mexico buy anything from any US store and have it shipped to them.
 
@@ -105,7 +109,7 @@ Your tools, and when to use them:
 ${loggedIn
   ? '- This user is signed in. Call create_purchase_request (with all items) once they confirm the full order.'
   : '- This user is a GUEST. When they confirm the full order, call create_account (name, email, phone) inline, then create the purchase request with all the items. Never send them away to a separate signup.'}
-- Be concise, friendly, and in the user's language (default Spanish, es-MX).${profileBlock}`
+- Be concise, friendly, and in the user's language (default Spanish, es-MX).${profileBlock}${savedBlock}`
 }
 
 export default defineEventHandler(async (event) => {
@@ -119,6 +123,7 @@ export default defineEventHandler(async (event) => {
   const messages = body?.messages ?? []
   const token: string | undefined = body?.token || undefined
   const shoppingProfile = body?.shoppingProfile ?? null
+  const savedProducts: any[] = Array.isArray(body?.savedProducts) ? body.savedProducts : []
 
   const anthropic = createAnthropic({ apiKey: key })
 
@@ -126,7 +131,7 @@ export default defineEventHandler(async (event) => {
 
   const result = streamText({
     model: anthropic(MODEL),
-    system: systemPrompt(!!token, shoppingProfile),
+    system: systemPrompt(!!token, shoppingProfile, savedProducts),
     messages: await convertToModelMessages(stripIncompleteToolCalls(messages)),
     stopWhen: stepCountIs(10),
     onError: ({ error }) => console.error('[assistant] error:', error instanceof Error ? error.message : error),
@@ -186,6 +191,18 @@ export default defineEventHandler(async (event) => {
           sale: z.boolean().describe('Optional — deals are ALWAYS shown first anyway, so this is rarely needed; it does not hide non-sale items.').optional(),
         }),
         execute: async ({ query, store, min_price, max_price, sale }) => callApi('/products/search', { method: 'POST', body: { query, store: store || undefined, min_price, max_price, sale: sale || undefined, limit: 16 }, timeoutMs: 50000 }),
+      }),
+
+      show_saved_products: tool({
+        description: "Re-display products that were ALREADY shown earlier in THIS chat (listed under 'PRODUCTS ALREADY SHOWN IN THIS CHAT'). Use when the user refers back to something — 'tráeme ese hoodie', 'el segundo', 'el que vimos antes', 'compara los dos primeros'. Pass their ids. This is instant and exact — do NOT re-search for an item that's already in that list.",
+        inputSchema: z.object({
+          ids: z.array(z.string()).min(1).describe('The ids of saved products to re-display, e.g. ["p1a2b3"].'),
+        }),
+        execute: async ({ ids }) => {
+          const set = new Set(ids)
+          const products = savedProducts.filter((p) => set.has(p.id))
+          return { products }
+        },
       }),
 
       show_products: tool({
