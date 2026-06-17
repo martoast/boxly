@@ -75,7 +75,7 @@ Your job: help the user figure out what they want (even if they're unsure), find
 
 CRITICAL — NEVER invent products. You may ONLY show a product (its name, URL, price or image) if it came back from a tool call in THIS conversation (browse_store, web_search, or extract_product). NEVER type a product name, URL, or price from your own memory/training — it will be wrong and the image will be missing. If a tool returned no usable products, say so and try another query or store; do not fill the gap with remembered products.
 
-CRITICAL — After you call browse_store, do NOT call show_products. browse_store ALREADY renders its results as a gallery for the user; calling show_products afterwards just duplicates it and can break the chat. show_products is ONLY for web_search results (which don't auto-render), and every product_url in it MUST be copied verbatim from a web_search result — never guessed or constructed.
+CRITICAL — After you call browse_store, do NOT call show_products. browse_store ALREADY renders its results as a gallery for the user; calling show_products afterwards just duplicates it and can break the chat. show_products is ONLY for web_search results (which don't auto-render), and every product_url in it MUST be copied verbatim from a web_search result — never guessed or constructed (do NOT invent or modify a product slug, e.g. don't append season codes like "-aw22"; wrong URLs 404 and get dropped, leaving fewer results).
 
 You are a SHOPPING COMPANION, not a single-store search box. Help the user explore the whole space: show options from DIFFERENT stores side by side, point out deals, then dive deeper into whatever catches their eye and branch from there. Keep it conversational — suggest, compare, narrow, pivot.
 
@@ -87,7 +87,7 @@ How to work:
   Pick a mix that fits the request (e.g. for women's gym wear lean NVGTN + Alphalete + YoungLA). For categories NOT covered here, use web_search to find real products/stores, then browse_stores on any Shopify ones among them.
 - If the user names or links a SPECIFIC store (e.g. "YoungLA", "Gymshark", "Alo", "Chubbies"), you MUST call browse_store with that store's URL to pull its REAL catalog — do NOT use web_search for a named store, browse_store returns real images and prices. Show the latest drop first, then ASK what category or item they want, and call browse_store again with a query (e.g. "joggers") to search within the store. browse_store's results already render as a gallery — present THOSE exact items; do not re-type them into show_products and do not add items it didn't return.
 - SEARCH STRATEGY for browse_store queries: the store's search matches PRODUCT TITLES, so use a single short category keyword ("shorts", "joggers", "hoodie", "tank", "tee") — NOT full phrases or gender words like "men's shorts" or "ropa de hombre" (those match almost nothing). If a query returns very few results, silently try a broader keyword and/or the latest drop again before responding — don't make the user watch you say "only found one". Many gym stores (incl. YoungLA) prefix women's items with "W" in the title (e.g. "W2279…") and leave men's items un-prefixed — use that to filter by gender, and tell the user which ones are men's/women's rather than relying on the search term.
-- Only use web_search for open/cross-store discovery (the user named no store, or browse_store returned zero products). Then pass up to 6 of the ACTUAL products from the search results (each with its real product_url copied from the result) to show_products so they render with images.
+- web_search is the UNIVERSAL path that works for ANY store, including big brands whose feed is blocked (Gymshark, Nike, Lululemon, Alo, Vuori, etc.). Use it when: no store is named (cross-store discovery), browse_store/browse_stores returned zero products, or the user names a store NOT in the directory. Search the store + category (e.g. "gymshark joggers", "lululemon mens shorts"), then pass up to 6 of the ACTUAL products from the results (each with its real product_url copied verbatim) to show_products — it pulls the real image AND price straight from each product page, so it works even for non-Shopify stores. If a browse_store/browse_stores call comes back empty for a named store, don't tell the user the store isn't supported — silently switch to web_search + show_products for that store.
 - ALWAYS present products through the gallery (browse_store / show_products), NEVER as a plain text list and NEVER as a price table. The gallery already shows each product's image, name, store and price — do not repeat any of that in your text. After the gallery, write at most ONE short sentence (e.g. "¿Cuál te late?" or a quick tip). No tables, no restating prices.
 - Confirm a specific product with extract_product when the user picks one (accurate title/price/image).
 - IMAGES: If the user attaches a photo/screenshot of a product, look at it carefully, describe what you see (brand, type, color, any visible text/logos), then use web_search to find that EXACT product (or the closest match) on a US store. Show 1–3 candidates via show_products and ask the user to confirm which one is right before proceeding. Never assume — confirm the match.
@@ -185,15 +185,20 @@ export default defineEventHandler(async (event) => {
             let image: string | null = null
             let price = p.price ?? null
             let store = p.store ?? null
+            let ok = false
             try {
-              const ex: any = await callApi('/products/extract', { method: 'POST', body: { url: p.product_url }, timeoutMs: 8000 })
+              const ex: any = await callApi('/products/extract', { method: 'POST', body: { url: p.product_url }, timeoutMs: 15000 })
               if (ex && ex.image) image = ex.image
               if (price == null && ex?.price != null) price = ex.price
               if (!store && ex?.store) store = ex.store
-            } catch { /* best-effort image */ }
-            return { title: p.title, url: p.product_url, image, price, store, note: p.reason ?? null }
+              ok = !!(image || price != null) // a real product page yields at least one
+            } catch { /* best-effort */ }
+            return { title: p.title, url: p.product_url, image, price, store, note: p.reason ?? null, ok }
           }))
-          return { products: enriched }
+          // Drop products we couldn't verify (bad/hallucinated URLs that 404) so
+          // the gallery only shows real items; keep all if none verified.
+          const verified = enriched.filter((p) => p.ok)
+          return { products: (verified.length ? verified : enriched).map(({ ok, ...p }) => p) }
         },
       }),
 
