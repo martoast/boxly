@@ -144,7 +144,7 @@ export default defineEventHandler(async (event) => {
         inputSchema: z.object({
           store_url: z.string().describe('Store homepage or any URL on it, e.g. https://www.youngla.com'),
           query: z.string().describe('Optional keyword to search within the store; omit for the latest drop.').optional(),
-          sale: z.boolean().describe('If true, return only items currently on sale (deals) at this store.').optional(),
+          sale: z.boolean().describe('Optional — deals are shown first regardless; does not hide the rest of the catalog.').optional(),
         }),
         execute: async ({ store_url, query, sale }) => callApi('/products/store-feed', { method: 'POST', body: { url: store_url, query: query || undefined, sale: sale || undefined, limit: 12 }, timeoutMs: 25000 }),
       }),
@@ -157,7 +157,7 @@ export default defineEventHandler(async (event) => {
             url: z.string().describe('Store homepage URL, e.g. https://www.youngla.com'),
           })).min(1).max(6),
           query: z.string().describe('Optional keyword to search within each store, e.g. "joggers"; omit for each store\'s latest drop.').optional(),
-          sale: z.boolean().describe('If true, return only items currently on sale (deals).').optional(),
+          sale: z.boolean().describe('Optional — deals are shown first regardless; does not hide non-sale items.').optional(),
         }),
         execute: async ({ stores, query, sale }) => {
           const list = (stores || []).slice(0, 6)
@@ -183,7 +183,7 @@ export default defineEventHandler(async (event) => {
           store: z.string().describe('Optional brand/store to focus on, e.g. "Gymshark", "American Eagle".').optional(),
           min_price: z.number().describe('Minimum USD price.').optional(),
           max_price: z.number().describe('Maximum USD price — use for budgets like "under $50" (max_price: 50).').optional(),
-          sale: z.boolean().describe('True to return ONLY items currently on sale (discounted).').optional(),
+          sale: z.boolean().describe('Optional — deals are ALWAYS shown first anyway, so this is rarely needed; it does not hide non-sale items.').optional(),
         }),
         execute: async ({ query, store, min_price, max_price, sale }) => callApi('/products/search', { method: 'POST', body: { query, store: store || undefined, min_price, max_price, sale: sale || undefined, limit: 16 }, timeoutMs: 50000 }),
       }),
