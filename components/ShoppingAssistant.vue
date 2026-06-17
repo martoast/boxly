@@ -113,9 +113,9 @@
               <p class="text-sm font-bold text-gray-900 mb-0.5">Crea tu cuenta para enviar tu pedido</p>
               <p class="text-xs text-gray-500 mb-3">Te conectamos automáticamente. Nada más sale de aquí.</p>
               <div class="space-y-2">
-                <input v-model="acct.name" placeholder="Nombre completo" class="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
-                <input v-model="acct.email" type="email" inputmode="email" placeholder="Correo electrónico" class="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
-                <input v-model="acct.phone" type="tel" inputmode="tel" placeholder="Teléfono (+52...)" class="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                <input v-model="acct.name" placeholder="Nombre completo" class="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                <input v-model="acct.email" type="email" inputmode="email" placeholder="Correo electrónico" class="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                <input v-model="acct.phone" type="tel" inputmode="tel" placeholder="Teléfono (+52...)" class="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-primary-500" />
               </div>
               <p v-if="acctError" class="text-xs text-red-600 mt-2">{{ acctError }}</p>
               <button @click="submitAccount" :disabled="acctLoading" class="mt-3 w-full px-4 py-2.5 bg-primary-500 hover:bg-primary-600 active:scale-[.98] disabled:bg-gray-300 text-white text-sm font-bold rounded-xl transition-all">
