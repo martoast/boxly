@@ -243,9 +243,10 @@ export default defineEventHandler(async (event) => {
         description: 'Submit a Purchase Request for Boxly to buy the item(s) in the US and ship to Mexico. Only after the user confirms. Requires the user to be signed in. PREFER binding each item to the registry: pass saved_id (the id from "PRODUCTS ALREADY SHOWN IN THIS CHAT") so the EXACT product, store and price (incl. sale price) are used — you then only need quantity + notes for that item.',
         inputSchema: z.object({
           items: z.array(z.object({
-            saved_id: z.string().describe('Registry id of a product already shown in this chat — binds the exact product/price. When set, product_name/product_url/price are taken from the registry.').optional(),
+            saved_id: z.string().describe('Registry id of a product already shown in this chat — binds the exact product/price/image. When set, product_name/product_url/price/image are taken from the registry.').optional(),
             product_name: z.string().describe('Required only if no saved_id.').optional(),
             product_url: z.string().describe('Required only if no saved_id.').optional(),
+            product_image_url: z.string().describe('Image URL of the product (ESSENTIAL so Boxly can find it). Auto-filled from the registry when saved_id is set; otherwise pass the image URL you have.').optional(),
             price: z.number().describe('Listed USD price; 0 if unknown. Ignored when saved_id resolves a price.').optional(),
             quantity: z.number().int().min(1).default(1),
             notes: z.string().describe('Size/color/variant notes.').optional(),
@@ -258,6 +259,7 @@ export default defineEventHandler(async (event) => {
             return {
               product_name: saved?.title ?? it.product_name ?? 'Producto',
               product_url: saved?.url ?? it.product_url ?? '',
+              product_image_url: saved?.image ?? it.product_image_url ?? null,
               price: (saved?.price ?? it.price ?? 0),
               quantity: it.quantity ?? 1,
               notes: it.notes,
