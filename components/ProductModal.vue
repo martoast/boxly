@@ -62,7 +62,7 @@
 
             <!-- CTAs -->
             <button @click="pick" class="mt-5 w-full py-3 rounded-2xl bg-primary-500 hover:bg-primary-600 active:scale-[.98] text-white text-[15px] font-bold shadow-sm shadow-primary-500/25 transition-all">
-              Pedir este producto
+              Agregar al pedido
             </button>
             <a :href="bestLink" target="_blank" rel="noopener noreferrer" class="mt-2 w-full flex items-center justify-center gap-1.5 py-3 rounded-2xl border border-gray-200 text-gray-700 text-[15px] font-semibold hover:bg-gray-50 active:scale-[.98] transition-all">
               Ver en línea

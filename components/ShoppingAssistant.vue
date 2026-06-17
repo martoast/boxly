@@ -319,13 +319,16 @@ function quickSend(text) { input.value = text; onComposerSend() }
 
 function onPickProduct(p) {
   if (isBusy.value) return
-  const price = p.price ? ` (~$${p.price} USD)` : ''
   const store = p.store ? ` de ${p.store}` : ''
+  // State the EXACT price the customer saw — the sale price if on sale — so the
+  // AI records that price (not a re-extracted regular price).
+  const onSale = p.onSale && p.was
+  const price = p.price ? ` — precio $${p.price} USD${onSale ? ` (EN OFERTA, antes $${p.was})` : ''}` : ''
   // Google Shopping links aren't buyable URLs — omit so the AI resolves the real
-  // product page from title+store; include real merchant URLs (Shopify) directly.
+  // product page; include real merchant URLs directly.
   const isGoogle = (p.url || '').includes('google.com/search')
   const urlPart = p.url && !isGoogle ? ` — ${p.url}` : ''
-  const text = `Quiero pedir este: ${p.title}${store}${price}${urlPart}`
+  const text = `Agrega a mi pedido: ${p.title}${store}${price}${urlPart}`
   ensureConversation(text)
   chat.sendMessage({ text })
   scrollDown()
