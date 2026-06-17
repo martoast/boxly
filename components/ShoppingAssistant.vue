@@ -57,7 +57,12 @@
                   <div v-if="part.type === 'text' && m.role === 'user'" class="whitespace-pre-wrap text-[15px] leading-relaxed">{{ part.text }}</div>
                   <div v-else-if="part.type === 'text'" class="bg-white border border-gray-100 rounded-3xl rounded-bl-lg px-4 py-3 shadow-sm text-[15px]"><MarkdownText :text="part.text" /></div>
 
-                  <ProductGallery v-else-if="(part.type === 'tool-show_products' || part.type === 'tool-browse_store' || part.type === 'tool-browse_stores') && part.state === 'output-available'" :products="part.output?.products || []" @pick="onPickProduct" />
+                  <ProductGallery v-else-if="(part.type === 'tool-show_products' || part.type === 'tool-browse_store' || part.type === 'tool-browse_stores' || part.type === 'tool-search_products') && part.state === 'output-available'" :products="part.output?.products || []" @pick="onPickProduct" />
+
+                  <div v-else-if="part.type === 'tool-search_products'" class="flex items-center gap-2 text-xs text-gray-400 pl-1">
+                    <svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
+                    Buscando en todo el mercado…
+                  </div>
 
                   <div v-else-if="part.type === 'tool-browse_store'" class="flex items-center gap-2 text-xs text-gray-400 pl-1">
                     <svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
@@ -239,7 +244,12 @@ function quickSend(text) { input.value = text; onComposerSend() }
 function onPickProduct(p) {
   if (isBusy.value) return
   const price = p.price ? ` (~$${p.price} USD)` : ''
-  const text = `Quiero pedir este: ${p.title}${price} — ${p.url}`
+  const store = p.store ? ` de ${p.store}` : ''
+  // Google Shopping links aren't buyable URLs — omit so the AI resolves the real
+  // product page from title+store; include real merchant URLs (Shopify) directly.
+  const isGoogle = (p.url || '').includes('google.com/search')
+  const urlPart = p.url && !isGoogle ? ` — ${p.url}` : ''
+  const text = `Quiero pedir este: ${p.title}${store}${price}${urlPart}`
   ensureConversation(text)
   chat.sendMessage({ text })
   scrollDown()
@@ -351,7 +361,22 @@ function cleanParts(parts) {
     // Drop tool calls that never produced output — a dangling tool_use breaks
     // the next request to the model when this history is replayed.
     .filter((p) => !(typeof p?.type === 'string' && p.type.startsWith('tool-') && p.state !== 'output-available' && p.state !== 'output-error'))
-    .map((p) => (p?.type === 'file' ? { type: 'text', text: '📎 (imagen)' } : p))
+    .map((p) => {
+      if (p?.type === 'file') return { type: 'text', text: '📎 (imagen)' }
+      // Strip heavy base64 thumbnails (Google Shopping) from persisted tool
+      // outputs so history rows stay small; the live gallery already rendered.
+      const prods = p?.output?.products
+      if (Array.isArray(prods)) {
+        return {
+          ...p,
+          output: {
+            ...p.output,
+            products: prods.map((x) => (typeof x?.image === 'string' && x.image.startsWith('data:')) ? { ...x, image: null } : x),
+          },
+        }
+      }
+      return p
+    })
 }
 
 function scrollDown() {
