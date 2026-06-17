@@ -29,14 +29,17 @@
         <!-- Square image area; object-contain centers ANY aspect (tall bottle,
              wide shoe, square) fully, no cropping, on a clean light bg. -->
         <a :href="p.url" target="_blank" rel="noopener noreferrer" class="relative block bg-gray-50">
-          <div class="aspect-square flex items-center justify-center p-3">
+          <!-- Fixed-pixel height (NOT aspect-ratio): iOS Safari won't resolve
+               max-height:100% against an aspect-ratio box, which let images blow
+               up. A fixed height keeps every image area identical. -->
+          <div class="h-40 flex items-center justify-center p-3 overflow-hidden">
             <img
               v-if="p.image && !p.broken"
               :src="p.image"
               :alt="p.title"
               loading="lazy"
               referrerpolicy="no-referrer"
-              class="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-300"
+              class="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
               @error="p.broken = true"
             />
             <span v-else class="text-[13px] font-bold text-gray-400 uppercase tracking-wide leading-tight line-clamp-3 text-center px-1">{{ p.store || p.title }}</span>
