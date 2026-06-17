@@ -14,8 +14,11 @@
       >{{ s }}</button>
     </div>
 
+    <div class="relative">
     <div
-      class="grid grid-flow-col items-start auto-cols-[10.5rem] md:auto-cols-[11.5rem] gap-3 overflow-x-auto pb-2 px-1 snap-x scrollbar-thin"
+      ref="track"
+      @scroll.passive="measure"
+      class="grid grid-flow-col items-start auto-cols-[10.5rem] md:auto-cols-[11.5rem] gap-3 overflow-x-auto pb-2 px-1 snap-x no-scrollbar scroll-smooth"
       :class="rows === 2 ? 'grid-rows-[auto_auto]' : 'grid-rows-[auto]'"
     >
       <div
@@ -61,6 +64,21 @@
         </div>
       </div>
     </div>
+
+      <!-- Edge fades: hint there's more to either side -->
+      <div v-show="canScroll && !atEnd" class="pointer-events-none absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-gray-50 to-transparent"></div>
+      <div v-show="canScroll && !atStart" class="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-gray-50 to-transparent"></div>
+    </div>
+
+    <!-- Swipe affordance: progress bar + hint (only when scrollable) -->
+    <div v-if="canScroll" class="flex items-center gap-2 px-1 mt-1.5">
+      <div class="relative h-1 flex-1 rounded-full bg-gray-200 overflow-hidden">
+        <div class="absolute top-0 h-full rounded-full bg-primary-400" :style="{ width: thumbWidth + '%', left: thumbLeft + '%' }"></div>
+      </div>
+      <Transition name="hint">
+        <span v-if="atStart" class="shrink-0 text-[11px] font-semibold text-gray-400 whitespace-nowrap">Desliza →</span>
+      </Transition>
+    </div>
   </div>
 </template>
 
@@ -97,10 +115,47 @@ const visible = computed(() =>
 // Two rows only when there are enough products to roughly fill them — otherwise
 // a single item in a 2-row grid leaves a big empty row (the blank-space bug).
 const rows = computed(() => (visible.value.length >= 5 ? 2 : 1))
+
+// --- Swipe affordance: track scroll position to drive the progress bar,
+// edge fades, and "Desliza →" hint (native scrollbar is hidden on mobile). ---
+const track = ref(null)
+const sl = ref(0)
+const sw = ref(0)
+const cw = ref(0)
+function measure() {
+  const el = track.value
+  if (!el) return
+  sl.value = el.scrollLeft
+  sw.value = el.scrollWidth
+  cw.value = el.clientWidth
+}
+const canScroll = computed(() => sw.value - cw.value > 4)
+const atStart = computed(() => sl.value <= 2)
+const atEnd = computed(() => sl.value >= sw.value - cw.value - 2)
+const thumbWidth = computed(() => (sw.value ? Math.max(14, Math.min(100, (cw.value / sw.value) * 100)) : 100))
+const thumbLeft = computed(() => {
+  const max = sw.value - cw.value
+  return max > 0 ? (sl.value / max) * (100 - thumbWidth.value) : 0
+})
+
+onMounted(() => {
+  nextTick(measure)
+  window.addEventListener('resize', measure)
+})
+onBeforeUnmount(() => window.removeEventListener('resize', measure))
+// Re-measure when the product set changes (new search / store filter).
+watch(visible, () => nextTick(measure))
 </script>
 
 <style scoped>
 .scrollbar-thin::-webkit-scrollbar { height: 6px; }
 .scrollbar-thin::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 9999px; }
 .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+
+/* Hide the native scrollbar on the carousel — we show our own progress bar. */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+.hint-enter-from, .hint-leave-to { opacity: 0; }
+.hint-enter-active, .hint-leave-active { transition: opacity .2s ease; }
 </style>
