@@ -28,9 +28,20 @@
         </button>
       </header>
 
+      <!-- ===== LOADING A CONVERSATION (from history) ===== -->
+      <div v-if="loadingChat" class="flex-1 overflow-hidden px-3 md:px-4 py-5">
+        <div class="max-w-2xl mx-auto space-y-4 animate-pulse">
+          <div class="flex justify-end"><div class="h-9 w-40 rounded-3xl rounded-br-lg bg-primary-200/60"></div></div>
+          <div class="flex justify-start"><div class="h-24 w-3/4 rounded-3xl rounded-bl-lg bg-gray-200"></div></div>
+          <div class="flex justify-end"><div class="h-9 w-28 rounded-3xl rounded-br-lg bg-primary-200/60"></div></div>
+          <div class="flex justify-start"><div class="h-20 w-2/3 rounded-3xl rounded-bl-lg bg-gray-200"></div></div>
+          <div class="flex justify-center pt-2"><span class="text-xs text-gray-400">Cargando conversación…</span></div>
+        </div>
+      </div>
+
       <!-- ===== EMPTY STATE — headline centered, suggestions + input at bottom ===== -->
       <Transition name="fade-fast">
-        <div v-if="!chat.messages.length" class="flex-1 flex flex-col min-h-0">
+        <div v-if="!loadingChat && !chat.messages.length" class="flex-1 flex flex-col min-h-0">
           <!-- centered headline -->
           <div class="flex-1 flex flex-col items-center justify-center px-6 text-center">
             <h1 class="text-[26px] leading-tight md:text-4xl font-extrabold text-gray-900 tracking-tight">¿Qué quieres comprar de EE.UU.?</h1>
@@ -59,7 +70,7 @@
       </Transition>
 
       <!-- ===== CHAT STATE ===== -->
-      <template v-if="chat.messages.length">
+      <template v-if="!loadingChat && chat.messages.length">
         <div ref="scroller" @scroll.passive="onScroll" class="flex-1 overflow-y-auto overscroll-contain px-3 md:px-4 py-5 scroll-smooth">
           <div v-if="loadingOlder" class="flex justify-center pb-3">
             <svg class="w-5 h-5 animate-spin text-gray-300" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
@@ -182,6 +193,8 @@ const savedCount = ref(0)
 const input = ref('')
 const scroller = ref(null)
 const drawerOpen = ref(false)
+const loadingChat = ref(false)
+let openSeq = 0
 // In-memory cache of opened conversations (id -> { messages, oldestId, hasMore })
 // for instant re-open. Pagination state for the ACTIVE thread:
 const msgCache = new Map()
@@ -391,6 +404,8 @@ function bumpActiveToTop() {
 }
 
 function newChat() {
+  openSeq++ // invalidate any in-flight openChat
+  loadingChat.value = false
   chat.messages = []
   activeId.value = null
   savedCount.value = 0
@@ -407,6 +422,7 @@ async function openChat(id) {
   drawerOpen.value = false
   const cached = msgCache.get(id)
   if (cached) {
+    loadingChat.value = false
     chat.messages = cached.messages
     oldestLoadedId.value = cached.oldestId
     hasMoreOlder.value = cached.hasMore
@@ -414,8 +430,14 @@ async function openChat(id) {
     scrollDown()
     return
   }
+  // Show the loading skeleton; clear the previous chat so we don't show stale
+  // content. openSeq guards against spam-tapping multiple chats (latest wins).
+  const seq = ++openSeq
+  loadingChat.value = true
+  chat.messages = []
   try {
     const r = await $customFetch(`/conversations/${id}?limit=${PAGE}`)
+    if (seq !== openSeq) return // a newer open won
     const msgs = r.data.messages.map(mapMsg)
     chat.messages = msgs
     oldestLoadedId.value = msgs.length ? msgs[0].id : null
@@ -423,7 +445,11 @@ async function openChat(id) {
     savedCount.value = msgs.length
     msgCache.set(id, { messages: msgs, oldestId: oldestLoadedId.value, hasMore: hasMoreOlder.value })
     scrollDown()
-  } catch (e) { console.error(e) }
+  } catch (e) {
+    console.error(e)
+  } finally {
+    if (seq === openSeq) loadingChat.value = false
+  }
 }
 
 // Load the previous page of messages when the user scrolls near the top, keeping
