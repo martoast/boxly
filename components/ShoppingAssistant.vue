@@ -28,21 +28,32 @@
         </button>
       </header>
 
-      <!-- ===== EMPTY STATE — centered prompt ===== -->
+      <!-- ===== EMPTY STATE — headline centered, suggestions + input at bottom ===== -->
       <Transition name="fade-fast">
-        <div v-if="!chat.messages.length" class="flex-1 flex flex-col items-center justify-center px-5 overflow-y-auto">
-          <div class="w-full max-w-2xl py-8">
-            <div class="text-center mb-7">
-              <h1 class="text-[26px] leading-tight md:text-4xl font-extrabold text-gray-900 tracking-tight">¿Qué quieres comprar de EE.UU.?</h1>
-              <p class="text-gray-500 mt-3 text-[15px] md:text-base max-w-md mx-auto leading-relaxed">Dime qué buscas — aunque no sepas exactamente qué — y te lo encuentro y lo pido por ti hasta México.</p>
+        <div v-if="!chat.messages.length" class="flex-1 flex flex-col min-h-0">
+          <!-- centered headline -->
+          <div class="flex-1 flex flex-col items-center justify-center px-6 text-center">
+            <h1 class="text-[26px] leading-tight md:text-4xl font-extrabold text-gray-900 tracking-tight">¿Qué quieres comprar de EE.UU.?</h1>
+            <p class="text-gray-500 mt-3 text-[15px] md:text-base max-w-md leading-relaxed">Dime qué buscas — aunque no sepas exactamente qué — y te lo encuentro hasta México.</p>
+          </div>
+
+          <!-- suggestions (compact rows) + composer, anchored at the bottom -->
+          <div class="px-3 md:px-4 pt-1 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+            <div class="max-w-2xl mx-auto">
+              <TransitionGroup tag="div" name="chip" class="mb-2" appear>
+                <button
+                  v-for="(s, i) in suggestions"
+                  :key="s.text"
+                  :style="{ transitionDelay: i * 45 + 'ms' }"
+                  @click="quickSend(s.text)"
+                  class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left text-gray-700 hover:bg-gray-100 active:scale-[.99] transition-all"
+                >
+                  <span class="text-[17px] leading-none w-5 text-center">{{ s.emoji }}</span>
+                  <span class="text-[15px]">{{ s.text }}</span>
+                </button>
+              </TransitionGroup>
+              <AssistantComposer v-model:text="input" :mic-recording="micRecording" :mic-transcribing="micTranscribing" :mic-levels="micLevels" :mic-error="micError" :busy="isBusy" placeholder="Escribe o pega un link…" @send="onComposerSend" @mic="toggleMic" />
             </div>
-
-            <AssistantComposer v-model:text="input" :mic-recording="micRecording" :mic-transcribing="micTranscribing" :mic-levels="micLevels" :mic-error="micError" :busy="isBusy" placeholder="Describe lo que buscas, pega un link o suelta una foto…" @send="onComposerSend" @mic="toggleMic" />
-            <p class="text-center text-xs text-gray-400 mt-2">📎 También puedes soltar o pegar una foto del producto.</p>
-
-            <TransitionGroup tag="div" name="chip" class="flex flex-wrap gap-2 justify-center mt-4" appear>
-              <button v-for="(s, i) in suggestions" :key="s" :style="{ transitionDelay: i * 55 + 'ms' }" @click="quickSend(s)" class="px-3.5 py-2 rounded-full border border-gray-200 bg-white text-[13px] md:text-sm text-gray-700 hover:border-primary-400 hover:text-primary-600 hover:shadow-sm active:scale-95 transition-all">{{ s }}</button>
-            </TransitionGroup>
           </div>
         </div>
       </Transition>
@@ -130,7 +141,7 @@
 
         <div class="bg-gradient-to-t from-gray-50 via-gray-50 to-transparent px-3 md:px-4 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           <div class="max-w-2xl mx-auto">
-            <AssistantComposer v-model:text="input" :mic-recording="micRecording" :mic-transcribing="micTranscribing" :mic-levels="micLevels" :mic-error="micError" :busy="isBusy" placeholder="Escribe, pega un link o suelta una foto…" @send="onComposerSend" @mic="toggleMic" />
+            <AssistantComposer v-model:text="input" :mic-recording="micRecording" :mic-transcribing="micTranscribing" :mic-levels="micLevels" :mic-error="micError" :busy="isBusy" placeholder="Escribe o pega un link…" @send="onComposerSend" @mic="toggleMic" />
           </div>
         </div>
       </template>
@@ -185,10 +196,10 @@ const acctLoading = ref(false)
 const acctError = ref('')
 
 const suggestions = [
-  'Tenis para correr menos de $150',
-  'Una bolsa Coach bonita',
-  'Ropa de gym estilo YoungLA',
-  'Pega un link de un producto',
+  { emoji: '👟', text: 'Tenis para correr' },
+  { emoji: '👜', text: 'Una bolsa bonita' },
+  { emoji: '🏋️', text: 'Ropa para el gym' },
+  { emoji: '🎁', text: 'Ideas de regalo' },
 ]
 
 const isBusy = computed(() => chat.status === 'streaming' || chat.status === 'submitted')
