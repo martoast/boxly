@@ -220,10 +220,10 @@ const acctLoading = ref(false)
 const acctError = ref('')
 
 const suggestions = [
-  { emoji: '💪', text: 'Ropa de YoungLA' },
-  { emoji: '👟', text: 'Tenis New Balance' },
-  { emoji: '🦅', text: 'Jeans American Eagle' },
-  { emoji: '💧', text: 'Botellas Owala' },
+  { emoji: '🔥', text: 'Ofertas en YoungLA' },
+  { emoji: '👟', text: 'New Balance en oferta' },
+  { emoji: '🦅', text: 'American Eagle en oferta' },
+  { emoji: '💧', text: 'Owala en oferta' },
 ]
 
 const isBusy = computed(() => chat.status === 'streaming' || chat.status === 'submitted')
