@@ -49,7 +49,10 @@
 
       <!-- ===== CHAT STATE ===== -->
       <template v-if="chat.messages.length">
-        <div ref="scroller" class="flex-1 overflow-y-auto overscroll-contain px-3 md:px-4 py-5 scroll-smooth">
+        <div ref="scroller" @scroll.passive="onScroll" class="flex-1 overflow-y-auto overscroll-contain px-3 md:px-4 py-5 scroll-smooth">
+          <div v-if="loadingOlder" class="flex justify-center pb-3">
+            <svg class="w-5 h-5 animate-spin text-gray-300" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
+          </div>
           <TransitionGroup tag="div" name="msg" class="max-w-2xl mx-auto space-y-4">
             <div v-for="m in chat.messages" :key="m.id" :class="m.role === 'user' ? 'flex justify-end' : 'flex justify-start'">
               <div :class="m.role === 'user' ? 'bg-primary-500 text-white rounded-3xl rounded-br-lg px-4 py-2.5 max-w-[85%] shadow-sm' : 'w-full max-w-[95%] space-y-3'">
@@ -157,8 +160,21 @@ const savedCount = ref(0)
 const input = ref('')
 const scroller = ref(null)
 const drawerOpen = ref(false)
-// In-memory cache of opened conversations (id -> messages) for instant re-open.
+// In-memory cache of opened conversations (id -> { messages, oldestId, hasMore })
+// for instant re-open. Pagination state for the ACTIVE thread:
 const msgCache = new Map()
+const oldestLoadedId = ref(null)
+const hasMoreOlder = ref(false)
+const loadingOlder = ref(false)
+
+const PAGE = 30
+function mapMsg(m) {
+  return {
+    id: String(m.id),
+    role: m.role,
+    parts: (m.content && m.content.parts) || [{ type: 'text', text: typeof m.content === 'string' ? m.content : (m.content?.text || '') }],
+  }
+}
 
 const { recording: micRecording, transcribing: micTranscribing, levels: micLevels, error: micError, toggle: micToggle } = useVoiceInput()
 
@@ -341,7 +357,7 @@ async function persist() {
     savedCount.value = chat.messages.length
     // Keep state local — no full list refetch every turn. Cache the thread and
     // bump it to the top of the sidebar.
-    msgCache.set(activeId.value, chat.messages)
+    msgCache.set(activeId.value, { messages: chat.messages, oldestId: oldestLoadedId.value, hasMore: hasMoreOlder.value })
     bumpActiveToTop()
   } catch (e) { console.error('persist failed', e) }
 }
@@ -357,6 +373,8 @@ function newChat() {
   activeId.value = null
   savedCount.value = 0
   retitled.value = false
+  oldestLoadedId.value = null
+  hasMoreOlder.value = false
   drawerOpen.value = false
 }
 
@@ -365,24 +383,58 @@ async function openChat(id) {
   activeId.value = id
   retitled.value = true
   drawerOpen.value = false
-  if (msgCache.has(id)) {
-    chat.messages = msgCache.get(id)
+  const cached = msgCache.get(id)
+  if (cached) {
+    chat.messages = cached.messages
+    oldestLoadedId.value = cached.oldestId
+    hasMoreOlder.value = cached.hasMore
     savedCount.value = chat.messages.length
     scrollDown()
     return
   }
   try {
-    const r = await $customFetch(`/conversations/${id}`)
-    const msgs = r.data.messages.map((m) => ({
-      id: String(m.id),
-      role: m.role,
-      parts: (m.content && m.content.parts) || [{ type: 'text', text: typeof m.content === 'string' ? m.content : (m.content?.text || '') }],
-    }))
+    const r = await $customFetch(`/conversations/${id}?limit=${PAGE}`)
+    const msgs = r.data.messages.map(mapMsg)
     chat.messages = msgs
-    msgCache.set(id, msgs)
+    oldestLoadedId.value = msgs.length ? msgs[0].id : null
+    hasMoreOlder.value = !!r.data.has_more
     savedCount.value = msgs.length
+    msgCache.set(id, { messages: msgs, oldestId: oldestLoadedId.value, hasMore: hasMoreOlder.value })
     scrollDown()
   } catch (e) { console.error(e) }
+}
+
+// Load the previous page of messages when the user scrolls near the top, keeping
+// the scroll position pinned so the view doesn't jump.
+async function loadOlder() {
+  if (loadingOlder.value || !hasMoreOlder.value || !activeId.value || !oldestLoadedId.value) return
+  loadingOlder.value = true
+  const el = scroller.value
+  const prevHeight = el ? el.scrollHeight : 0
+  try {
+    const r = await $customFetch(`/conversations/${activeId.value}?limit=${PAGE}&before=${oldestLoadedId.value}`)
+    const older = (r.data.messages || []).map(mapMsg)
+    if (older.length) {
+      chat.messages = [...older, ...chat.messages]
+      savedCount.value += older.length // prepended messages are already saved
+      oldestLoadedId.value = older[0].id
+      hasMoreOlder.value = !!r.data.has_more
+      msgCache.set(activeId.value, { messages: chat.messages, oldestId: oldestLoadedId.value, hasMore: hasMoreOlder.value })
+      nextTick(() => {
+        if (!el) return
+        const prev = el.style.scrollBehavior
+        el.style.scrollBehavior = 'auto'
+        el.scrollTop = el.scrollHeight - prevHeight
+        el.style.scrollBehavior = prev
+      })
+    } else {
+      hasMoreOlder.value = false
+    }
+  } catch (e) { console.error(e) } finally { loadingOlder.value = false }
+}
+
+function onScroll() {
+  if (scroller.value && scroller.value.scrollTop < 120 && hasMoreOlder.value && !loadingOlder.value) loadOlder()
 }
 
 async function deleteConversation(id) {
