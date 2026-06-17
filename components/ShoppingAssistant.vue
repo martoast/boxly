@@ -37,7 +37,7 @@
               <p class="text-gray-500 mt-3 text-[15px] md:text-base max-w-md mx-auto leading-relaxed">Dime qué buscas — aunque no sepas exactamente qué — y te lo encuentro y lo pido por ti hasta México.</p>
             </div>
 
-            <AssistantComposer v-model:text="input" :mic-recording="micRecording" :mic-transcribing="micTranscribing" :busy="isBusy" placeholder="Describe lo que buscas, pega un link o suelta una foto…" @send="onComposerSend" @mic="toggleMic" />
+            <AssistantComposer v-model:text="input" :mic-recording="micRecording" :mic-transcribing="micTranscribing" :mic-levels="micLevels" :mic-error="micError" :busy="isBusy" placeholder="Describe lo que buscas, pega un link o suelta una foto…" @send="onComposerSend" @mic="toggleMic" />
             <p class="text-center text-xs text-gray-400 mt-2">📎 También puedes soltar o pegar una foto del producto.</p>
 
             <TransitionGroup tag="div" name="chip" class="flex flex-wrap gap-2 justify-center mt-4" appear>
@@ -122,7 +122,7 @@
 
         <div class="bg-gradient-to-t from-gray-50 via-gray-50 to-transparent px-3 md:px-4 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           <div class="max-w-2xl mx-auto">
-            <AssistantComposer v-model:text="input" :mic-recording="micRecording" :mic-transcribing="micTranscribing" :busy="isBusy" placeholder="Escribe, pega un link o suelta una foto…" @send="onComposerSend" @mic="toggleMic" />
+            <AssistantComposer v-model:text="input" :mic-recording="micRecording" :mic-transcribing="micTranscribing" :mic-levels="micLevels" :mic-error="micError" :busy="isBusy" placeholder="Escribe, pega un link o suelta una foto…" @send="onComposerSend" @mic="toggleMic" />
           </div>
         </div>
       </template>
@@ -153,7 +153,7 @@ const input = ref('')
 const scroller = ref(null)
 const drawerOpen = ref(false)
 
-const { recording: micRecording, transcribing: micTranscribing, toggle: micToggle } = useVoiceInput()
+const { recording: micRecording, transcribing: micTranscribing, levels: micLevels, error: micError, toggle: micToggle } = useVoiceInput()
 
 const retitled = ref(false)
 const pendingAccount = ref(null)

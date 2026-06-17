@@ -17,35 +17,56 @@
       @dragleave.prevent="dragOver = false"
       @drop.prevent="onDrop"
     >
-      <!-- attach image -->
-      <button type="button" @click="pick" class="shrink-0 grid place-items-center w-9 h-9 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 active:scale-90 transition-all" aria-label="Adjuntar foto">
+      <!-- attach image (hidden while recording/transcribing) -->
+      <button v-if="!micRecording && !micTranscribing" type="button" @click="pick" class="shrink-0 grid place-items-center w-9 h-9 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 active:scale-90 transition-all" aria-label="Adjuntar foto">
         <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
       </button>
       <input ref="fileInput" type="file" accept="image/*" multiple class="hidden" @change="onFiles" />
 
+      <!-- RECORDING: live waveform -->
+      <div v-if="micRecording" class="flex-1 flex items-center gap-2 pl-1 h-9">
+        <span class="shrink-0 w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+        <div class="flex-1 flex items-center justify-start gap-[3px] h-full overflow-hidden">
+          <span v-for="(lvl, i) in (micLevels || [])" :key="i" class="w-[3px] rounded-full bg-red-400/90" :style="{ height: barHeight(lvl) }" />
+        </div>
+        <span class="shrink-0 text-[11px] font-medium text-gray-400 pr-1">Toca para detener</span>
+      </div>
+
+      <!-- TRANSCRIBING -->
+      <div v-else-if="micTranscribing" class="flex-1 flex items-center gap-2 pl-2 h-9 text-sm text-gray-500">
+        <svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
+        Transcribiendo…
+      </div>
+
+      <!-- NORMAL: text input -->
       <textarea
+        v-else
         :value="text"
         @input="$emit('update:text', $event.target.value)"
         @keydown.enter.exact.prevent="doSend"
         @paste="onPaste"
         rows="1"
-        :placeholder="micRecording ? 'Escuchando…' : placeholder"
+        :placeholder="placeholder"
         style="field-sizing:content"
         class="flex-1 resize-none border-0 bg-transparent px-1 py-1 text-[15px] leading-6 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-0 max-h-40"
       ></textarea>
 
-      <!-- mic -->
+      <!-- mic / stop -->
       <button type="button" @click="$emit('mic')" :disabled="micTranscribing" :class="micBtnClass" :aria-label="micRecording ? 'Detener' : 'Hablar'">
         <span v-if="micRecording" class="absolute inset-0 rounded-full bg-red-500/40 animate-ping" />
         <svg v-if="micTranscribing" class="w-4 h-4 animate-spin relative" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
+        <!-- stop icon while recording, mic icon otherwise -->
+        <svg v-else-if="micRecording" class="w-[16px] h-[16px] relative" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2.5"/></svg>
         <svg v-else class="w-[18px] h-[18px] relative" viewBox="0 0 24 24" fill="currentColor"><path d="M12 15a3 3 0 003-3V6a3 3 0 10-6 0v6a3 3 0 003 3z"/><path d="M6.75 10.5a.75.75 0 011.5 0 3.75 3.75 0 007.5 0 .75.75 0 011.5 0 5.25 5.25 0 01-4.5 5.2V18a.75.75 0 01-1.5 0v-2.3a5.25 5.25 0 01-4.5-5.2z"/></svg>
       </button>
 
-      <!-- send -->
-      <button type="button" @click="doSend" :disabled="!canSend" class="shrink-0 grid place-items-center w-9 h-9 rounded-full bg-primary-500 text-white hover:bg-primary-600 active:scale-90 disabled:bg-gray-200 disabled:text-gray-400 disabled:active:scale-100 transition-all" aria-label="Enviar">
+      <!-- send (hidden while recording/transcribing) -->
+      <button v-if="!micRecording && !micTranscribing" type="button" @click="doSend" :disabled="!canSend" class="shrink-0 grid place-items-center w-9 h-9 rounded-full bg-primary-500 text-white hover:bg-primary-600 active:scale-90 disabled:bg-gray-200 disabled:text-gray-400 disabled:active:scale-100 transition-all" aria-label="Enviar">
         <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.3" d="M5 10l7-7m0 0l7 7m-7-7v18"/></svg>
       </button>
     </div>
+
+    <p v-if="micError" class="text-xs text-red-500 mt-1.5 px-3">{{ micError }}</p>
   </div>
 </template>
 
@@ -54,10 +75,18 @@ const props = defineProps({
   text: { type: String, default: '' },
   micRecording: { type: Boolean, default: false },
   micTranscribing: { type: Boolean, default: false },
+  micLevels: { type: Array, default: () => [] },
+  micError: { type: String, default: null },
   busy: { type: Boolean, default: false },
   placeholder: { type: String, default: 'Describe lo que buscas o pega un link…' },
 })
 const emit = defineEmits(['update:text', 'send', 'mic'])
+
+// Map a 0..1 audio level to a bar height (px) for the recording waveform.
+function barHeight(lvl) {
+  const v = Math.max(0, Math.min(1, Number(lvl) || 0))
+  return `${Math.round(4 + v * 26)}px`
+}
 
 const fileInput = ref(null)
 const attachments = ref([]) // File[]
