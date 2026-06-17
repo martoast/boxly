@@ -45,7 +45,7 @@
           <!-- centered headline -->
           <div class="flex-1 flex flex-col items-center justify-center px-6 text-center">
             <h1 class="text-[26px] leading-tight md:text-4xl font-extrabold text-gray-900 tracking-tight">¿Qué quieres comprar de EE.UU.?</h1>
-            <p class="text-gray-500 mt-3 text-[15px] md:text-base max-w-md leading-relaxed">Dime qué buscas — aunque no sepas exactamente qué — y te lo encuentro hasta México.</p>
+            <p class="text-gray-500 mt-3 text-[15px] md:text-base max-w-md leading-relaxed">Dime qué buscas.</p>
           </div>
 
           <!-- suggestions (compact rows) + composer, anchored at the bottom -->

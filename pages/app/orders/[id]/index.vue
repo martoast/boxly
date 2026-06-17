@@ -282,6 +282,9 @@
             </div>
           </div>
 
+          <!-- Customer status card (where is my package / what's next / when do I pay) -->
+          <OrderStatusCard v-if="!isCrossing" :order="order" />
+
           <!-- Progress Timeline -->
           <OrderProgressTimeline :order="order" />
         </div>
@@ -479,6 +482,7 @@ import UserOrderItemsList from "~/components/user/UserOrderItemsList.vue";
 import UserOrderModals from "~/components/user/UserOrderModals.vue";
 import SuccessBanner from "~/components/SuccessBanner.vue";
 import OrderProgressTimeline from "~/components/OrderProgressTimeline.vue";
+import OrderStatusCard from "~/components/OrderStatusCard.vue";
 
 definePageMeta({
   layout: "app",

@@ -41,26 +41,44 @@
             </div>
           </div>
 
-          <!-- Step 2: Awaiting Reception in Mexico -->
+          <!-- Step 2: In transfer to Mexico -->
+          <div class="flex items-start gap-4">
+            <div class="relative flex-shrink-0">
+              <div :class="['w-8 h-8 rounded-full flex items-center justify-center', transferDone ? 'bg-primary-600' : 'bg-gray-200']">
+                <svg v-if="transferDone" class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                </svg>
+                <div v-else-if="transferActive" class="w-3 h-3 rounded-full bg-amber-400 animate-pulse"></div>
+                <div v-else class="w-3 h-3 rounded-full bg-white"></div>
+              </div>
+            </div>
+            <div class="flex-1 min-w-0">
+              <p :class="['text-sm font-medium', transferDone || transferActive ? 'text-gray-900' : 'text-gray-500']">{{ t.inTransferMx }}</p>
+              <p :class="['text-xs mt-0.5', transferDone ? 'text-gray-600' : transferActive ? 'text-amber-600' : 'text-gray-400']">
+                {{ transferDone ? t.transferDoneDesc : transferActive ? t.transferActiveDesc : t.pending }}
+              </p>
+            </div>
+          </div>
+
+          <!-- Step 3: Received in Mexico -->
           <div class="flex items-start gap-4">
             <div class="relative flex-shrink-0">
               <div :class="['w-8 h-8 rounded-full flex items-center justify-center', receivedDone ? 'bg-primary-600' : 'bg-gray-200']">
                 <svg v-if="receivedDone" class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                 </svg>
-                <div v-else-if="receivingActive" class="w-3 h-3 rounded-full bg-amber-400 animate-pulse"></div>
                 <div v-else class="w-3 h-3 rounded-full bg-white"></div>
               </div>
             </div>
             <div class="flex-1 min-w-0">
-              <p :class="['text-sm font-medium', receivedDone || receivingActive ? 'text-gray-900' : 'text-gray-500']">{{ t.waitingReceptionMx }}</p>
-              <p :class="['text-xs mt-0.5', receivedDone ? 'text-gray-600' : receivingActive ? 'text-amber-600' : 'text-gray-400']">
-                {{ receivedDone ? t.allPackagesReceived : receivingActive ? t.waitingForPackages : t.pendingPackages }}
+              <p :class="['text-sm font-medium', receivedDone ? 'text-gray-900' : 'text-gray-500']">{{ t.receivedMx }}</p>
+              <p :class="['text-xs mt-0.5', receivedDone ? 'text-gray-600' : 'text-gray-400']">
+                {{ receivedDone ? t.receivedMxDesc : t.pendingReceived }}
               </p>
             </div>
           </div>
 
-          <!-- Step 3: Quote Ready (awaiting_payment) -->
+          <!-- Step 4: Quote Ready (awaiting_payment) -->
           <div class="flex items-start gap-4">
             <div class="relative flex-shrink-0">
               <div :class="['w-8 h-8 rounded-full flex items-center justify-center', quoteDone ? 'bg-primary-600' : 'bg-gray-200']">
@@ -290,14 +308,15 @@ const isStatusReached = (targetStatus) => {
   return currentIndex >= targetIndex;
 };
 
-// ── Shipping timeline (5 steps) — done (✓) states, cumulative via status order ──
-const receivedDone = computed(() => isStatusReached('packages_complete'))   // Step 2
+// ── Shipping timeline (6 steps) — done (✓) states, cumulative via status order ──
+const transferDone = computed(() => isStatusReached('packages_complete'))   // Step 2 (in transfer → done once received)
+const receivedDone = computed(() => isStatusReached('packages_complete'))   // Step 3 (received in Mexico)
 const quoteDone = computed(() => isStatusReached('awaiting_payment'))        // Step 3 (quote/invoice generated)
 const shippedDone = computed(() => isStatusReached('shipped'))              // Step 4
 const deliveredDone = computed(() => isStatusReached('delivered'))          // Step 5
 
 // ── Shipping timeline — active (current, pulsing) states ──
-const receivingActive = computed(() => ['collecting', 'awaiting_packages'].includes(props.order.status))
+const transferActive = computed(() => ['collecting', 'awaiting_packages'].includes(props.order.status))
 const quoteActive = computed(() => props.order.status === 'packages_complete')
 const shippingActive = computed(() => ['awaiting_payment', 'processing', 'paid'].includes(props.order.status))
 const deliveryActive = computed(() => props.order.status === 'shipped')
@@ -328,9 +347,14 @@ const translations = {
   orderCompleteDesc: { es: "¡Completado!", en: "Completed!" },
   pendingPayment: { es: "Pendiente de pago del envío", en: "Pending payment" },
 
-  // Shipping specific (5-step flow)
+  // Shipping specific (6-step flow)
   orderRegistered: { es: "Orden Registrada", en: "Order Registered" },
-  waitingReceptionMx: { es: "Esperando recepción en México", en: "Awaiting Reception in Mexico" },
+  inTransferMx: { es: "En transferencia a México", en: "In transfer to Mexico" },
+  transferDoneDesc: { es: "Trasladado a México", en: "Moved to Mexico" },
+  transferActiveDesc: { es: "Esperando entrega en San Diego (1–2 días hábiles)", en: "Awaiting delivery in San Diego (1–2 business days)" },
+  receivedMx: { es: "Recibido en México", en: "Received in Mexico" },
+  receivedMxDesc: { es: "Tu paquete llegó a México", en: "Your package arrived in Mexico" },
+  pendingReceived: { es: "Pendiente de recepción en México", en: "Pending reception in Mexico" },
   quoteReady: { es: "Cotización lista", en: "Quote Ready" },
   quoteReadyDesc: { es: "Cotización generada", en: "Quote generated" },
   quotePreparingDesc: { es: "Preparando cotización", en: "Preparing quote" },
