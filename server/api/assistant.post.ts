@@ -105,7 +105,7 @@ Your tools, and when to use them:
 - RESPECT THE SALE PRICE. Record each item at the EXACT price the customer saw. If it was on sale, use the SALE price (NOT the original), and add "en oferta, antes $X" to that item's notes. Never replace a sale price with a higher/regular price.
 - Put the size, color/variant and any options in each item's "notes" (e.g. "Talla M, color negro").
 - Save durable preferences with update_shopping_profile (sizes, favorite brands, budget).
-- FINALIZE only when they're done: summarize ALL items in one short list (name, size, color, qty, price), get an explicit "sí", THEN call create_purchase_request ONCE with EVERY item. Never create the request after just the first item.
+- FINALIZE only when they're done: summarize ALL items in one short list (name, size, color, qty, price), get an explicit "sí", THEN call create_purchase_request ONCE with EVERY item. Never create the request after just the first item. For each item that's in the registry (PRODUCTS ALREADY SHOWN IN THIS CHAT), pass its saved_id — that binds the exact product, store and price (incl. the sale price), so you only add quantity + notes (size/color). Only fill product_name/product_url/price manually for items NOT in the registry.
 ${loggedIn
   ? '- This user is signed in. Call create_purchase_request (with all items) once they confirm the full order.'
   : '- This user is a GUEST. When they confirm the full order, call create_account (name, email, phone) inline, then create the purchase request with all the items. Never send them away to a separate signup.'}
@@ -240,31 +240,33 @@ export default defineEventHandler(async (event) => {
       }),
 
       create_purchase_request: tool({
-        description: 'Submit a Purchase Request for Boxly to buy the item(s) in the US and ship to Mexico. Only after the user confirms. Requires the user to be signed in.',
+        description: 'Submit a Purchase Request for Boxly to buy the item(s) in the US and ship to Mexico. Only after the user confirms. Requires the user to be signed in. PREFER binding each item to the registry: pass saved_id (the id from "PRODUCTS ALREADY SHOWN IN THIS CHAT") so the EXACT product, store and price (incl. sale price) are used — you then only need quantity + notes for that item.',
         inputSchema: z.object({
           items: z.array(z.object({
-            product_name: z.string(),
-            product_url: z.string(),
-            price: z.number().describe('Listed USD price; 0 if unknown.').optional(),
+            saved_id: z.string().describe('Registry id of a product already shown in this chat — binds the exact product/price. When set, product_name/product_url/price are taken from the registry.').optional(),
+            product_name: z.string().describe('Required only if no saved_id.').optional(),
+            product_url: z.string().describe('Required only if no saved_id.').optional(),
+            price: z.number().describe('Listed USD price; 0 if unknown. Ignored when saved_id resolves a price.').optional(),
             quantity: z.number().int().min(1).default(1),
             notes: z.string().describe('Size/color/variant notes.').optional(),
           })).min(1),
         }),
         execute: async ({ items }) => {
           if (!token) return authedNote
+          const mapped = (items || []).map((it) => {
+            const saved = it.saved_id ? savedProducts.find((p) => p.id === it.saved_id) : null
+            return {
+              product_name: saved?.title ?? it.product_name ?? 'Producto',
+              product_url: saved?.url ?? it.product_url ?? '',
+              price: (saved?.price ?? it.price ?? 0),
+              quantity: it.quantity ?? 1,
+              notes: it.notes,
+            }
+          }).filter((it) => it.product_name || it.product_url)
           return callApi('/purchase-requests', {
             method: 'POST',
             token,
-            body: {
-              currency: 'usd',
-              items: items.map((it) => ({
-                product_name: it.product_name,
-                product_url: it.product_url,
-                price: it.price ?? 0,
-                quantity: it.quantity ?? 1,
-                notes: it.notes,
-              })),
-            },
+            body: { currency: 'usd', items: mapped },
           })
         },
       }),
