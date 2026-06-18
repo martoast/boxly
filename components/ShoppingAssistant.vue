@@ -283,12 +283,30 @@ const acct = reactive({ name: '', email: '', phone: '' })
 const acctLoading = ref(false)
 const acctError = ref('')
 
-const suggestions = [
+const DEFAULT_SUGGESTIONS = [
   { emoji: '🔥', text: 'Ofertas en YoungLA' },
   { emoji: '👟', text: 'New Balance en oferta' },
   { emoji: '🦅', text: 'American Eagle en oferta' },
   { emoji: '💧', text: 'Owala en oferta' },
 ]
+const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s)
+// Personalize the starter chips from the shopper's long-term memory (favorite
+// brands + interests), then top up with the defaults. Empty memory → defaults.
+const suggestions = computed(() => {
+  const p = shoppingProfile.value || {}
+  const out = []
+  for (const b of (Array.isArray(p.favorite_brands) ? p.favorite_brands : []).slice(0, 2)) {
+    if (b) out.push({ emoji: '🔥', text: `Ofertas en ${b}` })
+  }
+  const cats = [...(Array.isArray(p.interests) ? p.interests : []), ...(Array.isArray(p.categories) ? p.categories : [])]
+  for (const c of cats.slice(0, 2)) {
+    if (c) out.push({ emoji: '🛍️', text: `${cap(c)} en oferta` })
+  }
+  const seen = new Set()
+  return [...out, ...DEFAULT_SUGGESTIONS]
+    .filter((s) => { const k = s.text.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true })
+    .slice(0, 4)
+})
 
 const isBusy = computed(() => chat.status === 'streaming' || chat.status === 'submitted')
 const showTyping = computed(() => {

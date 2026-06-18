@@ -66,9 +66,11 @@ function interleave(arrays: any[][]) {
 }
 
 function systemPrompt(loggedIn: boolean, shoppingProfile: any, savedProducts: any[] = []) {
-  const profileBlock = shoppingProfile && Object.keys(shoppingProfile).length
-    ? `\n\nWhat you already know about this shopper (use it to refine searches; keep it updated via update_shopping_profile when you learn something durable):\n${JSON.stringify(shoppingProfile)}`
-    : ''
+  const profileBlock = !loggedIn
+    ? ''
+    : (shoppingProfile && Object.keys(shoppingProfile).length
+      ? `\n\nLONG-TERM MEMORY FOR THIS SHOPPER (persists across EVERY chat — this is what makes you feel personal). Apply it on every search WITHOUT being asked: use their saved gender, sizes, favorite brands, budget and interests automatically, and never re-ask for anything already here. Keep it current with update_shopping_profile the moment you learn something new:\n${JSON.stringify(shoppingProfile)}`
+      : `\n\nLONG-TERM MEMORY FOR THIS SHOPPER: empty so far. As you learn durable facts (gender, sizes, favorite/disliked brands, the categories they shop for, budget, style), save them with update_shopping_profile so future chats feel personal and you never have to ask twice.`)
   const savedBlock = savedProducts && savedProducts.length
     ? `\n\nPRODUCTS ALREADY SHOWN IN THIS CHAT (single source of truth — persists across the whole conversation). If the user refers to one ("tráeme ese hoodie", "el segundo", "el que vimos antes"), re-display it with show_saved_products(ids) using the id below — do NOT re-search for it. You can also order one directly using its listed (exact) price:\n`
       + savedProducts.slice(-40).map((p: any) => `- ${p.id}: ${p.title}${p.store ? ' — ' + p.store : ''}${p.price ? ' — $' + p.price + (p.on_sale && p.was ? ' (oferta, antes $' + p.was + ')' : '') : ''}`).join('\n')
@@ -105,7 +107,10 @@ Your tools, and when to use them:
 - THE ORDER IS A CART — build it up, finalize at the end. When the user wants an item, ADD it to a running order. One Purchase Request can hold MULTIPLE items, even from DIFFERENT stores. For each item make sure you have the exact product + buy URL, the **size**, the **color/variant**, and the **quantity** (ask for anything missing, one or two friendly questions). Then confirm it's added and ask "¿algo más o lo pedimos?". Keep a short running list of what's in the order so far.
 - RESPECT THE SALE PRICE. Record each item at the EXACT price the customer saw. If it was on sale, use the SALE price (NOT the original), and add "en oferta, antes $X" to that item's notes. Never replace a sale price with a higher/regular price.
 - Put the size, color/variant and any options in each item's "notes" (e.g. "Talla M, color negro").
-- Save durable preferences with update_shopping_profile (sizes, favorite brands, budget).
+- LONG-TERM MEMORY (this is what makes you a PERSONAL shopper, not a search box). You keep a per-shopper memory that persists across ALL their chats — treat it as your knowledge of this person.
+  • USE IT silently every turn: fold their saved gender, sizes, favorite brands, budget and interests into your searches automatically (e.g. add their shoe size + gender to the query, lean on brands/niches they like when deal-scouting). NEVER ask for something the memory already holds.
+  • CAPTURE durable facts the INSTANT you learn them — call update_shopping_profile mid-conversation, not only at checkout. Save: gender; sizes per category (shoe, tops, bottoms, dress…); favorite_brands; disliked_brands / things they avoid; the categories they shop for; typical and max budget; style notes; recurring interests. A passing "I wear a 9.5" or "I love YoungLA" is worth saving immediately. Don't save one-off trivia or sensitive data.
+  • CANONICAL SHAPE to merge into: {gender, sizes:{shoe,tops,bottoms,…}, favorite_brands:[], disliked_brands:[], categories:[], budget:{typical,max}, interests:[], style_notes}. Merge is additive (lists union, keys overwrite) — to change a size just send the new value for that key.
 - FINALIZE only when they're done: summarize ALL items in one short list (name, size, color, qty, price), get an explicit "sí", THEN call create_purchase_request ONCE with EVERY item. Never create the request after just the first item. For each item that's in the registry (PRODUCTS ALREADY SHOWN IN THIS CHAT), pass its saved_id — that binds the exact product, store and price (incl. the sale price), so you only add quantity + notes (size/color). Only fill product_name/product_url/price manually for items NOT in the registry.
 ${loggedIn
   ? '- This user is signed in. Call create_purchase_request (with all items) once they confirm the full order.'
@@ -287,8 +292,8 @@ export default defineEventHandler(async (event) => {
       }),
 
       update_shopping_profile: tool({
-        description: 'Persist durable shopper preferences you learned (sizes, brands, categories, budget, style). Merge-updates.',
-        inputSchema: z.object({ profile: z.record(z.string(), z.any()).describe('Partial profile to merge, e.g. {sizes:{shoe:"10 US"}, brands:["Nike"]}.') }),
+        description: "Save durable facts about THIS shopper to their long-term memory (persists across all chats). Call it proactively the moment you learn something — a size, a favorite/disliked brand, a category they shop, gender, budget, style — not just at checkout. Additive deep-merge: send ONLY the keys you learned (lists union, keys overwrite).",
+        inputSchema: z.object({ profile: z.record(z.string(), z.any()).describe('Partial profile to merge. Canonical shape: {gender, sizes:{shoe,tops,bottoms,…}, favorite_brands:[], disliked_brands:[], categories:[], budget:{typical,max}, interests:[], style_notes}. E.g. {sizes:{shoe:"9.5 US"}, favorite_brands:["YoungLA"]}.') }),
         execute: async ({ profile }) => (token ? callApi('/me/shopping-profile', { method: 'PUT', token, body: { profile } }) : authedNote),
       }),
 
