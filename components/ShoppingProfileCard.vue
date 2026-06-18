@@ -43,11 +43,11 @@
             <dd class="text-sm text-gray-900">{{ genderLabel(form.gender) }}</dd>
           </div>
 
-          <div v-if="form.sizes.length">
+          <div v-if="sizesForDisplay.length">
             <dt class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">{{ c.sizes }}</dt>
             <dd class="flex flex-wrap gap-1.5">
-              <span v-for="s in form.sizes" :key="s.key" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-gray-100 text-sm text-gray-700">
-                <span class="text-gray-400">{{ sizeLabel(s.key) }}:</span> <span class="font-semibold">{{ s.value }}</span>
+              <span v-for="s in sizesForDisplay" :key="s.key" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-gray-100 text-sm text-gray-700">
+                <span class="text-gray-400">{{ sizeLabel(s.key) }}:</span> <span class="font-semibold">{{ s.values.join(', ') }}</span>
               </span>
             </dd>
           </div>
@@ -113,19 +113,22 @@
             </select>
           </div>
 
-          <!-- Sizes -->
+          <!-- Sizes — one or MORE per category (resellers buy a range). -->
           <div>
-            <label class="block text-xs font-semibold text-gray-500 uppercase mb-1.5">{{ c.sizes }}</label>
-            <div class="space-y-2">
-              <div v-for="(s, i) in form.sizes" :key="i" class="flex items-center gap-2">
-                <input v-model="s.key" :placeholder="c.sizeKeyPh" list="size-keys" class="w-1/3 border border-gray-200 rounded-xl px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-primary-500" />
-                <input v-model="s.value" :placeholder="c.sizeValPh" class="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-primary-500" />
-                <button @click="form.sizes.splice(i, 1)" class="shrink-0 w-9 h-9 grid place-items-center rounded-xl text-gray-400 hover:text-red-600 hover:bg-red-50" :aria-label="c.remove">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                </button>
+            <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">{{ c.sizes }}</label>
+            <p class="text-xs text-gray-400 mb-2">{{ c.sizesHint }}</p>
+            <div class="space-y-3">
+              <div v-for="(s, i) in form.sizes" :key="i" class="rounded-xl border border-gray-200 p-3 space-y-2">
+                <div class="flex items-center gap-2">
+                  <input v-model="s.key" :placeholder="c.sizeKeyPh" list="size-keys" class="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                  <button @click="form.sizes.splice(i, 1)" class="shrink-0 w-9 h-9 grid place-items-center rounded-xl text-gray-400 hover:text-red-600 hover:bg-red-50" :aria-label="c.remove">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                  </button>
+                </div>
+                <TagEditor :placeholder="c.sizeValPh" :add-label="c.add" v-model="s.values" tone="gray" />
               </div>
               <datalist id="size-keys"><option value="shoe" /><option value="tops" /><option value="bottoms" /><option value="dress" /><option value="waist" /></datalist>
-              <button @click="form.sizes.push({ key: '', value: '' })" class="text-sm font-semibold text-primary-600 hover:text-primary-700">+ {{ c.addSize }}</button>
+              <button @click="form.sizes.push({ key: '', values: [] })" class="text-sm font-semibold text-primary-600 hover:text-primary-700">+ {{ c.addSize }}</button>
             </div>
           </div>
 
@@ -188,8 +191,11 @@ const form = reactive({
   style_notes: '',
 })
 
+// Only categories that actually have one or more sizes (skip half-filled rows).
+const sizesForDisplay = computed(() => form.sizes.filter((s) => s.key && s.values.length))
+
 const isEmpty = computed(() =>
-  !form.gender && !form.sizes.length && !form.favorite_brands.length &&
+  !form.gender && !sizesForDisplay.value.length && !form.favorite_brands.length &&
   !form.disliked_brands.length && !form.categories.length && !form.interests.length &&
   !form.budget.typical && !form.budget.max && !form.style_notes
 )
@@ -197,8 +203,15 @@ const isEmpty = computed(() =>
 function hydrate(p) {
   p = p || {}
   form.gender = p.gender || ''
+  // Sizes are stored as a list per category (resellers carry a range). Accept a
+  // bare string from older profiles and normalize it to a single-item list.
   form.sizes = p.sizes && typeof p.sizes === 'object' && !Array.isArray(p.sizes)
-    ? Object.entries(p.sizes).map(([key, value]) => ({ key, value: String(value ?? '') }))
+    ? Object.entries(p.sizes).map(([key, value]) => ({
+        key,
+        values: Array.isArray(value)
+          ? value.map((v) => String(v)).filter(Boolean)
+          : (value != null && value !== '' ? [String(value)] : []),
+      }))
     : []
   form.favorite_brands = Array.isArray(p.favorite_brands) ? [...p.favorite_brands] : []
   form.disliked_brands = Array.isArray(p.disliked_brands) ? [...p.disliked_brands] : []
@@ -227,9 +240,10 @@ async function save() {
     // Re-key sizes (drop blank rows) and prune empty fields so the stored
     // profile stays clean. replace:true so removals actually persist.
     const sizes = {}
-    for (const { key, value } of form.sizes) {
-      const k = (key || '').trim(); const v = String(value ?? '').trim()
-      if (k && v) sizes[k] = v
+    for (const { key, values } of form.sizes) {
+      const k = (key || '').trim()
+      const vals = (values || []).map((v) => String(v).trim()).filter(Boolean)
+      if (k && vals.length) sizes[k] = vals
     }
     const budget = {}
     if (form.budget.typical !== '' && form.budget.typical != null) budget.typical = Number(form.budget.typical)
@@ -276,7 +290,8 @@ const COPY = {
     categories: 'Categorías', interests: 'Intereses', budget: 'Presupuesto', styleNotes: 'Notas de estilo',
     typical: 'Típico', max: 'Máx.', updated: 'Actualizado el',
     notSet: 'Sin especificar', female: 'Mujer', male: 'Hombre', unisex: 'Unisex',
-    sizeKeyPh: 'p. ej. calzado', sizeValPh: 'p. ej. 9.5 US', addSize: 'Agregar talla',
+    sizesHint: 'Agrega una o varias tallas por categoría. Útil si compras para varios clientes (revendedores).',
+    sizeKeyPh: 'p. ej. calzado', sizeValPh: 'Agrega una talla', addSize: 'Agregar categoría',
     brandPh: 'p. ej. YoungLA', catPh: 'p. ej. ropa de gym', stylePh: 'p. ej. oversized, colores neutros…',
     add: 'Agregar', remove: 'Quitar', save: 'Guardar', saving: 'Guardando…', cancel: 'Cancelar',
     saveError: 'No se pudo guardar. Intenta de nuevo.',
@@ -292,7 +307,8 @@ const COPY = {
     categories: 'Categories', interests: 'Interests', budget: 'Budget', styleNotes: 'Style notes',
     typical: 'Typical', max: 'Max', updated: 'Updated',
     notSet: 'Not set', female: 'Women', male: 'Men', unisex: 'Unisex',
-    sizeKeyPh: 'e.g. shoe', sizeValPh: 'e.g. 9.5 US', addSize: 'Add size',
+    sizesHint: 'Add one or more sizes per category. Handy if you buy for multiple customers (resellers).',
+    sizeKeyPh: 'e.g. shoe', sizeValPh: 'Add a size', addSize: 'Add category',
     brandPh: 'e.g. YoungLA', catPh: 'e.g. gym clothes', stylePh: 'e.g. oversized, neutral colors…',
     add: 'Add', remove: 'Remove', save: 'Save', saving: 'Saving…', cancel: 'Cancel',
     saveError: "Couldn't save. Please try again.",

@@ -1,6 +1,6 @@
 <template>
   <div>
-    <label class="block text-xs font-semibold text-gray-500 uppercase mb-1.5">{{ label }}</label>
+    <label v-if="label" class="block text-xs font-semibold text-gray-500 uppercase mb-1.5">{{ label }}</label>
     <div class="flex flex-wrap gap-1.5 mb-2" v-if="modelValue.length">
       <span v-for="(tag, i) in modelValue" :key="tag + i" :class="['inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-sm font-medium', toneClass]">
         {{ tag }}
