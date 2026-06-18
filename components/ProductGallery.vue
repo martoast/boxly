@@ -18,6 +18,7 @@
     <div
       ref="track"
       @scroll.passive="measure"
+      @wheel="onWheel"
       class="grid grid-flow-col items-start auto-cols-[10.5rem] md:auto-cols-[11.5rem] gap-3 overflow-x-auto pb-2 px-1 snap-x no-scrollbar scroll-smooth"
       :class="rows === 2 ? 'grid-rows-[auto_auto]' : 'grid-rows-[auto]'"
     >
@@ -66,8 +67,29 @@
       <div v-show="canScroll && !atEnd" class="pointer-events-none absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-gray-50 to-transparent"></div>
       <div v-show="canScroll && !atStart" class="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-gray-50 to-transparent"></div>
 
-      <!-- Faint nudging arrow: swipe-right cue -->
-      <div v-show="canScroll && !atEnd" class="swipe-arrow pointer-events-none absolute right-1.5 top-1/2">
+      <!-- Desktop arrow buttons: clickable scroll controls (hover devices only,
+           since touch users just swipe). -->
+      <button
+        v-show="canScroll && !atStart"
+        type="button"
+        @click="scrollByPage(-1)"
+        aria-label="Anterior"
+        class="hidden md:grid place-items-center w-9 h-9 rounded-full bg-white/95 shadow-md ring-1 ring-black/5 text-gray-600 hover:text-gray-900 hover:scale-105 active:scale-95 transition absolute left-1.5 top-1/2 -translate-y-1/2 z-10"
+      >
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+      </button>
+      <button
+        v-show="canScroll && !atEnd"
+        type="button"
+        @click="scrollByPage(1)"
+        aria-label="Siguiente"
+        class="hidden md:grid place-items-center w-9 h-9 rounded-full bg-white/95 shadow-md ring-1 ring-black/5 text-gray-600 hover:text-gray-900 hover:scale-105 active:scale-95 transition absolute right-1.5 top-1/2 -translate-y-1/2 z-10"
+      >
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+      </button>
+
+      <!-- Faint nudging arrow: swipe-right cue (touch only) -->
+      <div v-show="canScroll && !atEnd" class="md:hidden swipe-arrow pointer-events-none absolute right-1.5 top-1/2">
         <span class="grid place-items-center w-7 h-7 rounded-full bg-white/80 shadow-md ring-1 ring-black/5">
           <svg class="w-4 h-4 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
         </span>
@@ -138,6 +160,29 @@ function measure() {
   cw.value = el.clientWidth
 }
 const canScroll = computed(() => sw.value - cw.value > 4)
+
+// Desktop: translate vertical wheel into horizontal scroll (a plain mouse wheel
+// only emits deltaY, so the carousel would feel "stuck" otherwise). Let real
+// horizontal intent (trackpad deltaX) through untouched.
+function onWheel(e) {
+  const el = track.value
+  if (!el || sw.value - cw.value <= 4) return
+  if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return // already horizontal
+  const atLeft = el.scrollLeft <= 0
+  const atRight = el.scrollLeft >= sw.value - cw.value - 1
+  // Only hijack the wheel while there's room to scroll in that direction —
+  // otherwise let the page scroll normally past the carousel.
+  if ((e.deltaY < 0 && atLeft) || (e.deltaY > 0 && atRight)) return
+  e.preventDefault()
+  el.scrollLeft += e.deltaY
+}
+
+// Desktop arrow buttons: jump by roughly one viewport of cards.
+function scrollByPage(dir) {
+  const el = track.value
+  if (!el) return
+  el.scrollBy({ left: dir * Math.max(160, el.clientWidth * 0.8), behavior: 'smooth' })
+}
 const atStart = computed(() => sl.value <= 2)
 const atEnd = computed(() => sl.value >= sw.value - cw.value - 2)
 const thumbWidth = computed(() => (sw.value ? Math.max(14, Math.min(100, (cw.value / sw.value) * 100)) : 100))
