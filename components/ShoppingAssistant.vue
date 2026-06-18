@@ -6,7 +6,7 @@
     </Transition>
     <Transition name="drawer">
       <aside v-if="user && drawerOpen" class="md:hidden absolute inset-y-0 left-0 z-50 w-72 bg-white border-r border-gray-200 flex flex-col shadow-2xl">
-        <ConversationsList :conversations="conversations" :active-id="activeId" @new="newChat" @open="openChat" @delete="deleteConversation" />
+        <ConversationsList :conversations="conversations" :active-id="activeId" @new="newChat" @open="openChat" @delete="deleteConversation" @memory="showMemory = true" />
       </aside>
     </Transition>
 
@@ -23,9 +23,14 @@
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
         </button>
         <span class="text-sm font-semibold text-gray-700 truncate px-2">{{ activeTitle }}</span>
-        <button @click="newChat" class="p-2 -mr-1 rounded-lg text-primary-600 active:scale-90 transition-transform" aria-label="Nuevo chat">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-        </button>
+        <div class="flex items-center">
+          <button @click="showMemory = true" class="p-2 rounded-lg text-gray-600 active:scale-90 transition-transform" aria-label="Tu perfil de compras">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+          </button>
+          <button @click="newChat" class="p-2 -mr-1 rounded-lg text-primary-600 active:scale-90 transition-transform" aria-label="Nuevo chat">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          </button>
+        </div>
       </header>
 
       <!-- ===== LOADING A CONVERSATION (from history) ===== -->
@@ -160,6 +165,22 @@
 
     <!-- Full-screen product detail modal -->
     <ProductModal :product="selectedProduct" @close="selectedProduct = null" @pick="onModalPick" />
+
+    <!-- Shopping-profile (assistant memory) modal -->
+    <Transition name="backdrop">
+      <div v-if="showMemory" class="absolute inset-0 z-[60] bg-black/40 backdrop-blur-sm overflow-y-auto">
+        <div class="min-h-full flex items-start justify-center p-3 md:p-6" @click.self="closeMemory">
+          <Transition name="pop" appear>
+            <div v-if="showMemory" class="w-full max-w-lg relative my-2 md:my-6">
+              <button @click="closeMemory" class="absolute -top-2.5 -right-2.5 z-10 w-9 h-9 grid place-items-center rounded-full bg-white shadow-lg ring-1 ring-black/5 text-gray-500 hover:text-gray-900 active:scale-90 transition" aria-label="Cerrar">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+              <ShoppingProfileCard />
+            </div>
+          </Transition>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -215,6 +236,10 @@ const scroller = ref(null)
 const drawerOpen = ref(false)
 const loadingChat = ref(false)
 const selectedProduct = ref(null)
+const showMemory = ref(false)
+// Reload the profile on close so edits made in the modal immediately flow into
+// the assistant's personalization (system prompt + starter suggestions).
+function closeMemory() { showMemory.value = false; loadProfile() }
 let openSeq = 0
 // In-memory cache of opened conversations (id -> { messages, oldestId, hasMore,
 // products }) for instant re-open. Pagination state for the ACTIVE thread:
