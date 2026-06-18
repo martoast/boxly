@@ -32,6 +32,15 @@
       <template v-else-if="!editing">
         <p class="text-sm text-gray-600 leading-relaxed mb-4">{{ c.intro }}</p>
 
+        <!-- Shopper type — the flow the assistant optimizes for. -->
+        <div v-if="form.shopper_type" class="mb-4">
+          <span :class="['inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-semibold', form.shopper_type === 'reseller' ? 'bg-amber-50 text-amber-700' : 'bg-primary-50 text-primary-700']">
+            <svg v-if="form.shopper_type === 'reseller'" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5a1.99 1.99 0 011.414.586l7 7a2 2 0 010 2.828l-5 5a2 2 0 01-2.828 0l-7-7A2 2 0 014 12V7a4 4 0 014-4z"/></svg>
+            <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+            {{ form.shopper_type === 'reseller' ? c.reseller : c.personal }}
+          </span>
+        </div>
+
         <div v-if="isEmpty" class="rounded-xl bg-gray-50 border border-dashed border-gray-200 px-4 py-6 text-center">
           <p class="text-sm text-gray-500">{{ c.emptyTitle }}</p>
           <p class="text-xs text-gray-400 mt-1">{{ c.emptyHint }}</p>
@@ -102,6 +111,29 @@
       <!-- ===== EDIT VIEW ===== -->
       <template v-else>
         <div class="space-y-5">
+          <!-- Shopper type — drives how the assistant helps (and the sizes UI). -->
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 uppercase mb-1.5">{{ c.forWhom }}</label>
+            <div class="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                @click="form.shopper_type = 'personal'"
+                :class="['text-left rounded-xl border p-3 transition-all', form.shopper_type === 'personal' ? 'border-primary-500 bg-primary-50 ring-1 ring-primary-200' : 'border-gray-200 hover:border-gray-300']"
+              >
+                <span class="block font-semibold text-sm text-gray-900">{{ c.personal }}</span>
+                <span class="block text-xs text-gray-500 mt-0.5">{{ c.personalDesc }}</span>
+              </button>
+              <button
+                type="button"
+                @click="form.shopper_type = 'reseller'"
+                :class="['text-left rounded-xl border p-3 transition-all', form.shopper_type === 'reseller' ? 'border-amber-500 bg-amber-50 ring-1 ring-amber-200' : 'border-gray-200 hover:border-gray-300']"
+              >
+                <span class="block font-semibold text-sm text-gray-900">{{ c.reseller }}</span>
+                <span class="block text-xs text-gray-500 mt-0.5">{{ c.resellerDesc }}</span>
+              </button>
+            </div>
+          </div>
+
           <!-- Gender -->
           <div>
             <label class="block text-xs font-semibold text-gray-500 uppercase mb-1.5">{{ c.gender }}</label>
@@ -113,19 +145,21 @@
             </select>
           </div>
 
-          <!-- Sizes — one or MORE per category (resellers buy a range). -->
+          <!-- Sizes — single value for a personal shopper, a range for a reseller. -->
           <div>
             <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">{{ c.sizes }}</label>
-            <p class="text-xs text-gray-400 mb-2">{{ c.sizesHint }}</p>
+            <p class="text-xs text-gray-400 mb-2">{{ multiSize ? c.sizesHintReseller : c.sizesHintPersonal }}</p>
             <div class="space-y-3">
-              <div v-for="(s, i) in form.sizes" :key="i" class="rounded-xl border border-gray-200 p-3 space-y-2">
+              <div v-for="(s, i) in form.sizes" :key="i" class="rounded-xl border border-gray-200 p-3" :class="multiSize ? 'space-y-2' : ''">
                 <div class="flex items-center gap-2">
-                  <input v-model="s.key" :placeholder="c.sizeKeyPh" list="size-keys" class="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                  <input v-model="s.key" :placeholder="c.sizeKeyPh" list="size-keys" class="w-1/3 border border-gray-200 rounded-xl px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                  <input v-if="!multiSize" :value="s.values[0] || ''" @input="setSingle(s, $event.target.value)" :placeholder="c.sizeValPhSingle" class="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                  <span v-else class="flex-1"></span>
                   <button @click="form.sizes.splice(i, 1)" class="shrink-0 w-9 h-9 grid place-items-center rounded-xl text-gray-400 hover:text-red-600 hover:bg-red-50" :aria-label="c.remove">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                   </button>
                 </div>
-                <TagEditor :placeholder="c.sizeValPh" :add-label="c.add" v-model="s.values" tone="gray" />
+                <TagEditor v-if="multiSize" :placeholder="c.sizeValPh" :add-label="c.add" v-model="s.values" tone="gray" />
               </div>
               <datalist id="size-keys"><option value="shoe" /><option value="tops" /><option value="bottoms" /><option value="dress" /><option value="waist" /></datalist>
               <button @click="form.sizes.push({ key: '', values: [] })" class="text-sm font-semibold text-primary-600 hover:text-primary-700">+ {{ c.addSize }}</button>
@@ -181,6 +215,7 @@ const updatedAt = ref('')
 // Editable model. Lists are flat arrays; sizes is an array of {key,value} rows
 // so they're easy to edit, then re-keyed into an object on save.
 const form = reactive({
+  shopper_type: '', // '' | 'personal' | 'reseller'
   gender: '',
   sizes: [],
   favorite_brands: [],
@@ -194,14 +229,19 @@ const form = reactive({
 // Only categories that actually have one or more sizes (skip half-filled rows).
 const sizesForDisplay = computed(() => form.sizes.filter((s) => s.key && s.values.length))
 
+// Resellers carry a RANGE per category; personal shoppers have one size. Show
+// the range (chip) editor for resellers, or if any category already holds >1.
+const multiSize = computed(() => form.shopper_type === 'reseller' || form.sizes.some((s) => s.values.length > 1))
+
 const isEmpty = computed(() =>
-  !form.gender && !sizesForDisplay.value.length && !form.favorite_brands.length &&
+  !form.shopper_type && !form.gender && !sizesForDisplay.value.length && !form.favorite_brands.length &&
   !form.disliked_brands.length && !form.categories.length && !form.interests.length &&
   !form.budget.typical && !form.budget.max && !form.style_notes
 )
 
 function hydrate(p) {
   p = p || {}
+  form.shopper_type = p.shopper_type || ''
   form.gender = p.gender || ''
   // Sizes are stored as a list per category (resellers carry a range). Accept a
   // bare string from older profiles and normalize it to a single-item list.
@@ -230,6 +270,10 @@ async function load() {
   } catch (e) { console.error(e) } finally { loading.value = false }
 }
 
+// Personal shoppers have one size per category — bind a single input to a
+// 1-item list so storage stays uniform with the reseller range.
+function setSingle(s, v) { s.values = v ? [v] : [] }
+
 function startEdit() { editing.value = true; error.value = '' }
 function cancel() { editing.value = false; error.value = ''; load() } // discard edits
 
@@ -250,6 +294,7 @@ async function save() {
     if (form.budget.max !== '' && form.budget.max != null) budget.max = Number(form.budget.max)
 
     const profile = {}
+    if (form.shopper_type) profile.shopper_type = form.shopper_type
     if (form.gender) profile.gender = form.gender
     if (Object.keys(sizes).length) profile.sizes = sizes
     if (form.favorite_brands.length) profile.favorite_brands = form.favorite_brands
@@ -286,12 +331,16 @@ const COPY = {
     edit: 'Editar', loading: 'Cargando…',
     emptyTitle: 'Aún no tengo notas sobre ti.',
     emptyHint: 'Mientras compras con el asistente, iré aprendiendo tus tallas y marcas favoritas. También puedes agregarlas tú con “Editar”.',
+    forWhom: '¿Para quién compras?',
+    personal: 'Para mí', personalDesc: 'Compro para mí mismo',
+    reseller: 'Para revender', resellerDesc: 'Compro para varios clientes',
     gender: 'Género', sizes: 'Tallas', favBrands: 'Marcas favoritas', dislikedBrands: 'Marcas que evitas',
     categories: 'Categorías', interests: 'Intereses', budget: 'Presupuesto', styleNotes: 'Notas de estilo',
     typical: 'Típico', max: 'Máx.', updated: 'Actualizado el',
     notSet: 'Sin especificar', female: 'Mujer', male: 'Hombre', unisex: 'Unisex',
-    sizesHint: 'Agrega una o varias tallas por categoría. Útil si compras para varios clientes (revendedores).',
-    sizeKeyPh: 'p. ej. calzado', sizeValPh: 'Agrega una talla', addSize: 'Agregar categoría',
+    sizesHintPersonal: 'Tu talla por categoría. El asistente la usa automáticamente.',
+    sizesHintReseller: 'Agrega el rango de tallas que sueles comprar por categoría (para varios clientes).',
+    sizeKeyPh: 'p. ej. calzado', sizeValPh: 'Agrega una talla', sizeValPhSingle: 'p. ej. 9.5 US', addSize: 'Agregar categoría',
     brandPh: 'p. ej. YoungLA', catPh: 'p. ej. ropa de gym', stylePh: 'p. ej. oversized, colores neutros…',
     add: 'Agregar', remove: 'Quitar', save: 'Guardar', saving: 'Guardando…', cancel: 'Cancelar',
     saveError: 'No se pudo guardar. Intenta de nuevo.',
@@ -303,12 +352,16 @@ const COPY = {
     edit: 'Edit', loading: 'Loading…',
     emptyTitle: 'No notes about you yet.',
     emptyHint: 'As you shop with the assistant, it learns your sizes and favorite brands. You can also add them yourself with “Edit”.',
+    forWhom: 'Who do you shop for?',
+    personal: 'For myself', personalDesc: 'I buy for myself',
+    reseller: 'For resale', resellerDesc: 'I buy for multiple customers',
     gender: 'Gender', sizes: 'Sizes', favBrands: 'Favorite brands', dislikedBrands: 'Brands you avoid',
     categories: 'Categories', interests: 'Interests', budget: 'Budget', styleNotes: 'Style notes',
     typical: 'Typical', max: 'Max', updated: 'Updated',
     notSet: 'Not set', female: 'Women', male: 'Men', unisex: 'Unisex',
-    sizesHint: 'Add one or more sizes per category. Handy if you buy for multiple customers (resellers).',
-    sizeKeyPh: 'e.g. shoe', sizeValPh: 'Add a size', addSize: 'Add category',
+    sizesHintPersonal: 'Your size per category. The assistant applies it automatically.',
+    sizesHintReseller: 'Add the range of sizes you usually buy per category (for multiple customers).',
+    sizeKeyPh: 'e.g. shoe', sizeValPh: 'Add a size', sizeValPhSingle: 'e.g. 9.5 US', addSize: 'Add category',
     brandPh: 'e.g. YoungLA', catPh: 'e.g. gym clothes', stylePh: 'e.g. oversized, neutral colors…',
     add: 'Add', remove: 'Remove', save: 'Save', saving: 'Saving…', cancel: 'Cancel',
     saveError: "Couldn't save. Please try again.",
