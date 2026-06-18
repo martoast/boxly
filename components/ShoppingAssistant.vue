@@ -188,6 +188,23 @@ const { fullscreenMobile } = toRefs(props)
 const { $customFetch } = useNuxtApp()
 const user = useState('user')
 
+// --- URL <-> active chat sync ---
+// The page route is an optional param ([[id]]): /assistant + /assistant/<id>
+// (and the in-app /app/assistant variant). Same component for both, so changing
+// the id only updates the param — the live chat never remounts. We keep the URL
+// and activeId in lockstep so a refresh lands back in the same conversation.
+const route = useRoute()
+const router = useRouter()
+const initialId = route.params.id ? String(route.params.id) : null
+// basePath = the route without the id segment (works for both entry points).
+const basePath = initialId ? route.path.slice(0, -(initialId.length + 1)) : route.path
+function syncUrl(id) {
+  const target = id ? `${basePath}/${id}` : basePath
+  // Path-equality guard makes this idempotent — no feedback loop with the route
+  // watcher below (whichever side changes first, the other becomes a no-op).
+  if (route.path !== target) router.replace(target)
+}
+
 const token = ref(null)
 const shoppingProfile = ref(null)
 const conversations = ref([])
@@ -306,6 +323,18 @@ const chat = new Chat({
 let inited = false
 onMounted(() => {
   watch(user, (u) => { if (u && !inited) initLoggedIn() }, { immediate: true })
+
+  // Keep the URL pointing at the active chat (replace = no history spam).
+  watch(activeId, (id) => syncUrl(id))
+
+  // React to the id changing in the URL itself — browser back/forward, or a
+  // pasted link — by opening that chat (or returning to the new-chat view).
+  watch(() => route.params.id, (raw) => {
+    const id = raw ? String(raw) : null
+    if (id === (activeId.value || null)) return
+    if (id) openChat(id)
+    else newChat()
+  })
 })
 
 async function initLoggedIn() {
@@ -313,6 +342,8 @@ async function initLoggedIn() {
   inited = true
   await Promise.all([loadConversations(), loadProfile()])
   ensureChatToken()
+  // Deep link / refresh: open the conversation named in the URL.
+  if (initialId) openChat(initialId)
 }
 
 async function loadProfile() {
@@ -505,6 +536,9 @@ async function openChat(id) {
     scrollDown()
   } catch (e) {
     console.error(e)
+    // Bad/forbidden id (e.g. a stale or pasted link) — fall back to the
+    // new-chat view so the user isn't stranded on a broken URL.
+    if (seq === openSeq && activeId.value === id) { activeId.value = null }
   } finally {
     if (seq === openSeq) loadingChat.value = false
   }
