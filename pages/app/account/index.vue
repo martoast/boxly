@@ -361,6 +361,9 @@
   </div>
 </div>
 
+            <!-- Shopping profile — the assistant's long-term memory -->
+            <ShoppingProfileCard />
+
             <!-- Connect your AI (MCP) -->
             <AiConnectCard />
           </div>
