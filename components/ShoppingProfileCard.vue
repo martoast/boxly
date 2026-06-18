@@ -1,5 +1,5 @@
 <template>
-  <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+  <div :class="bare ? '' : 'bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden'">
     <!-- Header -->
     <div class="px-6 py-4 border-b border-gray-100 flex items-center gap-3">
       <div class="w-9 h-9 rounded-xl bg-primary-50 flex items-center justify-center shrink-0">
@@ -203,6 +203,10 @@
 </template>
 
 <script setup>
+// bare = drop the outer card chrome (used inside the assistant modal, which
+// provides its own panel/sheet container).
+defineProps({ bare: { type: Boolean, default: false } })
+
 const { $customFetch } = useNuxtApp()
 const { language } = useLanguage()
 

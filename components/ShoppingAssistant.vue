@@ -166,21 +166,28 @@
     <!-- Full-screen product detail modal -->
     <ProductModal :product="selectedProduct" @close="selectedProduct = null" @pick="onModalPick" />
 
-    <!-- Shopping-profile (assistant memory) modal -->
-    <Transition name="backdrop">
-      <div v-if="showMemory" class="absolute inset-0 z-[60] bg-black/40 backdrop-blur-sm overflow-y-auto">
-        <div class="min-h-full flex items-start justify-center p-3 md:p-6" @click.self="closeMemory">
-          <Transition name="pop" appear>
-            <div v-if="showMemory" class="w-full max-w-lg relative my-2 md:my-6">
-              <button @click="closeMemory" class="absolute -top-2.5 -right-2.5 z-10 w-9 h-9 grid place-items-center rounded-full bg-white shadow-lg ring-1 ring-black/5 text-gray-500 hover:text-gray-900 active:scale-90 transition" aria-label="Cerrar">
+    <!-- Shopping-profile (assistant memory): bottom sheet on mobile, centered
+         dialog on desktop. Teleported to <body> so it's never clipped by the
+         chat container's overflow/stacking context. -->
+    <Teleport to="body">
+      <Transition name="backdrop">
+        <div v-if="showMemory" class="fixed inset-0 z-[100] flex items-end md:items-center justify-center" role="dialog" aria-modal="true">
+          <div class="absolute inset-0 bg-black/50 md:backdrop-blur-sm" @click="closeMemory"></div>
+          <Transition name="sheet" appear>
+            <div v-if="showMemory" class="relative w-full md:w-auto md:max-w-lg md:mx-4 flex flex-col max-h-[92vh] md:max-h-[85vh]">
+              <button @click="closeMemory" class="absolute -top-12 right-4 md:-top-3.5 md:-right-3.5 z-10 w-10 h-10 grid place-items-center rounded-full bg-white shadow-lg ring-1 ring-black/5 text-gray-600 hover:text-gray-900 active:scale-90 transition" aria-label="Cerrar">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
               </button>
-              <ShoppingProfileCard />
+              <div class="overflow-y-auto bg-white rounded-t-3xl md:rounded-3xl shadow-2xl pb-[max(1rem,env(safe-area-inset-bottom))] md:pb-0 md:w-[32rem] max-w-full">
+                <!-- grab handle (mobile only) -->
+                <div class="md:hidden pt-3 pb-1 flex justify-center"><span class="w-10 h-1.5 rounded-full bg-gray-300"></span></div>
+                <ShoppingProfileCard bare />
+              </div>
             </div>
           </Transition>
         </div>
-      </div>
-    </Transition>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
@@ -674,6 +681,18 @@ function scrollDown() {
 
 .pop-enter-from { opacity: 0; transform: translateY(12px) scale(.97); }
 .pop-enter-active { transition: opacity .3s ease, transform .3s cubic-bezier(.2,.8,.2,1); }
+
+/* Memory modal: slide up from the bottom on mobile (sheet)… */
+.sheet-enter-from, .sheet-leave-to { opacity: 0; transform: translateY(100%); }
+.sheet-enter-active, .sheet-leave-active { transition: opacity .25s ease, transform .32s cubic-bezier(.2,.8,.2,1); }
+/* …and a subtle pop when it's a centered desktop dialog. */
+@media (min-width: 768px) {
+  .sheet-enter-from, .sheet-leave-to { transform: translateY(10px) scale(.97); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sheet-enter-active, .sheet-leave-active { transition: opacity .2s ease; }
+  .sheet-enter-from, .sheet-leave-to { transform: none; }
+}
 
 .drawer-enter-from, .drawer-leave-to { transform: translateX(-100%); }
 .drawer-enter-active, .drawer-leave-active { transition: transform .28s cubic-bezier(.2,.8,.2,1); }
