@@ -22,12 +22,14 @@
       class="grid grid-flow-col items-start auto-cols-[10.5rem] md:auto-cols-[11.5rem] gap-3 overflow-x-auto pb-2 px-1 snap-x no-scrollbar scroll-smooth"
       :class="rows === 2 ? 'grid-rows-[auto_auto]' : 'grid-rows-[auto]'"
     >
-      <button
+      <div
         v-for="(p, i) in visible"
         :key="i"
-        type="button"
+        role="button"
+        tabindex="0"
         @click="$emit('open', p)"
-        class="group snap-start text-left bg-white border border-gray-200/80 rounded-2xl overflow-hidden shadow-sm hover:shadow-lg hover:border-gray-300 hover:-translate-y-1 active:scale-[.98] transition-all duration-200 flex flex-col"
+        @keydown.enter="$emit('open', p)"
+        class="group snap-start cursor-pointer text-left bg-white border border-gray-200/80 rounded-2xl overflow-hidden shadow-sm hover:shadow-lg hover:border-gray-300 hover:-translate-y-1 transition-all duration-200 flex flex-col"
       >
         <!-- Fixed-pixel image height (NOT aspect-ratio): iOS Safari won't resolve
              max-height:100% against an aspect-ratio box, which let images blow
@@ -45,11 +47,12 @@
             />
             <span v-else class="text-[13px] font-bold text-gray-400 uppercase tracking-wide leading-tight line-clamp-3 text-center px-1">{{ p.store || p.title }}</span>
           </div>
-          <span v-if="p.onSale" class="absolute top-2 left-2 px-1.5 py-0.5 rounded-md bg-red-500 text-white text-[10px] font-bold shadow-sm">OFERTA</span>
+          <span v-if="p.onSale && i === 0" class="absolute top-2 left-2 px-1.5 py-0.5 rounded-md bg-red-500 text-white text-[10px] font-bold shadow-sm">🔥 MEJOR OFERTA</span>
+          <span v-else-if="p.onSale" class="absolute top-2 left-2 px-1.5 py-0.5 rounded-md bg-red-500 text-white text-[10px] font-bold shadow-sm">OFERTA</span>
         </div>
 
         <!-- Deterministic-height info block (title reserves 2 lines). -->
-        <div class="p-3 pt-2.5 flex flex-col">
+        <div class="p-3 pt-2.5 flex flex-col flex-1">
           <p v-if="p.store" class="text-[10px] uppercase tracking-wider text-primary-500 font-bold truncate">{{ p.store }}</p>
           <span class="text-[13px] font-semibold text-gray-900 leading-snug line-clamp-2 min-h-[2.5rem] group-hover:text-primary-600 transition-colors mt-0.5">{{ p.title }}</span>
 
@@ -59,8 +62,21 @@
           </p>
           <p v-if="p.price" class="text-[10px] text-gray-400 mt-0.5">Precio de tienda</p>
           <p v-else-if="p.note" class="text-[11px] text-gray-400 line-clamp-2 mt-1">{{ p.note }}</p>
+
+          <!-- BOXLY reinforcement + one-tap purchase request -->
+          <div class="mt-auto pt-2.5">
+            <p class="flex items-center gap-1 text-[10px] text-gray-400 mb-1.5">
+              <svg class="w-3 h-3 text-primary-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+              Compra asistida por Boxly
+            </p>
+            <button
+              type="button"
+              @click.stop="$emit('order', p)"
+              class="w-full py-2 rounded-xl bg-primary-500 hover:bg-primary-600 active:scale-[.97] text-white text-[12.5px] font-bold shadow-sm shadow-primary-500/20 transition-all"
+            >Pedir con Boxly</button>
+          </div>
         </div>
-      </button>
+      </div>
     </div>
 
       <!-- Edge fades: hint there's more to either side -->
@@ -110,7 +126,7 @@
 
 <script setup>
 const props = defineProps({ products: { type: Array, default: () => [] } })
-defineEmits(['open'])
+defineEmits(['open', 'order'])
 
 const activeStore = ref(null)
 

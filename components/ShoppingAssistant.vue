@@ -47,10 +47,16 @@
       <!-- ===== EMPTY STATE — headline centered, suggestions + input at bottom ===== -->
       <Transition name="fade-fast">
         <div v-if="!loadingChat && !chat.messages.length" class="flex-1 flex flex-col min-h-0">
-          <!-- centered headline -->
+          <!-- centered headline + value props -->
           <div class="flex-1 flex flex-col items-center justify-center px-6 text-center">
-            <h1 class="text-[26px] leading-tight md:text-4xl font-extrabold text-gray-900 tracking-tight">¿Qué quieres comprar de EE.UU.?</h1>
-            <p class="text-gray-500 mt-3 text-[15px] md:text-base max-w-md leading-relaxed">Dime qué buscas.</p>
+            <h1 class="text-[26px] leading-tight md:text-4xl font-extrabold text-gray-900 tracking-tight">¿Qué quieres comprar de USA hoy?</h1>
+            <p class="text-gray-500 mt-3 text-[15px] md:text-base max-w-md leading-relaxed">Lo encuentras, <span class="font-semibold text-gray-700">Boxly lo compra y te lo trae a tu puerta en México</span>.</p>
+            <div class="mt-5 grid grid-cols-2 gap-x-5 gap-y-2 text-left">
+              <span v-for="v in valueProps" :key="v" class="flex items-center gap-1.5 text-[13px] text-gray-600">
+                <svg class="w-4 h-4 text-primary-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                {{ v }}
+              </span>
+            </div>
           </div>
 
           <!-- suggestions (compact rows) + composer, anchored at the bottom -->
@@ -87,7 +93,7 @@
                   <div v-if="part.type === 'text' && m.role === 'user'" class="whitespace-pre-wrap text-[15px] leading-relaxed">{{ part.text }}</div>
                   <div v-else-if="part.type === 'text'" class="bg-white border border-gray-100 rounded-3xl rounded-bl-lg px-4 py-3 shadow-sm text-[15px]"><MarkdownText :text="part.text" /></div>
 
-                  <ProductGallery v-else-if="(part.type === 'tool-show_products' || part.type === 'tool-browse_store' || part.type === 'tool-browse_stores' || part.type === 'tool-search_products' || part.type === 'tool-show_saved_products') && part.state === 'output-available'" :products="part.output?.products || []" @open="openProduct" />
+                  <ProductGallery v-else-if="(part.type === 'tool-show_products' || part.type === 'tool-browse_store' || part.type === 'tool-browse_stores' || part.type === 'tool-search_products' || part.type === 'tool-show_saved_products') && part.state === 'output-available'" :products="part.output?.products || []" @open="openProduct" @order="onPickProduct" />
 
                   <div v-else-if="part.type === 'tool-search_products'" class="flex items-center gap-2 text-xs text-gray-400 pl-1">
                     <svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
@@ -315,6 +321,17 @@ const acct = reactive({ name: '', email: '', phone: '' })
 const acctLoading = ref(false)
 const acctError = ref('')
 
+// Boxly's value proposition — shown on the empty state so the assistant reads as
+// a U.S. shopping & import agent, not just a search box.
+const valueProps = [
+  'Miles de tiendas de USA',
+  'Sin VPN',
+  'Sin tarjeta americana',
+  'Boxly compra por ti',
+  'Entrega en todo México',
+  'Ideal para reventa',
+]
+
 const DEFAULT_SUGGESTIONS = [
   { emoji: '🔥', text: 'Ofertas en YoungLA' },
   { emoji: '👟', text: 'New Balance en oferta' },
@@ -443,8 +460,14 @@ function onComposerSend({ files } = {}) {
 }
 function quickSend(text) { input.value = text; onComposerSend() }
 
+// When the user taps "Pedir con Boxly"/"Agregar al pedido" while the assistant
+// is still streaming its follow-up text (common on desktop — mouse clicks land
+// faster than the stream finishes), we can't send mid-stream. Queue it and flush
+// the instant the chat is ready, so the button never silently does nothing.
+const pendingPick = ref(null)
 function onPickProduct(p) {
-  if (isBusy.value) return
+  ensureChatToken()
+  if (isBusy.value) { pendingPick.value = p; return }
   const store = p.store ? ` de ${p.store}` : ''
   // State the EXACT price the customer saw — the sale price if on sale — so the
   // AI records that price (not a re-extracted regular price).
@@ -496,6 +519,13 @@ async function submitAccount() {
 watch(() => chat.status, async (s) => {
   scrollDown()
   registerFromMessages() // keep the product registry current with what's shown
+  // Flush a product pick that was queued while the assistant was streaming.
+  if ((s === 'ready' || s === 'error') && pendingPick.value) {
+    const p = pendingPick.value
+    pendingPick.value = null
+    onPickProduct(p)
+    return
+  }
   if (s === 'ready' && user.value && chat.messages.length > savedCount.value) {
     await persist()
     maybeRetitle()

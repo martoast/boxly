@@ -60,9 +60,20 @@
 
             <p v-if="description" class="text-sm text-gray-600 leading-relaxed mt-4 whitespace-pre-line">{{ description }}</p>
 
+            <!-- Boxly value reinforcement -->
+            <div class="mt-4 rounded-2xl bg-primary-50/70 border border-primary-100 px-4 py-3">
+              <p class="text-[13px] font-bold text-primary-900 mb-1.5">Boxly se encarga de todo</p>
+              <ul class="space-y-1">
+                <li v-for="b in boxlyBenefits" :key="b" class="flex items-center gap-1.5 text-[12.5px] text-primary-800">
+                  <svg class="w-3.5 h-3.5 text-primary-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                  {{ b }}
+                </li>
+              </ul>
+            </div>
+
             <!-- CTAs -->
-            <button @click="pick" class="mt-5 w-full py-3 rounded-2xl bg-primary-500 hover:bg-primary-600 active:scale-[.98] text-white text-[15px] font-bold shadow-sm shadow-primary-500/25 transition-all">
-              Agregar al pedido
+            <button @click="pick" class="mt-4 w-full py-3 rounded-2xl bg-primary-500 hover:bg-primary-600 active:scale-[.98] text-white text-[15px] font-bold shadow-sm shadow-primary-500/25 transition-all">
+              Pedir con Boxly
             </button>
             <a :href="bestLink" target="_blank" rel="noopener noreferrer" class="mt-2 w-full flex items-center justify-center gap-1.5 py-3 rounded-2xl border border-gray-200 text-gray-700 text-[15px] font-semibold hover:bg-gray-50 active:scale-[.98] transition-all">
               Ver en línea
@@ -79,6 +90,12 @@
 const props = defineProps({ product: { type: Object, default: null } })
 const emit = defineEmits(['close', 'pick'])
 const { $customFetch } = useNuxtApp()
+
+const boxlyBenefits = [
+  'La compra por ti (sin tarjeta de USA)',
+  'La importa a México',
+  'Te la entrega en tu puerta',
+]
 
 function formatReviews(n) {
   const v = Number(n) || 0
