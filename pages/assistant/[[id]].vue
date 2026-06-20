@@ -1,15 +1,11 @@
 <template>
-  <ShoppingAssistant />
+  <SmartSearch />
 </template>
 
 <script setup>
-// Public entry — usable without an account. Guests can chat, discover, and
-// create their account inline; if they're already signed in, they get their
-// history sidebar too (same component).
-//
-// Optional [[id]] param: /assistant is the new-chat view, /assistant/<id> is a
-// specific conversation (logged-in users). Same component for both, so the live
-// chat survives the URL update and a refresh keeps you in the same chat.
+// Public entry to Boxly's U.S. shopping & import search. Search-first (no chat):
+// search → results gallery → product page → add to cart → one Purchase Request.
+// Guests can browse and search; checkout creates their account inline.
 definePageMeta({ layout: 'default' })
-useHead({ title: 'Asistente de compras — Boxly' })
+useHead({ title: 'Comprar de USA — Boxly' })
 </script>

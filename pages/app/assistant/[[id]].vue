@@ -1,19 +1,13 @@
 <template>
-  <ShoppingAssistant :fullscreen-mobile="true" />
+  <SmartSearch />
 </template>
 
 <script setup>
-// In-app entry — authenticated customers reach the assistant from inside their
-// account. Uses the full-screen 'assistant' layout so mobile shows a single
-// top bar (the chat header) instead of stacking the site navbar on top.
-//
-// Optional [[id]] param: /app/assistant is the new-chat view, /app/assistant/<id>
-// is a specific conversation. Same component for both (no remount on param
-// change), so the live chat survives when a new conversation gets its id and the
-// URL updates — and a refresh keeps you in the chat you're reading.
+// In-app entry to Boxly's U.S. shopping & import search. Search-first (no chat):
+// search → results gallery → product page → add to cart → one Purchase Request.
 definePageMeta({
   layout: 'assistant',
   middleware: ['auth', 'customer'],
 })
-useHead({ title: 'Asistente de compras — Boxly' })
+useHead({ title: 'Comprar de USA — Boxly' })
 </script>
