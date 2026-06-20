@@ -1,6 +1,10 @@
 <template>
   <div class="min-h-[100dvh] bg-gray-50">
-    <div class="max-w-5xl mx-auto px-3 md:px-6 py-4 md:py-8">
+    <!-- Lively loading takeover while we pull the full product on the fly. -->
+    <ProductLoader :show="loading" />
+
+    <Transition name="pd-reveal">
+    <div v-if="!loading" class="max-w-5xl mx-auto px-3 md:px-6 py-4 md:py-8">
       <button @click="goBack" class="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-500 hover:text-gray-900 mb-4">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
         Volver a resultados
@@ -33,12 +37,6 @@
             <span v-if="displayOnSale" class="px-1.5 py-0.5 rounded-md bg-red-500 text-white text-[10px] font-bold">OFERTA</span>
           </div>
           <p class="text-xs text-gray-400 mt-1">Precio de tienda · Boxly suma su comisión y el envío (se cotiza después).</p>
-
-          <!-- loading availability -->
-          <div v-if="loading" class="mt-5 flex items-center gap-2 text-sm text-gray-400">
-            <svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
-            Revisando disponibilidad y tallas…
-          </div>
 
           <!-- variant options -->
           <div v-for="opt in data.options" :key="opt.name" class="mt-5">
@@ -96,6 +94,7 @@
         </div>
       </div>
     </div>
+    </Transition>
 
     <CartButton />
   </div>
@@ -159,6 +158,8 @@ function initSelected() {
 }
 
 onMounted(async () => {
+  const startedAt = Date.now()
+  const MIN_MS = 1500 // let the loading animation breathe so it reads as "working"
   try {
     const r = await $customFetch('/products/page', {
       method: 'POST',
@@ -178,6 +179,8 @@ onMounted(async () => {
     data.has_variants = !!d.has_variants
     initSelected()
   } catch { /* keep the fields passed via query */ } finally {
+    const elapsed = Date.now() - startedAt
+    if (elapsed < MIN_MS) await new Promise((res) => setTimeout(res, MIN_MS - elapsed))
     loading.value = false
   }
 })
@@ -213,4 +216,9 @@ useHead({ title: () => (data.title ? `${data.title} — Boxly` : 'Producto — B
 <style scoped>
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Reveal the product once everything is fetched. */
+.pd-reveal-enter-from { opacity: 0; transform: translateY(10px); }
+.pd-reveal-enter-active { transition: opacity .4s ease, transform .4s cubic-bezier(.2,.8,.2,1); }
+@media (prefers-reduced-motion: reduce) { .pd-reveal-enter-active { transition: opacity .2s ease; } .pd-reveal-enter-from { transform: none; } }
 </style>
