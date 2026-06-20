@@ -1,16 +1,14 @@
 <template>
   <Teleport to="body">
-    <!-- Floating cart button -->
+    <!-- Floating request button -->
     <button
       v-if="count > 0 || open"
       @click="open = true"
       class="fixed z-[90] bottom-5 right-5 flex items-center gap-2 pl-4 pr-5 py-3 rounded-full bg-primary-500 hover:bg-primary-600 active:scale-95 text-white font-bold shadow-xl shadow-primary-500/30 transition-all"
-      aria-label="Ver carrito"
+      aria-label="Ver mi solicitud"
     >
-      <span class="relative">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
-      </span>
-      <span class="text-sm">{{ count }} {{ count === 1 ? 'artículo' : 'artículos' }}</span>
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
+      <span class="text-sm">Mi solicitud · {{ count }}</span>
     </button>
 
     <!-- Drawer -->
@@ -19,11 +17,14 @@
         <div class="absolute inset-0 bg-black/50" @click="open = false"></div>
         <Transition name="cart-slide" appear>
           <aside v-if="open" class="absolute inset-y-0 right-0 w-full sm:max-w-md bg-white shadow-2xl flex flex-col">
-            <header class="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
-              <h2 class="text-lg font-bold text-gray-900">Tu pedido</h2>
-              <button @click="open = false" class="p-2 -mr-2 rounded-lg text-gray-500 hover:text-gray-900 active:scale-90 transition" aria-label="Cerrar">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-              </button>
+            <header class="px-5 py-4 border-b border-gray-100 shrink-0">
+              <div class="flex items-center justify-between">
+                <h2 class="text-lg font-bold text-gray-900">Tu solicitud de compra</h2>
+                <button @click="open = false" class="p-2 -mr-2 rounded-lg text-gray-500 hover:text-gray-900 active:scale-90 transition" aria-label="Cerrar">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+              </div>
+              <p class="text-xs text-gray-500 mt-0.5">Productos que quieres que Boxly compre por ti</p>
             </header>
 
             <!-- Success -->
@@ -31,16 +32,16 @@
               <div class="w-14 h-14 rounded-full bg-green-100 grid place-items-center mb-4">
                 <svg class="w-7 h-7 text-green-600" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 011.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z" clip-rule="evenodd"/></svg>
               </div>
-              <h3 class="text-lg font-bold text-gray-900">¡Solicitud creada!</h3>
+              <h3 class="text-lg font-bold text-gray-900">¡Solicitud enviada!</h3>
               <p class="text-sm text-gray-500 mt-1">{{ placed }}</p>
-              <p class="text-sm text-gray-500 mt-2 max-w-xs">Boxly la revisará, comprará tus productos en EE.UU. y te enviará la cotización con el envío a México.</p>
+              <p class="text-sm text-gray-500 mt-2 max-w-xs">Boxly la revisará, comprará tus productos en EE.UU. y te enviará la <span class="font-semibold text-gray-700">cotización para que la apruebes</span>. Pagas solo cuando aceptes.</p>
               <NuxtLink to="/app/purchase-requests" class="mt-5 px-5 py-2.5 rounded-xl bg-primary-500 hover:bg-primary-600 text-white text-sm font-bold transition" @click="open = false">Ver mis solicitudes</NuxtLink>
               <button @click="placed = null; open = false" class="mt-2 text-sm text-gray-500 font-medium">Seguir buscando</button>
             </div>
 
             <!-- Empty -->
             <div v-else-if="!items.length" class="flex-1 flex flex-col items-center justify-center text-center px-6">
-              <p class="text-gray-500">Tu pedido está vacío.</p>
+              <p class="text-gray-500">Tu solicitud está vacía.</p>
               <p class="text-sm text-gray-400 mt-1">Busca productos de EE.UU. y agrégalos aquí.</p>
             </div>
 
@@ -72,29 +73,28 @@
                 </div>
               </div>
 
-              <!-- Guest account form -->
-              <div v-if="needAccount" class="px-4 pt-3 border-t border-gray-100 space-y-2">
-                <p class="text-sm font-bold text-gray-900">Crea tu cuenta para enviar tu pedido</p>
-                <input v-model="acct.name" placeholder="Nombre completo" class="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-primary-500" />
-                <input v-model="acct.email" type="email" inputmode="email" placeholder="Correo electrónico" class="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-primary-500" />
-                <input v-model="acct.phone" type="tel" inputmode="tel" placeholder="Teléfono (+52...)" class="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-primary-500" />
-              </div>
-
-              <!-- Footer / checkout -->
+              <!-- Footer -->
               <footer class="px-4 py-4 border-t border-gray-100 shrink-0 pb-[max(1rem,env(safe-area-inset-bottom))]">
-                <div class="flex items-center justify-between mb-1">
-                  <span class="text-sm text-gray-500">Subtotal (precio de tienda)</span>
+                <!-- No-payment clarity banner -->
+                <div class="flex gap-2.5 items-start bg-primary-50/70 border border-primary-100 rounded-xl px-3.5 py-2.5 mb-3">
+                  <svg class="w-4 h-4 text-primary-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                  <p class="text-[12px] text-primary-900 leading-snug"><span class="font-bold">No pagas nada ahora.</span> Esto es una solicitud para que Boxly compre estos productos por ti. Te enviaremos la cotización (producto + comisión + envío) para que la apruebes.</p>
+                </div>
+
+                <div class="flex items-center justify-between mb-3">
+                  <span class="text-sm text-gray-500">Valor aprox. en tienda</span>
                   <span class="text-base font-bold text-gray-900">${{ subtotal.toFixed(2) }} USD</span>
                 </div>
-                <p class="text-[11px] text-gray-400 mb-3">Boxly suma su comisión y el envío a México. Te lo cotizamos después de tu solicitud.</p>
+
                 <p v-if="error" class="text-sm text-red-600 mb-2">{{ error }}</p>
                 <button
-                  @click="checkout"
+                  @click="send"
                   :disabled="placing"
                   class="w-full py-3 rounded-2xl bg-primary-500 hover:bg-primary-600 active:scale-[.98] disabled:bg-gray-300 text-white font-bold shadow-sm shadow-primary-500/25 transition-all"
                 >
-                  {{ placing ? 'Creando solicitud…' : (needAccount ? 'Crear cuenta y pedir' : 'Crear solicitud de compra') }}
+                  {{ placing ? 'Enviando solicitud…' : 'Enviar solicitud a Boxly' }}
                 </button>
+                <p class="text-center text-[11px] text-gray-400 mt-2">Boxly la compra por ti y te la trae a México</p>
               </footer>
             </template>
           </aside>
@@ -112,25 +112,18 @@ const { items, count, subtotal, remove, setQty, clear, lineKey, open } = useCart
 const placing = ref(false)
 const placed = ref(null) // request_number on success
 const error = ref('')
-const acct = reactive({ name: '', email: '', phone: '' })
-const needAccount = computed(() => !user.value)
 
-async function checkout() {
+async function send() {
   error.value = ''
   if (!items.value.length) return
+  // Logged-in only for now (no inline account creation).
+  if (!user.value) {
+    error.value = 'Inicia sesión para enviar tu solicitud.'
+    return
+  }
+
   placing.value = true
   try {
-    // Guest → create the account inline first (signs them in via cookie).
-    if (!user.value) {
-      if (!acct.name || !acct.email || !acct.phone) {
-        error.value = 'Completa tus datos para enviar el pedido.'
-        placing.value = false
-        return
-      }
-      const res = await $customFetch('/auth/chat-register', { method: 'POST', body: { name: acct.name, email: acct.email, phone: acct.phone } })
-      user.value = res.user
-    }
-
     const payload = {
       currency: 'usd',
       items: items.value.map((it) => ({
@@ -146,12 +139,11 @@ async function checkout() {
     placed.value = (r?.data?.request_number) || (r?.request_number) || 'Solicitud enviada'
     clear()
   } catch (e) {
-    error.value = e?.data?.message || 'No se pudo crear la solicitud. Intenta de nuevo.'
+    error.value = e?.data?.message || 'No se pudo enviar la solicitud. Intenta de nuevo.'
   } finally {
     placing.value = false
   }
 }
-
 </script>
 
 <style scoped>
