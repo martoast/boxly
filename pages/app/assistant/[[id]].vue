@@ -1,10 +1,10 @@
 <template>
-  <SmartSearch />
+  <SearchLanding />
 </template>
 
 <script setup>
-// In-app entry to Boxly's U.S. shopping & import search. Search-first (no chat):
-// search → results gallery → product page → add to cart → one Purchase Request.
+// In-app entry — the Google-style centered search landing. Submitting navigates
+// to the dedicated /buscar results page (its own URL, refresh-safe).
 definePageMeta({
   layout: 'assistant',
   middleware: ['auth', 'customer'],

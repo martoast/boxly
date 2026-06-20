@@ -1,37 +1,25 @@
 <template>
   <div class="min-h-[100dvh] bg-gray-50 flex flex-col">
-    <!-- ===== Sticky search header ===== -->
+    <!-- Sticky search header -->
     <div class="sticky top-0 z-30 bg-white/90 backdrop-blur border-b border-gray-100">
       <div class="max-w-6xl mx-auto px-3 md:px-6 py-3">
         <div class="flex items-center gap-2">
+          <NuxtLink to="/assistant" class="shrink-0" aria-label="Inicio">
+            <img src="/logo.svg" alt="Boxly" class="w-9 h-9" />
+          </NuxtLink>
           <form class="flex-1 flex items-center gap-1 bg-white border border-gray-200 rounded-2xl pl-3 pr-1.5 py-1.5 shadow-sm focus-within:border-primary-400 focus-within:shadow-md transition-all" @submit.prevent="submitSearch">
             <svg class="w-5 h-5 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z"/></svg>
-            <input
-              v-model="q"
-              type="text"
-              inputmode="search"
-              enterkeyhint="search"
-              placeholder="Busca producto, marca o pega un link de EE.UU."
-              class="flex-1 min-w-0 border-0 bg-transparent px-1 py-1.5 text-[16px] text-gray-900 placeholder:text-gray-400 focus:outline-none"
-            />
-            <button v-if="q" type="button" @click="clearQuery" class="shrink-0 w-8 h-8 grid place-items-center rounded-full text-gray-400 hover:text-gray-600" aria-label="Limpiar">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-            </button>
-            <button type="button" @click="pickImage" class="shrink-0 w-9 h-9 grid place-items-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition" aria-label="Buscar por imagen">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-            </button>
-            <button type="submit" class="shrink-0 w-9 h-9 grid place-items-center rounded-full bg-primary-500 hover:bg-primary-600 active:scale-90 text-white transition" aria-label="Buscar">
-              <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.3" d="M14 5l7 7-7 7M21 12H3"/></svg>
-            </button>
-            <input ref="fileInput" type="file" accept="image/*" class="hidden" @change="onImage" />
+            <input v-model="q" type="text" inputmode="search" enterkeyhint="search" placeholder="Buscar…" class="flex-1 min-w-0 border-0 bg-transparent px-1 py-1.5 text-[16px] text-gray-900 placeholder:text-gray-400 focus:outline-none" />
+            <button v-if="q" type="button" @click="q = ''" class="shrink-0 w-8 h-8 grid place-items-center rounded-full text-gray-400 hover:text-gray-600" aria-label="Limpiar"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+            <button type="submit" class="shrink-0 w-9 h-9 grid place-items-center rounded-full bg-primary-500 hover:bg-primary-600 active:scale-90 text-white transition" aria-label="Buscar"><svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.3" d="M14 5l7 7-7 7M21 12H3"/></svg></button>
           </form>
           <button v-if="user" @click="showProfile = true" class="shrink-0 w-10 h-10 grid place-items-center rounded-xl border border-gray-200 text-gray-500 hover:text-primary-600 hover:border-gray-300 transition" aria-label="Tu perfil de compras" title="Tu perfil de compras">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
           </button>
         </div>
 
-        <!-- Filters (only once you've searched) -->
-        <div v-if="searched" class="flex items-center gap-2 mt-2.5 overflow-x-auto no-scrollbar">
+        <!-- Filters -->
+        <div class="flex items-center gap-2 mt-2.5 overflow-x-auto no-scrollbar">
           <button @click="toggleSale" :class="['shrink-0 px-3 py-1.5 rounded-full text-[12.5px] font-semibold border transition', filters.sale ? 'bg-red-500 text-white border-red-500' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300']">🔥 Ofertas</button>
           <div class="shrink-0 flex items-center gap-1 bg-white border border-gray-200 rounded-full px-2.5 py-1">
             <span class="text-[12px] text-gray-400">$</span>
@@ -45,49 +33,31 @@
       </div>
     </div>
 
-    <!-- ===== Body ===== -->
+    <!-- Body -->
     <div class="flex-1 max-w-6xl w-full mx-auto px-3 md:px-6 py-5">
-      <!-- Hero (no search yet) -->
-      <div v-if="!searched" class="flex flex-col items-center text-center pt-10 md:pt-16 pb-8">
-        <h1 class="text-[26px] leading-tight md:text-4xl font-extrabold text-gray-900 tracking-tight">¿Qué quieres comprar de USA hoy?</h1>
-        <p class="text-gray-500 mt-3 text-[15px] md:text-base max-w-md leading-relaxed">Búscalo en miles de tiendas de EE.UU. <span class="font-semibold text-gray-700">Boxly lo compra y te lo trae a tu puerta en México.</span></p>
-        <div class="mt-5 grid grid-cols-2 gap-x-5 gap-y-2 text-left">
-          <span v-for="v in valueProps" :key="v" class="flex items-center gap-1.5 text-[13px] text-gray-600">
-            <svg class="w-4 h-4 text-primary-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-            {{ v }}
-          </span>
-        </div>
-        <div class="mt-7 flex flex-wrap justify-center gap-2 max-w-lg">
-          <button v-for="s in suggestions" :key="s.text" @click="quickSearch(s.text)" class="px-3.5 py-2 rounded-full bg-white border border-gray-200 text-[13.5px] text-gray-700 hover:border-gray-300 hover:bg-gray-50 active:scale-95 transition">
-            {{ s.emoji }} {{ s.text }}
-          </button>
-        </div>
-      </div>
-
-      <!-- Loading skeleton -->
-      <div v-else-if="loading" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
+      <div v-if="loading" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
         <div v-for="n in 8" :key="n" class="bg-white border border-gray-100 rounded-2xl overflow-hidden animate-pulse">
           <div class="h-44 md:h-52 bg-gray-100"></div>
           <div class="p-3 space-y-2"><div class="h-3 w-1/2 bg-gray-100 rounded"></div><div class="h-3 w-3/4 bg-gray-100 rounded"></div><div class="h-4 w-1/3 bg-gray-100 rounded"></div></div>
         </div>
       </div>
 
-      <!-- Results -->
       <template v-else>
         <div v-if="results.length" class="flex items-baseline justify-between mb-3">
-          <p class="text-sm text-gray-500"><span class="font-semibold text-gray-700">{{ results.length }}</span> resultados<span v-if="priceRange"> · ${{ priceRange.min }}–${{ priceRange.max }} USD</span></p>
+          <p class="text-sm text-gray-500"><span class="font-semibold text-gray-700">{{ results.length }}</span> resultados para <span class="font-semibold text-gray-700">“{{ q }}”</span><span v-if="priceRange"> · ${{ priceRange.min }}–${{ priceRange.max }} USD</span></p>
         </div>
         <ResultsGrid v-if="results.length" :products="results" @open="goProduct" />
         <div v-else class="text-center py-20">
           <p class="text-gray-600 font-semibold">Sin resultados</p>
           <p class="text-sm text-gray-400 mt-1">Prueba con otras palabras, otra marca, o quita filtros.</p>
+          <NuxtLink to="/assistant" class="inline-block mt-4 text-sm font-semibold text-primary-600">← Nueva búsqueda</NuxtLink>
         </div>
       </template>
     </div>
 
     <CartButton />
 
-    <!-- Profile (memory) modal -->
+    <!-- Profile modal -->
     <Teleport to="body">
       <Transition name="sb-fade">
         <div v-if="showProfile" class="fixed inset-0 z-[110] flex items-end md:items-center justify-center" role="dialog" aria-modal="true">
@@ -119,11 +89,9 @@ const q = ref(String(route.query.q || ''))
 const results = ref([])
 const priceRange = ref(null)
 const loading = ref(false)
-const searched = ref(false)
 const error = ref('')
 const shoppingProfile = ref(null)
 const showProfile = ref(false)
-const fileInput = ref(null)
 
 const filters = reactive({
   store: String(route.query.store || ''),
@@ -133,36 +101,10 @@ const filters = reactive({
 })
 const hasFilters = computed(() => !!(filters.store || filters.min_price != null || filters.max_price != null || filters.sale))
 
-const valueProps = [
-  'Miles de tiendas de USA', 'Sin VPN', 'Sin tarjeta americana',
-  'Boxly compra por ti', 'Entrega en todo México', 'Ideal para reventa',
-]
-const DEFAULT_SUGGESTIONS = [
-  { emoji: '🔥', text: 'Ofertas en YoungLA' },
-  { emoji: '👟', text: 'New Balance en oferta' },
-  { emoji: '🦅', text: 'American Eagle' },
-  { emoji: '💧', text: 'Owala' },
-]
-const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s)
-const suggestions = computed(() => {
-  const p = shoppingProfile.value || {}
-  const out = []
-  if (p.shopper_type === 'reseller') out.push({ emoji: '📈', text: 'Mejores ofertas para revender' })
-  for (const b of (Array.isArray(p.favorite_brands) ? p.favorite_brands : []).slice(0, 2)) if (b) out.push({ emoji: '🔥', text: `Ofertas en ${b}` })
-  for (const c of [...(Array.isArray(p.interests) ? p.interests : []), ...(Array.isArray(p.categories) ? p.categories : [])].slice(0, 2)) if (c) out.push({ emoji: '🛍️', text: cap(c) })
-  const seen = new Set()
-  return [...out, ...DEFAULT_SUGGESTIONS].filter((s) => { const k = s.text.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true }).slice(0, 5)
-})
-
 async function loadProfile() {
   if (!user.value) return
   try { shoppingProfile.value = (await $customFetch('/me/shopping-profile')).data } catch { /* ignore */ }
 }
-
-onMounted(() => {
-  loadProfile()
-  if (q.value) runSearch(false)
-})
 
 function syncUrl() {
   const query = {}
@@ -171,35 +113,48 @@ function syncUrl() {
   if (filters.min_price != null) query.min = String(filters.min_price)
   if (filters.max_price != null) query.max = String(filters.max_price)
   if (filters.sale) query.sale = '1'
-  router.replace({ path: route.path, query })
+  router.replace({ path: '/buscar', query })
 }
 
-async function runSearch(updateUrl = true, imageData = null) {
+// Per-query cache in sessionStorage so a refresh restores results instantly and
+// they survive the reload (kept until the tab closes).
+function cacheKey() {
+  return 'boxly_results:' + JSON.stringify({ q: q.value.trim(), store: filters.store, min: filters.min_price, max: filters.max_price, sale: filters.sale })
+}
+function readCache() {
+  try { const raw = sessionStorage.getItem(cacheKey()); return raw ? JSON.parse(raw) : null } catch { return null }
+}
+function writeCache() {
+  try { sessionStorage.setItem(cacheKey(), JSON.stringify({ products: results.value, price_range: priceRange.value })) } catch { /* ignore */ }
+}
+
+async function runSearch({ imageData = null, useCache = true, updateUrl = true } = {}) {
   const text = q.value.trim()
-  if (!text && !imageData) return
+  if (!text && !imageData) { navigateTo('/assistant'); return }
+  if (updateUrl) syncUrl()
+
+  if (!imageData && useCache) {
+    const c = readCache()
+    if (c) { results.value = c.products || []; priceRange.value = c.price_range || null; loading.value = false; return }
+  }
+
   loading.value = true
   error.value = ''
-  searched.value = true
-  if (updateUrl) syncUrl()
   try {
     const r = await $fetch('/api/search', {
       method: 'POST',
       body: {
         q: text || undefined,
         image: imageData || undefined,
-        filters: {
-          store: filters.store || undefined,
-          min_price: filters.min_price ?? undefined,
-          max_price: filters.max_price ?? undefined,
-          sale: filters.sale || undefined,
-        },
+        filters: { store: filters.store || undefined, min_price: filters.min_price ?? undefined, max_price: filters.max_price ?? undefined, sale: filters.sale || undefined },
         shoppingProfile: shoppingProfile.value,
       },
     })
     if (r?.type === 'product' && r.product?.url) { goProduct({ url: r.product.url }); return }
     results.value = r?.products || []
     priceRange.value = r?.price_range || null
-    if (r?.query && !text) { q.value = r.query; syncUrl() } // image search fills the box
+    if (r?.query && !text) { q.value = r.query; syncUrl() } // image search fills the box + URL
+    writeCache()
   } catch {
     error.value = 'No se pudo buscar.'
     results.value = []
@@ -208,22 +163,24 @@ async function runSearch(updateUrl = true, imageData = null) {
   }
 }
 
-function submitSearch() { runSearch(true) }
-function quickSearch(text) { q.value = text; runSearch(true) }
-function clearQuery() { q.value = '' }
-function applyFilters() { if (searched.value) runSearch(true) }
-function toggleSale() { filters.sale = !filters.sale; applyFilters() }
-function clearFilters() { filters.store = ''; filters.min_price = null; filters.max_price = null; filters.sale = false; runSearch(true) }
+onMounted(() => {
+  loadProfile()
+  if (route.query.q) {
+    runSearch({ updateUrl: false })
+  } else if (route.query.img === '1') {
+    let img = null
+    try { img = sessionStorage.getItem('boxly_pending_image'); sessionStorage.removeItem('boxly_pending_image') } catch { /* ignore */ }
+    if (img) runSearch({ imageData: img, updateUrl: false })
+    else navigateTo('/assistant')
+  } else {
+    navigateTo('/assistant') // bare /buscar → back to the landing
+  }
+})
 
-function pickImage() { fileInput.value?.click() }
-function onImage(e) {
-  const f = e.target.files?.[0]
-  e.target.value = ''
-  if (!f) return
-  const reader = new FileReader()
-  reader.onload = () => runSearch(true, reader.result)
-  reader.readAsDataURL(f)
-}
+function submitSearch() { runSearch({ useCache: false }) }
+function applyFilters() { runSearch() }
+function toggleSale() { filters.sale = !filters.sale; applyFilters() }
+function clearFilters() { filters.store = ''; filters.min_price = null; filters.max_price = null; filters.sale = false; runSearch() }
 
 function goProduct(p) {
   const query = {}
