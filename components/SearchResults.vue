@@ -4,7 +4,7 @@
     <div class="sticky top-0 z-30 bg-white/90 backdrop-blur border-b border-gray-100">
       <div class="max-w-6xl mx-auto px-3 md:px-6 py-3">
         <div class="flex items-center gap-2">
-          <NuxtLink to="/assistant" class="shrink-0" aria-label="Inicio">
+          <NuxtLink to="/buscar" class="shrink-0" aria-label="Inicio">
             <img src="/logo.svg" alt="Boxly" class="w-9 h-9" />
           </NuxtLink>
           <form class="flex-1 flex items-center gap-1 bg-white border border-gray-200 rounded-2xl pl-3 pr-1.5 py-1.5 shadow-sm focus-within:border-primary-400 focus-within:shadow-md transition-all" @submit.prevent="submitSearch">
@@ -50,7 +50,7 @@
         <div v-else class="text-center py-20">
           <p class="text-gray-600 font-semibold">Sin resultados</p>
           <p class="text-sm text-gray-400 mt-1">Prueba con otras palabras, otra marca, o quita filtros.</p>
-          <NuxtLink to="/assistant" class="inline-block mt-4 text-sm font-semibold text-primary-600">← Nueva búsqueda</NuxtLink>
+          <NuxtLink to="/buscar" class="inline-block mt-4 text-sm font-semibold text-primary-600">← Nueva búsqueda</NuxtLink>
         </div>
       </template>
     </div>
@@ -113,7 +113,7 @@ function syncUrl() {
   if (filters.min_price != null) query.min = String(filters.min_price)
   if (filters.max_price != null) query.max = String(filters.max_price)
   if (filters.sale) query.sale = '1'
-  router.replace({ path: '/buscar', query })
+  router.replace({ path: '/buscar/resultados', query })
 }
 
 // Per-query cache in sessionStorage so a refresh restores results instantly and
@@ -130,7 +130,7 @@ function writeCache() {
 
 async function runSearch({ imageData = null, useCache = true, updateUrl = true } = {}) {
   const text = q.value.trim()
-  if (!text && !imageData) { navigateTo('/assistant'); return }
+  if (!text && !imageData) { navigateTo('/buscar'); return }
   if (updateUrl) syncUrl()
 
   if (!imageData && useCache) {
@@ -171,9 +171,9 @@ onMounted(() => {
     let img = null
     try { img = sessionStorage.getItem('boxly_pending_image'); sessionStorage.removeItem('boxly_pending_image') } catch { /* ignore */ }
     if (img) runSearch({ imageData: img, updateUrl: false })
-    else navigateTo('/assistant')
+    else navigateTo('/buscar')
   } else {
-    navigateTo('/assistant') // bare /buscar → back to the landing
+    navigateTo('/buscar') // bare /buscar/resultados → back to the landing
   }
 })
 

@@ -52,10 +52,10 @@
             <!-- AI Assistant -->
             <button
               type="button"
-              @click="handleNavigation('/app/assistant')"
+              @click="handleNavigation('/buscar')"
               class="inline-flex items-center gap-2 px-1 pt-1 border-b-2 text-sm font-medium transition-colors duration-200"
               :class="[
-                isActiveRoute('/app/assistant')
+                isActiveRoute('/buscar')
                   ? 'border-primary-500 text-gray-900'
                   : 'border-transparent text-gray-600 hover:border-gray-300 hover:text-gray-900',
               ]"
@@ -362,9 +362,9 @@
         <!-- AI Assistant -->
         <DisclosureButton
           as="button"
-          @click="handleNavigation('/app/assistant')"
+          @click="handleNavigation('/buscar')"
           :class="[
-            isActiveRoute('/app/assistant')
+            isActiveRoute('/buscar')
               ? 'bg-primary-50 border-primary-500 text-primary-600'
               : 'border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900',
             'block border-l-4 py-2 pl-3 pr-4 text-base font-medium sm:pl-5 sm:pr-6 w-full text-left',

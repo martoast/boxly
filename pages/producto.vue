@@ -222,7 +222,7 @@ function addToCart() {
 
 function goBack() {
   if (window.history.length > 1) router.back()
-  else navigateTo('/assistant')
+  else navigateTo('/buscar')
 }
 
 useHead({ title: () => (data.title ? `${data.title} — Boxly` : 'Producto — Boxly') })

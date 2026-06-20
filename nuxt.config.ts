@@ -13,6 +13,9 @@ export default defineNuxtConfig({
     '/app/**':   { ssr: false },
     '/login':    { ssr: false },
     '/register': { ssr: false },
+    // Legacy assistant entry points → the single clean search entry.
+    '/assistant':     { redirect: '/buscar' },
+    '/app/assistant': { redirect: '/buscar' },
   },
   app: {
     head: {

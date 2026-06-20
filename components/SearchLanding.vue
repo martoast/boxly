@@ -110,7 +110,7 @@ onMounted(async () => {
 function go() {
   const text = q.value.trim()
   if (!text) return
-  navigateTo({ path: '/buscar', query: { q: text } })
+  navigateTo({ path: '/buscar/resultados', query: { q: text } })
 }
 function goWith(text) { q.value = text; go() }
 
@@ -123,7 +123,7 @@ function onImage(e) {
   reader.onload = () => {
     // Stash the image for the results page to run the vision search.
     try { sessionStorage.setItem('boxly_pending_image', String(reader.result)) } catch { /* ignore */ }
-    navigateTo({ path: '/buscar', query: { img: '1' } })
+    navigateTo({ path: '/buscar/resultados', query: { img: '1' } })
   }
   reader.readAsDataURL(f)
 }
