@@ -9,26 +9,13 @@
           </NuxtLink>
           <form class="flex-1 flex items-center gap-1 bg-white border border-gray-200 rounded-2xl pl-3 pr-1.5 py-1.5 shadow-sm focus-within:border-primary-400 focus-within:shadow-md transition-all" @submit.prevent="submitSearch">
             <svg class="w-5 h-5 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z"/></svg>
-            <input v-model="q" type="text" inputmode="search" enterkeyhint="search" placeholder="Buscar…" class="flex-1 min-w-0 border-0 bg-transparent px-1 py-1.5 text-[16px] text-gray-900 placeholder:text-gray-400 focus:outline-none" />
+            <input v-model="q" type="text" inputmode="search" enterkeyhint="search" placeholder="Buscar…" class="flex-1 min-w-0 border-0 bg-transparent px-1 py-1.5 text-[16px] text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-0" />
             <button v-if="q" type="button" @click="q = ''" class="shrink-0 w-8 h-8 grid place-items-center rounded-full text-gray-400 hover:text-gray-600" aria-label="Limpiar"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
             <button type="submit" class="shrink-0 w-9 h-9 grid place-items-center rounded-full bg-primary-500 hover:bg-primary-600 active:scale-90 text-white transition" aria-label="Buscar"><svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.3" d="M14 5l7 7-7 7M21 12H3"/></svg></button>
           </form>
           <button v-if="user" @click="showProfile = true" class="shrink-0 w-10 h-10 grid place-items-center rounded-xl border border-gray-200 text-gray-500 hover:text-primary-600 hover:border-gray-300 transition" aria-label="Tu perfil de compras" title="Tu perfil de compras">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
           </button>
-        </div>
-
-        <!-- Filters -->
-        <div class="flex items-center gap-2 mt-2.5 overflow-x-auto no-scrollbar">
-          <button @click="toggleSale" :class="['shrink-0 px-3 py-1.5 rounded-full text-[12.5px] font-semibold border transition', filters.sale ? 'bg-red-500 text-white border-red-500' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300']">🔥 Ofertas</button>
-          <div class="shrink-0 flex items-center gap-1 bg-white border border-gray-200 rounded-full px-2.5 py-1">
-            <span class="text-[12px] text-gray-400">$</span>
-            <input v-model.number="filters.min_price" @change="applyFilters" type="number" inputmode="numeric" placeholder="mín" class="w-12 text-[12.5px] bg-transparent focus:outline-none" />
-            <span class="text-gray-300">–</span>
-            <input v-model.number="filters.max_price" @change="applyFilters" type="number" inputmode="numeric" placeholder="máx" class="w-12 text-[12.5px] bg-transparent focus:outline-none" />
-          </div>
-          <input v-model="filters.store" @keydown.enter="applyFilters" @blur="applyFilters" placeholder="Tienda" class="shrink-0 w-28 px-3 py-1.5 rounded-full text-[12.5px] bg-white border border-gray-200 focus:outline-none focus:border-primary-400" />
-          <button v-if="hasFilters" @click="clearFilters" class="shrink-0 px-3 py-1.5 text-[12.5px] font-semibold text-gray-500 hover:text-gray-800">Limpiar</button>
         </div>
       </div>
     </div>
@@ -93,13 +80,14 @@ const error = ref('')
 const shoppingProfile = ref(null)
 const showProfile = ref(false)
 
+// Filters can still arrive via the URL (e.g. a shared link), but there's no
+// in-header filter UI — the page is just the search box + results.
 const filters = reactive({
   store: String(route.query.store || ''),
   min_price: route.query.min ? Number(route.query.min) : null,
   max_price: route.query.max ? Number(route.query.max) : null,
   sale: route.query.sale === '1',
 })
-const hasFilters = computed(() => !!(filters.store || filters.min_price != null || filters.max_price != null || filters.sale))
 
 async function loadProfile() {
   if (!user.value) return
@@ -178,9 +166,6 @@ onMounted(() => {
 })
 
 function submitSearch() { runSearch({ useCache: false }) }
-function applyFilters() { runSearch() }
-function toggleSale() { filters.sale = !filters.sale; applyFilters() }
-function clearFilters() { filters.store = ''; filters.min_price = null; filters.max_price = null; filters.sale = false; runSearch() }
 
 function goProduct(p) {
   const query = {}
