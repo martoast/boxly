@@ -180,7 +180,43 @@ function initSelected() {
   }
 }
 
+// Cache the scraped product in sessionStorage, keyed by its identity (URL +
+// token), so a refresh / back / re-clicking the same product hydrates instantly
+// without re-scraping (saves the full fetch + API credits). Only selecting a
+// DIFFERENT product produces a new key → a fresh scrape.
+const CACHE_FIELDS = ['title', 'buy_url', 'store', 'price', 'was', 'on_sale', 'available', 'images', 'description', 'options', 'variants', 'has_variants']
+function productKey() {
+  const u = route.query.u ? String(route.query.u) : ''
+  const t = route.query.t ? String(route.query.t) : ''
+  if (!u && !t) return null
+  return 'boxly_product:' + u + '|' + t
+}
+function readProductCache() {
+  const k = productKey()
+  if (!k) return null
+  try { const raw = sessionStorage.getItem(k); return raw ? JSON.parse(raw) : null } catch { return null }
+}
+function writeProductCache() {
+  const k = productKey()
+  if (!k) return
+  try {
+    const payload = {}
+    for (const f of CACHE_FIELDS) payload[f] = data[f]
+    sessionStorage.setItem(k, JSON.stringify(payload))
+  } catch { /* quota/serialization — skip caching */ }
+}
+
 onMounted(async () => {
+  // Cache hit (refresh / back / same product) → hydrate instantly, no re-scrape.
+  const cached = readProductCache()
+  if (cached) {
+    for (const f of CACHE_FIELDS) if (cached[f] !== undefined) data[f] = cached[f]
+    mainIdx.value = 0
+    initSelected()
+    loading.value = false
+    return
+  }
+
   const startedAt = Date.now()
   const MIN_MS = 1500 // let the loading animation breathe so it reads as "working"
   try {
@@ -202,6 +238,7 @@ onMounted(async () => {
     data.variants = d.variants || []
     data.has_variants = !!d.has_variants
     initSelected()
+    writeProductCache() // only cache a successfully-scraped product
   } catch { /* keep the fields passed via query */ } finally {
     const elapsed = Date.now() - startedAt
     if (elapsed < MIN_MS) await new Promise((res) => setTimeout(res, MIN_MS - elapsed))
