@@ -56,7 +56,7 @@
     <!-- Profile modal -->
     <Teleport to="body">
       <Transition name="sb-fade">
-        <div v-if="showProfile" class="fixed inset-0 z-[110] flex items-end md:items-center justify-center" role="dialog" aria-modal="true">
+        <div v-if="showProfile" class="fixed inset-0 z-[1100] flex items-end md:items-center justify-center" role="dialog" aria-modal="true">
           <div class="absolute inset-0 bg-black/50 md:backdrop-blur-sm" @click="closeProfile"></div>
           <Transition name="sb-sheet" appear>
             <div v-if="showProfile" class="relative w-full md:w-auto md:max-w-lg md:mx-4 flex flex-col max-h-[92vh] md:max-h-[85vh]">

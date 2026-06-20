@@ -52,11 +52,19 @@
             </div>
           </div>
 
-          <!-- manual size only when the store exposes no options at all -->
+          <!-- No variants detected: keep it clean (this product has none). Offer
+               an OPTIONAL note only if the user knows they need a specific
+               size/variant we couldn't read from the store. -->
           <div v-if="!data.options.length" class="mt-5">
-            <label class="block text-[12px] font-semibold text-gray-700 mb-1.5">Talla / variante (opcional)</label>
-            <input v-model="manualSize" placeholder="p. ej. M, 9.5 US, negro" class="w-full md:w-60 border border-gray-200 rounded-xl px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-primary-500" />
-            <p class="text-[11px] text-gray-400 mt-1">No pudimos leer las tallas en vivo de esta tienda — dinos cuál quieres y Boxly la confirma al comprar.</p>
+            <button v-if="!showManual" type="button" @click="showManual = true" class="inline-flex items-center gap-1 text-[13px] font-semibold text-primary-600 hover:text-primary-700">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              Agregar talla o variante específica
+            </button>
+            <div v-else>
+              <label class="block text-[12px] font-semibold text-gray-700 mb-1.5">Talla / variante</label>
+              <input v-model="manualSize" placeholder="p. ej. M, 9.5 US, negro" class="w-full md:w-60 border border-gray-200 rounded-xl px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-primary-500" />
+              <p class="text-[11px] text-gray-400 mt-1">Boxly la confirma con la tienda al comprar.</p>
+            </div>
           </div>
 
           <p v-if="data.has_variants && selectedUnavailable" class="mt-3 text-sm font-semibold text-red-600">Esa variante está agotada — elige otra.</p>
@@ -134,6 +142,7 @@ const mainIdx = ref(0)
 const qty = ref(1)
 const selected = reactive({})
 const manualSize = ref('')
+const showManual = ref(false)
 
 const mainImage = computed(() => data.images[mainIdx.value] || data.images[0] || null)
 

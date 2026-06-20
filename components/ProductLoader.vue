@@ -1,7 +1,7 @@
 <template>
   <Teleport to="body">
     <Transition name="pl-fade">
-      <div v-if="show" class="fixed inset-0 z-[120] overflow-hidden bg-gradient-to-br from-white via-primary-50/40 to-primary-100/50">
+      <div v-if="show" class="fixed inset-0 z-[1200] overflow-hidden bg-gradient-to-br from-white via-primary-50/40 to-primary-100/50">
         <!-- drifting gradient blobs -->
         <div class="blob blob-a"></div>
         <div class="blob blob-b"></div>

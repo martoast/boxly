@@ -13,7 +13,7 @@
 
     <!-- Drawer -->
     <Transition name="cart-fade">
-      <div v-if="open" class="fixed inset-0 z-[110]" role="dialog" aria-modal="true">
+      <div v-if="open" class="fixed inset-0 z-[1100]" role="dialog" aria-modal="true">
         <div class="absolute inset-0 bg-black/50" @click="open = false"></div>
         <Transition name="cart-slide" appear>
           <aside v-if="open" class="absolute inset-y-0 right-0 w-full sm:max-w-md bg-white shadow-2xl flex flex-col">
