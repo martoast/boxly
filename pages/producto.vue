@@ -52,14 +52,15 @@
             </div>
           </div>
 
-          <!-- manual size when no live variants -->
-          <div v-if="!loading && !data.has_variants" class="mt-5">
+          <!-- manual size only when the store exposes no options at all -->
+          <div v-if="!data.options.length" class="mt-5">
             <label class="block text-[12px] font-semibold text-gray-700 mb-1.5">Talla / variante (opcional)</label>
             <input v-model="manualSize" placeholder="p. ej. M, 9.5 US, negro" class="w-full md:w-60 border border-gray-200 rounded-xl px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-primary-500" />
             <p class="text-[11px] text-gray-400 mt-1">No pudimos leer las tallas en vivo de esta tienda — dinos cuál quieres y Boxly la confirma al comprar.</p>
           </div>
 
           <p v-if="data.has_variants && selectedUnavailable" class="mt-3 text-sm font-semibold text-red-600">Esa variante está agotada — elige otra.</p>
+          <p v-else-if="!data.available" class="mt-3 text-sm font-semibold text-red-600">Agotado en la tienda ahora mismo.</p>
 
           <!-- qty + add -->
           <div class="flex items-center gap-3 mt-6">
@@ -126,6 +127,7 @@ const data = reactive({
   options: [],
   variants: [],
   has_variants: false,
+  available: true,
 })
 const loading = ref(true)
 const mainIdx = ref(0)
@@ -143,18 +145,30 @@ const selectedUnavailable = computed(() => data.has_variants && selectedVariant.
 const displayPrice = computed(() => selectedVariant.value?.price ?? data.price)
 const displayWas = computed(() => selectedVariant.value?.was ?? data.was)
 const displayOnSale = computed(() => selectedVariant.value?.on_sale ?? data.on_sale)
-const addDisabled = computed(() => loading.value || (data.has_variants && (!selectedVariant.value || !selectedVariant.value.available)))
+const addDisabled = computed(() => {
+  if (loading.value) return true
+  if (data.has_variants) return !selectedVariant.value || !selectedVariant.value.available
+  if (!data.available) return true // store reported out of stock
+  // Option lists without a live price/stock matrix (Amazon, Magento, etc.):
+  // just require every option to be chosen.
+  return data.options.some((o) => !selected[o.name])
+})
 
-// Is there an available variant carrying this option value (given other picks)?
+// Grey out an option value only when we have a live matrix that says it's gone.
 function valueAvailable(name, val) {
+  if (!data.has_variants) return true
   return data.variants.some((v) => v.available && v.options[name] === val &&
     data.options.every((o) => o.name === name || v.options[o.name] === selected[o.name]))
 }
 
 function initSelected() {
-  if (!data.variants.length) return
-  const first = data.variants.find((v) => v.available) || data.variants[0]
-  for (const opt of data.options) selected[opt.name] = first.options[opt.name]
+  if (data.variants.length) {
+    const first = data.variants.find((v) => v.available) || data.variants[0]
+    for (const opt of data.options) selected[opt.name] = first.options[opt.name]
+  } else {
+    // No matrix — default each option to its first value (changeable).
+    for (const opt of data.options) if (opt.values?.length) selected[opt.name] = opt.values[0]
+  }
 }
 
 onMounted(async () => {
@@ -170,6 +184,7 @@ onMounted(async () => {
     if (d.price != null) data.price = d.price
     if (d.was != null) data.was = d.was
     if (d.on_sale != null) data.on_sale = d.on_sale
+    if (d.available != null) data.available = d.available
     if (d.store) data.store = d.store
     if (d.buy_url) data.buy_url = d.buy_url
     if (Array.isArray(d.images) && d.images.length) { data.images = d.images; mainIdx.value = 0 }
@@ -187,7 +202,7 @@ onMounted(async () => {
 
 function addToCart() {
   if (addDisabled.value) return
-  const label = data.has_variants
+  const label = data.options.length
     ? data.options.map((o) => `${o.name}: ${selected[o.name]}`).join(', ')
     : (manualSize.value ? `Talla/variante: ${manualSize.value}` : '')
   cart.add({
