@@ -30,6 +30,17 @@
       </div>
 
       <template v-else>
+        <!-- Value-prop banner: reframe results as "Boxly buys these for you" -->
+        <div v-if="results.length" class="mb-4 rounded-2xl border border-primary-100 bg-primary-50/60 px-4 py-3">
+          <p class="text-[14px] md:text-[15px] font-bold text-gray-900 flex items-center gap-1.5">🇺🇸 Productos encontrados en tiendas de EE.UU.</p>
+          <div class="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-1.5">
+            <span v-for="b in bannerProps" :key="b" class="flex items-center gap-1.5 text-[12.5px] md:text-[13px] text-gray-700">
+              <svg class="w-4 h-4 text-primary-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+              {{ b }}
+            </span>
+          </div>
+        </div>
+
         <div v-if="results.length" class="flex items-baseline justify-between mb-3">
           <p class="text-sm text-gray-500"><span class="font-semibold text-gray-700">{{ results.length }}</span> resultados para <span class="font-semibold text-gray-700">“{{ q }}”</span><span v-if="priceRange"> · ${{ priceRange.min }}–${{ priceRange.max }} USD</span></p>
         </div>
@@ -78,6 +89,13 @@ const loading = ref(false)
 const error = ref('')
 const shoppingProfile = ref(null)
 const showProfile = ref(false)
+
+const bannerProps = [
+  'BOXLY los compra por ti',
+  'No necesitas tarjeta americana',
+  'Entrega a todo México',
+  'Pagas solo cuando apruebes la cotización',
+]
 
 // Price range across the results (Google Shopping returns up to ~40 per query).
 const priceRange = computed(() => {
