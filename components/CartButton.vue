@@ -116,6 +116,8 @@
 </template>
 
 <script setup>
+import { ref, computed } from 'vue'
+
 const { $customFetch } = useNuxtApp()
 const user = useState('user')
 const { items, count, subtotal, remove, setQty, clear, lineKey, open } = useCart()
