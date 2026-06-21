@@ -134,6 +134,9 @@
         <p class="text-red-700 text-sm mt-1">{{ request.admin_notes || t.noReason }}</p>
       </div>
 
+      <!-- Progress timeline — clear steps for the online assisted purchase -->
+      <PurchaseRequestTimeline v-if="request.source !== 'in_person'" :request="request" />
+
       <!-- ============================================================ -->
       <!-- IN-PERSON LAYOUT — trip + per-store categories + wishlist     -->
       <!-- ============================================================ -->
