@@ -65,6 +65,7 @@ export default defineEventHandler(async (event) => {
   const filters = body?.filters || {}
   let q = String(body?.q || '').trim()
   const image = body?.image
+  const start = Number(body?.start) || 0 // pagination offset for "Cargar más"
 
   // Image search → vision turns the photo into a query.
   if (!q && image) q = await describeImage(image)
@@ -98,7 +99,8 @@ export default defineEventHandler(async (event) => {
     min_price: filters.min_price ?? undefined,
     max_price: filters.max_price ?? undefined,
     sale: filters.sale || undefined,
-    limit: 24,
+    limit: 40,
+    start,
   })
 
   return {
@@ -106,6 +108,8 @@ export default defineEventHandler(async (event) => {
     query: q,
     products: r?.products || [],
     price_range: r?.price_range || null,
+    has_more: !!r?.has_more,
+    start,
     filters,
   }
 })

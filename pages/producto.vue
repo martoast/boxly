@@ -207,6 +207,9 @@ function writeProductCache() {
 }
 
 onMounted(async () => {
+  // No product in the URL → nothing to show; go back to search.
+  if (!route.query.u && !route.query.t) { navigateTo('/buscar'); return }
+
   // Cache hit (refresh / back / same product) → hydrate instantly, no re-scrape.
   const cached = readProductCache()
   if (cached) {
@@ -223,6 +226,7 @@ onMounted(async () => {
     const r = await $customFetch('/products/page', {
       method: 'POST',
       body: { url: route.query.u || undefined, token: route.query.t || undefined },
+      timeout: 30000, // never hang on a slow store; fall back to the card data
     })
     const d = r?.data || r || {}
     if (d.title) data.title = d.title

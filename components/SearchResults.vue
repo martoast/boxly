@@ -74,11 +74,16 @@ const router = useRouter()
 
 const q = ref(String(route.query.q || ''))
 const results = ref([])
-const priceRange = ref(null)
 const loading = ref(false)
 const error = ref('')
 const shoppingProfile = ref(null)
 const showProfile = ref(false)
+
+// Price range across the results (Google Shopping returns up to ~40 per query).
+const priceRange = computed(() => {
+  const ps = results.value.map((p) => Number(p.price ?? p.price_usd)).filter((n) => n > 0)
+  return ps.length ? { min: Math.min(...ps), max: Math.max(...ps) } : null
+})
 
 // Filters can still arrive via the URL (e.g. a shared link), but there's no
 // in-header filter UI — the page is just the search box + results.
@@ -113,7 +118,7 @@ function readCache() {
   try { const raw = sessionStorage.getItem(cacheKey()); return raw ? JSON.parse(raw) : null } catch { return null }
 }
 function writeCache() {
-  try { sessionStorage.setItem(cacheKey(), JSON.stringify({ products: results.value, price_range: priceRange.value })) } catch { /* ignore */ }
+  try { sessionStorage.setItem(cacheKey(), JSON.stringify({ products: results.value })) } catch { /* ignore */ }
 }
 
 async function runSearch({ imageData = null, useCache = true, updateUrl = true } = {}) {
@@ -123,7 +128,11 @@ async function runSearch({ imageData = null, useCache = true, updateUrl = true }
 
   if (!imageData && useCache) {
     const c = readCache()
-    if (c) { results.value = c.products || []; priceRange.value = c.price_range || null; loading.value = false; return }
+    if (c) {
+      results.value = c.products || []
+      loading.value = false
+      return
+    }
   }
 
   loading.value = true
@@ -140,7 +149,6 @@ async function runSearch({ imageData = null, useCache = true, updateUrl = true }
     })
     if (r?.type === 'product' && r.product?.url) { goProduct({ url: r.product.url }); return }
     results.value = r?.products || []
-    priceRange.value = r?.price_range || null
     if (r?.query && !text) { q.value = r.query; syncUrl() } // image search fills the box + URL
     writeCache()
   } catch {
