@@ -35,7 +35,18 @@
               <h3 class="text-lg font-bold text-gray-900">¡Solicitud enviada!</h3>
               <p class="text-sm text-gray-500 mt-1">{{ placed }}</p>
               <p class="text-sm text-gray-500 mt-2 max-w-xs">Boxly la revisará, comprará tus productos en EE.UU. y te enviará la <span class="font-semibold text-gray-700">cotización para que la apruebes</span>. Pagas solo cuando aceptes.</p>
-              <NuxtLink to="/app/purchase-requests" class="mt-5 px-5 py-2.5 rounded-xl bg-primary-500 hover:bg-primary-600 text-white text-sm font-bold transition" @click="open = false">Ver mis solicitudes</NuxtLink>
+
+              <!-- WhatsApp the shopping manager (Velonie) — answer their questions -->
+              <div class="mt-5 w-full max-w-xs rounded-2xl bg-green-50 border border-green-200 p-4 text-left">
+                <p class="text-sm font-bold text-gray-900">¿Tienes dudas sobre tu pedido?</p>
+                <p class="text-xs text-gray-600 mt-0.5">Escríbele a Velonie, tu compradora en Boxly. Te ayuda con cualquier pregunta sobre tu solicitud.</p>
+                <a :href="whatsappUrl" target="_blank" rel="noopener noreferrer" class="mt-3 w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-xl bg-green-600 hover:bg-green-700 active:scale-[.98] text-white text-sm font-bold transition">
+                  <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163a11.867 11.867 0 01-1.587-5.946C.16 5.335 5.495 0 12.05 0a11.82 11.82 0 018.413 3.488 11.82 11.82 0 013.48 8.414c-.003 6.557-5.338 11.892-11.893 11.892a11.9 11.9 0 01-5.688-1.448L.057 24zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884a9.86 9.86 0 001.51 5.26l-.999 3.648 3.978-1.207zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.096 3.2 5.077 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
+                  Escribir por WhatsApp
+                </a>
+              </div>
+
+              <NuxtLink to="/app/purchase-requests" class="mt-4 text-sm font-bold text-primary-600 hover:text-primary-700" @click="open = false">Ver mis solicitudes</NuxtLink>
               <button @click="placed = null; open = false" class="mt-2 text-sm text-gray-500 font-medium">Seguir buscando</button>
             </div>
 
@@ -112,6 +123,14 @@ const { items, count, subtotal, remove, setQty, clear, lineKey, open } = useCart
 const placing = ref(false)
 const placed = ref(null) // request_number on success
 const error = ref('')
+
+// WhatsApp the shopping manager (Velonie) with the new request number prefilled.
+const WHATSAPP_NUMBER = '16195591910'
+const whatsappUrl = computed(() => {
+  const ref = placed.value && placed.value !== 'Solicitud enviada' ? ` (${placed.value})` : ''
+  const msg = `Hola Boxly 👋 Acabo de enviar mi solicitud de compra${ref} y tengo una pregunta.`
+  return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(msg)}`
+})
 
 async function send() {
   error.value = ''
