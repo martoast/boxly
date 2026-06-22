@@ -60,6 +60,34 @@ async function describeImage(dataUrl: string): Promise<string> {
   }
 }
 
+// AI intent filter: titles often hide the real color (a Spanish query like
+// "owala rosa", or marketing names like "Misty Meadows" = teal), so plain text
+// matching can't tell. Use the model's knowledge to keep results that match the
+// query's color/attribute on top — preserving the cheapest-first order within
+// the matches. Falls back to the original order on any failure.
+async function reorderByIntent(query: string, products: any[]): Promise<any[]> {
+  const words = query.trim().split(/\s+/).filter((w) => w.length >= 2)
+  if (words.length < 2 || products.length < 4 || !process.env.ANTHROPIC_API_KEY) return products
+  try {
+    const anthropic = createAnthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+    const list = products.map((p, i) => `${i}: ${p.title || ''}`).join('\n')
+    const { text } = await generateText({
+      model: anthropic(PARSE_MODEL),
+      system:
+        'You filter US-shopping results to those matching the shopper\'s intent — ESPECIALLY color. The query may be Spanish (rosa=pink, azul=blue, negro=black, verde=green, morado/lila=purple, gris=gray, blanco=white, rojo=red, amarillo=yellow, naranja=orange, café/marrón=brown). Map marketing color names to real colors using product knowledge (e.g. "Misty Meadows"=teal/green, "Sugar Spice"=pink, "Blossom Bunny"=pink). Return ONLY the item numbers that MATCH the query, comma-separated, no prose. If a title has NO color/attribute info, INCLUDE it (unknown could match). Exclude only clear mismatches.',
+      prompt: `Query: "${query}"\n\nItems:\n${list}\n\nMatching item numbers:`,
+    })
+    const idx = (text.match(/\d+/g) || []).map(Number).filter((n) => n >= 0 && n < products.length)
+    if (!idx.length || idx.length === products.length) return products
+    const matchSet = new Set(idx)
+    const matched = products.filter((_, i) => matchSet.has(i)) // keep backend (cheapest) order
+    const rest = products.filter((_, i) => !matchSet.has(i))
+    return [...matched, ...rest]
+  } catch {
+    return products
+  }
+}
+
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
   const filters = body?.filters || {}
@@ -103,10 +131,12 @@ export default defineEventHandler(async (event) => {
     start,
   })
 
+  const products = await reorderByIntent(q, r?.products || [])
+
   return {
     type: 'results',
     query: q,
-    products: r?.products || [],
+    products,
     price_range: r?.price_range || null,
     has_more: !!r?.has_more,
     start,
