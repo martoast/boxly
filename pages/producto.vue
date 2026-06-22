@@ -145,6 +145,9 @@ const qty = ref(1)
 const selected = reactive({})
 const manualSize = ref('')
 const showManual = ref(false)
+// Effective product params — the URL query, or the guest hand-off stashed before
+// login (resolved in onMounted). Used for the cache key + scrape.
+const params = ref({ ...route.query })
 
 const mainImage = computed(() => data.images[mainIdx.value] || data.images[0] || null)
 
@@ -188,8 +191,8 @@ function initSelected() {
 // DIFFERENT product produces a new key → a fresh scrape.
 const CACHE_FIELDS = ['title', 'buy_url', 'store', 'price', 'was', 'on_sale', 'available', 'images', 'description', 'options', 'variants', 'has_variants']
 function productKey() {
-  const u = route.query.u ? String(route.query.u) : ''
-  const t = route.query.t ? String(route.query.t) : ''
+  const u = params.value.u ? String(params.value.u) : ''
+  const t = params.value.t ? String(params.value.t) : ''
   if (!u && !t) return null
   return 'boxly_product:' + u + '|' + t
 }
@@ -209,16 +212,35 @@ function writeProductCache() {
 }
 
 onMounted(async () => {
-  // No product in the URL → nothing to show; go back to search.
-  if (!route.query.u && !route.query.t) { navigateTo('/buscar'); return }
+  // Resolve params: the URL, or the guest hand-off stashed before login (so the
+  // long token isn't carried through the login redirect URL).
+  let pp = { ...route.query }
+  if (pp.pending) {
+    try { const raw = sessionStorage.getItem('boxly_pending_product'); if (raw) pp = JSON.parse(raw) } catch { /* ignore */ }
+    try { sessionStorage.removeItem('boxly_pending_product') } catch { /* ignore */ }
+    if (pp.u || pp.t) router.replace({ path: '/producto', query: pp }) // reflect real params for refresh/cache
+  }
+  params.value = pp
 
-  // Log the product view (store/title come from the card via the URL — reliable
-  // regardless of the scrape, and not affected by the cache).
+  // No product → nothing to show; go back to search.
+  if (!pp.u && !pp.t) { navigateTo('/buscar'); return }
+
+  // Hydrate the instant fields (needed when arriving via the pending hand-off,
+  // where setup had no query params yet).
+  if (!data.title) data.title = String(pp.title || '')
+  if (!data.buy_url) data.buy_url = String(pp.u || '')
+  if (!data.store) data.store = String(pp.store || '')
+  if (data.price == null && pp.price) data.price = Number(pp.price)
+  if (data.was == null && pp.was) data.was = Number(pp.was)
+  if (!data.on_sale && pp.sale === '1') data.on_sale = true
+  if (!data.images.length && pp.img) data.images = [String(pp.img)]
+
+  // Log the product view.
   logEvent({
     type: 'product_view',
-    store: route.query.store ? String(route.query.store) : (data.store || undefined),
-    title: route.query.title ? String(route.query.title) : (data.title || undefined),
-    url: route.query.u ? String(route.query.u) : undefined,
+    store: pp.store ? String(pp.store) : (data.store || undefined),
+    title: pp.title ? String(pp.title) : (data.title || undefined),
+    url: pp.u ? String(pp.u) : undefined,
   })
 
   // Cache hit (refresh / back / same product) → hydrate instantly, no re-scrape.
@@ -236,7 +258,7 @@ onMounted(async () => {
   try {
     const r = await $customFetch('/products/page', {
       method: 'POST',
-      body: { url: route.query.u || undefined, token: route.query.t || undefined },
+      body: { url: pp.u || undefined, token: pp.t || undefined },
       timeout: 30000, // never hang on a slow store; fall back to the card data
     })
     const d = r?.data || r || {}

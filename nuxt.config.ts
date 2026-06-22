@@ -16,9 +16,9 @@ export default defineNuxtConfig({
     // Legacy assistant entry points → the single clean search entry.
     '/assistant':     { redirect: '/buscar' },
     '/app/assistant': { redirect: '/buscar' },
-    // Auth-gated search surfaces — client-rendered so the auth middleware
-    // resolves the user reliably (the /buscar landing stays public + SSR).
-    '/buscar/resultados': { ssr: false },
+    // The product page is auth-gated (token-expensive) — client-rendered so the
+    // auth middleware resolves the user reliably. Search + results stay public so
+    // guests get the "wow" of seeing results before signing in.
     '/producto':          { ssr: false },
   },
   app: {

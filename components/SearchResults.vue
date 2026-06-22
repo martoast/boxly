@@ -78,7 +78,7 @@
 </template>
 
 <script setup>
-const { $customFetch } = useNuxtApp()
+const { $customFetch, $retriveUser } = useNuxtApp()
 const user = useState('user')
 const route = useRoute()
 const router = useRouter()
@@ -111,6 +111,13 @@ const filters = reactive({
   max_price: route.query.max ? Number(route.query.max) : null,
   sale: route.query.sale === '1',
 })
+
+// This page is public, so an authed visitor's user state may be empty here.
+// Softly resolve it (no redirect) so product clicks gate correctly.
+async function ensureUser() {
+  if (user.value) return
+  try { await $retriveUser() } catch { /* guest — fine */ }
+}
 
 async function loadProfile() {
   if (!user.value) return
@@ -179,7 +186,8 @@ async function runSearch({ imageData = null, useCache = true, updateUrl = true }
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
+  await ensureUser()
   loadProfile()
   if (route.query.q) {
     runSearch({ updateUrl: false })
@@ -205,6 +213,15 @@ function goProduct(p) {
   if (p.was != null) query.was = String(p.was)
   if (p.store) query.store = p.store
   if (p.onSale ?? p.on_sale) query.sale = '1'
+
+  // The product page is auth-gated (token-expensive scrape). A guest is sent to
+  // login first; we stash the product (the token can be huge, so we don't put it
+  // in the redirect URL) and reopen it right after they sign in.
+  if (!user.value) {
+    try { sessionStorage.setItem('boxly_pending_product', JSON.stringify(query)) } catch { /* ignore */ }
+    navigateTo({ path: '/login', query: { redirect: '/producto?pending=1' } })
+    return
+  }
   navigateTo({ path: '/producto', query })
 }
 

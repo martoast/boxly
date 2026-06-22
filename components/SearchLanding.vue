@@ -78,7 +78,6 @@
 <script setup>
 const { $customFetch } = useNuxtApp()
 const user = useState('user')
-const logEvent = useSearchLog()
 
 const q = ref('')
 const fileInput = ref(null)
@@ -111,10 +110,8 @@ onMounted(async () => {
 function go() {
   const text = q.value.trim()
   if (!text) return
-  // GUESTS get redirected to login before the search executes, so capture their
-  // query here (intent). Authed searches are logged server-side WITH their
-  // results when they actually run, so we don't double-log those.
-  if (!user.value) logEvent({ type: 'search', query: text })
+  // No client logging needed: guests now reach the results page, so every search
+  // (guest or authed) is logged server-side WITH its results in /products/search.
   navigateTo({ path: '/buscar/resultados', query: { q: text } })
 }
 function goWith(text) { q.value = text; go() }
