@@ -7,11 +7,18 @@
           <h1 class="text-2xl font-extrabold text-gray-900">Búsqueda con IA</h1>
           <p class="text-sm text-gray-500 mt-1">Cómo y cuánto se usa el buscador asistido — qué buscan y en qué tiendas.</p>
         </div>
-        <select v-model.number="days" @change="load" class="border border-gray-300 rounded-xl px-3 py-2 text-sm font-medium bg-white focus:outline-none focus:ring-2 focus:ring-primary-500">
-          <option :value="7">Últimos 7 días</option>
-          <option :value="30">Últimos 30 días</option>
-          <option :value="90">Últimos 90 días</option>
-        </select>
+        <div class="flex items-center gap-2">
+          <select v-model.number="days" @change="load" class="border border-gray-300 rounded-xl px-3 py-2 text-sm font-medium bg-white focus:outline-none focus:ring-2 focus:ring-primary-500">
+            <option :value="7">Últimos 7 días</option>
+            <option :value="30">Últimos 30 días</option>
+            <option :value="90">Últimos 90 días</option>
+          </select>
+          <button @click="downloadCsv" :disabled="downloading" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-900 hover:bg-gray-800 disabled:opacity-60 text-white text-sm font-semibold transition" title="Descargar todos los datos para análisis">
+            <svg v-if="!downloading" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/></svg>
+            <svg v-else class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
+            {{ downloading ? 'Preparando…' : 'Descargar todo (CSV)' }}
+          </button>
+        </div>
       </div>
 
       <div v-if="loading" class="py-24 text-center text-gray-400">
@@ -120,6 +127,27 @@ const { $customFetch } = useNuxtApp()
 const days = ref(30)
 const stats = ref(null)
 const loading = ref(true)
+const downloading = ref(false)
+
+async function downloadCsv() {
+  downloading.value = true
+  try {
+    // days=0 → ALL data (the intent is to hand the full export to an AI).
+    const blob = await $customFetch('/admin/ai-search/export', { params: { days: 0 }, responseType: 'blob' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `boxly-ai-search-${new Date().toISOString().slice(0, 10)}.csv`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+  } catch (e) {
+    console.error(e)
+  } finally {
+    downloading.value = false
+  }
+}
 
 const cards = computed(() => {
   const s = stats.value || {}
