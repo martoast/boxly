@@ -81,6 +81,16 @@ export default defineEventHandler(async (event) => {
 
   const question = messages[messages.length - 1]?.content || ''
 
+  // Forward the browser's identity so the logged question is attributed to the
+  // real user. /search-events is CSRF-exempt and resolves the session user from
+  // the cookie (stateful, via the Origin) — or a bearer token if the client sent
+  // one. Guests have no session → logged as guest, as before.
+  const auth = {
+    cookie: getHeader(event, 'cookie'),
+    origin: getHeader(event, 'origin'),
+    authorization: getHeader(event, 'authorization'),
+  }
+
   const result = streamText({
     model: anthropic(MODEL),
     system: systemPrompt(knowledge),
@@ -88,18 +98,23 @@ export default defineEventHandler(async (event) => {
     onError: ({ error }) => console.error('[ask] error:', error instanceof Error ? error.message : error),
     // Log the question + the answer we gave (best-effort, server-side) so the admin
     // analytics tracks Q&A just like product searches. Mirrors search logging.
-    onFinish: ({ text }) => { logQuestion(question, text) },
+    onFinish: ({ text }) => { logQuestion(question, text, auth) },
   })
 
   return result.toTextStreamResponse()
 })
 
-function logQuestion(question: string, answer: string) {
+function logQuestion(question: string, answer: string, auth: { cookie?: string; origin?: string; authorization?: string }) {
   if (!question?.trim()) return
+  const headers: Record<string, string> = { Accept: 'application/json', 'Content-Type': 'application/json' }
+  // Pass the user's identity through so the event is attributed to them.
+  if (auth.cookie) headers.Cookie = auth.cookie
+  if (auth.origin) headers.Origin = auth.origin
+  if (auth.authorization) headers.Authorization = auth.authorization
   // Fire-and-forget — never block or surface errors to the chat.
   fetch(`${API_BASE}/search-events`, {
     method: 'POST',
-    headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify({ type: 'question', query: question, answer }),
     signal: AbortSignal.timeout(8000),
   }).catch(() => {})
