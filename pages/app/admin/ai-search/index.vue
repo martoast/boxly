@@ -67,6 +67,7 @@
 
           <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
             <h2 class="text-lg font-bold text-gray-900 mb-3">Tiendas más vistas</h2>
+            <p class="text-xs text-gray-400 -mt-2 mb-3">En las que el cliente entró al producto</p>
             <ol v-if="stats.top_stores.length" class="space-y-2">
               <li v-for="(s, i) in stats.top_stores" :key="i" class="flex items-center justify-between gap-3 text-sm">
                 <span class="flex items-center gap-2 min-w-0"><span class="text-gray-300 w-5 text-right">{{ i + 1 }}</span><span class="text-gray-800 truncate">{{ s.store }}</span></span>
@@ -74,6 +75,36 @@
               </li>
             </ol>
             <p v-else class="text-sm text-gray-400 py-6 text-center">Aún sin vistas de productos.</p>
+          </div>
+        </div>
+
+        <!-- Query → results: what we searched vs what we returned -->
+        <div class="grid lg:grid-cols-3 gap-6 mt-6">
+          <div class="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+            <h2 class="text-lg font-bold text-gray-900 mb-1">Búsqueda → resultados</h2>
+            <p class="text-xs text-gray-400 mb-3">Lo que buscaron y lo que nuestro algoritmo les devolvió</p>
+            <div v-if="(stats.recent_searches || []).length" class="divide-y divide-gray-100">
+              <div v-for="(r, i) in stats.recent_searches" :key="i" class="py-2.5">
+                <div class="flex items-center justify-between gap-3">
+                  <span class="font-semibold text-gray-900 truncate">“{{ r.query }}”</span>
+                  <span class="shrink-0 text-xs font-bold text-gray-500">{{ r.results }} resultados</span>
+                </div>
+                <p v-if="(r.stores || []).length" class="text-xs text-gray-500 mt-0.5 truncate">{{ (r.stores || []).join(' · ') }}</p>
+              </div>
+            </div>
+            <p v-else class="text-sm text-gray-400 py-6 text-center">Aún sin búsquedas con resultados.</p>
+          </div>
+
+          <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+            <h2 class="text-lg font-bold text-gray-900 mb-1">Tiendas que mostramos</h2>
+            <p class="text-xs text-gray-400 mb-3">Las que más aparecen en los resultados</p>
+            <ol v-if="(stats.top_result_stores || []).length" class="space-y-2">
+              <li v-for="(s, i) in stats.top_result_stores" :key="i" class="flex items-center justify-between gap-3 text-sm">
+                <span class="flex items-center gap-2 min-w-0"><span class="text-gray-300 w-5 text-right">{{ i + 1 }}</span><span class="text-gray-800 truncate">{{ s.store }}</span></span>
+                <span class="shrink-0 font-bold text-gray-900">{{ s.c }}</span>
+              </li>
+            </ol>
+            <p v-else class="text-sm text-gray-400 py-6 text-center">Aún sin datos.</p>
           </div>
         </div>
       </template>

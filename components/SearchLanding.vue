@@ -111,9 +111,10 @@ onMounted(async () => {
 function go() {
   const text = q.value.trim()
   if (!text) return
-  // Log here (public landing) so GUEST searches are captured — they get
-  // redirected to login before the results page would ever log them.
-  logEvent({ type: 'search', query: text })
+  // GUESTS get redirected to login before the search executes, so capture their
+  // query here (intent). Authed searches are logged server-side WITH their
+  // results when they actually run, so we don't double-log those.
+  if (!user.value) logEvent({ type: 'search', query: text })
   navigateTo({ path: '/buscar/resultados', query: { q: text } })
 }
 function goWith(text) { q.value = text; go() }

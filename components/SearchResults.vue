@@ -82,7 +82,6 @@ const { $customFetch } = useNuxtApp()
 const user = useState('user')
 const route = useRoute()
 const router = useRouter()
-const logEvent = useSearchLog()
 
 const q = ref(String(route.query.q || ''))
 const results = ref([])
@@ -169,12 +168,8 @@ async function runSearch({ imageData = null, useCache = true, updateUrl = true }
     if (r?.type === 'product' && r.product?.url) { goProduct({ url: r.product.url }); return }
     results.value = r?.products || []
     if (r?.query && !text) { q.value = r.query; syncUrl() } // image search fills the box + URL
-    // The initial text load arriving from the landing (updateUrl:false, no image)
-    // was already logged there — only log image searches (query derived here) and
-    // explicit re-searches, so we don't double-count.
-    if (imageData || updateUrl !== false) {
-      logEvent({ type: 'search', query: q.value.trim(), results: results.value.length })
-    }
+    // Searches are logged server-side (with their results) in /products/search,
+    // so no client logging needed here.
     writeCache()
   } catch {
     error.value = 'No se pudo buscar.'
