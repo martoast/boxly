@@ -4,8 +4,8 @@
       <!-- Header -->
       <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div>
-          <h1 class="text-2xl font-extrabold text-gray-900">Asistente IA</h1>
-          <p class="text-sm text-gray-500 mt-1">Todo lo que la gente hace con el asistente — qué <span class="font-semibold text-gray-700">buscan</span> (productos) y qué <span class="font-semibold text-gray-700">preguntan</span> (sobre el negocio).</p>
+          <h1 class="text-2xl font-extrabold text-gray-900">Asistente IA · Intención</h1>
+          <p class="text-sm text-gray-500 mt-1">Qué quiere la gente cuando usa Boxly — lo que <span class="font-semibold text-gray-700">buscan</span> para comprar y lo que <span class="font-semibold text-gray-700">preguntan</span> del negocio, organizado por intención.</p>
         </div>
         <div class="flex items-center gap-2">
           <select v-model.number="days" @change="load" class="border border-gray-300 rounded-xl px-3 py-2 text-sm font-medium bg-white focus:outline-none focus:ring-2 focus:ring-primary-500">
@@ -27,123 +27,60 @@
 
       <template v-else-if="stats">
         <div v-if="stats.unavailable" class="mb-6 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
-          La tabla de analítica aún no existe — corre la migración <code>2026_06_21_000001_create_search_events_table</code> en producción.
+          La tabla de analítica aún no existe — corre las migraciones en producción.
         </div>
 
-        <!-- Stat cards -->
+        <!-- Stat cards (intent-framed) -->
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <div v-for="c in cards" :key="c.label" class="rounded-2xl border shadow-sm p-5" :class="c.tone === 'warn' ? 'bg-red-50 border-red-100' : 'bg-white border-gray-100'">
-            <p class="text-xs font-semibold uppercase tracking-wide" :class="c.tone === 'warn' ? 'text-red-400' : 'text-gray-400'">{{ c.label }}</p>
-            <p class="text-3xl font-extrabold mt-1" :class="c.tone === 'warn' ? 'text-red-700' : 'text-gray-900'">{{ c.value }}</p>
-            <p v-if="c.sub" class="text-xs mt-1" :class="c.tone === 'warn' ? 'text-red-500' : 'text-gray-400'">{{ c.sub }}</p>
+          <div v-for="c in cards" :key="c.label" class="rounded-2xl border bg-white border-gray-100 shadow-sm p-5">
+            <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">{{ c.label }}</p>
+            <p class="text-3xl font-extrabold mt-1 text-gray-900">{{ c.value }}</p>
+            <p v-if="c.sub" class="text-xs mt-1 text-gray-400">{{ c.sub }}</p>
           </div>
         </div>
 
-        <!-- Daily activity -->
+        <!-- Intent map (the hero) -->
         <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-6">
-          <div class="flex items-center justify-between mb-4">
-            <h2 class="text-lg font-bold text-gray-900">Actividad diaria</h2>
-            <div class="flex items-center gap-4 text-xs text-gray-500">
-              <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm bg-primary-500"></span>Búsquedas</span>
-              <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm bg-emerald-400"></span>Preguntas</span>
-              <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm bg-indigo-300"></span>Productos vistos</span>
-            </div>
+          <div class="flex items-center justify-between mb-1">
+            <h2 class="text-lg font-bold text-gray-900">Mapa de intención</h2>
+            <button @click="loadIntent" :disabled="intentLoading" class="text-xs font-semibold text-gray-400 hover:text-primary-600 disabled:opacity-50">Recalcular</button>
           </div>
-          <div v-if="stats.daily.length" class="flex items-end gap-1 h-40">
-            <div v-for="d in stats.daily" :key="d.date" class="flex-1 flex flex-col justify-end items-center group" :title="`${d.date}: ${d.searches} búsquedas · ${d.questions || 0} preguntas · ${d.views} vistas`">
-              <div class="w-full flex flex-col justify-end" :style="{ height: '100%' }">
-                <div class="w-full bg-indigo-300 rounded-t-sm" :style="{ height: barPct(d.views) + '%' }"></div>
-                <div class="w-full bg-emerald-400" :style="{ height: barPct(d.questions || 0) + '%' }"></div>
-                <div class="w-full bg-primary-500" :style="{ height: barPct(d.searches) + '%' }"></div>
-              </div>
-            </div>
+          <p class="text-xs text-gray-400 mb-3">La IA agrupa cada consulta por lo que la persona realmente quiere. Toca un tema para ver las consultas reales.</p>
+          <div v-if="intentLoading" class="py-16 text-center text-gray-400">
+            <svg class="inline-block w-8 h-8 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+            <p class="text-xs mt-2">Analizando la intención…</p>
           </div>
-          <p v-else class="text-sm text-gray-400 py-10 text-center">Sin actividad en este periodo.</p>
+          <AdminIntentMap v-else :clusters="intentMap.clusters" />
         </div>
 
-        <!-- Top queries + stores -->
-        <div class="grid lg:grid-cols-2 gap-6">
-          <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <h2 class="text-lg font-bold text-gray-900 mb-3">Búsquedas más comunes</h2>
-            <ol v-if="stats.top_queries.length" class="space-y-2">
-              <li v-for="(q, i) in stats.top_queries" :key="i" class="flex items-center justify-between gap-3 text-sm">
-                <span class="flex items-center gap-2 min-w-0"><span class="text-gray-300 w-5 text-right">{{ i + 1 }}</span><span class="text-gray-800 truncate">{{ q.query }}</span></span>
-                <span class="shrink-0 font-bold text-gray-900">{{ q.c }}</span>
-              </li>
-            </ol>
-            <p v-else class="text-sm text-gray-400 py-6 text-center">Aún sin búsquedas.</p>
-          </div>
-
-          <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <h2 class="text-lg font-bold text-gray-900 mb-1">Búsquedas sin resultados</h2>
-            <p class="text-xs text-gray-400 mb-3">Términos que no pudimos surtir — oportunidades a resolver</p>
-            <ol v-if="(stats.zero_result_queries || []).length" class="space-y-2">
-              <li v-for="(q, i) in stats.zero_result_queries" :key="i" class="flex items-center justify-between gap-3 text-sm">
-                <span class="flex items-center gap-2 min-w-0"><span class="text-red-300 w-5 text-right">{{ i + 1 }}</span><span class="text-gray-800 truncate">{{ q.query }}</span></span>
-                <span class="shrink-0 font-bold text-red-600">{{ q.c }}</span>
-              </li>
-            </ol>
-            <div v-else class="py-6 text-center">
-              <p class="text-sm font-semibold text-green-600">✅ Todas las búsquedas devolvieron resultados</p>
-              <p class="text-xs text-gray-400 mt-1">Ningún cliente se quedó con las manos vacías.</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Query → results: what we searched vs what we returned -->
-        <div class="grid lg:grid-cols-3 gap-6 mt-6">
+        <!-- Recent activity (everything, chronological) + stores shown -->
+        <div class="grid lg:grid-cols-3 gap-6">
           <div class="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <h2 class="text-lg font-bold text-gray-900 mb-1">Búsqueda → resultados</h2>
-            <p class="text-xs text-gray-400 mb-3">Lo que buscaron y lo que nuestro algoritmo les devolvió</p>
-            <div v-if="(stats.recent_searches || []).length" class="divide-y divide-gray-100">
-              <div v-for="(r, i) in stats.recent_searches" :key="i" class="py-2.5">
-                <div class="flex items-center justify-between gap-3">
-                  <span class="font-semibold text-gray-900 truncate">“{{ r.query }}”</span>
-                  <span class="shrink-0 text-xs font-bold text-gray-500">{{ r.results }} resultados</span>
+            <h2 class="text-lg font-bold text-gray-900 mb-1">Actividad reciente</h2>
+            <p class="text-xs text-gray-400 mb-3">Búsquedas y preguntas, tal como entraron</p>
+            <div v-if="recentFeed.length" class="divide-y divide-gray-100">
+              <div v-for="(r, i) in recentFeed" :key="i" class="py-2.5">
+                <div class="flex items-start justify-between gap-3">
+                  <span class="flex items-start gap-2 min-w-0">
+                    <span class="shrink-0 mt-0.5 text-[11px] font-bold px-1.5 py-0.5 rounded" :class="r.kind === 'question' ? 'bg-emerald-50 text-emerald-600' : 'bg-indigo-50 text-indigo-600'">{{ r.kind === 'question' ? 'PREGUNTA' : 'BÚSQUEDA' }}</span>
+                    <span class="font-semibold text-gray-900 min-w-0 truncate">“{{ r.query }}”</span>
+                  </span>
+                  <span class="shrink-0 text-xs font-bold text-gray-400">{{ r.kind === 'search' ? (r.results + ' result.') : '' }}</span>
                 </div>
-                <p v-if="(r.stores || []).length" class="text-xs text-gray-500 mt-0.5 truncate">{{ (r.stores || []).join(' · ') }}</p>
+                <p v-if="r.kind === 'search' && (r.stores || []).length" class="text-xs text-gray-500 mt-0.5 ml-[4.5rem] truncate">{{ (r.stores || []).join(' · ') }}</p>
+                <p v-else-if="r.kind === 'question' && r.answer" class="text-xs text-gray-500 mt-0.5 ml-[4.5rem] line-clamp-2">{{ r.answer }}</p>
               </div>
             </div>
-            <p v-else class="text-sm text-gray-400 py-6 text-center">Aún sin búsquedas con resultados.</p>
+            <p v-else class="text-sm text-gray-400 py-6 text-center">Aún sin actividad en este periodo.</p>
           </div>
 
           <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
             <h2 class="text-lg font-bold text-gray-900 mb-1">Tiendas que mostramos</h2>
-            <p class="text-xs text-gray-400 mb-3">Las que más aparecen en los resultados</p>
+            <p class="text-xs text-gray-400 mb-3">Las que más aparecen en los resultados de compra</p>
             <ol v-if="(stats.top_result_stores || []).length" class="space-y-2">
               <li v-for="(s, i) in stats.top_result_stores" :key="i" class="flex items-center justify-between gap-3 text-sm">
                 <span class="flex items-center gap-2 min-w-0"><span class="text-gray-300 w-5 text-right">{{ i + 1 }}</span><span class="text-gray-800 truncate">{{ s.store }}</span></span>
                 <span class="shrink-0 font-bold text-gray-900">{{ s.c }}</span>
-              </li>
-            </ol>
-            <p v-else class="text-sm text-gray-400 py-6 text-center">Aún sin datos.</p>
-          </div>
-        </div>
-
-        <!-- Questions: what people ASK the assistant (vs search) -->
-        <div class="grid lg:grid-cols-3 gap-6 mt-6">
-          <div class="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <h2 class="text-lg font-bold text-gray-900 mb-1">Preguntas al asistente</h2>
-            <p class="text-xs text-gray-400 mb-3">Lo que preguntan sobre el negocio y cómo respondió la IA</p>
-            <div v-if="(stats.recent_questions || []).length" class="divide-y divide-gray-100">
-              <div v-for="(qa, i) in stats.recent_questions" :key="i" class="py-3">
-                <div class="flex items-start justify-between gap-3">
-                  <p class="font-semibold text-gray-900">“{{ qa.query }}”</p>
-                  <span v-if="qa.guest" class="shrink-0 text-[10px] font-bold uppercase text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded mt-0.5">Invitado</span>
-                </div>
-                <p v-if="qa.answer" class="text-xs text-gray-500 mt-1 line-clamp-2">{{ qa.answer }}</p>
-              </div>
-            </div>
-            <p v-else class="text-sm text-gray-400 py-6 text-center">Aún sin preguntas. Aparecerán aquí cuando la gente le pregunte algo al asistente.</p>
-          </div>
-
-          <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <h2 class="text-lg font-bold text-gray-900 mb-1">Preguntas más comunes</h2>
-            <p class="text-xs text-gray-400 mb-3">Dudas repetidas — qué reforzar en la base de conocimiento</p>
-            <ol v-if="(stats.top_questions || []).length" class="space-y-2">
-              <li v-for="(q, i) in stats.top_questions" :key="i" class="flex items-center justify-between gap-3 text-sm">
-                <span class="flex items-center gap-2 min-w-0"><span class="text-gray-300 w-5 text-right">{{ i + 1 }}</span><span class="text-gray-800 truncate">{{ q.query }}</span></span>
-                <span class="shrink-0 font-bold text-gray-900">{{ q.c }}</span>
               </li>
             </ol>
             <p v-else class="text-sm text-gray-400 py-6 text-center">Aún sin datos.</p>
@@ -156,13 +93,15 @@
 
 <script setup>
 definePageMeta({ layout: 'admin', middleware: ['auth', 'admin'] })
-useHead({ title: 'Búsqueda con IA — Admin' })
+useHead({ title: 'Asistente IA — Admin' })
 
 const { $customFetch } = useNuxtApp()
 const days = ref(30)
 const stats = ref(null)
 const loading = ref(true)
 const downloading = ref(false)
+const intentMap = ref({ clusters: [], total: 0 })
+const intentLoading = ref(true)
 
 async function downloadCsv() {
   downloading.value = true
@@ -186,20 +125,41 @@ async function downloadCsv() {
 
 const cards = computed(() => {
   const s = stats.value || {}
+  const searches = Number(s.total_searches) || 0
+  const questions = Number(s.total_questions) || 0
+  const total = searches + questions
+  const pct = (n) => (total ? Math.round((n / total) * 100) : 0)
   return [
-    { label: 'Búsquedas de productos', value: fmt(s.total_searches), sub: `${s.guest_rate ?? 0}% invitados` },
-    { label: 'Preguntas al asistente', value: fmt(s.total_questions), sub: `${s.question_guest_rate ?? 0}% invitados` },
+    { label: 'Interacciones', value: fmt(total), sub: `${fmt(searches)} búsquedas · ${fmt(questions)} preguntas` },
+    { label: 'Intención de compra', value: fmt(searches), sub: `${pct(searches)}% del total` },
+    { label: 'Intención de aprender', value: fmt(questions), sub: `${pct(questions)}% del total` },
     { label: 'Productos vistos', value: fmt(s.total_product_views), sub: `${s.view_rate ?? 0}% de las búsquedas` },
-    { label: 'Sin resultados', value: fmt(s.zero_result_searches), sub: `${s.zero_result_rate ?? 0}% de las búsquedas`, tone: (s.zero_result_searches > 0 ? 'warn' : 'ok') },
   ]
 })
 
-const maxDaily = computed(() => {
-  const d = stats.value?.daily || []
-  return Math.max(1, ...d.map((x) => Math.max(x.searches, x.views, x.questions || 0)))
+// One chronological stream of everything (searches + questions).
+const recentFeed = computed(() => {
+  const s = stats.value || {}
+  const searches = (s.recent_searches || []).map((r) => ({ kind: 'search', query: r.query, results: r.results, stores: r.stores, created_at: r.created_at }))
+  const questions = (s.recent_questions || []).map((r) => ({ kind: 'question', query: r.query, answer: r.answer, guest: r.guest, created_at: r.created_at }))
+  return [...searches, ...questions]
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    .slice(0, 40)
 })
-function barPct(n) { return Math.round((Number(n) || 0) / maxDaily.value * 100) }
+
 function fmt(n) { return new Intl.NumberFormat('es-MX').format(Number(n) || 0) }
+
+async function loadIntent() {
+  intentLoading.value = true
+  try {
+    intentMap.value = await $fetch('/api/intent-map', { method: 'POST', body: { days: days.value } })
+  } catch (e) {
+    console.error(e)
+    intentMap.value = { clusters: [], total: 0 }
+  } finally {
+    intentLoading.value = false
+  }
+}
 
 async function load() {
   loading.value = true
@@ -207,10 +167,11 @@ async function load() {
     stats.value = (await $customFetch('/admin/ai-search/stats', { params: { days: days.value } })).data
   } catch (e) {
     console.error(e)
-    stats.value = { days: days.value, total_searches: 0, total_product_views: 0, total_questions: 0, unique_signed_in_users: 0, guest_searches: 0, guest_questions: 0, question_guest_rate: 0, avg_results: 0, zero_result_searches: 0, zero_result_rate: 0, guest_rate: 0, purchase_requests: 0, view_rate: 0, search_to_pr_rate: 0, top_queries: [], zero_result_queries: [], top_questions: [], recent_questions: [], top_stores: [], top_result_stores: [], recent_searches: [], daily: [] }
+    stats.value = { days: days.value, total_searches: 0, total_product_views: 0, total_questions: 0, view_rate: 0, recent_questions: [], recent_searches: [], top_result_stores: [] }
   } finally {
     loading.value = false
   }
+  loadIntent()
 }
 onMounted(load)
 </script>
