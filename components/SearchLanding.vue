@@ -78,6 +78,7 @@
 <script setup>
 const { $customFetch } = useNuxtApp()
 const user = useState('user')
+const logEvent = useSearchLog()
 
 const q = ref('')
 const fileInput = ref(null)
@@ -110,6 +111,9 @@ onMounted(async () => {
 function go() {
   const text = q.value.trim()
   if (!text) return
+  // Log here (public landing) so GUEST searches are captured — they get
+  // redirected to login before the results page would ever log them.
+  logEvent({ type: 'search', query: text })
   navigateTo({ path: '/buscar/resultados', query: { q: text } })
 }
 function goWith(text) { q.value = text; go() }
