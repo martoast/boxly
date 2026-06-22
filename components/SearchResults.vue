@@ -78,7 +78,7 @@
 </template>
 
 <script setup>
-const { $customFetch, $retriveUser } = useNuxtApp()
+const { $customFetch } = useNuxtApp()
 const user = useState('user')
 const route = useRoute()
 const router = useRouter()
@@ -112,11 +112,16 @@ const filters = reactive({
   sale: route.query.sale === '1',
 })
 
-// This page is public, so an authed visitor's user state may be empty here.
-// Softly resolve it (no redirect) so product clicks gate correctly.
+// This page is PUBLIC, so an authed visitor's user state may be empty here.
+// Softly resolve it WITHOUT the global $customFetch (whose 401 handler redirects
+// to /login — that was bouncing guests). A raw fetch lets a 401 just mean "guest".
 async function ensureUser() {
   if (user.value) return
-  try { await $retriveUser() } catch { /* guest — fine */ }
+  try {
+    const cfg = useRuntimeConfig()
+    const u = await $fetch('/user', { baseURL: cfg.public.apiUrl, credentials: 'include', headers: { Accept: 'application/json' } })
+    if (u && (u.id || u.email)) user.value = u
+  } catch { /* 401 = guest — do NOT redirect */ }
 }
 
 async function loadProfile() {
