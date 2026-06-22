@@ -132,7 +132,6 @@ const { $customFetch } = useNuxtApp()
 const route = useRoute()
 const router = useRouter()
 const cart = useCart()
-const logEvent = useSearchLog()
 
 const benefits = [
   'La compra por ti (sin tarjeta de USA)',
@@ -250,13 +249,9 @@ onMounted(async () => {
   if (!data.on_sale && pp.sale === '1') data.on_sale = true
   if (!data.images.length && pp.img) data.images = [String(pp.img)]
 
-  // Log the product view.
-  logEvent({
-    type: 'product_view',
-    store: pp.store ? String(pp.store) : (data.store || undefined),
-    title: pp.title ? String(pp.title) : (data.title || undefined),
-    url: pp.u ? String(pp.u) : undefined,
-  })
+  // (The product view is logged server-side in /products/page below — reliable,
+  // unlike a best-effort client POST. A cache hit skips that call by design, so a
+  // refresh/back to the same product doesn't inflate the view count.)
 
   // Cache hit (refresh / back / same product) → hydrate instantly, no re-scrape.
   const cached = readProductCache()
@@ -273,7 +268,12 @@ onMounted(async () => {
   try {
     const r = await $customFetch('/products/page', {
       method: 'POST',
-      body: { url: pp.u || undefined, token: pp.t || undefined },
+      body: {
+        url: pp.u || undefined,
+        token: pp.t || undefined,
+        store: pp.store ? String(pp.store) : (data.store || undefined),
+        title: pp.title ? String(pp.title) : (data.title || undefined),
+      },
       timeout: 30000, // never hang on a slow store; fall back to the card data
     })
     const d = r?.data || r || {}
