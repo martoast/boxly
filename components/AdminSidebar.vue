@@ -240,6 +240,7 @@ import {
   XMarkIcon,
   Squares2X2Icon,
   SparklesIcon,
+  MagnifyingGlassIcon,
   ShoppingBagIcon,
   CubeIcon,
   ShoppingCartIcon,
@@ -270,6 +271,7 @@ const { t: createTranslations } = useLanguage();
 
 const translations = {
   dashboard: { es: 'Panel de Control', en: 'Dashboard' },
+  aiSearch: { es: 'Búsqueda con IA', en: 'AI Search' },
   classicDashboard: { es: 'Panel clásico', en: 'Classic Dashboard' },
   orders: { es: 'Órdenes', en: 'Orders' },
   operationsBoard: { es: 'Tablero de Operaciones', en: 'Operations Board' },
@@ -295,6 +297,7 @@ const t = createTranslations(translations);
 const navItems = computed(() => [
   { route: '/app/admin/dashboard', icon: SparklesIcon, label: t.value.dashboard },
   { route: '/app/admin/dashboard/classic', icon: Squares2X2Icon, label: t.value.classicDashboard },
+  { route: '/app/admin/ai-search', icon: MagnifyingGlassIcon, label: t.value.aiSearch },
   { route: '/app/admin/orders', icon: ShoppingBagIcon, label: t.value.orders },
   { route: '/app/admin/operations-board', icon: CalendarDaysIcon, label: t.value.operationsBoard },
   { route: '/app/admin/boxes', icon: CubeIcon, label: t.value.boxes },

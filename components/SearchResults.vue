@@ -82,6 +82,7 @@ const { $customFetch } = useNuxtApp()
 const user = useState('user')
 const route = useRoute()
 const router = useRouter()
+const logEvent = useSearchLog()
 
 const q = ref(String(route.query.q || ''))
 const results = ref([])
@@ -168,6 +169,7 @@ async function runSearch({ imageData = null, useCache = true, updateUrl = true }
     if (r?.type === 'product' && r.product?.url) { goProduct({ url: r.product.url }); return }
     results.value = r?.products || []
     if (r?.query && !text) { q.value = r.query; syncUrl() } // image search fills the box + URL
+    logEvent({ type: 'search', query: q.value.trim(), results: results.value.length })
     writeCache()
   } catch {
     error.value = 'No se pudo buscar.'

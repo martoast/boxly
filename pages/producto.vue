@@ -116,6 +116,7 @@ const { $customFetch } = useNuxtApp()
 const route = useRoute()
 const router = useRouter()
 const cart = useCart()
+const logEvent = useSearchLog()
 
 const benefits = [
   'La compra por ti (sin tarjeta de USA)',
@@ -209,6 +210,15 @@ function writeProductCache() {
 onMounted(async () => {
   // No product in the URL → nothing to show; go back to search.
   if (!route.query.u && !route.query.t) { navigateTo('/buscar'); return }
+
+  // Log the product view (store/title come from the card via the URL — reliable
+  // regardless of the scrape, and not affected by the cache).
+  logEvent({
+    type: 'product_view',
+    store: route.query.store ? String(route.query.store) : (data.store || undefined),
+    title: route.query.title ? String(route.query.title) : (data.title || undefined),
+    url: route.query.u ? String(route.query.u) : undefined,
+  })
 
   // Cache hit (refresh / back / same product) → hydrate instantly, no re-scrape.
   const cached = readProductCache()
