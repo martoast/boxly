@@ -1,179 +1,113 @@
-# Unify Admin PR Flow (Store + Assisted)
+# Smart box that flips — unified search + business Q&A
 
-## What's wrong today
+## Goal
+Make the `/buscar` box route **per message** by intent:
+- **Product query** → today's gallery flow, **unchanged** (`/buscar/resultados`).
+- **Question about Boxly** → the box morphs into a **chat thread** that answers.
 
-Two completely different UXs depending on `source`:
+v1 capabilities: **product search (existing)** + **business Q&A**. No account tools,
+no in-chat PR creation (later). Product search stays the polished search-first flow;
+the chat only appears when someone asks a question.
 
-| | Store PR | Assisted PR |
-|---|---|---|
-| Per-item stock verification | ✅ available/unavailable toggle | ❌ none |
-| Per-item delete from detail page | ❌ | ❌ |
-| Per-item price/qty editing | ❌ | ❌ |
-| Cost breakdown | per-item tax/shipping/commission | aggregate totals in modal |
-| Quote modal | none (auto-compute from items) | manual aggregate-total form |
-| Stripe invoice lines | one per item | two aggregate lines (goods + fee) |
-| Validation coupling | rich (gates on stock check + cost breakdown) | none — admin can type any number |
+## Design
 
-**User's specific pain (assisted PRs):**
-- Can't remove items before quoting
-- Modal asks for totals the admin has to compute manually; they can mismatch the items
-- The Stripe invoice doesn't reflect what the admin "intended" — it ships whatever was typed in the modal
-- Two surfaces of truth (modal numbers vs items) → bugs
+### Intent routing (per message)
+1. **Client heuristic first (no network hop)** so product searches stay instant:
+   - Spanish question markers → `chat` (¿, cómo, cuánto/cuánta, qué, cuál, cuándo,
+     dónde, por qué, puedo/pueden, funciona, sirve, tarda, cuesta, cobran, seguro,
+     garantía, "se puede", etc.).
+   - Otherwise → `search` (today's default; safe — preserves current behavior).
+2. **AI fallback only when ambiguous** → `server/api/intent.post.ts` (Haiku),
+   returns `{ mode: 'search'|'chat', query }`. Keeps the common product path
+   zero-latency; only fuzzy inputs pay for a classify call.
 
-## What we want
+### Knowledge base = admin-managed WIKI (Karpathy-style)
+The KB is NOT hardcoded. It's a wiki of focused markdown articles the admin owns,
+stored in the DB and editable in a new admin page. The whole published wiki is fed
+into the assistant's system prompt (no retrieval needed at our scale).
 
-**One flow.** On the PR detail page, for both source types, while PR is in `pending_review`:
+**Backend (api/):**
+- Migration `knowledge_articles`: id, title, slug (unique), section (nullable),
+  content (markdown text), sort_order, is_published (default true), updated_by
+  (nullable), timestamps. Mirrors the categories table style.
+- Model `KnowledgeArticle`: fillable + casts + boot slug auto-gen + `scopePublished`.
+  `CACHE_KEY` constant for the assembled-wiki cache.
+- `Admin\AdminKnowledgeController` (index/store/show/update/destroy) — mirrors
+  AdminCategoryController; busts the assembled cache on every write.
+- `KnowledgeController@index` (PUBLIC, throttled): returns the assembled published
+  wiki `{ markdown, articles, updated_at }`, `Cache::remember` 5 min. This is what
+  the assistant consumes (nitro has no DB, so it fetches over HTTP).
+- `KnowledgeBaseSeeder`: seeds initial articles (Cómo funciona, Precios y comisiones,
+  Envíos y entregas, Tu casillero US, Compras presenciales, Métodos de pago, Sobre
+  Boxly). Idempotent (updateOrCreate by slug). MUST be run on prod manually.
 
-1. Each item is **inline-editable** (price USD, quantity), can be **marked available/unavailable**, can be **deleted**
-2. PR-level **adjustments** (admin enters): shipping to USA warehouse, sales tax, service fee % (default 8%)
-3. A **live preview** below the items shows the exact Stripe invoice — every line, every USD amount, the FX rate, the MXN total
-4. One **"Confirm & Send Quote"** button. What you see is what gets billed.
+### Business Q&A (streaming)
+- `server/api/ask.post.ts`: `streamText` (uses `ANTHROPIC_MODEL`, default Sonnet 4.6),
+  `system` = **fetched wiki markdown** + tone rules. Input `{ messages }`. **No tools in v1.**
+  Fetch cached in-memory ~60s; falls back to `server/utils/boxlyKnowledge.ts` (a small
+  built-in constant) if the API is unreachable, so the assistant never goes dark.
+- Tone rules (in the prompt, not the wiki): concise, warm, plain Mexican Spanish;
+  answer ONLY from the wiki; if unknown, say so + point to WhatsApp/support; nudge to
+  search a product or start a request when relevant, but **don't force a sale**.
 
-## The plan
+### Admin page — the wiki editor
+- `pages/app/admin/knowledge/index.vue`: master–detail. Left = article list grouped
+  by section + "Nuevo". Right = editor (title, section, published toggle, markdown
+  textarea + live `MarkdownText` preview, save, delete). `layout: 'admin'`,
+  `middleware: ['auth','admin']`, `$customFetch('/admin/knowledge')`.
+- `AdminSidebar.vue`: add "Base de conocimiento" nav entry (BookOpenIcon).
 
-### Backend (api/) — `AdminPurchaseRequestController`
+### SearchLanding.vue — add chat mode
+- State: `messages[]` + derived `mode` (hero when empty, thread when chatting).
+- Submit (hero box OR thread input): classify →
+  - `search`: stash conversation to sessionStorage, `navigateTo` results (unchanged flow).
+  - `chat`: append user msg, stream assistant reply (@ai-sdk/vue `Chat` → `/api/ask`),
+    render with `MarkdownText`.
+- Conversation persists in `sessionStorage` so returning from a product detour restores it.
+- Add a couple of question suggestions ("¿Cómo funciona?", "¿Cuánto cobran?").
 
-**1.1 New per-item endpoint: update price + qty + stock status**
-```
-PUT  /admin/purchase-requests/{pr}/items/{item}
-PUT  /shopping/purchase-requests/{pr}/items/{item}
-```
-Validates `price` (nullable), `quantity` (nullable), `stock_status` (nullable enum). Only operable while PR is `pending_review`. Replaces the existing `updateItemStockStatus` and `updateItemCostBreakdown` endpoints with a single unified one.
+### Untouched
+- `producto.vue`, `SearchResults.vue`, `ResultsGrid.vue`, `/products/*` — no changes.
+  The product funnel, analytics, geo-pinning, auth gate all stay as-is.
 
-**1.2 New per-item delete endpoint**
-```
-DELETE /admin/purchase-requests/{pr}/items/{item}
-DELETE /shopping/purchase-requests/{pr}/items/{item}
-```
-Removes the item from the PR + deletes the Spaces image (PurchaseRequestItem's model already auto-deletes its image on delete via boot hook).
-Only operable while PR is `pending_review`. Errors if it's the last item (PRs shouldn't end up empty — admin should reject instead).
+## Tasks
+- [ ] `server/utils/boxlyKnowledge.ts` — knowledge base string
+- [ ] `server/api/ask.post.ts` — streaming Q&A endpoint (no tools)
+- [ ] `server/api/intent.post.ts` — Haiku classifier (ambiguous-only fallback)
+- [ ] `SearchLanding.vue` — heuristic + chat mode + thread UI + sessionStorage persistence
+- [ ] Manual test: product query → results (unchanged); question → streamed answer;
+      follow-up question; mixed routing; guest + logged-in.
 
-**1.3 Refactor `createQuote` to be ONE method**
-Drop the source-based branching. New unified behavior:
+## Fast-follow (not v1)
+- Log questions to analytics (`search_events` type `question`) + "Preguntas más comunes" card.
+- Account-help tools (track order, my PRs, my casillero address) for logged-in users.
+- In-chat PR creation from a pasted link.
+- Inline gallery inside the chat thread (vs navigating to results).
 
-- Validation accepts: `shipping_cost`, `sales_tax`, `processing_fee_percent` (default 8 if missing), `admin_notes`, `payment_method` (default 'stripe')
-- Compute the subtotal from `availableItems()` × their current `price` × `quantity` (NOT from the modal — items are the truth)
-- Fetch FX rate (live or fallback, same as today)
-- Build Stripe line items:
-  - One line per available item (description: product name + qty + USD)
-  - One "Shipping to USA warehouse" line if `shipping_cost > 0`
-  - One "US Sales Tax" line if `sales_tax > 0`
-  - One "Service Fee (X%)" line if `processing_fee_percent > 0`
-- All amounts on Stripe in MXN at the captured FX rate
-- Store `items_total`, `shipping_cost`, `sales_tax`, `processing_fee`, `total_amount` on the PR for audit (these match what was sent to Stripe exactly)
-- Set status to `quoted`, send Stripe invoice (or skip Stripe for `manual_deposit`)
+## Review (built 2026-06-22)
 
-This unifies store + assisted into one path. Store PRs that used to lean on per-item `tax_usd`/`shipping_usd`/`commission_percent` columns will now use the same aggregate fields. We can keep the existing columns on the model for back-compat / future use, but the active code path stops reading them.
+Shipped the smart-box-that-flips with an admin-managed knowledge wiki.
 
-**1.4 Routes** — add the two new routes (update item, delete item) inside both the `admin` and `shopping` middleware groups in `routes/api.php`.
+**API (new):** `knowledge_articles` migration; `KnowledgeArticle` model (slug auto-gen,
+`scopePublished`, `CACHE_KEY`); `Admin\AdminKnowledgeController` (CRUD, busts cache on
+write); public `KnowledgeController@index` (assembled published wiki, cached 5 min);
+`KnowledgeBaseSeeder` (9 starter articles); routes (admin CRUD + public GET /knowledge).
 
-### Frontend (app/) — admin + shopping detail pages
+**App (new):** `server/api/ask.post.ts` (streaming Q&A, Sonnet 4.6, grounded ONLY in the
+fetched wiki, plain-text stream, 60s wiki cache + `boxlyKnowledge.ts` fallback);
+`server/api/intent.post.ts` (Haiku classifier, ambiguous-only); `pages/app/admin/knowledge/
+index.vue` (master–detail wiki editor with live markdown preview).
+**App (edited):** `SearchLanding.vue` (heuristic + chat mode + thread + sessionStorage
+persistence; product path unchanged); `AdminSidebar.vue` ("Base de conocimiento" nav).
 
-The two pages (`/app/admin/purchase-requests/[id]` and `/app/shopping/purchase-requests/[id]`) are near-identical sibling pages. Both edit the same way via the existing `apiNs` pattern.
+**Verified locally:** admin CRUD + draft exclusion + cache-busting on publish; public
+assembled endpoint; `/api/ask` streamed an accurate grounded answer (10% comisión, IVA 16%
+≥$50, pago tras cotización); `/api/intent` routed ambiguous question→chat, product→search;
+`/buscar` + admin page compile (200).
 
-**2.1 Redesign the items list (while `status === 'pending_review'`)**
+**DEPLOY NOTES (prod, manual):**
+1. `php artisan migrate` (migrations don't auto-run on prod).
+2. `php artisan db:seed --class='Database\Seeders\KnowledgeBaseSeeder'` (populate the wiki).
+3. ANTHROPIC_API_KEY already set (assistant uses it); nitro fetches API_URL/knowledge.
 
-For each item, render:
-- Image + name + URL + options + notes (read-only)
-- **Inline-editable**: `price` (USD, number input with `$` prefix), `quantity` (stepper)
-- **Stock status**: 3-state toggle (Unverified / Available / Unavailable)
-- **Delete button** with confirm dialog
-- Computed line subtotal shown next to the inputs
-
-Edits debounce + auto-save to the new `PUT /items/{item}` endpoint. Optimistic UI updates; toast on failure.
-
-**2.2 Quote settings panel** (replaces the existing QuoteModal entirely)
-
-Lives inline on the detail page (below the items list, above the preview), only visible while PR is `pending_review`:
-- Shipping to USA warehouse (USD, number)
-- US Sales tax (USD, number)
-- Service fee % (number, default 8)
-- Admin notes (textarea, optional, shown to customer in email)
-- Payment method (Stripe / Manual deposit radio)
-
-All four are reactive — changes recompute the preview live.
-
-**2.3 Quote preview** (the "what Stripe will see" panel)
-
-Live-computed beneath the settings:
-- Items subtotal (sum of available items × price × qty), with item count
-- + Shipping
-- + Sales tax
-- + Service fee
-- = **Total USD**
-- × FX rate (display with refresh button — fetches live rate from existing Frankfurter cache; cached 10 min on backend)
-- = **Total MXN** (the amount the customer will be charged)
-- Mini-table preview of the Stripe line items so the admin sees *exactly* what the customer will see
-
-**2.4 "Confirm & Send Quote" button**
-
-Replaces the current "Create Quote" button. Disabled if:
-- No items marked `available`
-- Some items still `unverified`
-- All edits successfully saved (debounce flush)
-
-POST to the unified `/admin/purchase-requests/{id}/quote` with the settings panel values. Server returns the PR with `status=quoted`; UI flips to the post-quote view.
-
-**2.5 Remove the QuoteModal component** entirely after the refactor. Inline UX is clearer.
-
-### Data model
-
-No migration needed. Existing columns on `purchase_request_items` (`tax_usd`, `shipping_usd`, `commission_percent`, `final_usd`) stay in place for already-quoted historical PRs. New flow simply stops writing to them; we use `price` × `quantity` + the PR-level aggregates instead.
-
-If we want to clean up later, that's a separate migration. Not needed now.
-
-## Edge cases / decisions
-
-1. **What happens to in-flight store PRs that already have per-item cost breakdowns?**
-   On the redesigned page, we ignore the per-item breakdowns and let the admin re-enter aggregate shipping/tax/fee. The existing per-item data stays in the DB for audit but doesn't drive billing anymore. Acceptable trade-off — only PRs still in `pending_review` are affected, and Velonie's already comfortable entering aggregates (the assisted flow does it today).
-
-2. **What if a PR has only one item and admin tries to delete it?**
-   Return a 422 with message "Reject the PR instead of removing its last item." Reject is the right semantic action there.
-
-3. **FX rate caching**
-   Already handled in `fetchLiveFxRate()` (cached 10 min, falls back to config). The preview reuses the same call.
-
-4. **Edit-then-quote race**
-   Debounced auto-save fires before the quote button is enabled. If a network failure leaves an edit unsaved, the quote button stays disabled until it succeeds.
-
-## Files touched
-
-**Backend (3 files):**
-- `app/Http/Controllers/AdminPurchaseRequestController.php` — add `updateItem`, `deleteItem`; refactor `createQuote` (drop the store/assisted branch); delete `createStoreQuote` (folded into `createQuote`)
-- `routes/api.php` — two new routes × two middleware groups (admin + shopping)
-- Maybe `app/Models/PurchaseRequest.php` if helper methods need adjusting (probably not)
-
-**Frontend (~3 files):**
-- `pages/app/admin/purchase-requests/[id]/index.vue` — redesign items list + add settings panel + add preview panel
-- `pages/app/shopping/purchase-requests/[id]/index.vue` — same changes (or refactor to share via composable — but the existing convention duplicates them)
-- Delete `components/admin/QuoteModal.vue`
-
-## Order of work
-
-1. Backend endpoints (item update, item delete) — small, isolated
-2. Backend createQuote unification — bigger but contained
-3. Frontend redesign on the admin detail page — biggest visual change
-4. Mirror to shopping detail page
-5. Delete QuoteModal
-6. Smoke test: create a /shop checkout PR, edit items, delete one, quote it. Then create an assisted PR via /shop/request, do the same. Both should look identical and produce correct Stripe invoices.
-7. Commit + push (api + app)
-
-## Open questions for you
-
-Before I start:
-
-1. **Per-item Stripe lines vs aggregate**: Today, store PRs send one Stripe line per available item (transparent — customer sees "Coach Bag × 1 ... $52" etc.). Assisted PRs send 2 lines ("Cost of Goods ... $X" + "Service Fee 8% ... $Y"). In the unified flow, **I'm proposing per-item lines for both** — customers see exactly what they bought. Cleaner, more honest. Is that what you want? (Alternative: keep 2-line aggregate for both. Less detail in the email but shorter invoice.)
-
-2. **Service fee — keep editable per-PR?** Default 8% but admin can override to e.g. 5% on a big order. Or hardcode at 8% forever. Your call.
-
-3. **Shipping / tax — show on Stripe as separate lines, or fold into the cost-of-goods aggregate?** I'm proposing separate lines (customers like itemization). You could also bake them into items only.
-
-4. **"Reject the PR" vs "delete last item"**: when only one item is left, do you want the admin to be forced to reject, or should we just allow empty PRs?
-
-5. **Existing per-item cost breakdown columns** (`tax_usd`, `shipping_usd`, `commission_percent`, `final_usd` on `purchase_request_items`): leave them as dead columns, or drop them in a follow-up migration? I'd leave them for now.
-
-Give me your answers and the go-ahead, and I'll start with the backend endpoints.
-
-## Review
-
-(filled in after implementation)
+Product search flow, analytics, geo-pinning, auth gate: untouched.

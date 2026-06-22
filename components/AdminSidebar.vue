@@ -260,6 +260,7 @@ import {
   UserCircleIcon,
   ArrowRightOnRectangleIcon,
   ClipboardDocumentCheckIcon,
+  BookOpenIcon,
 } from '@heroicons/vue/24/outline';
 
 const { $customFetch } = useNuxtApp();
@@ -272,6 +273,7 @@ const { t: createTranslations } = useLanguage();
 const translations = {
   dashboard: { es: 'Panel de Control', en: 'Dashboard' },
   aiSearch: { es: 'Búsqueda con IA', en: 'AI Search' },
+  knowledgeBase: { es: 'Base de conocimiento', en: 'Knowledge Base' },
   classicDashboard: { es: 'Panel clásico', en: 'Classic Dashboard' },
   orders: { es: 'Órdenes', en: 'Orders' },
   operationsBoard: { es: 'Tablero de Operaciones', en: 'Operations Board' },
@@ -298,6 +300,7 @@ const navItems = computed(() => [
   { route: '/app/admin/dashboard', icon: SparklesIcon, label: t.value.dashboard },
   { route: '/app/admin/dashboard/classic', icon: Squares2X2Icon, label: t.value.classicDashboard },
   { route: '/app/admin/ai-search', icon: MagnifyingGlassIcon, label: t.value.aiSearch },
+  { route: '/app/admin/knowledge', icon: BookOpenIcon, label: t.value.knowledgeBase },
   { route: '/app/admin/orders', icon: ShoppingBagIcon, label: t.value.orders },
   { route: '/app/admin/operations-board', icon: CalendarDaysIcon, label: t.value.operationsBoard },
   { route: '/app/admin/boxes', icon: CubeIcon, label: t.value.boxes },
