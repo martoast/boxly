@@ -110,7 +110,8 @@
 </template>
 
 <script setup>
-definePageMeta({ layout: 'default' })
+// Auth-gated (guests are routed through login first, then back here).
+definePageMeta({ layout: 'default', middleware: ['auth'] })
 
 const { $customFetch } = useNuxtApp()
 const route = useRoute()
