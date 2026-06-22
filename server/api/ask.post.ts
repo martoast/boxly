@@ -79,12 +79,28 @@ export default defineEventHandler(async (event) => {
   const anthropic = createAnthropic({ apiKey: key })
   const knowledge = await getKnowledge()
 
+  const question = messages[messages.length - 1]?.content || ''
+
   const result = streamText({
     model: anthropic(MODEL),
     system: systemPrompt(knowledge),
     messages,
     onError: ({ error }) => console.error('[ask] error:', error instanceof Error ? error.message : error),
+    // Log the question + the answer we gave (best-effort, server-side) so the admin
+    // analytics tracks Q&A just like product searches. Mirrors search logging.
+    onFinish: ({ text }) => { logQuestion(question, text) },
   })
 
   return result.toTextStreamResponse()
 })
+
+function logQuestion(question: string, answer: string) {
+  if (!question?.trim()) return
+  // Fire-and-forget — never block or surface errors to the chat.
+  fetch(`${API_BASE}/search-events`, {
+    method: 'POST',
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ type: 'question', query: question, answer }),
+    signal: AbortSignal.timeout(8000),
+  }).catch(() => {})
+}

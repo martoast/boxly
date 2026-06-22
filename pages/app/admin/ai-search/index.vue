@@ -4,8 +4,8 @@
       <!-- Header -->
       <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div>
-          <h1 class="text-2xl font-extrabold text-gray-900">Búsqueda con IA</h1>
-          <p class="text-sm text-gray-500 mt-1">Cómo y cuánto se usa el buscador asistido — qué buscan y en qué tiendas.</p>
+          <h1 class="text-2xl font-extrabold text-gray-900">Asistente IA</h1>
+          <p class="text-sm text-gray-500 mt-1">Todo lo que la gente hace con el asistente — qué <span class="font-semibold text-gray-700">buscan</span> (productos) y qué <span class="font-semibold text-gray-700">preguntan</span> (sobre el negocio).</p>
         </div>
         <div class="flex items-center gap-2">
           <select v-model.number="days" @change="load" class="border border-gray-300 rounded-xl px-3 py-2 text-sm font-medium bg-white focus:outline-none focus:ring-2 focus:ring-primary-500">
@@ -45,13 +45,15 @@
             <h2 class="text-lg font-bold text-gray-900">Actividad diaria</h2>
             <div class="flex items-center gap-4 text-xs text-gray-500">
               <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm bg-primary-500"></span>Búsquedas</span>
+              <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm bg-emerald-400"></span>Preguntas</span>
               <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm bg-indigo-300"></span>Productos vistos</span>
             </div>
           </div>
           <div v-if="stats.daily.length" class="flex items-end gap-1 h-40">
-            <div v-for="d in stats.daily" :key="d.date" class="flex-1 flex flex-col justify-end items-center group" :title="`${d.date}: ${d.searches} búsquedas, ${d.views} vistas`">
+            <div v-for="d in stats.daily" :key="d.date" class="flex-1 flex flex-col justify-end items-center group" :title="`${d.date}: ${d.searches} búsquedas · ${d.questions || 0} preguntas · ${d.views} vistas`">
               <div class="w-full flex flex-col justify-end" :style="{ height: '100%' }">
                 <div class="w-full bg-indigo-300 rounded-t-sm" :style="{ height: barPct(d.views) + '%' }"></div>
+                <div class="w-full bg-emerald-400" :style="{ height: barPct(d.questions || 0) + '%' }"></div>
                 <div class="w-full bg-primary-500" :style="{ height: barPct(d.searches) + '%' }"></div>
               </div>
             </div>
@@ -117,6 +119,36 @@
             <p v-else class="text-sm text-gray-400 py-6 text-center">Aún sin datos.</p>
           </div>
         </div>
+
+        <!-- Questions: what people ASK the assistant (vs search) -->
+        <div class="grid lg:grid-cols-3 gap-6 mt-6">
+          <div class="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+            <h2 class="text-lg font-bold text-gray-900 mb-1">Preguntas al asistente</h2>
+            <p class="text-xs text-gray-400 mb-3">Lo que preguntan sobre el negocio y cómo respondió la IA</p>
+            <div v-if="(stats.recent_questions || []).length" class="divide-y divide-gray-100">
+              <div v-for="(qa, i) in stats.recent_questions" :key="i" class="py-3">
+                <div class="flex items-start justify-between gap-3">
+                  <p class="font-semibold text-gray-900">“{{ qa.query }}”</p>
+                  <span v-if="qa.guest" class="shrink-0 text-[10px] font-bold uppercase text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded mt-0.5">Invitado</span>
+                </div>
+                <p v-if="qa.answer" class="text-xs text-gray-500 mt-1 line-clamp-2">{{ qa.answer }}</p>
+              </div>
+            </div>
+            <p v-else class="text-sm text-gray-400 py-6 text-center">Aún sin preguntas. Aparecerán aquí cuando la gente le pregunte algo al asistente.</p>
+          </div>
+
+          <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+            <h2 class="text-lg font-bold text-gray-900 mb-1">Preguntas más comunes</h2>
+            <p class="text-xs text-gray-400 mb-3">Dudas repetidas — qué reforzar en la base de conocimiento</p>
+            <ol v-if="(stats.top_questions || []).length" class="space-y-2">
+              <li v-for="(q, i) in stats.top_questions" :key="i" class="flex items-center justify-between gap-3 text-sm">
+                <span class="flex items-center gap-2 min-w-0"><span class="text-gray-300 w-5 text-right">{{ i + 1 }}</span><span class="text-gray-800 truncate">{{ q.query }}</span></span>
+                <span class="shrink-0 font-bold text-gray-900">{{ q.c }}</span>
+              </li>
+            </ol>
+            <p v-else class="text-sm text-gray-400 py-6 text-center">Aún sin datos.</p>
+          </div>
+        </div>
       </template>
     </div>
   </div>
@@ -155,16 +187,16 @@ async function downloadCsv() {
 const cards = computed(() => {
   const s = stats.value || {}
   return [
-    { label: 'Búsquedas', value: fmt(s.total_searches), sub: `${s.guest_rate ?? 0}% invitados · ${fmt(s.unique_signed_in_users)} con cuenta` },
-    { label: 'Resultados por búsqueda', value: s.avg_results ?? 0, sub: 'Promedio de productos mostrados' },
+    { label: 'Búsquedas de productos', value: fmt(s.total_searches), sub: `${s.guest_rate ?? 0}% invitados` },
+    { label: 'Preguntas al asistente', value: fmt(s.total_questions), sub: `${s.question_guest_rate ?? 0}% invitados` },
+    { label: 'Productos vistos', value: fmt(s.total_product_views), sub: `${s.view_rate ?? 0}% de las búsquedas` },
     { label: 'Sin resultados', value: fmt(s.zero_result_searches), sub: `${s.zero_result_rate ?? 0}% de las búsquedas`, tone: (s.zero_result_searches > 0 ? 'warn' : 'ok') },
-    { label: 'Productos vistos', value: fmt(s.total_product_views), sub: `${s.view_rate ?? 0}% entraron al producto` },
   ]
 })
 
 const maxDaily = computed(() => {
   const d = stats.value?.daily || []
-  return Math.max(1, ...d.map((x) => Math.max(x.searches, x.views)))
+  return Math.max(1, ...d.map((x) => Math.max(x.searches, x.views, x.questions || 0)))
 })
 function barPct(n) { return Math.round((Number(n) || 0) / maxDaily.value * 100) }
 function fmt(n) { return new Intl.NumberFormat('es-MX').format(Number(n) || 0) }
@@ -175,7 +207,7 @@ async function load() {
     stats.value = (await $customFetch('/admin/ai-search/stats', { params: { days: days.value } })).data
   } catch (e) {
     console.error(e)
-    stats.value = { days: days.value, total_searches: 0, total_product_views: 0, unique_signed_in_users: 0, guest_searches: 0, avg_results: 0, zero_result_searches: 0, zero_result_rate: 0, guest_rate: 0, purchase_requests: 0, view_rate: 0, search_to_pr_rate: 0, top_queries: [], zero_result_queries: [], top_stores: [], top_result_stores: [], recent_searches: [], daily: [] }
+    stats.value = { days: days.value, total_searches: 0, total_product_views: 0, total_questions: 0, unique_signed_in_users: 0, guest_searches: 0, guest_questions: 0, question_guest_rate: 0, avg_results: 0, zero_result_searches: 0, zero_result_rate: 0, guest_rate: 0, purchase_requests: 0, view_rate: 0, search_to_pr_rate: 0, top_queries: [], zero_result_queries: [], top_questions: [], recent_questions: [], top_stores: [], top_result_stores: [], recent_searches: [], daily: [] }
   } finally {
     loading.value = false
   }

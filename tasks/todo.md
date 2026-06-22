@@ -79,7 +79,12 @@ into the assistant's system prompt (no retrieval needed at our scale).
       follow-up question; mixed routing; guest + logged-in.
 
 ## Fast-follow (not v1)
-- Log questions to analytics (`search_events` type `question`) + "Preguntas más comunes" card.
+- [x] Log questions to analytics (`search_events` type `question`) + dashboard Q&A view +
+      CSV export. DONE 2026-06-22: questions logged server-side from /api/ask onFinish
+      (question + answer) to /search-events; dashboard now shows a "Preguntas al asistente"
+      card, a questions series in the daily chart, recent Q&A pairs, and "Preguntas más
+      comunes"; CSV export gained an `answer` column. Page renamed "Asistente IA". Needs
+      prod migrate (widen `query` to TEXT).
 - Account-help tools (track order, my PRs, my casillero address) for logged-in users.
 - In-chat PR creation from a pasted link.
 - Inline gallery inside the chat thread (vs navigating to results).
