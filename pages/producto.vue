@@ -36,7 +36,7 @@
             <span v-if="displayWas" class="text-sm font-medium text-gray-400 line-through">${{ displayWas }}</span>
             <span v-if="displayOnSale" class="px-1.5 py-0.5 rounded-md bg-red-500 text-white text-[10px] font-bold">OFERTA</span>
           </div>
-          <p class="text-xs text-gray-400 mt-1">Precio de tienda · Boxly suma su comisión y el envío (se cotiza después).</p>
+          <p class="text-xs text-gray-500 mt-1">Solo el <span class="font-semibold">precio de tienda</span> — no es el total. Se suma la comisión de Boxly (10%) + envío e impuestos.</p>
 
           <!-- variant options -->
           <div v-for="opt in data.options" :key="opt.name" class="mt-5">
@@ -97,6 +97,20 @@
                 {{ b }}
               </li>
             </ul>
+
+            <!-- Pricing clarity: the shown price is NOT the final total -->
+            <div class="mt-3 pt-3 border-t border-primary-100">
+              <p class="text-[12.5px] font-bold text-primary-900">⚠️ Este NO es el precio final.</p>
+              <p class="text-[12px] text-primary-800 mt-1 leading-snug">
+                <span class="font-semibold">${{ displayPrice ?? '—' }} USD</span> es solo el precio de la tienda. Tu total es:
+              </p>
+              <ul class="mt-1.5 space-y-0.5 text-[12px] text-primary-800">
+                <li>• Precio del producto</li>
+                <li>• + Comisión de Boxly (10%)</li>
+                <li>• + Envío a México e impuestos</li>
+              </ul>
+              <p class="text-[12px] text-primary-700 mt-1.5">Te enviamos la cotización con el total antes de que pagues — solo pagas si la apruebas.</p>
+            </div>
           </div>
 
           <p v-if="data.description" class="text-sm text-gray-600 leading-relaxed mt-6 whitespace-pre-line">{{ data.description }}</p>
@@ -110,8 +124,9 @@
 </template>
 
 <script setup>
-// Auth-gated (guests are routed through login first, then back here).
-definePageMeta({ layout: 'default', middleware: ['auth'] })
+// Auth-gated (guests are routed through login first, then back here) — so use the
+// authenticated customer layout/navbar, not the public landing navbar.
+definePageMeta({ layout: 'app', middleware: ['auth'] })
 
 const { $customFetch } = useNuxtApp()
 const route = useRoute()

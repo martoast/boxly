@@ -32,10 +32,10 @@
 
         <!-- Stat cards -->
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <div v-for="c in cards" :key="c.label" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide">{{ c.label }}</p>
-            <p class="text-3xl font-extrabold text-gray-900 mt-1">{{ c.value }}</p>
-            <p v-if="c.sub" class="text-xs text-gray-400 mt-1">{{ c.sub }}</p>
+          <div v-for="c in cards" :key="c.label" class="rounded-2xl border shadow-sm p-5" :class="c.tone === 'warn' ? 'bg-red-50 border-red-100' : 'bg-white border-gray-100'">
+            <p class="text-xs font-semibold uppercase tracking-wide" :class="c.tone === 'warn' ? 'text-red-400' : 'text-gray-400'">{{ c.label }}</p>
+            <p class="text-3xl font-extrabold mt-1" :class="c.tone === 'warn' ? 'text-red-700' : 'text-gray-900'">{{ c.value }}</p>
+            <p v-if="c.sub" class="text-xs mt-1" :class="c.tone === 'warn' ? 'text-red-500' : 'text-gray-400'">{{ c.sub }}</p>
           </div>
         </div>
 
@@ -73,15 +73,18 @@
           </div>
 
           <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <h2 class="text-lg font-bold text-gray-900 mb-3">Tiendas más vistas</h2>
-            <p class="text-xs text-gray-400 -mt-2 mb-3">En las que el cliente entró al producto</p>
-            <ol v-if="stats.top_stores.length" class="space-y-2">
-              <li v-for="(s, i) in stats.top_stores" :key="i" class="flex items-center justify-between gap-3 text-sm">
-                <span class="flex items-center gap-2 min-w-0"><span class="text-gray-300 w-5 text-right">{{ i + 1 }}</span><span class="text-gray-800 truncate">{{ s.store }}</span></span>
-                <span class="shrink-0 font-bold text-gray-900">{{ s.c }}</span>
+            <h2 class="text-lg font-bold text-gray-900 mb-1">Búsquedas sin resultados</h2>
+            <p class="text-xs text-gray-400 mb-3">Términos que no pudimos surtir — oportunidades a resolver</p>
+            <ol v-if="(stats.zero_result_queries || []).length" class="space-y-2">
+              <li v-for="(q, i) in stats.zero_result_queries" :key="i" class="flex items-center justify-between gap-3 text-sm">
+                <span class="flex items-center gap-2 min-w-0"><span class="text-red-300 w-5 text-right">{{ i + 1 }}</span><span class="text-gray-800 truncate">{{ q.query }}</span></span>
+                <span class="shrink-0 font-bold text-red-600">{{ q.c }}</span>
               </li>
             </ol>
-            <p v-else class="text-sm text-gray-400 py-6 text-center">Aún sin vistas de productos.</p>
+            <div v-else class="py-6 text-center">
+              <p class="text-sm font-semibold text-green-600">✅ Todas las búsquedas devolvieron resultados</p>
+              <p class="text-xs text-gray-400 mt-1">Ningún cliente se quedó con las manos vacías.</p>
+            </div>
           </div>
         </div>
 
@@ -152,10 +155,10 @@ async function downloadCsv() {
 const cards = computed(() => {
   const s = stats.value || {}
   return [
-    { label: 'Búsquedas', value: fmt(s.total_searches), sub: `Últimos ${s.days} días` },
-    { label: 'Productos vistos', value: fmt(s.total_product_views), sub: `${s.view_rate ?? 0}% de las búsquedas` },
-    { label: 'Solicitudes creadas', value: fmt(s.purchase_requests), sub: 'Compra asistida (online)' },
-    { label: 'Conversión a solicitud', value: (s.search_to_pr_rate ?? 0) + '%', sub: 'Solicitudes ÷ búsquedas' },
+    { label: 'Búsquedas', value: fmt(s.total_searches), sub: `${s.guest_rate ?? 0}% invitados · ${fmt(s.unique_signed_in_users)} con cuenta` },
+    { label: 'Resultados por búsqueda', value: s.avg_results ?? 0, sub: 'Promedio de productos mostrados' },
+    { label: 'Sin resultados', value: fmt(s.zero_result_searches), sub: `${s.zero_result_rate ?? 0}% de las búsquedas`, tone: (s.zero_result_searches > 0 ? 'warn' : 'ok') },
+    { label: 'Productos vistos', value: fmt(s.total_product_views), sub: `${s.view_rate ?? 0}% entraron al producto` },
   ]
 })
 
@@ -172,7 +175,7 @@ async function load() {
     stats.value = (await $customFetch('/admin/ai-search/stats', { params: { days: days.value } })).data
   } catch (e) {
     console.error(e)
-    stats.value = { days: days.value, total_searches: 0, total_product_views: 0, purchase_requests: 0, view_rate: 0, search_to_pr_rate: 0, top_queries: [], top_stores: [], daily: [] }
+    stats.value = { days: days.value, total_searches: 0, total_product_views: 0, unique_signed_in_users: 0, guest_searches: 0, avg_results: 0, zero_result_searches: 0, zero_result_rate: 0, guest_rate: 0, purchase_requests: 0, view_rate: 0, search_to_pr_rate: 0, top_queries: [], zero_result_queries: [], top_stores: [], top_result_stores: [], recent_searches: [], daily: [] }
   } finally {
     loading.value = false
   }
