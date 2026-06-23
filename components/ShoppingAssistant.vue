@@ -93,7 +93,7 @@
                   <div v-if="part.type === 'text' && m.role === 'user'" class="whitespace-pre-wrap text-[15px] leading-relaxed">{{ part.text }}</div>
                   <div v-else-if="part.type === 'text'" class="bg-white border border-gray-100 rounded-3xl rounded-bl-lg px-4 py-3 shadow-sm text-[15px]"><MarkdownText :text="part.text" /></div>
 
-                  <ProductGallery v-else-if="(part.type === 'tool-show_products' || part.type === 'tool-browse_store' || part.type === 'tool-browse_stores' || part.type === 'tool-search_products' || part.type === 'tool-show_saved_products') && part.state === 'output-available'" :products="part.output?.products || []" @open="openProduct" @order="onPickProduct" />
+                  <ProductGallery v-else-if="(part.type === 'tool-show_products' || part.type === 'tool-browse_store' || part.type === 'tool-browse_stores' || part.type === 'tool-search_products' || part.type === 'tool-show_saved_products') && part.state === 'output-available'" :products="part.output?.products || []" @open="openProduct" @order="onPickProduct" @ask="onAskProduct" />
 
                   <div v-else-if="part.type === 'tool-search_products'" class="flex items-center gap-2 text-xs text-gray-400 pl-1">
                     <svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
@@ -482,7 +482,18 @@ function onPickProduct(p) {
   // product page; include real merchant URLs directly.
   const isGoogle = (p.url || '').includes('google.com/search')
   const urlPart = p.url && !isGoogle ? ` — ${p.url}` : ''
-  const text = `Cómpralo por mí: ${p.title}${store}${price}${urlPart}`
+  const text = `Agrégalo a mi envío: ${p.title}${store}${price}${urlPart}`
+  ensureConversation(text)
+  chat.sendMessage({ text })
+  scrollDown()
+}
+
+// "Preguntar 💬" on a card — keep the conversation alive by asking the assistant
+// about that specific product (it can see it in the chat's product registry).
+function onAskProduct(p) {
+  if (isBusy.value) return
+  const store = p.store ? ` de ${p.store}` : ''
+  const text = `Cuéntame más sobre esta opción: ${p.title}${store}`
   ensureConversation(text)
   chat.sendMessage({ text })
   scrollDown()

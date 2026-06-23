@@ -19,23 +19,19 @@
       ref="track"
       @scroll.passive="measure"
       @wheel="onWheel"
-      class="grid grid-flow-col items-start auto-cols-[10.5rem] md:auto-cols-[11.5rem] gap-3 overflow-x-auto pb-2 px-1 snap-x no-scrollbar scroll-smooth"
-      :class="rows === 2 ? 'grid-rows-[auto_auto]' : 'grid-rows-[auto]'"
+      class="grid grid-flow-col items-stretch auto-cols-[15rem] md:auto-cols-[15.5rem] gap-3 overflow-x-auto pb-2 px-1 snap-x no-scrollbar scroll-smooth grid-rows-[auto]"
     >
+      <!-- A "BOXLY Offer" card: the offer (we buy + import + deliver, landed total)
+           is the hero; the product is the supporting detail. -->
       <div
         v-for="(p, i) in visible"
         :key="i"
-        role="button"
-        tabindex="0"
-        @click="$emit('open', p)"
-        @keydown.enter="$emit('open', p)"
-        class="group snap-start cursor-pointer text-left bg-white border border-gray-200/80 rounded-2xl overflow-hidden shadow-sm hover:shadow-lg hover:border-gray-300 hover:-translate-y-1 transition-all duration-200 flex flex-col"
+        class="group snap-start text-left bg-white border rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-200 flex flex-col"
+        :class="isBest(i) ? 'border-amber-300 ring-1 ring-amber-200' : 'border-gray-200/80 hover:border-gray-300'"
       >
-        <!-- Fixed-pixel image height (NOT aspect-ratio): iOS Safari won't resolve
-             max-height:100% against an aspect-ratio box, which let images blow
-             up. A fixed height keeps every image area identical. -->
-        <div class="relative bg-gray-50">
-          <div class="h-40 flex items-center justify-center p-3 overflow-hidden">
+        <!-- Product (secondary): smaller image, tiny store badge -->
+        <div class="relative bg-gray-50 cursor-pointer" @click="$emit('open', p)">
+          <div class="h-32 flex items-center justify-center p-3 overflow-hidden">
             <img
               v-if="p.image && !p.broken"
               :src="p.image"
@@ -47,43 +43,44 @@
             />
             <span v-else class="text-[13px] font-bold text-gray-400 uppercase tracking-wide leading-tight line-clamp-3 text-center px-1">{{ p.store || p.title }}</span>
           </div>
-          <span v-if="p.onSale && i === 0" class="absolute top-2 left-2 px-1.5 py-0.5 rounded-md bg-red-500 text-white text-[10px] font-bold shadow-sm">🔥 MEJOR OFERTA</span>
-          <span v-else-if="p.onSale" class="absolute top-2 left-2 px-1.5 py-0.5 rounded-md bg-red-500 text-white text-[10px] font-bold shadow-sm">OFERTA</span>
+          <span v-if="isBest(i)" class="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-amber-400 text-amber-950 text-[10px] font-extrabold shadow">🏆 Mejor opción</span>
+          <span v-else-if="p.onSale" class="absolute top-2 right-2 px-1.5 py-0.5 rounded-md bg-red-500 text-white text-[10px] font-bold shadow-sm">OFERTA</span>
+          <span v-if="p.store" class="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 rounded-md bg-white/90 text-gray-500 text-[9px] font-semibold shadow-sm max-w-[75%] truncate">{{ p.store }}</span>
         </div>
 
-        <!-- Deterministic-height info block (title reserves 2 lines). -->
-        <div class="p-3 pt-2.5 flex flex-col flex-1">
-          <p v-if="p.store" class="text-[10px] uppercase tracking-wider text-primary-500 font-bold truncate">{{ p.store }}</p>
-          <span class="text-[13px] font-semibold text-gray-900 leading-snug line-clamp-2 min-h-[2.5rem] group-hover:text-primary-600 transition-colors mt-0.5">{{ p.title }}</span>
+        <div class="p-3 flex flex-col flex-1">
+          <span class="text-[13px] font-semibold text-gray-900 leading-snug line-clamp-2 min-h-[2.4rem]">{{ p.title }}</span>
 
-          <p v-if="p.price" class="text-[14px] font-bold leading-none mt-1.5" :class="p.onSale ? 'text-red-600' : 'text-gray-800'">
-            ${{ p.price }} <span class="text-[10px] font-semibold text-gray-400 align-middle">USD</span>
-            <span v-if="p.was" class="ml-1 text-[10px] font-medium text-gray-300 line-through align-middle">${{ p.was }}</span>
-            <span class="ml-1 text-[9px] font-medium text-gray-400 align-middle">precio de tienda</span>
+          <!-- Product price (the real, known number). -->
+          <p v-if="p.price" class="mt-1.5 text-[16px] font-extrabold text-gray-900 leading-none">
+            ${{ p.price }} <span class="text-[10px] font-semibold text-gray-400">USD</span>
+            <span v-if="p.was" class="ml-1 text-[10px] font-medium text-gray-300 line-through">${{ p.was }}</span>
           </p>
-          <p v-else-if="p.note" class="text-[11px] text-gray-400 line-clamp-2 mt-1">{{ p.note }}</p>
+          <p v-if="p.price" class="text-[9px] text-gray-400 mt-0.5">precio del producto</p>
 
-          <!-- THE BOXLY LAYER — products + BOXLY. The value isn't the product, it's
-               that Boxly can get it for you: landed estimate + arrival. -->
-          <div v-if="p.price" class="mt-2 rounded-xl bg-primary-50/80 border border-primary-100 px-2.5 py-2">
-            <div class="flex items-baseline justify-between gap-1">
-              <span class="text-[9.5px] font-bold uppercase tracking-wide text-primary-500">Total estimado</span>
-              <span class="text-[15px] font-extrabold text-primary-900 leading-none">~${{ landed(p.price) }}<span class="text-[9px] font-semibold text-primary-400"> USD</span></span>
-            </div>
-            <p class="text-[9px] text-primary-700/60 leading-tight mt-0.5">producto + 10% servicio + envío</p>
-            <p class="flex items-center gap-1 text-[10px] font-medium text-primary-700 mt-1">
-              <svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H3m10 11h2m4 0h.5a1 1 0 001-1v-3.5a1 1 0 00-.3-.7l-2.5-2.5a1 1 0 00-.7-.3H13"/></svg>
-              Llega en ~{{ ARRIVAL }} a México
+          <!-- THE BOXLY OFFER — consolidation value, NOT a fake per-item shipping
+               total. Boxly buys it and adds it to ONE shared box to Mexico. -->
+          <div class="mt-2 rounded-xl bg-primary-50/80 border border-primary-100 px-3 py-2.5">
+            <p class="flex items-center gap-1 text-[11px] font-bold text-primary-800 leading-snug">📦 Cabe en una caja compartida Boxly</p>
+            <p v-if="p.price" class="text-[10.5px] text-primary-700 mt-1 leading-snug">
+              Tamaño <span class="font-semibold">{{ p.size.label }}</span> · suma solo <span class="font-semibold">~${{ p.size.low }}–{{ p.size.high }}</span> a tu envío consolidado
             </p>
+            <p v-else class="text-[10.5px] text-primary-700 mt-1 leading-snug">Lo consolidamos con tus demás productos en una sola caja.</p>
+            <p class="flex items-center gap-1 text-[10px] text-primary-600/80 mt-1.5">🚚 A tu puerta en México · ~{{ ARRIVAL }}</p>
           </div>
 
-          <!-- Magic moment: "BOXLY can get this for you." Not "add to cart". -->
-          <div class="mt-auto pt-2">
+          <!-- Actions: build a SHIPMENT (not buy one product); details; keep talking. -->
+          <div class="mt-auto pt-2.5 space-y-1.5">
             <button
               type="button"
               @click.stop="$emit('order', p)"
               class="w-full py-2 rounded-xl bg-primary-500 hover:bg-primary-600 active:scale-[.97] text-white text-[12.5px] font-bold shadow-sm shadow-primary-500/20 transition-all"
-            >Cómpralo por mí</button>
+            >Agregar a mi envío</button>
+            <div class="flex items-center justify-center gap-2.5 text-[11px] font-semibold text-gray-400">
+              <button type="button" @click.stop="$emit('open', p)" class="hover:text-gray-700 transition">Ver detalles</button>
+              <span class="text-gray-200">·</span>
+              <button type="button" @click.stop="$emit('ask', p)" class="hover:text-primary-600 transition">Preguntar 💬</button>
+            </div>
           </div>
         </div>
       </div>
@@ -136,43 +133,51 @@
 
 <script setup>
 const props = defineProps({ products: { type: Array, default: () => [] } })
-defineEmits(['open', 'order'])
+defineEmits(['open', 'order', 'ask'])
 
 const activeStore = ref(null)
 
-// THE BOXLY LAYER — a landed-cost estimate so the customer never needs a
-// calculator and instantly feels "I can actually get this". It's an ESTIMATE
-// (labeled "~" and "estimado"); the binding total is the quote. Shipping is a
-// rough tier (we don't have per-item weight yet); service fee is the real 10%.
+// CONSOLIDATION FRAMING — Boxly's value is buying multiple items and shipping them
+// in ONE shared box, so we do NOT quote a precise per-product landed total (fake
+// precision). Instead we estimate the item's SIZE and the small incremental cost
+// it adds to a consolidated shipment. Rough size from the title; the real total is
+// quoted on the whole box.
 const ARRIVAL = '7–12 días'
-function shippingEst(price) {
-  const p = Number(price) || 0
-  if (p < 40) return 12
-  if (p < 100) return 18
-  if (p < 200) return 25
-  return 35
+const LARGE_RE = /jacket|coat|parka|boots?|comforter|blanket|duvet|luggage|suitcase|monitor|television|\btv\b|vacuum|stroller|chair|furniture|guitar|helmet|duffel|backpack|tent|sleeping bag/i
+const SMALL_RE = /bottle|botella|tumbler|\bcup\b|\bmug\b|owala|stanley|hydro|perfume|cologne|fragrance|makeup|skincare|serum|lipstick|mascara|cosmetic|cards?|pok[eé]mon|wallet|watch|jewel|ring|necklace|earring|socks?|case|charger|earbuds|airpods|sunglasses|\bhat\b|\bcap\b|beanie|gloves|book|keychain/i
+function sizeEstimate(p) {
+  const t = (p.title || '')
+  if (LARGE_RE.test(t)) return { label: 'Grande', low: 15, high: 30 }
+  if (SMALL_RE.test(t)) return { label: 'Pequeño', low: 3, high: 8 }
+  return { label: 'Mediano', low: 8, high: 15 }
 }
-function landed(price) {
-  const p = Number(price) || 0
-  return Math.round(p + p * 0.10 + shippingEst(p))
+
+// The AI already ranked the gallery best-first, so #1 IS the recommendation —
+// badge it (only on the full, unfiltered list with enough options to compare).
+function isBest(i) {
+  return i === 0 && !activeStore.value && normalized.value.length >= 3
 }
 
 const normalized = computed(() =>
-  (props.products || []).map((p) => ({
-    title: p.title || p.name || 'Producto',
-    url: p.url || p.product_url || p.source_url || '#',
-    image: p.image || p.image_url || null,
-    price: p.price ?? p.price_usd ?? null,
-    was: p.was ?? null,
-    onSale: p.on_sale ?? p.onSale ?? false,
-    store: p.store || null,
-    note: p.note || p.reason || null,
-    snippet: p.snippet || null,
-    rating: p.rating ?? null,
-    reviews: p.reviews ?? null,
-    token: p.token || null,
-    broken: false,
-  }))
+  (props.products || []).map((p) => {
+    const title = p.title || p.name || 'Producto'
+    return {
+      title,
+      url: p.url || p.product_url || p.source_url || '#',
+      image: p.image || p.image_url || null,
+      price: p.price ?? p.price_usd ?? null,
+      was: p.was ?? null,
+      onSale: p.on_sale ?? p.onSale ?? false,
+      store: p.store || null,
+      note: p.note || p.reason || null,
+      snippet: p.snippet || null,
+      rating: p.rating ?? null,
+      reviews: p.reviews ?? null,
+      token: p.token || null,
+      size: sizeEstimate({ title }),
+      broken: false,
+    }
+  })
 )
 
 // Distinct stores present (for the filter chips).
@@ -184,10 +189,6 @@ watch(stores, (list) => { if (activeStore.value && !list.includes(activeStore.va
 const visible = computed(() =>
   activeStore.value ? normalized.value.filter((p) => p.store === activeStore.value) : normalized.value
 )
-
-// Two rows only when there are enough products to roughly fill them — otherwise
-// a single item in a 2-row grid leaves a big empty row (the blank-space bug).
-const rows = computed(() => (visible.value.length >= 5 ? 2 : 1))
 
 // --- Swipe affordance: track scroll position to drive the progress bar,
 // edge fades, and "Desliza →" hint (native scrollbar is hidden on mobile). ---
