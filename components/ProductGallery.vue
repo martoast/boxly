@@ -26,8 +26,7 @@
       <div
         v-for="(p, i) in visible"
         :key="i"
-        class="group snap-start text-left bg-white border rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-200 flex flex-col"
-        :class="isBest(i) ? 'border-amber-300 ring-1 ring-amber-200' : 'border-gray-200/80 hover:border-gray-300'"
+        class="group snap-start text-left bg-white border border-gray-200/80 hover:border-gray-300 rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-200 flex flex-col"
       >
         <!-- Product (secondary): smaller image, tiny store badge -->
         <div class="relative bg-gray-50 cursor-pointer" @click="$emit('open', p)">
@@ -43,8 +42,8 @@
             />
             <span v-else class="text-[13px] font-bold text-gray-400 uppercase tracking-wide leading-tight line-clamp-3 text-center px-1">{{ p.store || p.title }}</span>
           </div>
-          <span v-if="isBest(i)" class="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-amber-400 text-amber-950 text-[10px] font-extrabold shadow">🏆 Mejor opción</span>
-          <span v-else-if="p.onSale" class="absolute top-2 right-2 px-1.5 py-0.5 rounded-md bg-red-500 text-white text-[10px] font-bold shadow-sm">OFERTA</span>
+          <span class="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-white/95 text-gray-700 text-[10px] font-bold shadow-sm ring-1 ring-black/5">🇺🇸 ➜ 🇲🇽 Disponible con Boxly</span>
+          <span v-if="p.onSale" class="absolute top-2 right-2 px-1.5 py-0.5 rounded-md bg-red-500 text-white text-[10px] font-bold shadow-sm">OFERTA</span>
           <span v-if="p.store" class="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 rounded-md bg-white/90 text-gray-500 text-[9px] font-semibold shadow-sm max-w-[75%] truncate">{{ p.store }}</span>
         </div>
 
@@ -58,15 +57,10 @@
           </p>
           <p v-if="p.price" class="text-[9px] text-gray-400 mt-0.5">precio del producto</p>
 
-          <!-- THE BOXLY OFFER — consolidation value, NOT a fake per-item shipping
-               total. Boxly buys it and adds it to ONE shared box to Mexico. -->
-          <div class="mt-2 rounded-xl bg-primary-50/80 border border-primary-100 px-3 py-2.5">
-            <p class="flex items-center gap-1 text-[11px] font-bold text-primary-800 leading-snug">📦 Cabe en una caja compartida Boxly</p>
-            <p v-if="p.price" class="text-[10.5px] text-primary-700 mt-1 leading-snug">
-              Tamaño <span class="font-semibold">{{ p.size.label }}</span> · suma solo <span class="font-semibold">~${{ p.size.low }}–{{ p.size.high }}</span> a tu envío consolidado
-            </p>
-            <p v-else class="text-[10.5px] text-primary-700 mt-1 leading-snug">Lo consolidamos con tus demás productos en una sola caja.</p>
-            <p class="flex items-center gap-1 text-[10px] text-primary-600/80 mt-1.5">🚚 A tu puerta en México · ~{{ ARRIVAL }}</p>
+          <!-- THE BOXLY VALUE — the value prop, not a shipping calculator. -->
+          <div class="mt-2 rounded-xl bg-primary-50/80 border border-primary-100 px-3 py-2.5 space-y-1">
+            <p class="flex items-center gap-1.5 text-[11.5px] font-semibold text-primary-800">📦 Compra desde México con Boxly</p>
+            <p class="flex items-center gap-1.5 text-[11.5px] font-semibold text-primary-800">🚚 Lo recibes en tu puerta</p>
           </div>
 
           <!-- Actions: build a SHIPMENT (not buy one product); details; keep talking. -->
@@ -137,26 +131,6 @@ defineEmits(['open', 'order', 'ask'])
 
 const activeStore = ref(null)
 
-// CONSOLIDATION FRAMING — Boxly's value is buying multiple items and shipping them
-// in ONE shared box, so we do NOT quote a precise per-product landed total (fake
-// precision). Instead we estimate the item's SIZE and the small incremental cost
-// it adds to a consolidated shipment. Rough size from the title; the real total is
-// quoted on the whole box.
-const ARRIVAL = '7–12 días'
-const LARGE_RE = /jacket|coat|parka|boots?|comforter|blanket|duvet|luggage|suitcase|monitor|television|\btv\b|vacuum|stroller|chair|furniture|guitar|helmet|duffel|backpack|tent|sleeping bag/i
-const SMALL_RE = /bottle|botella|tumbler|\bcup\b|\bmug\b|owala|stanley|hydro|perfume|cologne|fragrance|makeup|skincare|serum|lipstick|mascara|cosmetic|cards?|pok[eé]mon|wallet|watch|jewel|ring|necklace|earring|socks?|case|charger|earbuds|airpods|sunglasses|\bhat\b|\bcap\b|beanie|gloves|book|keychain/i
-function sizeEstimate(p) {
-  const t = (p.title || '')
-  if (LARGE_RE.test(t)) return { label: 'Grande', low: 15, high: 30 }
-  if (SMALL_RE.test(t)) return { label: 'Pequeño', low: 3, high: 8 }
-  return { label: 'Mediano', low: 8, high: 15 }
-}
-
-// The AI already ranked the gallery best-first, so #1 IS the recommendation —
-// badge it (only on the full, unfiltered list with enough options to compare).
-function isBest(i) {
-  return i === 0 && !activeStore.value && normalized.value.length >= 3
-}
 
 const normalized = computed(() =>
   (props.products || []).map((p) => {
@@ -174,7 +148,6 @@ const normalized = computed(() =>
       rating: p.rating ?? null,
       reviews: p.reviews ?? null,
       token: p.token || null,
-      size: sizeEstimate({ title }),
       broken: false,
     }
   })

@@ -91,9 +91,13 @@
               <div :class="m.role === 'user' ? 'bg-primary-500 text-white rounded-3xl rounded-br-lg px-4 py-2.5 max-w-[85%] shadow-sm' : 'w-full max-w-[95%] space-y-3'">
                 <template v-for="(part, i) in m.parts" :key="i">
                   <div v-if="part.type === 'text' && m.role === 'user'" class="whitespace-pre-wrap text-[15px] leading-relaxed">{{ part.text }}</div>
-                  <div v-else-if="part.type === 'text'" class="bg-white border border-gray-100 rounded-3xl rounded-bl-lg px-4 py-3 shadow-sm text-[15px]"><MarkdownText :text="part.text" /></div>
+                  <!-- Only render the assistant text bubble once it actually has text,
+                       so an empty bubble doesn't flash before the stream starts. -->
+                  <div v-else-if="part.type === 'text' && part.text" class="bg-white border border-gray-100 rounded-3xl rounded-bl-lg px-4 py-3 shadow-sm text-[15px]"><MarkdownText :text="part.text" /></div>
 
-                  <ProductGallery v-else-if="(part.type === 'tool-show_products' || part.type === 'tool-browse_store' || part.type === 'tool-browse_stores' || part.type === 'tool-search_products' || part.type === 'tool-show_saved_products') && part.state === 'output-available'" :products="part.output?.products || []" @open="openProduct" @order="onPickProduct" @ask="onAskProduct" />
+                  <ProductGallery v-else-if="isGalleryTool(part) && part.state === 'output-available' && part.output?.products?.length" :products="part.output.products" @open="openProduct" @order="onPickProduct" @ask="onAskProduct" />
+                  <!-- Search/browse finished but found nothing — clean message, not an empty carousel. -->
+                  <div v-else-if="isGalleryTool(part) && part.state === 'output-available'" class="text-[13px] text-gray-500 bg-white border border-gray-100 rounded-2xl px-4 py-3 shadow-sm">No encontré opciones para eso ahora. ¿Probamos con otra marca o término?</div>
 
                   <ShipmentCard v-else-if="part.type === 'tool-show_shipment' && part.state === 'output-available'" :shipment="part.output" @order="onFinalizeShipment" @add="onAddMore" />
 
@@ -364,10 +368,15 @@ const suggestions = computed(() => {
 })
 
 const isBusy = computed(() => chat.status === 'streaming' || chat.status === 'submitted')
+const GALLERY_TOOLS = ['tool-show_products', 'tool-browse_store', 'tool-browse_stores', 'tool-search_products', 'tool-show_saved_products']
+function isGalleryTool(part) { return GALLERY_TOOLS.includes(part?.type) }
+// Show the typing dots ONLY while the assistant turn has nothing visible yet — once
+// any text or tool widget/spinner appears, that's the indicator (no double bubble).
 const showTyping = computed(() => {
   if (chat.status !== 'submitted' && chat.status !== 'streaming') return false
   const last = chat.messages[chat.messages.length - 1]
-  return !(last?.role === 'assistant' && last.parts?.some((p) => p.type === 'text' && p.text))
+  if (last?.role !== 'assistant') return true // user just sent; assistant forming
+  return !(last.parts || []).some((p) => (p.type === 'text' && p.text) || String(p.type).startsWith('tool-'))
 })
 const activeTitle = computed(() => conversations.value.find((c) => c.id === activeId.value)?.title || 'Asistente')
 

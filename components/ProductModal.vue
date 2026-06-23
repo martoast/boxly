@@ -58,17 +58,10 @@
             </div>
             <p class="text-xs text-gray-400 mt-1">precio del producto</p>
 
-            <!-- THE BOXLY OFFER — consolidation value, not a fake per-item total.
-                 Boxly buys it and adds it to ONE shared box to Mexico. -->
-            <div class="mt-3 rounded-2xl bg-primary-50/80 border border-primary-100 px-4 py-3">
-              <p class="flex items-center gap-1.5 text-[13px] font-bold text-primary-900">📦 Cabe en una caja compartida Boxly</p>
-              <p v-if="product.price" class="text-[12px] text-primary-700 mt-1 leading-snug">
-                Tamaño estimado <span class="font-semibold">{{ sizeEstimate(product).label }}</span>. Agregarlo suma solo <span class="font-semibold">~${{ sizeEstimate(product).low }}–{{ sizeEstimate(product).high }} USD</span> a tu envío consolidado — no pagas envío por producto, juntamos todo en una caja. El total se confirma en tu cotización.
-              </p>
-              <p class="flex items-center gap-1.5 text-[12px] font-medium text-primary-800 mt-2">
-                <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H3m10 11h2m4 0h.5a1 1 0 001-1v-3.5a1 1 0 00-.3-.7l-2.5-2.5a1 1 0 00-.7-.3H13"/></svg>
-                A tu puerta en México · ~7–12 días
-              </p>
+            <!-- THE BOXLY VALUE — value prop, not a shipping calculator. -->
+            <div class="mt-3 rounded-2xl bg-primary-50/80 border border-primary-100 px-4 py-3 space-y-1.5">
+              <p class="flex items-center gap-2 text-[13px] font-semibold text-primary-900">📦 Compra desde México con Boxly</p>
+              <p class="flex items-center gap-2 text-[13px] font-semibold text-primary-900">🚚 Lo recibes en tu puerta</p>
             </div>
 
             <p v-if="description" class="text-sm text-gray-600 leading-relaxed mt-4 whitespace-pre-line">{{ description }}</p>
@@ -115,17 +108,6 @@ function formatReviews(n) {
   return v >= 1000 ? (v / 1000).toFixed(1).replace('.0', '') + 'k' : String(v)
 }
 
-// Consolidation framing: estimate the item's size + the small incremental cost it
-// adds to a CONSOLIDATED shipment (not a fake per-product landed total). Mirrors
-// ProductGallery so cards and the modal agree.
-const LARGE_RE = /jacket|coat|parka|boots?|comforter|blanket|duvet|luggage|suitcase|monitor|television|\btv\b|vacuum|stroller|chair|furniture|guitar|helmet|duffel|backpack|tent|sleeping bag/i
-const SMALL_RE = /bottle|botella|tumbler|\bcup\b|\bmug\b|owala|stanley|hydro|perfume|cologne|fragrance|makeup|skincare|serum|lipstick|mascara|cosmetic|cards?|pok[eé]mon|wallet|watch|jewel|ring|necklace|earring|socks?|case|charger|earbuds|airpods|sunglasses|\bhat\b|\bcap\b|beanie|gloves|book|keychain/i
-function sizeEstimate(p) {
-  const t = (p?.title || '')
-  if (LARGE_RE.test(t)) return { label: 'Grande', low: 15, high: 30 }
-  if (SMALL_RE.test(t)) return { label: 'Pequeño', low: 3, high: 8 }
-  return { label: 'Mediano', low: 8, high: 15 }
-}
 
 // --- Lazily fetched detail: more images, description, direct seller link ---
 const fetchedImages = ref([])
