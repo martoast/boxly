@@ -1,6 +1,7 @@
 import { streamText, tool, convertToModelMessages, stepCountIs } from 'ai'
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { z } from 'zod'
+import { FALLBACK_KNOWLEDGE } from '../utils/boxlyKnowledge'
 
 /**
  * AI shopping-assistant chat backend (Phase 2).
@@ -19,6 +20,54 @@ import { z } from 'zod'
 
 const API_BASE = (process.env.API_URL || 'https://api.boxly.mx').replace(/\/$/, '')
 const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6'
+
+// Admin-managed knowledge wiki (Mode 1 — Expert). Cached briefly; falls back to a
+// built-in constant if the API is unreachable so the concierge never goes dark.
+let wikiCache: { markdown: string; at: number } | null = null
+const WIKI_TTL_MS = 60_000
+async function getKnowledge(): Promise<string> {
+  if (wikiCache && Date.now() - wikiCache.at < WIKI_TTL_MS) return wikiCache.markdown
+  try {
+    const res = await fetch(`${API_BASE}/knowledge`, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(8000) })
+    const data = await res.json()
+    const md = data?.data?.markdown
+    if (res.ok && typeof md === 'string' && md.trim()) {
+      wikiCache = { markdown: md, at: Date.now() }
+      return md
+    }
+  } catch { /* fall through */ }
+  return FALLBACK_KNOWLEDGE
+}
+
+// Pull the latest user message's text out of UI messages (parts[] or content).
+function lastUserText(messages: any[]): string {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i]
+    if (m?.role !== 'user') continue
+    if (typeof m.content === 'string') return m.content
+    if (Array.isArray(m.parts)) return m.parts.filter((p: any) => p?.type === 'text').map((p: any) => p.text).join(' ').trim()
+  }
+  return ''
+}
+
+const PRODUCT_TOOLS = new Set(['search_products', 'browse_store', 'browse_stores', 'show_products', 'show_saved_products', 'extract_product', 'web_search'])
+
+// Analytics: a turn that used a product tool is a SEARCH (already logged server-side
+// by /products/search); a turn with no product tool is a business QUESTION. Log the
+// latter to /search-events, forwarding the user's identity so it's attributed.
+function logQuestion(question: string, answer: string, auth: { cookie?: string; origin?: string; token?: string }) {
+  if (!question?.trim()) return
+  const headers: Record<string, string> = { Accept: 'application/json', 'Content-Type': 'application/json' }
+  if (auth.cookie) headers.Cookie = auth.cookie
+  if (auth.origin) headers.Origin = auth.origin
+  if (auth.token) headers.Authorization = `Bearer ${auth.token}`
+  fetch(`${API_BASE}/search-events`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ type: 'question', query: question, answer }),
+    signal: AbortSignal.timeout(8000),
+  }).catch(() => {})
+}
 
 async function callApi(path: string, opts: { method?: string; body?: any; token?: string; timeoutMs?: number } = {}) {
   // No Origin header: this is a server-to-server call. Sending Origin:api.boxly.mx
@@ -65,7 +114,7 @@ function interleave(arrays: any[][]) {
   return out
 }
 
-function systemPrompt(loggedIn: boolean, shoppingProfile: any, savedProducts: any[] = []) {
+function systemPrompt(loggedIn: boolean, shoppingProfile: any, savedProducts: any[] = [], knowledge = '') {
   const profileBlock = !loggedIn
     ? ''
     : (shoppingProfile && Object.keys(shoppingProfile).length
@@ -75,14 +124,19 @@ function systemPrompt(loggedIn: boolean, shoppingProfile: any, savedProducts: an
     ? `\n\nPRODUCTS ALREADY SHOWN IN THIS CHAT (single source of truth — persists across the whole conversation). If the user refers to one ("tráeme ese hoodie", "el segundo", "el que vimos antes"), re-display it with show_saved_products(ids) using the id below — do NOT re-search for it. You can also order one directly using its listed (exact) price:\n`
       + savedProducts.slice(-40).map((p: any) => `- ${p.id}: ${p.title}${p.store ? ' — ' + p.store : ''}${p.price ? ' — $' + p.price + (p.on_sale && p.was ? ' (oferta, antes $' + p.was + ')' : '') : ''}`).join('\n')
     : ''
-  return `You are Boxly's U.S. SHOPPING & IMPORT AGENT for customers in Mexico. You are NOT a product search engine (Google, Amazon and ChatGPT can already search). Boxly's edge — and yours — is the WHOLE job: you find products in U.S. stores, BOXLY BUYS them on the customer's behalf, imports them into Mexico, and delivers them to their door. No U.S. credit card, no VPN, no blocked-store problems.
+  const knowledgeBlock = `\n\n=== BASE DE CONOCIMIENTO (Modo Experto — responde preguntas del negocio SOLO con esto) ===\n${knowledge || 'No disponible ahora — si te preguntan algo del negocio que no sepas con certeza, dilo y ofrece WhatsApp.'}\n=== FIN BASE DE CONOCIMIENTO ===`
 
-YOUR SINGLE GOAL is to create PURCHASE REQUESTS — that is the action Boxly exists for. Finding products is just the means. Every session should move toward "Boxly, buy this for me." Optimize relentlessly for: a Purchase Request created, with as few messages as possible.
+  return `You are the BOXLY CONCIERGE — a warm, expert guide who helps customers in Mexico buy from the United States. THE CONVERSATION IS THE PRODUCT: you help people like a top-performing sales rep would — answer their questions, build their confidence, help them find the right thing, and get it ordered. Product search is just ONE tool you reach for during that conversation (think Perplexity, not Google). Boxly's edge is the WHOLE job: you find U.S. products, BOXLY BUYS them for the customer, imports them to Mexico, and delivers to their door. No U.S. card, no VPN, no blocked stores.
 
-OPERATING PRINCIPLES:
-- SHOW VALUE IMMEDIATELY, ASK LESS. When the user names a brand/product/category, your FIRST move is to SHOW products — do not interrogate them first. Ask at most ONE quick question only when you truly can't search without it. Reduce friction; momentum toward the Purchase Request beats thoroughness.
-- ALWAYS REINFORCE WHAT BOXLY DOES. Products are never the end — they're a thing Boxly can GET for them. After showing results, remind them in one line that Boxly can buy any of these, import them, and deliver to their door in Mexico — and invite the Purchase Request. Never present products as a dead-end list.
-- ONE CLICK FROM WANT TO REQUEST. The customer can tap "Pedir con Boxly" on any product to start the request. When they pick one, confirm only the essentials you're missing (size/variant/qty) in as few questions as possible, then create the Purchase Request.
+You work in THREE modes inside ONE conversation — switch fluidly as the customer's need changes:
+
+MODE 1 — EXPERT (answer questions). Use the KNOWLEDGE BASE below to answer anything about how Boxly works: tiempos de envío, el casillero, precios y comisiones, compra asistida, rastreo, restricciones, sourcing internacional, pagos. Answer ONLY from the knowledge base; if it isn't there, say so honestly and offer WhatsApp — never invent policy, prices or timeframes. After answering, gently move forward ("¿Qué te gustaría comprar?").
+
+MODE 2 — PRODUCT DISCOVERY (find things). When the customer wants to see/buy products, use your search tools. Be CONSULTATIVE first: if one quick question sharpens the result, ask it (e.g. "unos tenis" → "¿para correr, gimnasio o uso diario?"), then search. The gallery renders INSIDE the chat and you can SEE the items returned — so answer follow-ups about them ("¿la primera trae popote?", "compara la 1 y la 3", "¿cuál es más barata?").
+
+MODE 3 — PURCHASE CONVERSION (close the sale — where the money is made). The moment you detect buying intent ("quiero ese", "cómpralo por mí", "lo pido"), switch to closing: confirm the exact product, collect size/color/variant and quantity, briefly reassure (Boxly compra, importa y entrega), create the account if they're a guest, and create the Purchase Request. This is your most important job.
+
+BE CONSULTATIVE, NOT PUSHY. You're a trusted expert, not a search box. A good clarifying question before searching makes results better — but keep momentum and never interrogate. Trust and helpfulness first; the order follows naturally.${knowledgeBlock}
 
 CRITICAL — NEVER invent products. You may ONLY show a product (name, URL, price, image) if it came back from a tool call in THIS conversation (search_products, browse_store, browse_stores, or extract_product). NEVER type a product from memory/training — it will be wrong. If a tool returns nothing usable, say so and try another query/store; never fill the gap with remembered products.
 
@@ -141,15 +195,26 @@ export default defineEventHandler(async (event) => {
   const savedProducts: any[] = Array.isArray(body?.savedProducts) ? body.savedProducts : []
 
   const anthropic = createAnthropic({ apiKey: key })
+  const knowledge = await getKnowledge()
+
+  // Identity for analytics question-logging (searches log themselves server-side).
+  const auth = { cookie: getHeader(event, 'cookie'), origin: getHeader(event, 'origin'), token }
+  const question = lastUserText(messages)
 
   const authedNote = { ok: false, error: 'not_authenticated', message: 'Ask the user to create an account first (call create_account).' }
 
   const result = streamText({
     model: anthropic(MODEL),
-    system: systemPrompt(!!token, shoppingProfile, savedProducts),
+    system: systemPrompt(!!token, shoppingProfile, savedProducts, knowledge),
     messages: await convertToModelMessages(stripIncompleteToolCalls(messages)),
     stopWhen: stepCountIs(10),
     onError: ({ error }) => console.error('[assistant] error:', error instanceof Error ? error.message : error),
+    onFinish: ({ text, steps }) => {
+      // A turn that used a product tool is a SEARCH (logged server-side by
+      // /products/search). A turn with no product tool is a business QUESTION.
+      const usedProductTool = (steps || []).some((s: any) => (s.toolCalls || []).some((c: any) => PRODUCT_TOOLS.has(c.toolName)))
+      if (!usedProductTool) logQuestion(question, text || '', auth)
+    },
     tools: {
       web_search: anthropic.tools.webSearch_20250305({ maxUses: 6 }),
 

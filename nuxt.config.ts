@@ -13,12 +13,15 @@ export default defineNuxtConfig({
     '/app/**':   { ssr: false },
     '/login':    { ssr: false },
     '/register': { ssr: false },
-    // Legacy assistant entry points → the single clean search entry.
+    // Legacy assistant entry points → the unified concierge.
     '/assistant':     { redirect: '/buscar' },
     '/app/assistant': { redirect: '/buscar' },
+    // BOXLY Concierge (unified chat) — client-rendered (the chat engine isn't
+    // SSR-friendly, and history deep-links resolve the user client-side).
+    '/buscar':     { ssr: false },
+    '/buscar/**':  { ssr: false },
     // The product page is auth-gated (token-expensive) — client-rendered so the
-    // auth middleware resolves the user reliably. Search + results stay public so
-    // guests get the "wow" of seeing results before signing in.
+    // auth middleware resolves the user reliably.
     '/producto':          { ssr: false },
   },
   app: {

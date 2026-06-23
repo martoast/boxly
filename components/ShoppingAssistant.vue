@@ -333,10 +333,10 @@ const valueProps = [
 ]
 
 const DEFAULT_SUGGESTIONS = [
-  { emoji: '🔥', text: 'Ofertas en YoungLA' },
-  { emoji: '👟', text: 'New Balance en oferta' },
-  { emoji: '🦅', text: 'American Eagle en oferta' },
+  { emoji: '💬', text: '¿Cómo funciona Boxly?' },
+  { emoji: '👟', text: 'Busco unos tenis New Balance' },
   { emoji: '💧', text: 'Owala en oferta' },
+  { emoji: '🚚', text: '¿Cuánto tarda el envío?' },
 ]
 const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s)
 // Personalize the starter chips from the shopper's long-term memory (favorite
@@ -423,7 +423,10 @@ async function loadProfile() {
 // clobbers the user's Claude Desktop connection.
 let tokenPromise = null
 function ensureChatToken() {
-  if (token.value) return
+  // Guests have no session — minting a chat token would 401 and the global
+  // $fetch plugin would bounce them to /login. They don't need a token until
+  // they create an account (submitAccount sets it directly). So skip for guests.
+  if (!user.value || token.value) return
   if (!tokenPromise) {
     tokenPromise = $customFetch('/me/chat-token', { method: 'POST' })
       .then((r) => { token.value = r.token })
