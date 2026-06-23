@@ -56,24 +56,34 @@
           <p v-if="p.store" class="text-[10px] uppercase tracking-wider text-primary-500 font-bold truncate">{{ p.store }}</p>
           <span class="text-[13px] font-semibold text-gray-900 leading-snug line-clamp-2 min-h-[2.5rem] group-hover:text-primary-600 transition-colors mt-0.5">{{ p.title }}</span>
 
-          <p v-if="p.price" class="text-[15px] font-extrabold leading-none mt-1.5" :class="p.onSale ? 'text-red-600' : 'text-gray-900'">
-            ${{ p.price }} <span class="text-[11px] font-semibold text-gray-400 align-middle">USD</span>
-            <span v-if="p.was" class="ml-1 text-[11px] font-medium text-gray-300 line-through align-middle">${{ p.was }}</span>
+          <p v-if="p.price" class="text-[14px] font-bold leading-none mt-1.5" :class="p.onSale ? 'text-red-600' : 'text-gray-800'">
+            ${{ p.price }} <span class="text-[10px] font-semibold text-gray-400 align-middle">USD</span>
+            <span v-if="p.was" class="ml-1 text-[10px] font-medium text-gray-300 line-through align-middle">${{ p.was }}</span>
+            <span class="ml-1 text-[9px] font-medium text-gray-400 align-middle">precio de tienda</span>
           </p>
-          <p v-if="p.price" class="text-[10px] text-gray-400 mt-0.5">Precio de tienda</p>
           <p v-else-if="p.note" class="text-[11px] text-gray-400 line-clamp-2 mt-1">{{ p.note }}</p>
 
-          <!-- BOXLY reinforcement + one-tap purchase request -->
-          <div class="mt-auto pt-2.5">
-            <p class="flex items-center gap-1 text-[10px] text-gray-400 mb-1.5">
-              <svg class="w-3 h-3 text-primary-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-              Compra asistida por Boxly
+          <!-- THE BOXLY LAYER — products + BOXLY. The value isn't the product, it's
+               that Boxly can get it for you: landed estimate + arrival. -->
+          <div v-if="p.price" class="mt-2 rounded-xl bg-primary-50/80 border border-primary-100 px-2.5 py-2">
+            <div class="flex items-baseline justify-between gap-1">
+              <span class="text-[9.5px] font-bold uppercase tracking-wide text-primary-500">Total estimado</span>
+              <span class="text-[15px] font-extrabold text-primary-900 leading-none">~${{ landed(p.price) }}<span class="text-[9px] font-semibold text-primary-400"> USD</span></span>
+            </div>
+            <p class="text-[9px] text-primary-700/60 leading-tight mt-0.5">producto + 10% servicio + envío</p>
+            <p class="flex items-center gap-1 text-[10px] font-medium text-primary-700 mt-1">
+              <svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H3m10 11h2m4 0h.5a1 1 0 001-1v-3.5a1 1 0 00-.3-.7l-2.5-2.5a1 1 0 00-.7-.3H13"/></svg>
+              Llega en ~{{ ARRIVAL }} a México
             </p>
+          </div>
+
+          <!-- Magic moment: "BOXLY can get this for you." Not "add to cart". -->
+          <div class="mt-auto pt-2">
             <button
               type="button"
               @click.stop="$emit('order', p)"
               class="w-full py-2 rounded-xl bg-primary-500 hover:bg-primary-600 active:scale-[.97] text-white text-[12.5px] font-bold shadow-sm shadow-primary-500/20 transition-all"
-            >Pedir con Boxly</button>
+            >Cómpralo por mí</button>
           </div>
         </div>
       </div>
@@ -129,6 +139,23 @@ const props = defineProps({ products: { type: Array, default: () => [] } })
 defineEmits(['open', 'order'])
 
 const activeStore = ref(null)
+
+// THE BOXLY LAYER — a landed-cost estimate so the customer never needs a
+// calculator and instantly feels "I can actually get this". It's an ESTIMATE
+// (labeled "~" and "estimado"); the binding total is the quote. Shipping is a
+// rough tier (we don't have per-item weight yet); service fee is the real 10%.
+const ARRIVAL = '7–12 días'
+function shippingEst(price) {
+  const p = Number(price) || 0
+  if (p < 40) return 12
+  if (p < 100) return 18
+  if (p < 200) return 25
+  return 35
+}
+function landed(price) {
+  const p = Number(price) || 0
+  return Math.round(p + p * 0.10 + shippingEst(p))
+}
 
 const normalized = computed(() =>
   (props.products || []).map((p) => ({

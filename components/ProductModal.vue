@@ -56,7 +56,21 @@
               <span v-if="product.was" class="text-sm font-medium text-gray-400 line-through">${{ product.was }}</span>
               <span v-if="product.onSale" class="px-1.5 py-0.5 rounded-md bg-red-500 text-white text-[10px] font-bold">OFERTA</span>
             </div>
-            <p class="text-xs text-gray-400 mt-1">Precio de tienda · Boxly suma su comisión y el envío (se cotiza después).</p>
+            <p class="text-xs text-gray-400 mt-1">Precio de tienda</p>
+
+            <!-- THE BOXLY LAYER — landed estimate + arrival, so the value (Boxly gets
+                 it for you) is front and center, not a calculator exercise. -->
+            <div v-if="product.price" class="mt-3 rounded-2xl bg-primary-50/80 border border-primary-100 px-4 py-3">
+              <div class="flex items-baseline justify-between">
+                <span class="text-[11px] font-bold uppercase tracking-wide text-primary-500">Total estimado</span>
+                <span class="text-xl font-extrabold text-primary-900 leading-none">~${{ landed(product.price) }}<span class="text-xs font-semibold text-primary-400"> USD</span></span>
+              </div>
+              <p class="text-[11px] text-primary-700/70 mt-0.5">producto + 10% servicio Boxly + envío · se confirma en tu cotización</p>
+              <p class="flex items-center gap-1.5 text-[12px] font-medium text-primary-800 mt-1.5">
+                <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H3m10 11h2m4 0h.5a1 1 0 001-1v-3.5a1 1 0 00-.3-.7l-2.5-2.5a1 1 0 00-.7-.3H13"/></svg>
+                Llega a México en ~7–12 días
+              </p>
+            </div>
 
             <p v-if="description" class="text-sm text-gray-600 leading-relaxed mt-4 whitespace-pre-line">{{ description }}</p>
 
@@ -73,7 +87,7 @@
 
             <!-- CTAs -->
             <button @click="pick" class="mt-4 w-full py-3 rounded-2xl bg-primary-500 hover:bg-primary-600 active:scale-[.98] text-white text-[15px] font-bold shadow-sm shadow-primary-500/25 transition-all">
-              Pedir con Boxly
+              Cómpralo por mí
             </button>
             <a :href="bestLink" target="_blank" rel="noopener noreferrer" class="mt-2 w-full flex items-center justify-center gap-1.5 py-3 rounded-2xl border border-gray-200 text-gray-700 text-[15px] font-semibold hover:bg-gray-50 active:scale-[.98] transition-all">
               Ver en línea
@@ -100,6 +114,15 @@ const boxlyBenefits = [
 function formatReviews(n) {
   const v = Number(n) || 0
   return v >= 1000 ? (v / 1000).toFixed(1).replace('.0', '') + 'k' : String(v)
+}
+
+// Landed-cost estimate (product + 10% service + rough shipping tier). An ESTIMATE
+// — the binding total is the quote. Mirrors ProductGallery so cards and the modal
+// agree.
+function landed(price) {
+  const p = Number(price) || 0
+  const ship = p < 40 ? 12 : p < 100 ? 18 : p < 200 ? 25 : 35
+  return Math.round(p + p * 0.10 + ship)
 }
 
 // --- Lazily fetched detail: more images, description, direct seller link ---

@@ -49,8 +49,8 @@
         <div v-if="!loadingChat && !chat.messages.length" class="flex-1 flex flex-col min-h-0">
           <!-- centered headline + value props -->
           <div class="flex-1 flex flex-col items-center justify-center px-6 text-center">
-            <h1 class="text-[26px] leading-tight md:text-4xl font-extrabold text-gray-900 tracking-tight">¿Qué quieres comprar de USA hoy?</h1>
-            <p class="text-gray-500 mt-3 text-[15px] md:text-base max-w-md leading-relaxed">Lo encuentras, <span class="font-semibold text-gray-700">Boxly lo compra y te lo trae a tu puerta en México</span>.</p>
+            <h1 class="text-[26px] leading-tight md:text-4xl font-extrabold text-gray-900 tracking-tight">¿Qué te gustaría comprar en Estados Unidos?</h1>
+            <p class="text-gray-500 mt-3 text-[15px] md:text-base max-w-md leading-relaxed">Lo que sea. <span class="font-semibold text-gray-700">Boxly lo consigue por ti, lo importa y te lo entrega en México</span>. Pregúntame o dime qué buscas.</p>
             <div class="mt-5 grid grid-cols-2 gap-x-5 gap-y-2 text-left">
               <span v-for="v in valueProps" :key="v" class="flex items-center gap-1.5 text-[13px] text-gray-600">
                 <svg class="w-4 h-4 text-primary-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
@@ -127,8 +127,8 @@
                   </div>
 
                   <div v-else-if="part.type === 'tool-create_purchase_request' && part.state === 'output-available' && part.output?.request_number" class="bg-green-50 border border-green-200 rounded-2xl p-4 max-w-sm">
-                    <p class="text-sm font-bold text-green-800 flex items-center gap-1.5"><svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 011.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z" clip-rule="evenodd"/></svg> Solicitud creada: {{ part.output.request_number }}</p>
-                    <p class="text-xs text-green-700 mt-1">Boxly la revisará y te enviará la cotización.</p>
+                    <p class="text-sm font-bold text-green-800 flex items-center gap-1.5"><svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 011.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z" clip-rule="evenodd"/></svg> Listo — nosotros nos encargamos 🎉</p>
+                    <p class="text-xs text-green-700 mt-1">Solicitud <span class="font-semibold">{{ part.output.request_number }}</span> creada. Te enviamos la cotización (producto + servicio + envío) para que la apruebes — no pagas nada todavía.</p>
                     <NuxtLink to="/app/purchase-requests" class="inline-block mt-2 text-xs font-semibold text-green-800 underline active:scale-95 transition-transform">Ver mis solicitudes →</NuxtLink>
                   </div>
 
@@ -333,10 +333,12 @@ const valueProps = [
 ]
 
 const DEFAULT_SUGGESTIONS = [
+  { emoji: '👟', text: 'Tenis Nike para correr' },
+  { emoji: '🥤', text: 'Stanley Cups' },
+  { emoji: '💄', text: 'Skincare de Sephora' },
+  { emoji: '👜', text: 'Bolsas Coach' },
+  { emoji: '🎴', text: 'Cartas Pokémon' },
   { emoji: '💬', text: '¿Cómo funciona Boxly?' },
-  { emoji: '👟', text: 'Busco unos tenis New Balance' },
-  { emoji: '💧', text: 'Owala en oferta' },
-  { emoji: '🚚', text: '¿Cuánto tarda el envío?' },
 ]
 const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s)
 // Personalize the starter chips from the shopper's long-term memory (favorite
@@ -480,7 +482,7 @@ function onPickProduct(p) {
   // product page; include real merchant URLs directly.
   const isGoogle = (p.url || '').includes('google.com/search')
   const urlPart = p.url && !isGoogle ? ` — ${p.url}` : ''
-  const text = `Agrega a mi pedido: ${p.title}${store}${price}${urlPart}`
+  const text = `Cómpralo por mí: ${p.title}${store}${price}${urlPart}`
   ensureConversation(text)
   chat.sendMessage({ text })
   scrollDown()
