@@ -38,10 +38,30 @@
               <p :class="['text-sm font-medium', order.created_at ? 'text-gray-900' : 'text-gray-500']">{{ t.orderRegistered }}</p>
               <p v-if="order.created_at" class="text-xs text-gray-600 mt-0.5">{{ formatDate(order.created_at) }}</p>
               <p v-if="order.items?.length" class="text-xs text-gray-500 mt-1">{{ order.items.length }} {{ t.itemsAddedCount }}</p>
+              <p v-if="sdReceivedActive" class="text-xs text-gray-500 mt-1">{{ t.awaitingSdNote }}</p>
             </div>
           </div>
 
-          <!-- Step 2: In transfer to Mexico -->
+          <!-- Step 2: Received in San Diego -->
+          <div class="flex items-start gap-4">
+            <div class="relative flex-shrink-0">
+              <div :class="['w-8 h-8 rounded-full flex items-center justify-center', sdReceivedDone ? 'bg-primary-600' : 'bg-gray-200']">
+                <svg v-if="sdReceivedDone" class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                </svg>
+                <div v-else-if="sdReceivedActive" class="w-3 h-3 rounded-full bg-amber-400 animate-pulse"></div>
+                <div v-else class="w-3 h-3 rounded-full bg-white"></div>
+              </div>
+            </div>
+            <div class="flex-1 min-w-0">
+              <p :class="['text-sm font-medium', sdReceivedDone || sdReceivedActive ? 'text-gray-900' : 'text-gray-500']">{{ t.receivedSd }}</p>
+              <p :class="['text-xs mt-0.5', sdReceivedDone ? 'text-gray-600' : sdReceivedActive ? 'text-amber-600' : 'text-gray-400']">
+                {{ sdReceivedDone ? t.receivedSdDesc : sdReceivedActive ? t.pendingSd : t.pending }}
+              </p>
+            </div>
+          </div>
+
+          <!-- Step 3: In transfer to Mexico -->
           <div class="flex items-start gap-4">
             <div class="relative flex-shrink-0">
               <div :class="['w-8 h-8 rounded-full flex items-center justify-center', transferDone ? 'bg-primary-600' : 'bg-gray-200']">
@@ -57,10 +77,11 @@
               <p :class="['text-xs mt-0.5', transferDone ? 'text-gray-600' : transferActive ? 'text-amber-600' : 'text-gray-400']">
                 {{ transferDone ? t.transferDoneDesc : transferActive ? t.transferActiveDesc : t.pending }}
               </p>
+              <p v-if="transferActive" class="text-xs text-amber-600 font-medium mt-0.5">{{ t.transferEta }}</p>
             </div>
           </div>
 
-          <!-- Step 3: Received in Mexico -->
+          <!-- Step 4: Received in Mexico -->
           <div class="flex items-start gap-4">
             <div class="relative flex-shrink-0">
               <div :class="['w-8 h-8 rounded-full flex items-center justify-center', receivedDone ? 'bg-primary-600' : 'bg-gray-200']">
@@ -78,7 +99,7 @@
             </div>
           </div>
 
-          <!-- Step 4: Quote Ready (awaiting_payment) -->
+          <!-- Step 5: Quote Ready (awaiting_payment) -->
           <div class="flex items-start gap-4">
             <div class="relative flex-shrink-0">
               <div :class="['w-8 h-8 rounded-full flex items-center justify-center', quoteDone ? 'bg-primary-600' : 'bg-gray-200']">
@@ -97,7 +118,7 @@
             </div>
           </div>
 
-          <!-- Step 4: Shipped -->
+          <!-- Step 6: Shipped -->
           <div class="flex items-start gap-4">
             <div class="relative flex-shrink-0">
               <div :class="['w-8 h-8 rounded-full flex items-center justify-center', shippedDone ? 'bg-indigo-600' : 'bg-gray-200']">
@@ -117,7 +138,7 @@
             </div>
           </div>
 
-          <!-- Step 5: Delivered (Final) -->
+          <!-- Step 7: Delivered (Final) -->
           <div class="flex items-start gap-4">
             <div class="relative flex-shrink-0">
               <div :class="['w-8 h-8 rounded-full flex items-center justify-center', deliveredDone ? 'bg-green-600' : 'bg-gray-200']">
@@ -308,17 +329,20 @@ const isStatusReached = (targetStatus) => {
   return currentIndex >= targetIndex;
 };
 
-// ── Shipping timeline (6 steps) — done (✓) states, cumulative via status order ──
-const transferDone = computed(() => isStatusReached('packages_complete'))   // Step 2 (in transfer → done once received)
-const receivedDone = computed(() => isStatusReached('packages_complete'))   // Step 3 (received in Mexico)
-const quoteDone = computed(() => isStatusReached('awaiting_payment'))        // Step 3 (quote/invoice generated)
-const shippedDone = computed(() => isStatusReached('shipped'))              // Step 4
-const deliveredDone = computed(() => isStatusReached('delivered'))          // Step 5
-
-// ── Shipping timeline — active (current, pulsing) states ──
-const transferActive = computed(() => ['collecting', 'awaiting_packages'].includes(props.order.status))
-const quoteActive = computed(() => props.order.status === 'packages_complete')
-const shippingActive = computed(() => ['awaiting_payment', 'processing', 'paid'].includes(props.order.status))
+// ── Shipping timeline (7 steps) — done (✓) states, cumulative via status order ──
+// Key fact: `packages_complete` = received at our SAN DIEGO warehouse (NOT Mexico).
+// The package is then transferred to Mexico; the quote (awaiting_payment) is only
+// generated once it's RECEIVED IN MEXICO — so awaiting_payment ⇒ in Mexico.
+const sdReceivedDone = computed(() => isStatusReached('packages_complete'))  // Step 2 (received in San Diego)
+const sdReceivedActive = computed(() => ['collecting', 'awaiting_packages'].includes(props.order.status))
+const transferDone = computed(() => isStatusReached('awaiting_payment'))     // Step 3 (transfer done once in Mexico)
+const transferActive = computed(() => props.order.status === 'packages_complete')
+const receivedDone = computed(() => isStatusReached('awaiting_payment'))     // Step 4 (received in Mexico)
+const quoteDone = computed(() => isStatusReached('processing'))              // Step 5 (quote done once paid/processing)
+const quoteActive = computed(() => props.order.status === 'awaiting_payment')
+const shippedDone = computed(() => isStatusReached('shipped'))              // Step 6
+const shippingActive = computed(() => ['processing', 'paid'].includes(props.order.status))
+const deliveredDone = computed(() => isStatusReached('delivered'))          // Step 7
 const deliveryActive = computed(() => props.order.status === 'shipped')
 
 const formatDate = (date) => {
@@ -347,23 +371,28 @@ const translations = {
   orderCompleteDesc: { es: "¡Completado!", en: "Completed!" },
   pendingPayment: { es: "Pendiente de pago del envío", en: "Pending payment" },
 
-  // Shipping specific (6-step flow)
-  orderRegistered: { es: "Orden Registrada", en: "Order Registered" },
-  inTransferMx: { es: "En transferencia a México", en: "In transfer to Mexico" },
+  // Shipping specific (7-step flow)
+  orderRegistered: { es: "✅ Orden Registrada", en: "✅ Order Registered" },
+  awaitingSdNote: { es: "Estamos esperando que la tienda entregue tu paquete en San Diego.", en: "We're waiting for the store to deliver your package to San Diego." },
+  receivedSd: { es: "📦 Recibido en San Diego", en: "📦 Received in San Diego" },
+  receivedSdDesc: { es: "Tu paquete llegó a nuestra dirección de San Diego.", en: "Your package arrived at our San Diego address." },
+  pendingSd: { es: "Esperando que la tienda lo entregue en San Diego", en: "Waiting for the store to deliver it to San Diego" },
+  inTransferMx: { es: "🚚 En transferencia a México", en: "🚚 In transfer to Mexico" },
   transferDoneDesc: { es: "Trasladado a México", en: "Moved to Mexico" },
-  transferActiveDesc: { es: "Esperando entrega en San Diego (1–2 días hábiles)", en: "Awaiting delivery in San Diego (1–2 business days)" },
-  receivedMx: { es: "Recibido en México", en: "Received in Mexico" },
+  transferActiveDesc: { es: "BOXLY está trasladando tu paquete a México.", en: "BOXLY is moving your package to Mexico." },
+  transferEta: { es: "Tiempo estimado para recepción en México: 2–3 días hábiles.", en: "Estimated time to be received in Mexico: 2–3 business days." },
+  receivedMx: { es: "🇲🇽 Recibido en México", en: "🇲🇽 Received in Mexico" },
   receivedMxDesc: { es: "Tu paquete llegó a México", en: "Your package arrived in Mexico" },
   pendingReceived: { es: "Pendiente de recepción en México", en: "Pending reception in Mexico" },
-  quoteReady: { es: "Cotización lista", en: "Quote Ready" },
+  quoteReady: { es: "💳 Cotización lista", en: "💳 Quote Ready" },
   quoteReadyDesc: { es: "Cotización generada", en: "Quote generated" },
   quotePreparingDesc: { es: "Preparando cotización", en: "Preparing quote" },
-  shippedLabel: { es: "Enviado", en: "Shipped" },
+  shippedLabel: { es: "✈️ Enviado", en: "✈️ Shipped" },
   paymentConfirmed: { es: "Pago Confirmado", en: "Payment Confirmed" },
   paymentRequired: { es: "Pago Requerido", en: "Payment Required" },
   preparingShipment: { es: "Preparando envío", en: "Preparing shipment" },
   pendingShipment: { es: "Pendiente de envío", en: "Pending shipment" },
-  delivered: { es: "Entregado", en: "Delivered" },
+  delivered: { es: "🎉 Entregado", en: "🎉 Delivered" },
   inTransit: { es: "En tránsito", en: "In transit" },
   pendingDelivery: { es: "Pendiente de entrega", en: "Pending delivery" },
 

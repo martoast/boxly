@@ -44,31 +44,33 @@ const user = useUser().value
 const locale = computed(() => (user?.preferred_language === 'en' ? 'en' : 'es'))
 
 // status → stage
+// Note: `packages_complete` = received at our SAN DIEGO warehouse (not Mexico).
+// The quote (awaiting_payment) is only generated once it's received IN MEXICO.
 const stage = computed(() => {
   switch (props.order?.status) {
     case 'collecting':
-    case 'awaiting_packages': return 'transfer'
-    case 'packages_complete': return 'received'
+    case 'awaiting_packages': return 'awaiting_sd'
+    case 'packages_complete': return 'transfer'
     case 'awaiting_payment': return 'quote'
     case 'processing':
     case 'paid': return 'preparing'
     case 'shipped': return 'shipped'
     case 'delivered': return 'delivered'
     case 'cancelled': return 'cancelled'
-    default: return 'transfer'
+    default: return 'awaiting_sd'
   }
 })
 
 const COPY = {
-  transfer: {
-    es: { label: 'En transferencia a México', desc: 'Tu pedido fue registrado correctamente. El siguiente paso es que tu paquete sea entregado en nuestra dirección de San Diego y posteriormente trasladado a México. Normalmente toma 1–2 días hábiles después de la entrega en San Diego.', next: 'Cuando tu paquete sea recibido en México.' },
-    en: { label: 'In transfer to Mexico', desc: 'Your order was registered. Next, the store delivers your package to our San Diego address and BOXLY crosses it into Mexico — usually 1–2 business days after it arrives in San Diego.', next: 'When your package is received in Mexico.' },
+  awaiting_sd: {
+    es: { label: 'Orden registrada', desc: 'Tu pedido fue registrado correctamente. Ahora esperamos que la tienda entregue tu paquete en nuestra dirección de San Diego. En cuanto llegue, lo trasladamos a México.', next: 'Tu paquete será recibido en México en aproximadamente 2–3 días hábiles después de llegar a San Diego.' },
+    en: { label: 'Order registered', desc: 'Your order was registered. We are now waiting for the store to deliver your package to our San Diego address. Once it arrives, we move it to Mexico.', next: 'Your package will be received in Mexico about 2–3 business days after it arrives in San Diego.' },
     showFlow: true, payLater: true,
   },
-  received: {
-    es: { label: 'Recibido en México', desc: '¡Tu paquete ya llegó a México! Estamos preparando tu cotización.', next: 'Cuando tu cotización esté lista.' },
-    en: { label: 'Received in Mexico', desc: 'Your package is now in Mexico! We are preparing your quote.', next: 'When your quote is ready.' },
-    payLater: true,
+  transfer: {
+    es: { label: 'Recibido en San Diego', desc: 'Tu paquete ya llegó a nuestra dirección de San Diego. BOXLY lo está trasladando a México.', next: 'Tu paquete será recibido en México en aproximadamente 2–3 días hábiles.' },
+    en: { label: 'Received in San Diego', desc: 'Your package arrived at our San Diego address. BOXLY is now moving it to Mexico.', next: 'Your package will be received in Mexico in about 2–3 business days.' },
+    showFlow: true, payLater: true,
   },
   quote: {
     es: { label: 'Cotización lista', desc: 'Tu cotización ya está lista. Realiza el pago para que preparemos y enviemos tu paquete.', next: 'Cuando confirmemos tu pago.' },
@@ -94,8 +96,8 @@ const COPY = {
 }
 
 const STYLE = {
+  awaiting_sd: { cardClass: 'border-blue-200 bg-blue-50/60', labelClass: 'text-blue-600', dotClass: 'bg-blue-500 animate-pulse', borderClass: 'border-blue-200', accentText: 'text-blue-500' },
   transfer:  { cardClass: 'border-blue-200 bg-blue-50/60', labelClass: 'text-blue-600', dotClass: 'bg-blue-500 animate-pulse', borderClass: 'border-blue-200', accentText: 'text-blue-500' },
-  received:  { cardClass: 'border-blue-200 bg-blue-50/60', labelClass: 'text-blue-600', dotClass: 'bg-blue-500', borderClass: 'border-blue-200', accentText: 'text-blue-500' },
   quote:     { cardClass: 'border-amber-200 bg-amber-50/70', labelClass: 'text-amber-600', dotClass: 'bg-amber-500 animate-pulse', borderClass: 'border-amber-200', accentText: 'text-amber-500' },
   preparing: { cardClass: 'border-indigo-200 bg-indigo-50/60', labelClass: 'text-indigo-600', dotClass: 'bg-indigo-500 animate-pulse', borderClass: 'border-indigo-200', accentText: 'text-indigo-500' },
   shipped:   { cardClass: 'border-indigo-200 bg-indigo-50/60', labelClass: 'text-indigo-600', dotClass: 'bg-indigo-500 animate-pulse', borderClass: 'border-indigo-200', accentText: 'text-indigo-500' },
@@ -112,16 +114,20 @@ const view = computed(() => {
 const flowSteps = computed(() => locale.value === 'es'
   ? [
       'La tienda entrega tu paquete en nuestra dirección de San Diego.',
-      'BOXLY recoge los paquetes en bloque (normalmente al día siguiente).',
-      'BOXLY cruza los paquetes a México (1–2 días hábiles).',
-      'Al recibirlo en México, generamos tu cotización.',
+      'BOXLY recoge los paquetes normalmente al día siguiente.',
+      'Trasladamos tu paquete a México.',
+      'El traslado y la recepción en México toman normalmente 2–3 días hábiles.',
+      'Al llegar a México generamos tu cotización.',
       'Solo pagas cuando tu paquete ya está en México.',
+      'Enviamos tu paquete a tu domicilio.',
     ]
   : [
       'The store delivers your package to our San Diego address.',
-      'BOXLY picks up packages in bulk (usually the next day).',
-      'BOXLY crosses the packages into Mexico (1–2 business days).',
-      'Once received in Mexico, we generate your quote.',
+      'BOXLY picks up packages, usually the next day.',
+      'We move your package to Mexico.',
+      'Transfer and reception in Mexico usually take 2–3 business days.',
+      'Once it arrives in Mexico, we generate your quote.',
       'You only pay once your package is in Mexico.',
+      'We ship your package to your address.',
     ])
 </script>
