@@ -1,4 +1,4 @@
-import { streamText, tool, convertToModelMessages, stepCountIs } from 'ai'
+import { streamText, generateText, tool, convertToModelMessages, stepCountIs } from 'ai'
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { z } from 'zod'
 import { FALLBACK_KNOWLEDGE } from '../utils/boxlyKnowledge'
@@ -20,6 +20,37 @@ import { FALLBACK_KNOWLEDGE } from '../utils/boxlyKnowledge'
 
 const API_BASE = (process.env.API_URL || 'https://api.boxly.mx').replace(/\/$/, '')
 const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6'
+const RANK_MODEL = process.env.ANTHROPIC_TITLE_MODEL || 'claude-haiku-4-5-20251001'
+
+// AI-first gallery ranking: a fast model reorders raw search results to put the
+// BEST first — trustworthy, well-known retailers and major brands over tiny
+// unknown niche resellers — so the customer sees the best shopping results up
+// front. No hard-coded store lists; we let the model's knowledge decide.
+// Best-effort: any failure returns the original order untouched.
+async function rankProducts(query: string, products: any[]): Promise<any[]> {
+  if (!Array.isArray(products) || products.length < 3 || !process.env.ANTHROPIC_API_KEY) return products
+  try {
+    const anthropic = createAnthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+    const list = products.map((p, i) =>
+      `${i}: ${(p.title || '').slice(0, 80)} — ${p.store || '?'}${p.price ? ` — $${p.price}` : ''}${p.on_sale ? ' (oferta)' : ''}`
+    ).join('\n')
+    const { text } = await generateText({
+      model: anthropic(RANK_MODEL),
+      system:
+        "You curate a US shopping gallery for a Boxly customer in Mexico. Reorder the results to show the BEST first. Prioritize TRUSTWORTHY, well-known sellers — big-box/department retailers (Target, Walmart, Dick's, Best Buy, Costco, Macy's, Nordstrom, Kohl's, REI, Ulta, Sephora…) and recognized brand stores (Nike, Adidas, New Balance, Lululemon, Stanley, Owala…) — ABOVE tiny unknown niche resellers and random marketplace third-parties. Keep items that best match the query. A good price/deal is a tiebreaker, never the main factor. Return ONLY the item numbers in the new order, comma-separated, every number exactly once.",
+      prompt: `Query: "${query}"\n\nItems:\n${list}\n\nBest order (numbers):`,
+    })
+    const idx = (text.match(/\d+/g) || []).map(Number).filter((n) => n >= 0 && n < products.length)
+    const seen = new Set<number>()
+    const order: number[] = []
+    for (const i of idx) if (!seen.has(i)) { seen.add(i); order.push(i) }
+    for (let i = 0; i < products.length; i++) if (!seen.has(i)) order.push(i) // append any the model dropped
+    if (order.length !== products.length) return products
+    return order.map((i) => products[i])
+  } catch {
+    return products
+  }
+}
 
 // Admin-managed knowledge wiki (Mode 1 — Expert). Cached briefly; falls back to a
 // built-in constant if the API is unreachable so the concierge never goes dark.
@@ -270,7 +301,11 @@ export default defineEventHandler(async (event) => {
           max_price: z.number().describe('Maximum USD price — use for budgets like "under $50" (max_price: 50).').optional(),
           sale: z.boolean().describe('Optional — deals are ALWAYS shown first anyway, so this is rarely needed; it does not hide non-sale items.').optional(),
         }),
-        execute: async ({ query, store, min_price, max_price, sale }) => callApi('/products/search', { method: 'POST', body: { query, store: store || undefined, min_price, max_price, sale: sale || undefined, limit: 16 }, timeoutMs: 50000 }),
+        execute: async ({ query, store, min_price, max_price, sale }) => {
+          const r: any = await callApi('/products/search', { method: 'POST', body: { query, store: store || undefined, min_price, max_price, sale: sale || undefined, limit: 16 }, timeoutMs: 50000 })
+          if (r && Array.isArray(r.products)) r.products = await rankProducts(query, r.products)
+          return r
+        },
       }),
 
       show_saved_products: tool({
