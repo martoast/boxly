@@ -145,6 +145,43 @@ function interleave(arrays: any[][]) {
   return out
 }
 
+// ── Live BOXLY shipment (consolidation box) estimate ──────────────────────────
+// Volume "units" per item size, mapped onto Boxly's box tiers. Rough estimate —
+// like the cards, the real box/cost is confirmed at quote time — but it gives the
+// customer a live sense of their box filling up so they consolidate more.
+const SIZE_UNITS: Record<string, number> = { 'Pequeño': 1, 'Mediano': 3, 'Grande': 7 }
+const BOXES = [
+  { key: 'XS', label: 'Extra chica', cap: 8 },
+  { key: 'S', label: 'Chica', cap: 22 },
+  { key: 'M', label: 'Mediana', cap: 48 },
+  { key: 'L', label: 'Grande', cap: 85 },
+  { key: 'XL', label: 'Extra grande', cap: 140 },
+]
+const SHIP_LARGE = /jacket|coat|parka|boots?|comforter|blanket|duvet|luggage|suitcase|monitor|television|\btv\b|vacuum|stroller|chair|furniture|guitar|helmet|duffel|backpack|tent|sleeping bag/i
+const SHIP_SMALL = /bottle|botella|tumbler|\bcup\b|\bmug\b|owala|stanley|hydro|perfume|cologne|fragrance|makeup|skincare|serum|lipstick|mascara|cosmetic|cards?|pok[eé]mon|wallet|watch|jewel|ring|necklace|earring|socks?|case|charger|earbuds|airpods|sunglasses|\bhat\b|\bcap\b|beanie|gloves|book|keychain/i
+function shipSize(name: string): string {
+  if (SHIP_LARGE.test(name || '')) return 'Grande'
+  if (SHIP_SMALL.test(name || '')) return 'Pequeño'
+  return 'Mediano'
+}
+function buildShipment(items: any[]) {
+  const norm = (items || []).map((it) => {
+    const quantity = Math.max(1, Number(it.quantity) || 1)
+    const size = (it.size && SIZE_UNITS[it.size]) ? it.size : shipSize(it.name || '')
+    return { name: it.name || 'Producto', quantity, size, units: SIZE_UNITS[size] * quantity }
+  })
+  const totalUnits = norm.reduce((s, i) => s + i.units, 0)
+  const box = BOXES.find((b) => totalUnits <= b.cap) || BOXES[BOXES.length - 1]
+  const usedPct = Math.max(3, Math.min(100, Math.round((totalUnits / box.cap) * 100)))
+  return {
+    items: norm,
+    box_key: box.key,
+    box_label: box.label,
+    capacity_used_pct: usedPct,
+    capacity_left_pct: 100 - usedPct,
+  }
+}
+
 function systemPrompt(loggedIn: boolean, shoppingProfile: any, savedProducts: any[] = [], knowledge = '') {
   const profileBlock = !loggedIn
     ? ''
@@ -169,7 +206,7 @@ MODE 3 — PURCHASE CONVERSION (close the sale — where the money is made). The
 
 BE CONSULTATIVE, NOT PUSHY. You're a trusted expert, not a search box. A good clarifying question before searching makes results better — but keep momentum and never interrogate. Trust and helpfulness first; the order follows naturally.
 
-CONSOLIDATION IS THE CORE VALUE — YOU BUILD SHIPMENTS, NOT SINGLE PRODUCTS. Boxly's real magic is buying multiple items from multiple US stores and CONSOLIDATING them into ONE box to Mexico — so the customer does NOT pay per-product shipping. Frame everything as building ONE Boxly shipment: when they add an item, treat it as adding to their shipment, note it consolidates cheaply with the rest, and INVITE them to add more to make the most of the box ("¿Quieres agregar algo más a tu envío? Lo juntamos todo en una sola caja y te ahorras en envío 📦"). Think Costco/Amazon: a fuller box is better value. NEVER imply each product ships separately, and NEVER quote a per-product shipping cost as final — the real shipping depends on the whole consolidated box and is quoted at the end. When useful, show a short running "📦 Tu envío" list of what they've added so far and nudge toward filling the box, then placing the request.${knowledgeBlock}
+CONSOLIDATION IS THE CORE VALUE — YOU BUILD SHIPMENTS, NOT SINGLE PRODUCTS. Boxly's real magic is buying multiple items from multiple US stores and CONSOLIDATING them into ONE box to Mexico — so the customer does NOT pay per-product shipping. Frame everything as building ONE Boxly shipment: when they add an item, treat it as adding to their shipment, note it consolidates cheaply with the rest, and INVITE them to add more to make the most of the box ("¿Quieres agregar algo más a tu envío? Lo juntamos todo en una sola caja y te ahorras en envío 📦"). Think Costco/Amazon: a fuller box is better value. NEVER imply each product ships separately, and NEVER quote a per-product shipping cost as final — the real shipping depends on the whole consolidated box and is quoted at the end. EVERY time the shipment changes (an item added/removed or a quantity changed), call show_shipment with ALL items currently in the shipment — it renders the live box (recommended size, volume bar, capacity left) so the customer watches it fill up. Then nudge: lots of room left → suggest adding more; nearly full → suggest finalizing.${knowledgeBlock}
 
 CRITICAL — NEVER invent products. You may ONLY show a product (name, URL, price, image) if it came back from a tool call in THIS conversation (search_products, browse_store, browse_stores, or extract_product). NEVER type a product from memory/training — it will be wrong. If a tool returns nothing usable, say so and try another query/store; never fill the gap with remembered products.
 
@@ -354,6 +391,18 @@ export default defineEventHandler(async (event) => {
           const verified = enriched.filter((p) => p.ok).map(({ ok, ...p }) => p)
           return { products: verified }
         },
+      }),
+
+      show_shipment: tool({
+        description: "Show/UPDATE the customer's live BOXLY shipment (their consolidation box). Call this EVERY time the shipment changes — an item is added, removed, or a quantity changes — passing ALL items currently in the shipment (not just the new one). It renders a card with the recommended box size, a volume bar and capacity remaining, so the customer watches their box fill up and is encouraged to consolidate more. Display only — it does NOT place the order (use create_purchase_request to finalize). This is separate from the product gallery; you may call it in the same turn as confirming an add.",
+        inputSchema: z.object({
+          items: z.array(z.object({
+            name: z.string().describe('Product name, e.g. "Owala FreeSip 24oz".'),
+            quantity: z.number().int().min(1).default(1),
+            size: z.enum(['Pequeño', 'Mediano', 'Grande']).describe('Optional; inferred from the name if omitted.').optional(),
+          })).min(1),
+        }),
+        execute: async ({ items }) => buildShipment(items),
       }),
 
       create_purchase_request: tool({

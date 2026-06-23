@@ -95,6 +95,8 @@
 
                   <ProductGallery v-else-if="(part.type === 'tool-show_products' || part.type === 'tool-browse_store' || part.type === 'tool-browse_stores' || part.type === 'tool-search_products' || part.type === 'tool-show_saved_products') && part.state === 'output-available'" :products="part.output?.products || []" @open="openProduct" @order="onPickProduct" @ask="onAskProduct" />
 
+                  <ShipmentCard v-else-if="part.type === 'tool-show_shipment' && part.state === 'output-available'" :shipment="part.output" @order="onFinalizeShipment" @add="onAddMore" />
+
                   <div v-else-if="part.type === 'tool-search_products'" class="flex items-center gap-2 text-xs text-gray-400 pl-1">
                     <svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
                     Buscando en todo el mercado…
@@ -494,6 +496,23 @@ function onAskProduct(p) {
   if (isBusy.value) return
   const store = p.store ? ` de ${p.store}` : ''
   const text = `Cuéntame más sobre esta opción: ${p.title}${store}`
+  ensureConversation(text)
+  chat.sendMessage({ text })
+  scrollDown()
+}
+
+// Shipment card actions — finalize the consolidated order, or keep adding.
+function onFinalizeShipment() {
+  if (isBusy.value) return
+  ensureChatToken()
+  const text = 'Pedir mi envío'
+  ensureConversation(text)
+  chat.sendMessage({ text })
+  scrollDown()
+}
+function onAddMore() {
+  if (isBusy.value) return
+  const text = 'Quiero agregar algo más a mi envío'
   ensureConversation(text)
   chat.sendMessage({ text })
   scrollDown()
