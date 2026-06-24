@@ -415,7 +415,12 @@ onMounted(() => {
   // pasted link — by opening that chat (or returning to the new-chat view).
   watch(() => route.params.id, (raw) => {
     const id = raw ? String(raw) : null
-    if (id === (activeId.value || null)) return
+    // Compare as strings: route params are strings but conversation ids are
+    // numbers, so `'23' === 23` would be false and wrongly reopen (and RESET) the
+    // chat we just created from a first message. That was the "first query lands
+    // in the sidebar but the view goes empty" bug.
+    const cur = activeId.value != null ? String(activeId.value) : null
+    if (id === cur) return
     if (id) openChat(id)
     else newChat()
   })
@@ -649,6 +654,10 @@ function newChat() {
 }
 
 async function openChat(id) {
+  // Normalize to a number so activeId is always the same type as the API's
+  // conversation ids (the sidebar highlight + all `=== activeId` checks rely on
+  // it). Route params arrive as strings, sidebar clicks as numbers.
+  id = Number(id)
   // Highlight + close drawer instantly; serve from cache if we have it.
   activeId.value = id
   retitled.value = true
