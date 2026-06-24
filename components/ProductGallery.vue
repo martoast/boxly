@@ -18,8 +18,7 @@
     <div
       ref="track"
       @scroll.passive="measure"
-      @wheel="onWheel"
-      class="grid grid-flow-col items-stretch auto-cols-[15rem] md:auto-cols-[15.5rem] gap-3 overflow-x-auto pb-2 px-1 snap-x no-scrollbar scroll-smooth grid-rows-[auto]"
+      class="grid grid-flow-col items-stretch auto-cols-[15rem] md:auto-cols-[15.5rem] gap-3 overflow-x-auto pb-2 px-1 snap-x no-scrollbar grid-rows-[auto]"
     >
       <!-- A "BOXLY Offer" card: the offer (we buy + import + deliver, landed total)
            is the hero; the product is the supporting detail. -->
@@ -178,20 +177,28 @@ function measure() {
 }
 const canScroll = computed(() => sw.value - cw.value > 4)
 
-// Desktop: translate vertical wheel into horizontal scroll (a plain mouse wheel
-// only emits deltaY, so the carousel would feel "stuck" otherwise). Let real
-// horizontal intent (trackpad deltaX) through untouched.
+// Desktop: translate a vertical mouse wheel into horizontal scroll (a plain wheel
+// only emits deltaY, so the carousel would feel "stuck"). Reads dimensions LIVE
+// from the element (not cached measurements, which can be 0 right after the gallery
+// renders in the chat — that was making the wheel do nothing). Trackpad horizontal
+// intent (deltaX) is honored too.
 function onWheel(e) {
   const el = track.value
-  if (!el || sw.value - cw.value <= 4) return
-  if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return // already horizontal
+  if (!el) return
+  const max = el.scrollWidth - el.clientWidth
+  if (max <= 4) return // nothing to scroll
+  // Dominant axis: mouse wheel → deltaY; trackpad swipe → deltaX.
+  const raw = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX
+  if (!raw) return
   const atLeft = el.scrollLeft <= 0
-  const atRight = el.scrollLeft >= sw.value - cw.value - 1
-  // Only hijack the wheel while there's room to scroll in that direction —
-  // otherwise let the page scroll normally past the carousel.
-  if ((e.deltaY < 0 && atLeft) || (e.deltaY > 0 && atRight)) return
+  const atRight = el.scrollLeft >= max - 1
+  // At an edge in the wheel's direction, let the page scroll normally.
+  if ((raw < 0 && atLeft) || (raw > 0 && atRight)) return
   e.preventDefault()
-  el.scrollLeft += e.deltaY
+  let amount = raw
+  if (e.deltaMode === 1) amount *= 16 // delta in LINES → px
+  else if (e.deltaMode === 2) amount *= el.clientWidth // delta in PAGES → px
+  el.scrollLeft += amount
 }
 
 // Desktop arrow buttons: jump by roughly one viewport of cards.
@@ -211,8 +218,14 @@ const thumbLeft = computed(() => {
 onMounted(() => {
   nextTick(measure)
   window.addEventListener('resize', measure)
+  // Attach wheel explicitly as NON-passive so preventDefault() works and the
+  // vertical wheel can drive horizontal scroll on desktop.
+  if (track.value) track.value.addEventListener('wheel', onWheel, { passive: false })
 })
-onBeforeUnmount(() => window.removeEventListener('resize', measure))
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', measure)
+  if (track.value) track.value.removeEventListener('wheel', onWheel)
+})
 // Re-measure when the product set changes (new search / store filter).
 watch(visible, () => nextTick(measure))
 </script>
