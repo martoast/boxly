@@ -46,7 +46,7 @@
 
       <!-- ===== EMPTY STATE — headline centered, suggestions + input at bottom ===== -->
       <Transition name="fade-fast">
-        <div v-if="!loadingChat && !chat.messages.length" class="flex-1 flex flex-col min-h-0">
+        <div v-if="!loadingChat && !chat.messages.length && !activeId" class="flex-1 flex flex-col min-h-0">
           <!-- centered headline + value props -->
           <div class="flex-1 flex flex-col items-center justify-center px-6 text-center">
             <h1 class="text-[26px] leading-tight md:text-4xl font-extrabold text-gray-900 tracking-tight">¿Qué te gustaría comprar en Estados Unidos?</h1>
@@ -81,7 +81,7 @@
       </Transition>
 
       <!-- ===== CHAT STATE ===== -->
-      <template v-if="!loadingChat && chat.messages.length">
+      <template v-if="!loadingChat && (chat.messages.length || activeId)">
         <div ref="scroller" @scroll.passive="onScroll" class="flex-1 overflow-y-auto overscroll-contain px-3 md:px-4 py-5 scroll-smooth">
           <div v-if="loadingOlder" class="flex justify-center pb-3">
             <svg class="w-5 h-5 animate-spin text-gray-300" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
@@ -235,7 +235,7 @@ const user = useState('user')
 
 // Bump this every deploy to verify the right build is live (shown bottom-left +
 // logged to the console). Pure marker — change the number and watch it update.
-const APP_VERSION = 'build v1 · 2026-06-24'
+const APP_VERSION = 'build v2 · 2026-06-24'
 
 // --- URL <-> active chat sync ---
 // The page route is an optional param ([[id]]): /assistant + /assistant/<id>
