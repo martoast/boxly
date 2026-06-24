@@ -180,6 +180,9 @@
     <!-- Full-screen product detail modal -->
     <ProductModal :product="selectedProduct" @close="selectedProduct = null" @pick="onModalPick" />
 
+    <!-- Deploy version stamp — bump APP_VERSION each deploy to confirm what's live. -->
+    <div class="fixed bottom-1 left-2 z-[60] text-[10px] font-mono text-gray-300 select-none pointer-events-none">{{ APP_VERSION }}</div>
+
     <!-- Shopping-profile (assistant memory): bottom sheet on mobile, centered
          dialog on desktop. Teleported to <body> so it's never clipped by the
          chat container's overflow/stacking context. -->
@@ -229,6 +232,10 @@ const { fullscreenMobile } = toRefs(props)
 
 const { $customFetch } = useNuxtApp()
 const user = useState('user')
+
+// Bump this every deploy to verify the right build is live (shown bottom-left +
+// logged to the console). Pure marker — change the number and watch it update.
+const APP_VERSION = 'build v1 · 2026-06-24'
 
 // --- URL <-> active chat sync ---
 // The page route is an optional param ([[id]]): /assistant + /assistant/<id>
@@ -406,6 +413,7 @@ const chat = new Chat({
 // tools), so it's minted in the background, off the load path.
 let inited = false
 onMounted(() => {
+  console.log('[Boxly]', APP_VERSION)
   watch(user, (u) => { if (u && !inited) initLoggedIn() }, { immediate: true })
 
   // Keep the URL pointing at the active chat (replace = no history spam).
