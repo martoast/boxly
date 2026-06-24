@@ -1,7 +1,7 @@
 <template>
   <div class="rounded-2xl border border-gray-200 bg-white p-4 max-w-md shadow-sm">
     <p class="text-[14px] font-extrabold text-gray-900 flex items-center gap-1.5">📦 Precios de envío por caja</p>
-    <p class="text-[11px] text-gray-400 mt-0.5 mb-3 leading-snug">Pagas UNA caja por todo tu envío consolidado a México. El producto y la comisión de Boxly (10%) van aparte.</p>
+    <p class="text-[11px] text-gray-400 mt-0.5 mb-3 leading-snug">Precio fijo por enviar tu caja consolidada a México. Pagas UNA caja por todo lo que juntes.</p>
 
     <div class="space-y-1.5">
       <div
@@ -26,7 +26,11 @@
       </div>
     </div>
 
-    <p class="mt-3 text-[10px] text-gray-400 leading-tight">Te conviene la caja más chica que te quede y juntar varios productos para aprovechar el mismo envío. Confirmamos el tamaño final al empacar.</p>
+    <div class="mt-3 rounded-xl bg-gray-50 border border-gray-100 px-3 py-2 text-[10.5px] text-gray-500 leading-snug space-y-1">
+      <p><span class="font-semibold text-gray-700">Si tú compras tus productos</span> y solo los envías con Boxly: pagas <span class="font-semibold">solo la caja</span> (sin comisión).</p>
+      <p><span class="font-semibold text-gray-700">Si Boxly compra por ti</span> (compra asistida): se suma el producto + <span class="font-semibold">10% de comisión</span>.</p>
+    </div>
+    <p class="mt-2 text-[10px] text-gray-400 leading-tight">Te conviene la caja más chica que te quede y juntar varios productos. Confirmamos el tamaño final al empacar.</p>
   </div>
 </template>
 

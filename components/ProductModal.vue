@@ -56,7 +56,7 @@
               <span v-if="product.was" class="text-sm font-medium text-gray-400 line-through">${{ product.was }}</span>
               <span v-if="product.onSale" class="px-1.5 py-0.5 rounded-md bg-red-500 text-white text-[10px] font-bold">OFERTA</span>
             </div>
-            <p class="text-xs text-gray-400 mt-1">Precio de tienda · Boxly suma 10% de comisión al total. El precio final se confirma en tu cotización.</p>
+            <p class="text-xs text-gray-400 mt-1">Precio de tienda. Si Boxly lo compra por ti (compra asistida), se suma 10% de comisión; si tú lo compras y solo lo envías, no hay comisión. El precio final se confirma en tu cotización.</p>
 
             <!-- THE BOXLY VALUE — value prop, not a shipping calculator. -->
             <div class="mt-3 rounded-2xl bg-primary-50/80 border border-primary-100 px-4 py-3 space-y-1.5">
