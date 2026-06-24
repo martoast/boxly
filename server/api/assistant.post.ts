@@ -145,34 +145,65 @@ function interleave(arrays: any[][]) {
   return out
 }
 
-// ── Live BOXLY shipment (consolidation box) estimate ──────────────────────────
-// Volume "units" per item size, mapped onto Boxly's box tiers. Rough estimate —
-// like the cards, the real box/cost is confirmed at quote time — but it gives the
-// customer a live sense of their box filling up so they consolidate more.
-const SIZE_UNITS: Record<string, number> = { 'Pequeño': 1, 'Mediano': 3, 'Grande': 7 }
+// ── Live BOXLY shipment (consolidation box) PACKING ESTIMATE ──────────────────
+// Don't estimate by item COUNT — classify each item into a packing ARCHETYPE and
+// convert to a volume in "shoe-units" (1 = one boxed pair of shoes). Box tiers are
+// calibrated to real-world benchmarks. Soft items are pre-discounted for
+// compressibility; small rigid items (sanitizers, cosmetics) add very little. It's
+// an ESTIMATE — the real box is confirmed when Boxly receives and packs the items.
+//
+// Calibration anchors (validated): 4 leggings ≈ XS ~80% full; +10 small sanitizers
+// ≈ XS basically full (NOT a jump to Medium). Shoes (boxed): XS ~1 pair, S ~3-4,
+// M ~10, L ~15, XL ~20.
+const ARCHETYPE_VOL: Record<string, number> = {
+  flat_soft: 0.30,    // leggings, shirts, underwear, socks (compressible)
+  rigid_small: 0.05,  // hand sanitizer, perfume, skincare, cosmetics, cards, jewelry
+  rigid_medium: 0.25, // bottles, tumblers, electronics
+  shoes: 1.50,        // a boxed pair
+  bulky_soft: 0.80,   // jackets, hoodies, plush, blankets
+  fragile: 2.00,      // lamps, glass, decor (awkward, low packing efficiency)
+}
+const DEFAULT_VOL = 0.40 // unknown item → a generic medium
+const ARCH_LABEL: Record<string, string> = {
+  flat_soft: 'Ropa', rigid_small: 'Pequeño', rigid_medium: 'Mediano', shoes: 'Calzado', bulky_soft: 'Voluminoso', fragile: 'Frágil',
+}
 const BOXES = [
-  { key: 'XS', label: 'Extra chica', cap: 8 },
-  { key: 'S', label: 'Chica', cap: 22 },
-  { key: 'M', label: 'Mediana', cap: 48 },
-  { key: 'L', label: 'Grande', cap: 85 },
-  { key: 'XL', label: 'Extra grande', cap: 140 },
+  { key: 'XS', label: 'Extra chica', usable: 1.5 },
+  { key: 'S', label: 'Chica', usable: 5.5 },
+  { key: 'M', label: 'Mediana', usable: 16 },
+  { key: 'L', label: 'Grande', usable: 22 },
+  { key: 'XL', label: 'Extra grande', usable: 32 },
 ]
-const SHIP_LARGE = /jacket|coat|parka|boots?|comforter|blanket|duvet|luggage|suitcase|monitor|television|\btv\b|vacuum|stroller|chair|furniture|guitar|helmet|duffel|backpack|tent|sleeping bag/i
-const SHIP_SMALL = /bottle|botella|tumbler|\bcup\b|\bmug\b|owala|stanley|hydro|perfume|cologne|fragrance|makeup|skincare|serum|lipstick|mascara|cosmetic|cards?|pok[eé]mon|wallet|watch|jewel|ring|necklace|earring|socks?|case|charger|earbuds|airpods|sunglasses|\bhat\b|\bcap\b|beanie|gloves|book|keychain/i
-function shipSize(name: string): string {
-  if (SHIP_LARGE.test(name || '')) return 'Grande'
-  if (SHIP_SMALL.test(name || '')) return 'Pequeño'
-  return 'Mediano'
+
+// Fallback classification from the product name when the model didn't pass a type.
+const RE_SHOES = /shoe|sneaker|tenis|boot|bota|cleat|sandal|heel|loafer|zapat/i
+const RE_FRAGILE = /lamp|l[aá]mpara|glass|vidrio|vase|florero|mirror|espejo|frame|cuadro|ceramic|porcelain|decor/i
+const RE_BULKY = /jacket|coat|parka|hoodie|sweater|sudadera|abrigo|chamarra|blanket|comforter|duvet|cobija|plush|peluche|pillow|almohada|duffel|backpack|mochila|luggage|maleta|suitcase|tent|sleeping bag/i
+const RE_RIGID_SMALL = /saniti|mist|antibac|perfume|cologne|fragran|skincare|serum|lipstick|labial|mascara|cosmetic|maquillaje|cream|crema|lotion|loci[oó]n|cards?|cartas|pok[eé]mon|wallet|cartera|watch|reloj|jewel|joy|ring|anillo|necklace|collar|earring|arete|sunglass|lentes|case|funda|charger|cargador|earbuds|airpods|keychain|llavero/i
+const RE_RIGID_MEDIUM = /bottle|botella|tumbler|termo|\bcup\b|\bmug\b|taza|owala|stanley|hydro|flask|speaker|bocina|camera|c[aá]mara|console|consola|electronic|electr[oó]nico/i
+const RE_FLAT_SOFT = /legging|mall[oó]n|shirt|camisa|\btee\b|playera|\btop\b|blouse|blusa|dress|vestido|short|jean|pant|pantal[oó]n|skirt|falda|underwear|ropa interior|sock|calcet|\bbra\b|brasier|swim|traje de ba/i
+function archetypeFromName(name: string): string | null {
+  const t = name || ''
+  if (RE_SHOES.test(t)) return 'shoes'
+  if (RE_FRAGILE.test(t)) return 'fragile'
+  if (RE_BULKY.test(t)) return 'bulky_soft'
+  if (RE_RIGID_SMALL.test(t)) return 'rigid_small'
+  if (RE_RIGID_MEDIUM.test(t)) return 'rigid_medium'
+  if (RE_FLAT_SOFT.test(t)) return 'flat_soft'
+  return null
 }
 function buildShipment(items: any[]) {
   const norm = (items || []).map((it) => {
     const quantity = Math.max(1, Number(it.quantity) || 1)
-    const size = (it.size && SIZE_UNITS[it.size]) ? it.size : shipSize(it.name || '')
-    return { name: it.name || 'Producto', quantity, size, units: SIZE_UNITS[size] * quantity }
+    const type = (it.type && ARCHETYPE_VOL[it.type]) ? it.type : archetypeFromName(it.name || '')
+    const vol = type ? ARCHETYPE_VOL[type] : DEFAULT_VOL
+    return { name: it.name || 'Producto', quantity, size: type ? ARCH_LABEL[type] : 'Mediano', units: vol * quantity }
   })
-  const totalUnits = norm.reduce((s, i) => s + i.units, 0)
-  const box = BOXES.find((b) => totalUnits <= b.cap) || BOXES[BOXES.length - 1]
-  const usedPct = Math.max(3, Math.min(100, Math.round((totalUnits / box.cap) * 100)))
+  const total = norm.reduce((s, i) => s + i.units, 0)
+  // Smallest box that holds it, allowing ~15% overflow so a near-full box reads
+  // "XS lleno" instead of jumping to "S 30%". This prevents the bad tier jumps.
+  const box = BOXES.find((b) => total <= b.usable * 1.15) || BOXES[BOXES.length - 1]
+  const usedPct = Math.max(3, Math.min(100, Math.round((total / box.usable) * 100)))
   return {
     items: norm,
     box_key: box.key,
@@ -206,7 +237,7 @@ MODE 3 — PURCHASE CONVERSION (close the sale — where the money is made). The
 
 BE CONSULTATIVE, NOT PUSHY. You're a trusted expert, not a search box. A good clarifying question before searching makes results better — but keep momentum and never interrogate. Trust and helpfulness first; the order follows naturally.
 
-CONSOLIDATION IS THE CORE VALUE — YOU BUILD SHIPMENTS, NOT SINGLE PRODUCTS. Boxly's real magic is buying multiple items from multiple US stores and CONSOLIDATING them into ONE box to Mexico — so the customer does NOT pay per-product shipping. Frame everything as building ONE Boxly shipment: when they add an item, treat it as adding to their shipment, note it consolidates cheaply with the rest, and INVITE them to add more to make the most of the box ("¿Quieres agregar algo más a tu envío? Lo juntamos todo en una sola caja y te ahorras en envío 📦"). Think Costco/Amazon: a fuller box is better value. NEVER imply each product ships separately, and NEVER quote a per-product shipping cost as final — the real shipping depends on the whole consolidated box and is quoted at the end. EVERY time the shipment changes (an item added/removed or a quantity changed), call show_shipment with ALL items currently in the shipment — it renders the live box (recommended size, volume bar, capacity left) so the customer watches it fill up. Then nudge: lots of room left → suggest adding more; nearly full → suggest finalizing.
+CONSOLIDATION IS THE CORE VALUE — YOU BUILD SHIPMENTS, NOT SINGLE PRODUCTS. Boxly's real magic is buying multiple items from multiple US stores and CONSOLIDATING them into ONE box to Mexico — so the customer does NOT pay per-product shipping. Frame everything as building ONE Boxly shipment: when they add an item, treat it as adding to their shipment, note it consolidates cheaply with the rest, and INVITE them to add more to make the most of the box ("¿Quieres agregar algo más a tu envío? Lo juntamos todo en una sola caja y te ahorras en envío 📦"). Think Costco/Amazon: a fuller box is better value. NEVER imply each product ships separately, and NEVER quote a per-product shipping cost as final — the real shipping depends on the whole consolidated box and is quoted at the end. EVERY time the shipment changes (an item added/removed or a quantity changed), call show_shipment with ALL items currently in the shipment — it renders the live box (recommended size, volume bar, capacity left). For EACH item set its packing type (archetype) from your product knowledge, NOT by item count — this is what makes the estimate accurate. Small rigid things (hand sanitizers like Touchland, perfumes, cosmetics) are rigid_small and add almost nothing; soft clothes (leggings, shirts) are flat_soft and compress; shoes/jackets take real space. So e.g. adding 10 hand sanitizers barely moves the bar and should NOT bump up a box tier. Present the box as PROVISIONAL: say it's an estimate of how the box is filling and that the FINAL size is confirmed when Boxly receives and packs everything — never claim an exact size. Then nudge: lots of room left → suggest adding more; nearly full → suggest finalizing.
 
 YOUR VOICE — a U.S. BUYING CONCIERGE, not a shopping search engine and not a product reviewer. Frame everything as helping them ACQUIRE U.S. products and get them to Mexico — most customers aren't browsing for fun, they want a way to GET U.S. stuff that they otherwise can't. Naturally remind them what Boxly does end-to-end: lo COMPRA por ellos (sin tarjeta de EE. UU.), lo RECIBE en Estados Unidos, lo IMPORTA a México y lo ENTREGA a su puerta. NEVER use reviewer language ("¡qué bonita!", "me encanta", "qué linda opción", "excelente colección").
 
@@ -401,9 +432,9 @@ export default defineEventHandler(async (event) => {
         description: "Show/UPDATE the customer's live BOXLY shipment (their consolidation box). Call this EVERY time the shipment changes — an item is added, removed, or a quantity changes — passing ALL items currently in the shipment (not just the new one). It renders a card with the recommended box size, a volume bar and capacity remaining, so the customer watches their box fill up and is encouraged to consolidate more. Display only — it does NOT place the order (use create_purchase_request to finalize). This is separate from the product gallery; you may call it in the same turn as confirming an add.",
         inputSchema: z.object({
           items: z.array(z.object({
-            name: z.string().describe('Product name, e.g. "Owala FreeSip 24oz".'),
+            name: z.string().describe('Product name, e.g. "Touchland Power Mist" or "Owala FreeSip 24oz".'),
             quantity: z.number().int().min(1).default(1),
-            size: z.enum(['Pequeño', 'Mediano', 'Grande']).describe('Optional; inferred from the name if omitted.').optional(),
+            type: z.enum(['flat_soft', 'rigid_small', 'rigid_medium', 'shoes', 'bulky_soft', 'fragile']).describe('Packing archetype — decides how much box space the item takes (NOT item count). Use your product knowledge: flat_soft=leggings/shirts/underwear/socks (compressible); rigid_small=hand sanitizer/perfume/skincare/cosmetics/cards/jewelry (tiny, adds almost nothing); rigid_medium=bottles/tumblers/electronics; shoes=a boxed pair; bulky_soft=jackets/hoodies/plush/blankets; fragile=lamps/glass/decor. A Touchland Power Mist sanitizer is rigid_small.').optional(),
           })).min(1),
         }),
         execute: async ({ items }) => buildShipment(items),
