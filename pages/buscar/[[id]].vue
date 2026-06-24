@@ -3,38 +3,31 @@
 </template>
 
 <script setup>
-// BOXLY Concierge — the unified conversational interface. The conversation is the
-// product; product search is one tool the assistant uses, with galleries rendered
-// inline. Handles both the new-chat view (/buscar) and a specific conversation
-// (/buscar/<id>, for signed-in users' history).
+// BOXLY Concierge — the unified conversational interface (new chat at /buscar, a
+// specific conversation at /buscar/<id>).
 //
-// It's PUBLIC (guests use it too), but it lives inside the app — so a SIGNED-IN
-// user must see the app layout (CustomerNavbar), not the landing navbar with a
-// "log in" button. We pick the layout from auth state: `app` when logged in,
-// `default` for guests.
-definePageMeta({ layout: 'default' })
-useHead({ title: 'Boxly — Tu asistente para comprar de USA' })
-
-const user = useState('user')
-const syncLayout = () => setPageLayout(user.value ? 'app' : 'default')
-
-// Known synchronously (user state persisted from earlier navigation) → no flash.
-syncLayout()
-
-onMounted(async () => {
-  // Direct load while logged in: the user state isn't populated yet on this public
-  // page. Resolve the session SILENTLY with a raw fetch so a guest's 401 does NOT
-  // trip the global redirect-to-login. If it succeeds, switch to the app layout.
-  if (!user.value) {
-    try {
-      const cfg = useRuntimeConfig()
-      const u = await $fetch('/user', { baseURL: cfg.public.apiUrl, credentials: 'include', headers: { Accept: 'application/json' } })
-      if (u) user.value = u
-    } catch { /* guest — stay on the default (landing) layout */ }
-  }
-  syncLayout()
+// LAYOUT must be decided BEFORE the page mounts. Switching the layout AFTER mount
+// (setPageLayout in onMounted/watch) remounts the page component, which wiped the
+// in-progress chat and stopped the first message from persisting — leaving an
+// empty chat with a stray sidebar row. So we resolve the session + set the layout
+// in middleware (pre-mount): `app` (CustomerNavbar) when logged in, `default` for
+// guests. No post-mount switch → no remount.
+definePageMeta({
+  layout: 'default',
+  middleware: async () => {
+    if (import.meta.server) return
+    const user = useState('user')
+    if (!user.value) {
+      // Resolve the session SILENTLY — a guest's 401 must NOT trip the global
+      // redirect-to-login, so use a raw $fetch (not $customFetch).
+      try {
+        const cfg = useRuntimeConfig()
+        const u = await $fetch('/user', { baseURL: cfg.public.apiUrl, credentials: 'include', headers: { Accept: 'application/json' } })
+        if (u) user.value = u
+      } catch { /* guest — keep the default layout */ }
+    }
+    setPageLayout(user.value ? 'app' : 'default')
+  },
 })
-
-// React if the user signs in mid-session (e.g. in-chat account creation).
-watch(user, syncLayout)
+useHead({ title: 'Boxly — Tu asistente para comprar de USA' })
 </script>
