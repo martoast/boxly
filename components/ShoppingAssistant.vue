@@ -450,14 +450,27 @@ function ensureChatToken() {
 
 // Create the thread the instant the user sends their first message (like
 // ChatGPT) — it shows in the sidebar immediately, before the AI even responds.
-async function ensureConversation(firstText) {
-  if (!user.value || activeId.value) return
-  try {
-    const title = (firstText || '').replace(/\s+/g, ' ').trim().slice(0, 60) || 'Nuevo chat'
-    const c = (await $customFetch('/conversations', { method: 'POST', body: { title } })).data
-    activeId.value = c.id
-    conversations.value = [c, ...conversations.value.filter((x) => x.id !== c.id)]
-  } catch (e) { console.error('create conversation failed', e) }
+// SINGLE, GUARDED creator: a send and the background persist() can both ask for a
+// conversation at once; without this guard they each POST one, producing a
+// duplicate sidebar entry whose id ≠ the chat we're viewing (the "empty chat on
+// the side" bug). Concurrent callers share one in-flight promise; once activeId is
+// set, later calls are no-ops.
+let convPromise = null
+function ensureConversation(firstText) {
+  if (!user.value) return Promise.resolve(null)
+  if (activeId.value) return Promise.resolve(activeId.value)
+  if (convPromise) return convPromise
+  const title = (firstText || '').replace(/\s+/g, ' ').trim().slice(0, 60) || 'Nuevo chat'
+  convPromise = $customFetch('/conversations', { method: 'POST', body: { title } })
+    .then((r) => {
+      const c = r.data
+      activeId.value = c.id
+      conversations.value = [c, ...conversations.value.filter((x) => x.id !== c.id)]
+      return c.id
+    })
+    .catch((e) => { console.error('create conversation failed', e); return null })
+    .finally(() => { convPromise = null })
+  return convPromise
 }
 
 async function loadConversations() {
@@ -598,7 +611,13 @@ async function persist() {
   try {
     const delta = chat.messages.slice(savedCount.value).map((m) => ({ role: m.role, content: { parts: cleanParts(m.parts) } }))
     if (!delta.length) return
-    if (!activeId.value) activeId.value = (await $customFetch('/conversations', { method: 'POST', body: {} })).data.id
+    // Go through the SAME guarded creator (don't POST a second conversation here).
+    if (!activeId.value) {
+      const firstUser = chat.messages.find((m) => m.role === 'user')
+      const title = (firstUser?.parts || []).filter((p) => p.type === 'text').map((p) => p.text).join(' ').trim()
+      await ensureConversation(title)
+    }
+    if (!activeId.value) return // creation failed (e.g. guest) — don't post to a null id
     await $customFetch(`/conversations/${activeId.value}/messages`, { method: 'POST', body: { messages: delta } })
     savedCount.value = chat.messages.length
     // Keep state local — no full list refetch every turn. Cache the thread and
