@@ -54,7 +54,7 @@
             ${{ p.price }} <span class="text-[10px] font-semibold text-gray-400">USD</span>
             <span v-if="p.was" class="ml-1 text-[10px] font-medium text-gray-300 line-through">${{ p.was }}</span>
           </p>
-          <p v-if="p.price" class="text-[9px] text-gray-400 mt-0.5">precio del producto</p>
+          <p v-if="p.price" class="text-[9.5px] text-gray-400 mt-0.5 leading-tight">Precio de tienda · Boxly suma 10% de comisión al total</p>
 
           <!-- THE BOXLY VALUE — the value prop, not a shipping calculator. -->
           <div class="mt-2 rounded-xl bg-primary-50/80 border border-primary-100 px-3 py-2.5 space-y-1">
