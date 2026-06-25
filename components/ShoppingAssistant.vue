@@ -235,7 +235,12 @@ const user = useState('user')
 
 // Bump this every deploy to verify the right build is live (shown bottom-left +
 // logged to the console). Pure marker — change the number and watch it update.
-const APP_VERSION = 'build v6 · 2026-06-24 · no-url-sync'
+const APP_VERSION = 'build v7 · 2026-06-24 · session-restore'
+
+// Remember the active conversation across refresh WITHOUT touching the URL (a URL
+// path change remounts the page and wiped the chat). sessionStorage = no
+// navigation, so no remount.
+const ACTIVE_KEY = 'boxly_active_chat'
 
 // IMPORTANT: we deliberately do NOT reflect the active conversation in the URL.
 // Putting the id in the path ([[id]]) meant that creating a chat changed the URL
@@ -405,8 +410,10 @@ let inited = false
 onMounted(() => {
   console.log('[Boxly]', APP_VERSION)
   watch(user, (u) => { if (u && !inited) initLoggedIn() }, { immediate: true })
-  // No URL<->activeId watchers on purpose — see the note above. Changing the URL
-  // remounted the page mid-stream; the active chat is state-only now.
+  // Persist the active chat id to sessionStorage (NOT the URL — that remounts).
+  watch(activeId, (id) => {
+    try { id != null ? sessionStorage.setItem(ACTIVE_KEY, String(id)) : sessionStorage.removeItem(ACTIVE_KEY) } catch { /* ignore */ }
+  })
 })
 
 async function initLoggedIn() {
@@ -414,6 +421,11 @@ async function initLoggedIn() {
   inited = true
   await Promise.all([loadConversations(), loadProfile()])
   ensureChatToken()
+  // Restore the chat the user was in before a refresh (sessionStorage, no URL).
+  try {
+    const saved = sessionStorage.getItem(ACTIVE_KEY)
+    if (saved) openChat(saved)
+  } catch { /* ignore */ }
 }
 
 async function loadProfile() {
