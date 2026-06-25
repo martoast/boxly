@@ -235,24 +235,14 @@ const user = useState('user')
 
 // Bump this every deploy to verify the right build is live (shown bottom-left +
 // logged to the console). Pure marker — change the number and watch it update.
-const APP_VERSION = 'build v5 · 2026-06-24 · /app/search'
+const APP_VERSION = 'build v6 · 2026-06-24 · no-url-sync'
 
-// --- URL <-> active chat sync ---
-// The page route is an optional param ([[id]]): /assistant + /assistant/<id>
-// (and the in-app /app/assistant variant). Same component for both, so changing
-// the id only updates the param — the live chat never remounts. We keep the URL
-// and activeId in lockstep so a refresh lands back in the same conversation.
-const route = useRoute()
-const router = useRouter()
-const initialId = route.params.id ? String(route.params.id) : null
-// basePath = the route without the id segment (works for both entry points).
-const basePath = initialId ? route.path.slice(0, -(initialId.length + 1)) : route.path
-function syncUrl(id) {
-  const target = id ? `${basePath}/${id}` : basePath
-  // Path-equality guard makes this idempotent — no feedback loop with the route
-  // watcher below (whichever side changes first, the other becomes a no-op).
-  if (route.path !== target) router.replace(target)
-}
+// IMPORTANT: we deliberately do NOT reflect the active conversation in the URL.
+// Putting the id in the path ([[id]]) meant that creating a chat changed the URL
+// (/app/search → /app/search/<id>), which REMOUNTED the page mid-stream — wiping
+// the live chat and orphaning the AI response (the bug we chased for ages). The
+// active conversation now lives purely in state (activeId). The sidebar still
+// opens past chats; we just don't deep-link via the URL.
 
 const token = ref(null)
 const shoppingProfile = ref(null)
@@ -415,23 +405,8 @@ let inited = false
 onMounted(() => {
   console.log('[Boxly]', APP_VERSION)
   watch(user, (u) => { if (u && !inited) initLoggedIn() }, { immediate: true })
-
-  // Keep the URL pointing at the active chat (replace = no history spam).
-  watch(activeId, (id) => syncUrl(id))
-
-  // React to the id changing in the URL itself — browser back/forward, or a
-  // pasted link — by opening that chat (or returning to the new-chat view).
-  watch(() => route.params.id, (raw) => {
-    const id = raw ? String(raw) : null
-    // Compare as strings: route params are strings but conversation ids are
-    // numbers, so `'23' === 23` would be false and wrongly reopen (and RESET) the
-    // chat we just created from a first message. That was the "first query lands
-    // in the sidebar but the view goes empty" bug.
-    const cur = activeId.value != null ? String(activeId.value) : null
-    if (id === cur) return
-    if (id) openChat(id)
-    else newChat()
-  })
+  // No URL<->activeId watchers on purpose — see the note above. Changing the URL
+  // remounted the page mid-stream; the active chat is state-only now.
 })
 
 async function initLoggedIn() {
@@ -439,8 +414,6 @@ async function initLoggedIn() {
   inited = true
   await Promise.all([loadConversations(), loadProfile()])
   ensureChatToken()
-  // Deep link / refresh: open the conversation named in the URL.
-  if (initialId) openChat(initialId)
 }
 
 async function loadProfile() {
