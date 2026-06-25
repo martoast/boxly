@@ -44,37 +44,55 @@
         </div>
       </div>
 
-      <!-- ===== EMPTY STATE — headline centered, suggestions + input at bottom ===== -->
+      <!-- ===== EMPTY STATE — ChatGPT-style picture cards; tapping one writes the
+                 prompt into the input. Composer pinned at the bottom. ===== -->
       <Transition name="fade-fast">
         <div v-if="!loadingChat && !chat.messages.length && !activeId" class="flex-1 flex flex-col min-h-0">
-          <!-- centered headline + value props -->
-          <div class="flex-1 flex flex-col items-center justify-center px-6 text-center">
-            <h1 class="text-[26px] leading-tight md:text-4xl font-extrabold text-gray-900 tracking-tight">¿Qué te gustaría comprar en Estados Unidos?</h1>
-            <p class="text-gray-500 mt-3 text-[15px] md:text-base max-w-md leading-relaxed">Lo que sea. <span class="font-semibold text-gray-700">Boxly lo consigue por ti, lo importa y te lo entrega en México</span>. Pregúntame o dime qué buscas.</p>
-            <div class="mt-5 grid grid-cols-2 gap-x-5 gap-y-2 text-left">
-              <span v-for="v in valueProps" :key="v" class="flex items-center gap-1.5 text-[13px] text-gray-600">
-                <svg class="w-4 h-4 text-primary-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-                {{ v }}
-              </span>
+          <!-- scrollable cards -->
+          <div class="flex-1 overflow-y-auto px-4 md:px-5 pt-5 pb-2">
+            <div class="max-w-2xl mx-auto">
+              <h1 class="text-[26px] md:text-3xl font-extrabold text-gray-900 tracking-tight">Compra en Estados Unidos</h1>
+              <p class="text-gray-500 mt-1 mb-4 text-[14px] md:text-[15px]">Toca una idea o escribe lo que buscas — Boxly lo consigue, lo importa y te lo entrega en México.</p>
+
+              <TransitionGroup tag="div" name="chip" appear>
+                <!-- featured (first) card -->
+                <button
+                  v-if="suggestions[0]"
+                  :key="suggestions[0].text"
+                  @click="pickSuggestion(suggestions[0].text)"
+                  class="group relative block w-full h-44 md:h-52 rounded-3xl overflow-hidden mb-3 text-left active:scale-[.99] transition-transform shadow-sm"
+                  :class="`bg-gradient-to-br ${suggestions[0].grad}`"
+                >
+                  <img v-if="suggestions[0].img" :src="suggestions[0].img" class="absolute inset-0 w-full h-full object-cover" />
+                  <span v-else class="absolute inset-0 grid place-items-center text-[84px] opacity-90 select-none transition-transform group-hover:scale-105">{{ suggestions[0].emoji }}</span>
+                  <span class="absolute top-3 left-3 text-[12px] font-bold text-gray-800 bg-white/90 backdrop-blur rounded-full px-2.5 py-1 shadow-sm">Pruébalo</span>
+                  <span class="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/65 to-transparent pointer-events-none"></span>
+                  <span class="absolute left-4 bottom-3.5 right-4 text-white text-lg md:text-xl font-bold leading-snug drop-shadow">{{ suggestions[0].text }}</span>
+                </button>
+
+                <!-- grid of the rest -->
+                <div :key="'grid'" class="grid grid-cols-2 gap-3">
+                  <button
+                    v-for="s in suggestions.slice(1)"
+                    :key="s.text"
+                    @click="pickSuggestion(s.text)"
+                    class="group relative block aspect-[4/5] rounded-2xl overflow-hidden text-left active:scale-[.98] transition-transform shadow-sm"
+                    :class="`bg-gradient-to-br ${s.grad}`"
+                  >
+                    <img v-if="s.img" :src="s.img" class="absolute inset-0 w-full h-full object-cover" />
+                    <span v-else class="absolute inset-0 grid place-items-center text-[60px] opacity-90 select-none transition-transform group-hover:scale-105">{{ s.emoji }}</span>
+                    <span class="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/65 to-transparent pointer-events-none"></span>
+                    <span class="absolute left-3 bottom-2.5 right-3 text-white text-[15px] font-bold leading-snug drop-shadow">{{ s.text }}</span>
+                  </button>
+                </div>
+              </TransitionGroup>
             </div>
           </div>
 
-          <!-- suggestions (compact rows) + composer, anchored at the bottom -->
-          <div class="px-3 md:px-4 pt-1 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          <!-- composer pinned at the bottom -->
+          <div class="px-3 md:px-4 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-gray-50 border-t border-gray-100">
             <div class="max-w-2xl mx-auto">
-              <TransitionGroup tag="div" name="chip" class="mb-2" appear>
-                <button
-                  v-for="(s, i) in suggestions"
-                  :key="s.text"
-                  :style="{ transitionDelay: i * 45 + 'ms' }"
-                  @click="quickSend(s.text)"
-                  class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left text-gray-700 hover:bg-gray-100 active:scale-[.99] transition-all"
-                >
-                  <span class="text-[17px] leading-none w-5 text-center">{{ s.emoji }}</span>
-                  <span class="text-[15px]">{{ s.text }}</span>
-                </button>
-              </TransitionGroup>
-              <AssistantComposer v-model:text="input" :mic-recording="micRecording" :mic-transcribing="micTranscribing" :mic-levels="micLevels" :mic-error="micError" :busy="isBusy" placeholder="Escribe o pega un link…" @send="onComposerSend" @mic="toggleMic" />
+              <AssistantComposer ref="composerRef" v-model:text="input" :mic-recording="micRecording" :mic-transcribing="micTranscribing" :mic-levels="micLevels" :mic-error="micError" :busy="isBusy" placeholder="Compra lo que sea de USA…" @send="onComposerSend" @mic="toggleMic" />
             </div>
           </div>
         </div>
@@ -322,42 +340,36 @@ const acct = reactive({ name: '', email: '', phone: '' })
 const acctLoading = ref(false)
 const acctError = ref('')
 
-// Boxly's value proposition — shown on the empty state so the assistant reads as
-// a U.S. shopping & import agent, not just a search box.
-const valueProps = [
-  'Miles de tiendas de USA',
-  'Sin VPN',
-  'Sin tarjeta americana',
-  'Boxly compra por ti',
-  'Entrega en todo México',
-  'Ideal para reventa',
-]
-
+// ChatGPT-style picture cards. `grad` is the card background; `img` (optional) is a
+// real product photo that overrides the gradient when set (graceful fallback to the
+// gradient + emoji if the image is missing/fails).
 const DEFAULT_SUGGESTIONS = [
-  { emoji: '👟', text: 'Tenis Nike para correr' },
-  { emoji: '🥤', text: 'Stanley Cups' },
-  { emoji: '💄', text: 'Skincare de Sephora' },
-  { emoji: '👜', text: 'Bolsas Coach' },
-  { emoji: '🎴', text: 'Cartas Pokémon' },
-  { emoji: '💬', text: '¿Cómo funciona Boxly?' },
+  { emoji: '👟', text: 'Tenis Nike para correr', grad: 'from-slate-600 to-slate-900' },
+  { emoji: '🥤', text: 'Stanley Cups', grad: 'from-teal-500 to-cyan-800' },
+  { emoji: '🧴', text: 'Skincare de Sephora', grad: 'from-rose-400 to-pink-700' },
+  { emoji: '👜', text: 'Bolsas Coach', grad: 'from-amber-500 to-orange-800' },
+  { emoji: '🎴', text: 'Cartas Pokémon', grad: 'from-indigo-500 to-violet-800' },
+  { emoji: '📦', text: '¿Cómo funciona Boxly?', grad: 'from-primary-500 to-blue-800' },
 ]
+const GRAD_PALETTE = ['from-fuchsia-500 to-purple-800', 'from-emerald-500 to-teal-800', 'from-sky-500 to-indigo-800', 'from-orange-500 to-rose-800']
 const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s)
-// Personalize the starter chips from the shopper's long-term memory (favorite
+// Personalize the starter cards from the shopper's long-term memory (favorite
 // brands + interests), then top up with the defaults. Empty memory → defaults.
 const suggestions = computed(() => {
   const p = shoppingProfile.value || {}
   const out = []
+  let gi = 0
   for (const b of (Array.isArray(p.favorite_brands) ? p.favorite_brands : []).slice(0, 2)) {
-    if (b) out.push({ emoji: '🔥', text: `Ofertas en ${b}` })
+    if (b) out.push({ emoji: '🔥', text: `Ofertas en ${b}`, grad: GRAD_PALETTE[gi++ % GRAD_PALETTE.length] })
   }
   const cats = [...(Array.isArray(p.interests) ? p.interests : []), ...(Array.isArray(p.categories) ? p.categories : [])]
   for (const c of cats.slice(0, 2)) {
-    if (c) out.push({ emoji: '🛍️', text: `${cap(c)} en oferta` })
+    if (c) out.push({ emoji: '🛍️', text: `${cap(c)} en oferta`, grad: GRAD_PALETTE[gi++ % GRAD_PALETTE.length] })
   }
   const seen = new Set()
   return [...out, ...DEFAULT_SUGGESTIONS]
     .filter((s) => { const k = s.text.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true })
-    .slice(0, 4)
+    .slice(0, 5)
 })
 
 const isBusy = computed(() => chat.status === 'streaming' || chat.status === 'submitted')
@@ -478,7 +490,13 @@ function onComposerSend({ files } = {}) {
   chat.sendMessage({ text: text || undefined, files: files || undefined })
   scrollDown()
 }
-function quickSend(text) { input.value = text; onComposerSend() }
+// Tapping a suggestion card just WRITES the prompt into the input (ChatGPT-style)
+// and focuses it — the user reviews/edits and hits send.
+const composerRef = ref(null)
+function pickSuggestion(text) {
+  input.value = text
+  nextTick(() => composerRef.value?.focus?.())
+}
 
 // When the user taps "Pedir con Boxly"/"Agregar al pedido" while the assistant
 // is still streaming its follow-up text (common on desktop — mouse clicks land

@@ -47,6 +47,7 @@
       <!-- NORMAL: text input -->
       <textarea
         v-else
+        ref="ta"
         :value="text"
         @input="$emit('update:text', $event.target.value)"
         @keydown.enter.exact.prevent="doSend"
@@ -87,6 +88,10 @@ const props = defineProps({
   placeholder: { type: String, default: 'Describe lo que buscas o pega un link…' },
 })
 const emit = defineEmits(['update:text', 'send', 'mic'])
+
+// Let the parent focus the input (e.g. after tapping a suggestion card).
+const ta = ref(null)
+defineExpose({ focus: () => ta.value?.focus() })
 
 // Map a 0..1 audio level to a bar height (px) for the recording waveform.
 function barHeight(lvl) {
