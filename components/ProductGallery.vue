@@ -54,7 +54,7 @@
             ${{ p.price }} <span class="text-[10px] font-semibold text-gray-400">USD</span>
             <span v-if="p.was" class="ml-1 text-[10px] font-medium text-gray-300 line-through">${{ p.was }}</span>
           </p>
-          <p v-if="p.price" class="text-[9.5px] text-gray-400 mt-0.5 leading-tight">Precio de tienda + 10% Boxly</p>
+          <p v-if="p.price" class="text-[9.5px] text-gray-400 mt-0.5 leading-tight">Precio de tienda</p>
 
           <!-- Actions: build a SHIPMENT (not buy one product); details; keep talking. -->
           <div class="mt-auto pt-2.5 space-y-1.5">
@@ -117,7 +117,7 @@
     </div>
 
     <!-- Pricing clarity — shown with EVERY result set, so the two flows are always clear. -->
-    <p class="mt-2 px-1 text-[11px] leading-snug text-gray-500">💡 <span class="font-semibold text-gray-600">Si Boxly lo compra por ti</span>, se suma <span class="font-semibold text-gray-600">+10% de comisión</span>. <span class="font-semibold text-gray-600">Si tú lo compras</span> y solo lo enviamos a México, <span class="font-semibold text-gray-600">sin comisión</span>.</p>
+    <p class="mt-2 px-1 text-[11px] leading-snug text-gray-500">💡 <span class="font-semibold text-gray-600">Si Boxly lo compra por ti</span>, se suma <span class="font-semibold text-gray-600">10%</span> sobre el <span class="font-semibold text-gray-600">total final de la compra al pagar</span> (incluye el envío de la tienda a nuestra bodega), no solo sobre este precio. <span class="font-semibold text-gray-600">Si tú lo compras</span> y solo lo enviamos a México, <span class="font-semibold text-gray-600">sin comisión</span>.</p>
   </div>
 </template>
 
