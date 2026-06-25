@@ -63,7 +63,7 @@
                   class="group relative block w-full h-44 md:h-52 rounded-3xl overflow-hidden mb-3 text-left active:scale-[.99] transition-transform shadow-sm"
                   :class="`bg-gradient-to-br ${suggestions[0].grad}`"
                 >
-                  <img v-if="suggestions[0].img" :src="suggestions[0].img" class="absolute inset-0 w-full h-full object-cover" />
+                  <img v-if="cardImg(suggestions[0])" :src="cardImg(suggestions[0])" @error="onCardImgError(suggestions[0])" referrerpolicy="no-referrer" class="absolute inset-0 w-full h-full object-cover transition-transform group-hover:scale-105" />
                   <span v-else class="absolute inset-0 grid place-items-center text-[84px] opacity-90 select-none transition-transform group-hover:scale-105">{{ suggestions[0].emoji }}</span>
                   <span class="absolute top-3 left-3 text-[12px] font-bold text-gray-800 bg-white/90 backdrop-blur rounded-full px-2.5 py-1 shadow-sm">Pruébalo</span>
                   <span class="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/65 to-transparent pointer-events-none"></span>
@@ -79,7 +79,7 @@
                     class="group relative block aspect-[4/5] rounded-2xl overflow-hidden text-left active:scale-[.98] transition-transform shadow-sm"
                     :class="`bg-gradient-to-br ${s.grad}`"
                   >
-                    <img v-if="s.img" :src="s.img" class="absolute inset-0 w-full h-full object-cover" />
+                    <img v-if="cardImg(s)" :src="cardImg(s)" @error="onCardImgError(s)" referrerpolicy="no-referrer" class="absolute inset-0 w-full h-full object-cover transition-transform group-hover:scale-105" />
                     <span v-else class="absolute inset-0 grid place-items-center text-[60px] opacity-90 select-none transition-transform group-hover:scale-105">{{ s.emoji }}</span>
                     <span class="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/65 to-transparent pointer-events-none"></span>
                     <span class="absolute left-3 bottom-2.5 right-3 text-white text-[15px] font-bold leading-snug drop-shadow">{{ s.text }}</span>
@@ -343,13 +343,14 @@ const acctError = ref('')
 // ChatGPT-style picture cards. `grad` is the card background; `img` (optional) is a
 // real product photo that overrides the gradient when set (graceful fallback to the
 // gradient + emoji if the image is missing/fails).
+// `imgq` is the query used to fetch a representative product photo for the card.
 const DEFAULT_SUGGESTIONS = [
-  { emoji: '👟', text: 'Tenis Nike para correr', grad: 'from-slate-600 to-slate-900' },
-  { emoji: '🥤', text: 'Stanley Cups', grad: 'from-teal-500 to-cyan-800' },
-  { emoji: '🧴', text: 'Skincare de Sephora', grad: 'from-rose-400 to-pink-700' },
-  { emoji: '👜', text: 'Bolsas Coach', grad: 'from-amber-500 to-orange-800' },
-  { emoji: '🎴', text: 'Cartas Pokémon', grad: 'from-indigo-500 to-violet-800' },
-  { emoji: '📦', text: '¿Cómo funciona Boxly?', grad: 'from-primary-500 to-blue-800' },
+  { emoji: '👟', text: 'Tenis Nike para correr', grad: 'from-slate-600 to-slate-900', imgq: 'Nike running shoes women' },
+  { emoji: '🥤', text: 'Stanley Cups', grad: 'from-teal-500 to-cyan-800', imgq: 'Stanley cup tumbler' },
+  { emoji: '🧴', text: 'Skincare de Sephora', grad: 'from-rose-400 to-pink-700', imgq: 'Sephora skincare set' },
+  { emoji: '👜', text: 'Bolsas Coach', grad: 'from-amber-500 to-orange-800', imgq: 'Coach handbag' },
+  { emoji: '🎴', text: 'Cartas Pokémon', grad: 'from-indigo-500 to-violet-800', imgq: 'Pokemon trading cards' },
+  { emoji: '📦', text: '¿Cómo funciona Boxly?', grad: 'from-primary-500 to-blue-800', imgq: '' },
 ]
 const GRAD_PALETTE = ['from-fuchsia-500 to-purple-800', 'from-emerald-500 to-teal-800', 'from-sky-500 to-indigo-800', 'from-orange-500 to-rose-800']
 const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s)
@@ -360,17 +361,52 @@ const suggestions = computed(() => {
   const out = []
   let gi = 0
   for (const b of (Array.isArray(p.favorite_brands) ? p.favorite_brands : []).slice(0, 2)) {
-    if (b) out.push({ emoji: '🔥', text: `Ofertas en ${b}`, grad: GRAD_PALETTE[gi++ % GRAD_PALETTE.length] })
+    if (b) out.push({ emoji: '🔥', text: `Ofertas en ${b}`, grad: GRAD_PALETTE[gi++ % GRAD_PALETTE.length], imgq: b })
   }
   const cats = [...(Array.isArray(p.interests) ? p.interests : []), ...(Array.isArray(p.categories) ? p.categories : [])]
   for (const c of cats.slice(0, 2)) {
-    if (c) out.push({ emoji: '🛍️', text: `${cap(c)} en oferta`, grad: GRAD_PALETTE[gi++ % GRAD_PALETTE.length] })
+    if (c) out.push({ emoji: '🛍️', text: `${cap(c)} en oferta`, grad: GRAD_PALETTE[gi++ % GRAD_PALETTE.length], imgq: c })
   }
   const seen = new Set()
   return [...out, ...DEFAULT_SUGGESTIONS]
     .filter((s) => { const k = s.text.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true })
     .slice(0, 5)
 })
+
+// --- Card images: resolve a representative product photo per card, cached in
+//     localStorage so each query is fetched at most once per browser. ---
+const cardImages = ref({})  // imgq -> url ('' = fetched, none found)
+const fetchingImg = new Set()
+const CARD_IMG_KEY = 'boxly_card_images'
+function loadCardImageCache() {
+  try { const raw = localStorage.getItem(CARD_IMG_KEY); if (raw) cardImages.value = JSON.parse(raw) || {} } catch { /* ignore */ }
+}
+// Persist ONLY successful URLs — failures/'' stay in-memory for the session so a
+// transient miss or a dead image URL refetches on the next load.
+function saveCardImageCache() {
+  try {
+    const ok = Object.fromEntries(Object.entries(cardImages.value).filter(([, v]) => v))
+    localStorage.setItem(CARD_IMG_KEY, JSON.stringify(ok))
+  } catch { /* ignore */ }
+}
+function cardImg(s) { return s?.img || cardImages.value[s?.imgq] || null }
+function onCardImgError(s) { if (s?.imgq) { cardImages.value = { ...cardImages.value, [s.imgq]: '' }; saveCardImageCache() } }
+async function ensureCardImages(list) {
+  for (const s of list || []) {
+    const q = s?.imgq
+    if (!q || cardImages.value[q] !== undefined || fetchingImg.has(q)) continue
+    fetchingImg.add(q)
+    try {
+      const r = await $fetch('/api/card-image', { params: { q } })
+      cardImages.value = { ...cardImages.value, [q]: r?.image || '' }
+      saveCardImageCache()
+    } catch {
+      cardImages.value = { ...cardImages.value, [q]: '' }
+    } finally {
+      fetchingImg.delete(q)
+    }
+  }
+}
 
 const isBusy = computed(() => chat.status === 'streaming' || chat.status === 'submitted')
 const GALLERY_TOOLS = ['tool-show_products', 'tool-browse_store', 'tool-browse_stores', 'tool-search_products', 'tool-show_saved_products']
@@ -418,6 +454,9 @@ onMounted(() => {
   watch(user, (u) => { if (u && !inited) initLoggedIn() }, { immediate: true })
   // Reflect the active chat in the URL as ?c=<id> (query, no remount).
   watch(activeId, (id) => syncUrl(id))
+  // Resolve a real product photo for each starter card (cached in localStorage).
+  loadCardImageCache()
+  watch(suggestions, (list) => ensureCardImages(list), { immediate: true })
 })
 
 async function initLoggedIn() {
