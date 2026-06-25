@@ -53,10 +53,10 @@
             <div v-if="gallery.length > 1" class="absolute bottom-2.5 left-0 right-0 flex justify-center gap-1.5">
               <button v-for="(img, idx) in gallery" :key="idx" type="button" @click="scrollToImage(idx)" :aria-label="`Ir a la imagen ${idx + 1}`" class="h-1.5 rounded-full transition-all" :class="idx === imgIndex ? 'w-4 bg-gray-700' : 'w-1.5 bg-gray-300 hover:bg-gray-400'"></button>
             </div>
-            <!-- loading more images -->
-            <div v-if="loadingImages" class="absolute top-2.5 left-2.5 flex items-center gap-1.5 bg-white/85 rounded-full pl-1.5 pr-2.5 py-1 shadow-sm">
+            <!-- loading detail -->
+            <div v-if="loadingDetail" class="absolute top-2.5 left-2.5 flex items-center gap-1.5 bg-white/85 rounded-full pl-1.5 pr-2.5 py-1 shadow-sm">
               <svg class="w-3.5 h-3.5 animate-spin text-gray-400" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
-              <span class="text-[11px] text-gray-500 font-medium">Cargando fotos…</span>
+              <span class="text-[11px] text-gray-500 font-medium">Cargando detalles…</span>
             </div>
           </div>
 
@@ -70,10 +70,10 @@
               <span v-if="product.reviews">· {{ formatReviews(product.reviews) }} reseñas</span>
             </div>
 
-            <div class="flex items-baseline gap-2 mt-3">
-              <span class="text-2xl font-extrabold" :class="product.onSale ? 'text-red-600' : 'text-gray-900'">${{ product.price }}<span class="text-sm font-semibold text-gray-400"> USD</span></span>
-              <span v-if="product.was" class="text-sm font-medium text-gray-400 line-through">${{ product.was }}</span>
-              <span v-if="product.onSale" class="px-1.5 py-0.5 rounded-md bg-red-500 text-white text-[10px] font-bold">OFERTA</span>
+            <div v-if="displayPrice != null" class="flex items-baseline gap-2 mt-3">
+              <span class="text-2xl font-extrabold" :class="displayOnSale ? 'text-red-600' : 'text-gray-900'">${{ displayPrice }}<span class="text-sm font-semibold text-gray-400"> USD</span></span>
+              <span v-if="displayWas" class="text-sm font-medium text-gray-400 line-through">${{ displayWas }}</span>
+              <span v-if="displayOnSale" class="px-1.5 py-0.5 rounded-md bg-red-500 text-white text-[10px] font-bold">OFERTA</span>
             </div>
             <p class="text-xs text-gray-400 mt-1">Precio de tienda. Si Boxly lo compra por ti (compra asistida), se suma 10% sobre el <span class="font-medium text-gray-500">total final de la compra al pagar</span> — producto + el envío que cobre la tienda a nuestra bodega en San Diego — no solo sobre este precio. Si tú lo compras y solo lo envías, no hay comisión. El total final se confirma en tu cotización.</p>
 
@@ -96,9 +96,49 @@
               </ul>
             </div>
 
+            <!-- Variant selectors: pick size / color etc. Unavailable combos grey out. -->
+            <div v-if="loadingDetail && !hasVariants" class="mt-5 flex items-center gap-2 text-[13px] text-gray-400">
+              <svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
+              Cargando tallas y colores disponibles…
+            </div>
+            <div v-if="hasVariants" class="mt-5 space-y-3.5">
+              <div v-for="opt in options" :key="opt.name">
+                <p class="text-[12px] font-bold text-gray-800 mb-1.5">{{ opt.name }}<span v-if="selected[opt.name]" class="font-medium text-gray-400"> · {{ selected[opt.name] }}</span></p>
+                <div class="flex flex-wrap gap-2">
+                  <button
+                    v-for="val in opt.values" :key="val"
+                    type="button"
+                    :disabled="!valueAvailable(opt.name, val)"
+                    @click="selectValue(opt.name, val)"
+                    class="px-3 py-1.5 rounded-xl border text-[13px] font-semibold transition"
+                    :class="[
+                      selected[opt.name] === val ? 'border-primary-500 bg-primary-50 text-primary-700 ring-1 ring-primary-300' : 'border-gray-200 text-gray-700 hover:border-gray-300',
+                      !valueAvailable(opt.name, val) ? 'opacity-40 line-through cursor-not-allowed hover:border-gray-200' : '',
+                    ]"
+                  >{{ val }}</button>
+                </div>
+              </div>
+              <p v-if="allChosen && matchedVariant && !matchedVariant.available" class="text-[12px] font-semibold text-red-500">Esta combinación está agotada — elige otra.</p>
+            </div>
+
+            <!-- Quantity -->
+            <div class="mt-5 flex items-center gap-3">
+              <p class="text-[12px] font-bold text-gray-800">Cantidad</p>
+              <div class="flex items-center border border-gray-200 rounded-xl overflow-hidden">
+                <button type="button" @click="qty = Math.max(1, qty - 1)" class="w-9 h-9 grid place-items-center text-gray-600 hover:bg-gray-50 active:scale-90 transition text-lg leading-none" aria-label="Menos">−</button>
+                <span class="w-10 text-center text-[14px] font-bold tabular-nums">{{ qty }}</span>
+                <button type="button" @click="qty = qty + 1" class="w-9 h-9 grid place-items-center text-gray-600 hover:bg-gray-50 active:scale-90 transition text-lg leading-none" aria-label="Más">+</button>
+              </div>
+            </div>
+
             <!-- CTAs -->
-            <button @click="pick" class="mt-4 w-full py-3 rounded-2xl bg-primary-500 hover:bg-primary-600 active:scale-[.98] text-white text-[15px] font-bold shadow-sm shadow-primary-500/25 transition-all">
-              Agregar a mi envío
+            <button
+              @click="pick"
+              :disabled="!canAdd"
+              class="mt-5 w-full py-3 rounded-2xl text-[15px] font-bold shadow-sm transition-all"
+              :class="canAdd ? 'bg-primary-500 hover:bg-primary-600 active:scale-[.98] text-white shadow-primary-500/25' : 'bg-gray-200 text-gray-400 cursor-not-allowed'"
+            >
+              {{ canAdd ? 'Agregar a mi envío' : 'Elige tus opciones' }}
             </button>
             <a :href="bestLink" target="_blank" rel="noopener noreferrer" class="mt-2 w-full flex items-center justify-center gap-1.5 py-3 rounded-2xl border border-gray-200 text-gray-700 text-[15px] font-semibold hover:bg-gray-50 active:scale-[.98] transition-all">
               Ver en línea
@@ -128,12 +168,20 @@ function formatReviews(n) {
 }
 
 
-// --- Lazily fetched detail: more images, description, direct seller link ---
+// --- Lazily fetched FULL product detail: images, description, link, AND the live
+//     variant matrix (sizes/colors + per-variant availability) from /products/page.
 const fetchedImages = ref([])
 const fetchedDesc = ref(null)
 const fetchedLink = ref(null)
-const loadingImages = ref(false)
+const fetchedOptions = ref([])   // [{ name, values: [] }]
+const fetchedVariants = ref([])  // [{ id, title, options:{name:val}, price, was, on_sale, available }]
+const fetchedPrice = ref(null)
+const fetchedWas = ref(null)
+const fetchedOnSale = ref(false)
+const loadingDetail = ref(false)
 const broken = ref(new Set())
+const selected = reactive({})    // optionName -> chosen value
+const qty = ref(1)
 
 const gallery = computed(() => {
   const base = fetchedImages.value.length ? fetchedImages.value : (props.product?.image ? [props.product.image] : [])
@@ -141,6 +189,39 @@ const gallery = computed(() => {
 })
 const description = computed(() => fetchedDesc.value || props.product?.snippet || null)
 const bestLink = computed(() => fetchedLink.value || props.product?.url || '#')
+
+// --- Variant logic ---
+const options = computed(() => fetchedOptions.value || [])
+const variants = computed(() => fetchedVariants.value || [])
+const hasVariants = computed(() => variants.value.length > 0)
+
+// A value is selectable if at least one AVAILABLE variant matches it together with
+// the OTHER currently-selected options — so impossible/out-of-stock combos grey out live.
+function valueAvailable(optName, value) {
+  return variants.value.some((v) => {
+    if (!v.available) return false
+    if (v.options?.[optName] !== value) return false
+    for (const [k, val] of Object.entries(selected)) {
+      if (k === optName || !val) continue
+      if (v.options?.[k] !== val) return false
+    }
+    return true
+  })
+}
+function selectValue(optName, value) {
+  selected[optName] = selected[optName] === value ? null : value
+}
+const allChosen = computed(() => options.value.every((o) => selected[o.name]))
+const matchedVariant = computed(() => {
+  if (!hasVariants.value || !allChosen.value) return null
+  const names = options.value.map((o) => o.name)
+  return variants.value.find((v) => names.every((n) => v.options?.[n] === selected[n])) || null
+})
+const displayPrice = computed(() => matchedVariant.value?.price ?? fetchedPrice.value ?? props.product?.price ?? null)
+const displayWas = computed(() => matchedVariant.value?.was ?? fetchedWas.value ?? props.product?.was ?? null)
+const displayOnSale = computed(() => matchedVariant.value?.on_sale ?? fetchedOnSale.value ?? props.product?.onSale ?? false)
+// Can add: no variants → always; variants → a complete, in-stock selection.
+const canAdd = computed(() => !hasVariants.value || (!!matchedVariant.value && matchedVariant.value.available))
 
 const imgTrack = ref(null)
 const imgIndex = ref(0)
@@ -157,33 +238,60 @@ function scrollToImage(idx) {
   imgIndex.value = i // optimistic; onImgScroll will confirm
 }
 
-async function loadDetails(token) {
-  loadingImages.value = true
+async function loadDetails(p) {
+  loadingDetail.value = true
   try {
-    const r = await $customFetch('/products/details', { method: 'POST', body: { token } })
+    const r = await $customFetch('/products/page', { method: 'POST', body: { url: p?.url || null, token: p?.token || null, store: p?.store || null, title: p?.title || null } })
     const d = r.data || {}
     if (Array.isArray(d.images) && d.images.length) fetchedImages.value = d.images
     if (d.description) fetchedDesc.value = d.description
-    if (d.link) fetchedLink.value = d.link
+    if (d.buy_url) fetchedLink.value = d.buy_url
+    if (Array.isArray(d.options)) fetchedOptions.value = d.options
+    if (Array.isArray(d.variants)) fetchedVariants.value = d.variants
+    if (d.price != null) fetchedPrice.value = d.price
+    if (d.was != null) fetchedWas.value = d.was
+    if (typeof d.on_sale === 'boolean') fetchedOnSale.value = d.on_sale
+    // Auto-select any option that has a single value (nothing to choose).
+    for (const o of fetchedOptions.value) {
+      if (Array.isArray(o.values) && o.values.length === 1) selected[o.name] = o.values[0]
+    }
   } catch { /* keep the single thumbnail */ } finally {
-    loadingImages.value = false
+    loadingDetail.value = false
   }
 }
 
 function pick() {
-  // Prefer the resolved direct merchant link for the purchase request.
-  emit('pick', { ...props.product, url: bestLink.value })
+  // Prefer the resolved direct merchant link, and pass the chosen variant so the
+  // order is created WITH the size/color/quantity (no need to re-ask in chat).
+  emit('pick', {
+    ...props.product,
+    url: bestLink.value,
+    price: displayPrice.value,
+    was: displayWas.value,
+    onSale: displayOnSale.value,
+    selectedOptions: hasVariants.value ? { ...selected } : null,
+    variantId: matchedVariant.value?.id || null,
+    variantTitle: matchedVariant.value?.title || null,
+    quantity: qty.value,
+  })
 }
 
 watch(() => props.product, (p) => {
   fetchedImages.value = []
   fetchedDesc.value = null
   fetchedLink.value = null
-  loadingImages.value = false
+  fetchedOptions.value = []
+  fetchedVariants.value = []
+  fetchedPrice.value = null
+  fetchedWas.value = null
+  fetchedOnSale.value = false
+  loadingDetail.value = false
   broken.value = new Set()
   imgIndex.value = 0
+  qty.value = 1
+  for (const k of Object.keys(selected)) delete selected[k]
   if (imgTrack.value) imgTrack.value.scrollLeft = 0
-  if (p?.token) loadDetails(p.token)
+  if (p?.url || p?.token) loadDetails(p)
 })
 
 // --- Swipe down to close (only when the sheet is scrolled to the top) ---

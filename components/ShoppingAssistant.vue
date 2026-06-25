@@ -497,7 +497,15 @@ function onPickProduct(p) {
   // product page; include real merchant URLs directly.
   const isGoogle = (p.url || '').includes('google.com/search')
   const urlPart = p.url && !isGoogle ? ` — ${p.url}` : ''
-  const text = `Agrégalo a mi envío: ${p.title}${store}${price}${urlPart}`
+  // If the customer picked a variant in the modal, pass it through so the AI adds
+  // it DIRECTLY (size/color/quantity already chosen — don't re-ask).
+  const opts = p.selectedOptions && Object.keys(p.selectedOptions).length
+    ? ' — ' + Object.entries(p.selectedOptions).filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`).join(', ')
+    : ''
+  const qtyN = Number(p.quantity) > 0 ? Number(p.quantity) : 1
+  const qtyPart = ` — cantidad ${qtyN}`
+  const ready = opts ? ' (ya elegí estas opciones, agrégalo directo sin volver a preguntar)' : ''
+  const text = `Agrégalo a mi envío: ${p.title}${store}${opts}${qtyPart}${price}${urlPart}${ready}`
   ensureConversation(text)
   chat.sendMessage({ text })
   scrollDown()
