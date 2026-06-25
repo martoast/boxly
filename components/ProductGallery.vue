@@ -56,12 +56,6 @@
           </p>
           <p v-if="p.price" class="text-[9.5px] text-gray-400 mt-0.5 leading-tight">Precio de tienda + 10% Boxly</p>
 
-          <!-- THE BOXLY VALUE — the value prop, not a shipping calculator. -->
-          <div class="mt-2 rounded-xl bg-primary-50/80 border border-primary-100 px-3 py-2.5 space-y-1">
-            <p class="flex items-center gap-1.5 text-[11.5px] font-semibold text-primary-800">📦 Compra desde México con Boxly</p>
-            <p class="flex items-center gap-1.5 text-[11.5px] font-semibold text-primary-800">🚚 Lo recibes en tu puerta</p>
-          </div>
-
           <!-- Actions: build a SHIPMENT (not buy one product); details; keep talking. -->
           <div class="mt-auto pt-2.5 space-y-1.5">
             <button
