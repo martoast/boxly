@@ -346,8 +346,6 @@ const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s)
 const suggestions = computed(() => {
   const p = shoppingProfile.value || {}
   const out = []
-  // Resellers shop deals/arbitrage — lead with a deal-hunt chip.
-  if (p.shopper_type === 'reseller') out.push({ emoji: '📈', text: 'Mejores ofertas para revender' })
   for (const b of (Array.isArray(p.favorite_brands) ? p.favorite_brands : []).slice(0, 2)) {
     if (b) out.push({ emoji: '🔥', text: `Ofertas en ${b}` })
   }
