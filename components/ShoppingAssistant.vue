@@ -89,58 +89,48 @@
           <TransitionGroup tag="div" name="msg" class="max-w-2xl mx-auto space-y-4">
             <div v-for="m in chat.messages" :key="m.id" :class="m.role === 'user' ? 'flex justify-end' : 'flex justify-start'">
               <div :class="m.role === 'user' ? 'bg-primary-500 text-white rounded-3xl rounded-br-lg px-4 py-2.5 max-w-[85%] shadow-sm' : 'w-full max-w-[95%] space-y-3'">
-                <template v-for="(part, i) in m.parts" :key="i">
-                  <div v-if="part.type === 'text' && m.role === 'user'" class="whitespace-pre-wrap text-[15px] leading-relaxed">{{ part.text }}</div>
-                  <!-- Only render the assistant text bubble once it actually has text,
-                       so an empty bubble doesn't flash before the stream starts. -->
-                  <div v-else-if="part.type === 'text' && part.text" class="bg-white border border-gray-100 rounded-3xl rounded-bl-lg px-4 py-3 shadow-sm text-[15px]"><MarkdownText :text="part.text" /></div>
+                <!-- USER: their text + any uploaded image -->
+                <template v-if="m.role === 'user'">
+                  <div v-if="msgText(m)" class="whitespace-pre-wrap text-[15px] leading-relaxed">{{ msgText(m) }}</div>
+                  <template v-for="(part, i) in m.parts" :key="'uf' + i">
+                    <img v-if="part.type === 'file' && String(part.mediaType).startsWith('image/')" :src="part.url" class="rounded-2xl max-h-56 w-auto border border-gray-200 shadow-sm ml-auto" />
+                  </template>
+                </template>
 
-                  <ProductGallery v-else-if="isGalleryTool(part) && part.state === 'output-available' && part.output?.products?.length" :products="part.output.products" @open="openProduct" @order="onPickProduct" @ask="onAskProduct" />
-                  <!-- Search/browse finished but found nothing — clean message, not an empty carousel. -->
-                  <div v-else-if="isGalleryTool(part) && part.state === 'output-available'" class="text-[13px] text-gray-500 bg-white border border-gray-100 rounded-2xl px-4 py-3 shadow-sm">No encontré opciones para eso ahora. ¿Probamos con otra marca o término?</div>
+                <!-- ASSISTANT: ALL text merged into ONE bubble, then the inline widgets. -->
+                <template v-else>
+                  <div v-if="msgText(m)" class="bg-white border border-gray-100 rounded-3xl rounded-bl-lg px-4 py-3 shadow-sm text-[15px]"><MarkdownText :text="msgText(m)" /></div>
 
-                  <ShipmentCard v-else-if="part.type === 'tool-show_shipment' && part.state === 'output-available'" :shipment="part.output" @order="onFinalizeShipment" @add="onAddMore" />
+                  <template v-for="(part, i) in m.parts" :key="i">
+                    <ProductGallery v-if="isGalleryTool(part) && part.state === 'output-available' && part.output?.products?.length" :products="part.output.products" @open="openProduct" @order="onPickProduct" @ask="onAskProduct" />
+                    <!-- Search/browse finished but found nothing — clean message, not an empty carousel. -->
+                    <div v-else-if="isGalleryTool(part) && part.state === 'output-available'" class="text-[13px] text-gray-500 bg-white border border-gray-100 rounded-2xl px-4 py-3 shadow-sm">No encontré opciones para eso ahora. ¿Probamos con otra marca o término?</div>
 
-                  <BoxGuide v-else-if="part.type === 'tool-show_box_guide' && part.state === 'output-available'" :boxes="part.output?.boxes || []" />
+                    <ShipmentCard v-else-if="part.type === 'tool-show_shipment' && part.state === 'output-available'" :shipment="part.output" @order="onFinalizeShipment" @add="onAddMore" />
 
-                  <div v-else-if="part.type === 'tool-search_products'" class="flex items-center gap-2 text-xs text-gray-400 pl-1">
-                    <svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
-                    Buscando en todo el mercado…
-                  </div>
+                    <BoxGuide v-else-if="part.type === 'tool-show_box_guide' && part.state === 'output-available'" :boxes="part.output?.boxes || []" />
 
-                  <div v-else-if="part.type === 'tool-browse_store'" class="flex items-center gap-2 text-xs text-gray-400 pl-1">
-                    <svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
-                    Revisando la tienda…
-                  </div>
-
-                  <div v-else-if="part.type === 'tool-browse_stores'" class="flex items-center gap-2 text-xs text-gray-400 pl-1">
-                    <svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
-                    Comparando varias tiendas…
-                  </div>
-
-                  <img v-else-if="part.type === 'file' && String(part.mediaType).startsWith('image/')" :src="part.url" class="rounded-2xl max-h-56 w-auto border border-gray-200 shadow-sm" :class="m.role === 'user' ? 'ml-auto' : ''" />
-
-                  <div v-else-if="part.type === 'tool-web_search' && part.state !== 'output-available'" class="flex items-center gap-2 text-xs text-gray-400 pl-1">
-                    <svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
-                    Buscando en internet…
-                  </div>
-
-                  <div v-else-if="part.type === 'tool-extract_product' && part.state === 'output-available' && part.output?.success !== false" class="bg-white border border-gray-200 rounded-2xl p-3 shadow-sm flex gap-3 items-center max-w-sm hover:shadow-md transition-shadow">
-                    <img v-if="part.output?.image" :src="part.output.image" class="w-16 h-16 rounded-xl object-cover bg-gray-100 shrink-0" />
-                    <div class="min-w-0">
-                      <p class="text-sm font-semibold text-gray-900 line-clamp-2 leading-snug">{{ part.output?.title }}</p>
-                      <p class="text-xs text-gray-400 mt-0.5">{{ part.output?.store }}</p>
-                      <p v-if="part.output?.price" class="text-sm font-bold text-gray-900 mt-1">${{ part.output.price }} <span class="text-xs font-medium text-gray-400">USD</span></p>
+                    <div v-else-if="part.type === 'tool-search_products' && part.state !== 'output-available'" class="flex items-center gap-2 text-xs text-gray-400 pl-1">
+                      <svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
+                      Buscando en todo el mercado…
                     </div>
-                  </div>
 
-                  <div v-else-if="part.type === 'tool-create_purchase_request' && part.state === 'output-available' && part.output?.request_number" class="bg-green-50 border border-green-200 rounded-2xl p-4 max-w-sm">
-                    <p class="text-sm font-bold text-green-800 flex items-center gap-1.5"><svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 011.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z" clip-rule="evenodd"/></svg> Listo — nosotros nos encargamos 🎉</p>
-                    <p class="text-xs text-green-700 mt-1">Solicitud <span class="font-semibold">{{ part.output.request_number }}</span> creada. Te enviamos la cotización (producto + servicio + envío) para que la apruebes — no pagas nada todavía.</p>
-                    <NuxtLink to="/app/purchase-requests" class="inline-block mt-2 text-xs font-semibold text-green-800 underline active:scale-95 transition-transform">Ver mis solicitudes →</NuxtLink>
-                  </div>
+                    <div v-else-if="(part.type === 'tool-browse_store' || part.type === 'tool-browse_stores') && part.state !== 'output-available'" class="flex items-center gap-2 text-xs text-gray-400 pl-1">
+                      <svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
+                      Revisando tiendas…
+                    </div>
 
-                  <div v-else-if="String(part.type).startsWith('tool-') && part.state !== 'output-available'" class="text-xs text-gray-300 pl-1">…</div>
+                    <div v-else-if="part.type === 'tool-web_search' && part.state !== 'output-available'" class="flex items-center gap-2 text-xs text-gray-400 pl-1">
+                      <svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
+                      Buscando información…
+                    </div>
+
+                    <div v-else-if="part.type === 'tool-create_purchase_request' && part.state === 'output-available' && part.output?.request_number" class="bg-green-50 border border-green-200 rounded-2xl p-4 max-w-sm">
+                      <p class="text-sm font-bold text-green-800 flex items-center gap-1.5"><svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 011.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z" clip-rule="evenodd"/></svg> Listo — nosotros nos encargamos 🎉</p>
+                      <p class="text-xs text-green-700 mt-1">Solicitud <span class="font-semibold">{{ part.output.request_number }}</span> creada. Te enviamos la cotización (producto + servicio + envío) para que la apruebes — no pagas nada todavía.</p>
+                      <NuxtLink to="/app/purchase-requests" class="inline-block mt-2 text-xs font-semibold text-green-800 underline active:scale-95 transition-transform">Ver mis solicitudes →</NuxtLink>
+                    </div>
+                  </template>
                 </template>
               </div>
             </div>
@@ -374,6 +364,9 @@ const suggestions = computed(() => {
 const isBusy = computed(() => chat.status === 'streaming' || chat.status === 'submitted')
 const GALLERY_TOOLS = ['tool-show_products', 'tool-browse_store', 'tool-browse_stores', 'tool-search_products', 'tool-show_saved_products']
 function isGalleryTool(part) { return GALLERY_TOOLS.includes(part?.type) }
+// Merge ALL text parts of a message into one string so a multi-step reply renders
+// in ONE bubble instead of fragmenting into many (the "split bubbles" bug).
+function msgText(m) { return (m.parts || []).filter((p) => p.type === 'text' && p.text).map((p) => p.text).join('\n\n') }
 // Show the typing dots ONLY while the assistant turn has nothing visible yet — once
 // any text or tool widget/spinner appears, that's the indicator (no double bubble).
 const showTyping = computed(() => {
