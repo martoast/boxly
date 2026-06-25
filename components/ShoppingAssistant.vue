@@ -235,7 +235,7 @@ const user = useState('user')
 
 // Bump this every deploy to verify the right build is live (shown bottom-left +
 // logged to the console). Pure marker — change the number and watch it update.
-const APP_VERSION = 'build v3 · 2026-06-24 · diag'
+const APP_VERSION = 'build v4 · 2026-06-24 · stable-layout'
 
 // --- URL <-> active chat sync ---
 // The page route is an optional param ([[id]]): /assistant + /assistant/<id>
