@@ -235,7 +235,7 @@ const user = useState('user')
 
 // Bump this every deploy to verify the right build is live (shown bottom-left +
 // logged to the console). Pure marker — change the number and watch it update.
-const APP_VERSION = 'build v8 · 2026-06-24 · server-url'
+const APP_VERSION = 'build v9 · 2026-06-24 · clean-load'
 
 // Reflect the active conversation in the URL as a QUERY param (?c=<id>) — NOT a
 // path segment. A path change (/app/search → /app/search/<id>) remounts the page
@@ -261,7 +261,10 @@ const savedCount = ref(0)
 const input = ref('')
 const scroller = ref(null)
 const drawerOpen = ref(false)
-const loadingChat = ref(false)
+// Start in the loading state when the URL already points at a conversation, so a
+// deep-link/refresh shows ONE loader from the first paint (no flash of the empty
+// "new chat" screen before openChat kicks in).
+const loadingChat = ref(!!(route.query.c || route.params.id))
 const selectedProduct = ref(null)
 const showMemory = ref(false)
 // Reload the profile on close so edits made in the modal immediately flow into
