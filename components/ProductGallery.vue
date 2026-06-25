@@ -115,6 +115,9 @@
         <span v-if="atStart" class="shrink-0 text-[11px] font-semibold text-gray-400 whitespace-nowrap">Desliza →</span>
       </Transition>
     </div>
+
+    <!-- Pricing clarity — shown with EVERY result set, so the two flows are always clear. -->
+    <p class="mt-2 px-1 text-[11px] leading-snug text-gray-500">💡 <span class="font-semibold text-gray-600">Si Boxly lo compra por ti</span>, se suma <span class="font-semibold text-gray-600">+10% de comisión</span>. <span class="font-semibold text-gray-600">Si tú lo compras</span> y solo lo enviamos a México, <span class="font-semibold text-gray-600">sin comisión</span>.</p>
   </div>
 </template>
 
