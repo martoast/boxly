@@ -235,19 +235,23 @@ const user = useState('user')
 
 // Bump this every deploy to verify the right build is live (shown bottom-left +
 // logged to the console). Pure marker — change the number and watch it update.
-const APP_VERSION = 'build v7 · 2026-06-24 · session-restore'
+const APP_VERSION = 'build v8 · 2026-06-24 · server-url'
 
-// Remember the active conversation across refresh WITHOUT touching the URL (a URL
-// path change remounts the page and wiped the chat). sessionStorage = no
-// navigation, so no remount.
-const ACTIVE_KEY = 'boxly_active_chat'
-
-// IMPORTANT: we deliberately do NOT reflect the active conversation in the URL.
-// Putting the id in the path ([[id]]) meant that creating a chat changed the URL
-// (/app/search → /app/search/<id>), which REMOUNTED the page mid-stream — wiping
-// the live chat and orphaning the AI response (the bug we chased for ages). The
-// active conversation now lives purely in state (activeId). The sidebar still
-// opens past chats; we just don't deep-link via the URL.
+// Reflect the active conversation in the URL as a QUERY param (?c=<id>) — NOT a
+// path segment. A path change (/app/search → /app/search/<id>) remounts the page
+// (which wiped the live chat mid-stream — the long bug). A query change does NOT
+// remount. So refresh/deep-link loads the chat FROM THE SERVER, and sending never
+// remounts.
+const route = useRoute()
+const router = useRouter()
+function syncUrl(id) {
+  const want = id != null ? String(id) : null
+  // Treat an existing path id (old /app/search/<id> links) as already-reflected.
+  const have = route.query.c != null ? String(route.query.c)
+    : (route.params.id != null ? String(route.params.id) : null)
+  if (want === have) return
+  router.replace({ query: want ? { ...route.query, c: want } : (() => { const q = { ...route.query }; delete q.c; return q })() })
+}
 
 const token = ref(null)
 const shoppingProfile = ref(null)
@@ -410,10 +414,8 @@ let inited = false
 onMounted(() => {
   console.log('[Boxly]', APP_VERSION)
   watch(user, (u) => { if (u && !inited) initLoggedIn() }, { immediate: true })
-  // Persist the active chat id to sessionStorage (NOT the URL — that remounts).
-  watch(activeId, (id) => {
-    try { id != null ? sessionStorage.setItem(ACTIVE_KEY, String(id)) : sessionStorage.removeItem(ACTIVE_KEY) } catch { /* ignore */ }
-  })
+  // Reflect the active chat in the URL as ?c=<id> (query, no remount).
+  watch(activeId, (id) => syncUrl(id))
 })
 
 async function initLoggedIn() {
@@ -421,11 +423,10 @@ async function initLoggedIn() {
   inited = true
   await Promise.all([loadConversations(), loadProfile()])
   ensureChatToken()
-  // Restore the chat the user was in before a refresh (sessionStorage, no URL).
-  try {
-    const saved = sessionStorage.getItem(ACTIVE_KEY)
-    if (saved) openChat(saved)
-  } catch { /* ignore */ }
+  // Refresh / deep-link: load the conversation named in the URL FROM THE SERVER.
+  // Accept ?c=<id> (new) or an old /app/search/<id> path id.
+  const cid = route.query.c || route.params.id
+  if (cid) openChat(cid)
 }
 
 async function loadProfile() {
