@@ -13,13 +13,12 @@ export default defineNuxtConfig({
     '/app/**':   { ssr: false },
     '/login':    { ssr: false },
     '/register': { ssr: false },
-    // Legacy assistant entry points → the unified concierge.
-    '/assistant':     { redirect: '/buscar' },
-    '/app/assistant': { redirect: '/buscar' },
-    // BOXLY Concierge (unified chat) — client-rendered (the chat engine isn't
-    // SSR-friendly, and history deep-links resolve the user client-side).
-    '/buscar':     { ssr: false },
-    '/buscar/**':  { ssr: false },
+    // The BOXLY Concierge now lives at /app/search (authenticated, app layout,
+    // already ssr:false via /app/**). Old entry points redirect there.
+    '/assistant':     { redirect: '/app/search' },
+    '/app/assistant': { redirect: '/app/search' },
+    '/buscar':        { redirect: '/app/search' },
+    '/buscar/**':     { redirect: '/app/search' },
     // The product page is auth-gated (token-expensive) — client-rendered so the
     // auth middleware resolves the user reliably.
     '/producto':          { ssr: false },

@@ -235,7 +235,7 @@ const user = useState('user')
 
 // Bump this every deploy to verify the right build is live (shown bottom-left +
 // logged to the console). Pure marker — change the number and watch it update.
-const APP_VERSION = 'build v4 · 2026-06-24 · stable-layout'
+const APP_VERSION = 'build v5 · 2026-06-24 · /app/search'
 
 // --- URL <-> active chat sync ---
 // The page route is an optional param ([[id]]): /assistant + /assistant/<id>
@@ -417,13 +417,12 @@ onMounted(() => {
   watch(user, (u) => { if (u && !inited) initLoggedIn() }, { immediate: true })
 
   // Keep the URL pointing at the active chat (replace = no history spam).
-  watch(activeId, (id) => { console.log('[DBG] activeId ->', id); syncUrl(id) })
+  watch(activeId, (id) => syncUrl(id))
 
   // React to the id changing in the URL itself — browser back/forward, or a
   // pasted link — by opening that chat (or returning to the new-chat view).
   watch(() => route.params.id, (raw) => {
     const id = raw ? String(raw) : null
-    console.log('[DBG] routeWatch raw=', raw, 'id=', id, 'activeId=', activeId.value)
     // Compare as strings: route params are strings but conversation ids are
     // numbers, so `'23' === 23` would be false and wrongly reopen (and RESET) the
     // chat we just created from a first message. That was the "first query lands
@@ -480,7 +479,6 @@ function ensureConversation(firstText) {
   convPromise = $customFetch('/conversations', { method: 'POST', body: { title } })
     .then((r) => {
       const c = r.data
-      console.log('[DBG] conversation created id=', c.id, 'type=', typeof c.id)
       activeId.value = c.id
       conversations.value = [c, ...conversations.value.filter((x) => x.id !== c.id)]
       return c.id
@@ -498,7 +496,6 @@ function onComposerSend({ files } = {}) {
   const text = input.value.trim()
   if (isBusy.value) return
   if (!text && !(files && files.length)) return
-  console.log('[DBG] onComposerSend text=', JSON.stringify(text), 'activeId=', activeId.value)
   input.value = ''
   ensureChatToken()
   ensureConversation(text)
@@ -592,7 +589,6 @@ async function submitAccount() {
 }
 
 watch(() => chat.status, async (s) => {
-  console.log('[DBG] chat.status ->', s, 'messages=', chat.messages.length, 'saved=', savedCount.value, 'activeId=', activeId.value)
   scrollDown()
   registerFromMessages() // keep the product registry current with what's shown
   // Flush a product pick that was queued while the assistant was streaming.
@@ -653,7 +649,6 @@ function bumpActiveToTop() {
 }
 
 function newChat() {
-  console.log('[DBG] newChat() — RESET', new Error().stack)
   openSeq++ // invalidate any in-flight openChat
   loadingChat.value = false
   chat.messages = []
@@ -667,7 +662,6 @@ function newChat() {
 }
 
 async function openChat(id) {
-  console.log('[DBG] openChat(', id, ')')
   // Normalize to a number so activeId is always the same type as the API's
   // conversation ids (the sidebar highlight + all `=== activeId` checks rely on
   // it). Route params arrive as strings, sidebar clicks as numbers.
