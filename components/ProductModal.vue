@@ -30,9 +30,28 @@
                 <img :src="img" :alt="product.title" referrerpolicy="no-referrer" class="max-h-full max-w-full object-contain" @error="onImgError(img)" />
               </div>
             </div>
-            <!-- dots -->
+            <!-- prev / next arrows -->
+            <button
+              v-if="gallery.length > 1 && imgIndex > 0"
+              type="button" @click="scrollToImage(imgIndex - 1)" aria-label="Imagen anterior"
+              class="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 grid place-items-center rounded-full bg-white/90 shadow-md ring-1 ring-black/5 text-gray-700 hover:bg-white hover:scale-105 active:scale-95 transition"
+            >
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            </button>
+            <button
+              v-if="gallery.length > 1 && imgIndex < gallery.length - 1"
+              type="button" @click="scrollToImage(imgIndex + 1)" aria-label="Imagen siguiente"
+              class="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 grid place-items-center rounded-full bg-white/90 shadow-md ring-1 ring-black/5 text-gray-700 hover:bg-white hover:scale-105 active:scale-95 transition"
+            >
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            </button>
+
+            <!-- image counter -->
+            <div v-if="gallery.length > 1" class="absolute top-2.5 right-2.5 text-[11px] font-semibold text-white bg-black/45 rounded-full px-2 py-0.5 tabular-nums">{{ imgIndex + 1 }}/{{ gallery.length }}</div>
+
+            <!-- dots (tap to jump) -->
             <div v-if="gallery.length > 1" class="absolute bottom-2.5 left-0 right-0 flex justify-center gap-1.5">
-              <span v-for="(img, idx) in gallery" :key="idx" class="h-1.5 rounded-full transition-all" :class="idx === imgIndex ? 'w-4 bg-gray-700' : 'w-1.5 bg-gray-300'"></span>
+              <button v-for="(img, idx) in gallery" :key="idx" type="button" @click="scrollToImage(idx)" :aria-label="`Ir a la imagen ${idx + 1}`" class="h-1.5 rounded-full transition-all" :class="idx === imgIndex ? 'w-4 bg-gray-700' : 'w-1.5 bg-gray-300 hover:bg-gray-400'"></button>
             </div>
             <!-- loading more images -->
             <div v-if="loadingImages" class="absolute top-2.5 left-2.5 flex items-center gap-1.5 bg-white/85 rounded-full pl-1.5 pr-2.5 py-1 shadow-sm">
@@ -130,6 +149,13 @@ function onImgScroll() {
   if (el && el.clientWidth) imgIndex.value = Math.round(el.scrollLeft / el.clientWidth)
 }
 function onImgError(url) { broken.value = new Set([...broken.value, url]) }
+function scrollToImage(idx) {
+  const el = imgTrack.value
+  if (!el) return
+  const i = Math.max(0, Math.min(idx, gallery.value.length - 1))
+  el.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' })
+  imgIndex.value = i // optimistic; onImgScroll will confirm
+}
 
 async function loadDetails(token) {
   loadingImages.value = true
