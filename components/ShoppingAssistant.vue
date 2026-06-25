@@ -67,7 +67,7 @@
                   <span v-else class="absolute inset-0 grid place-items-center text-[84px] opacity-90 select-none transition-transform group-hover:scale-105">{{ suggestions[0].emoji }}</span>
                   <span class="absolute top-3 left-3 text-[12px] font-bold text-gray-800 bg-white/90 backdrop-blur rounded-full px-2.5 py-1 shadow-sm">Pruébalo</span>
                   <span class="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/65 to-transparent pointer-events-none"></span>
-                  <span class="absolute left-4 bottom-3.5 right-4 text-white text-lg md:text-xl font-bold leading-snug drop-shadow">{{ suggestions[0].text }}</span>
+                  <span class="absolute left-4 bottom-3.5 right-4 text-white text-lg md:text-xl font-bold leading-snug drop-shadow">{{ suggestions[0].title || suggestions[0].text }}</span>
                 </button>
 
                 <!-- grid of the rest -->
@@ -82,7 +82,7 @@
                     <img v-if="cardImg(s)" :src="cardImg(s)" @error="onCardImgError(s)" referrerpolicy="no-referrer" class="absolute inset-0 w-full h-full object-cover transition-transform group-hover:scale-105" />
                     <span v-else class="absolute inset-0 grid place-items-center text-[60px] opacity-90 select-none transition-transform group-hover:scale-105">{{ s.emoji }}</span>
                     <span class="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/65 to-transparent pointer-events-none"></span>
-                    <span class="absolute left-3 bottom-2.5 right-3 text-white text-[15px] font-bold leading-snug drop-shadow">{{ s.text }}</span>
+                    <span class="absolute left-3 bottom-2.5 right-3 text-white text-[15px] font-bold leading-snug drop-shadow">{{ s.title || s.text }}</span>
                   </button>
                 </div>
               </TransitionGroup>
@@ -354,6 +354,27 @@ const DEFAULT_SUGGESTIONS = [
 ]
 const GRAD_PALETTE = ['from-fuchsia-500 to-purple-800', 'from-emerald-500 to-teal-800', 'from-sky-500 to-indigo-800', 'from-orange-500 to-rose-800']
 const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s)
+
+// Admin-managed starter cards loaded from the backend (falls back to the
+// hardcoded defaults above if the fetch fails or returns nothing). `img` is an
+// uploaded image that wins over the `imgq` product-photo lookup.
+const serverPrompts = ref(null)
+async function loadStarterPrompts() {
+  try {
+    const rows = (await $customFetch('/starter-prompts'))?.data
+    if (Array.isArray(rows) && rows.length) {
+      serverPrompts.value = rows.map((r, i) => ({
+        emoji: r.emoji || '🛍️',
+        text: r.prompt_text,
+        title: r.title,
+        grad: GRAD_PALETTE[i % GRAD_PALETTE.length],
+        imgq: r.image_query || '',
+        img: r.image_url || null,
+      }))
+    }
+  } catch { /* keep hardcoded defaults */ }
+}
+const baseSuggestions = computed(() => serverPrompts.value || DEFAULT_SUGGESTIONS)
 // Personalize the starter cards from the shopper's long-term memory (favorite
 // brands + interests), then top up with the defaults. Empty memory → defaults.
 const suggestions = computed(() => {
@@ -368,7 +389,7 @@ const suggestions = computed(() => {
     if (c) out.push({ emoji: '🛍️', text: `${cap(c)} en oferta`, grad: GRAD_PALETTE[gi++ % GRAD_PALETTE.length], imgq: c })
   }
   const seen = new Set()
-  return [...out, ...DEFAULT_SUGGESTIONS]
+  return [...out, ...baseSuggestions.value]
     .filter((s) => { const k = s.text.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true })
     .slice(0, 5)
 })
@@ -454,6 +475,8 @@ onMounted(() => {
   watch(user, (u) => { if (u && !inited) initLoggedIn() }, { immediate: true })
   // Reflect the active chat in the URL as ?c=<id> (query, no remount).
   watch(activeId, (id) => syncUrl(id))
+  // Load admin-managed starter cards (falls back to hardcoded defaults).
+  loadStarterPrompts()
   // Resolve a real product photo for each starter card (cached in localStorage).
   loadCardImageCache()
   watch(suggestions, (list) => ensureCardImages(list), { immediate: true })
