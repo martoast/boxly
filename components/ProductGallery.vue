@@ -116,8 +116,8 @@
       </Transition>
     </div>
 
-    <!-- Pricing clarity — shown with EVERY result set, so the two flows are always clear. -->
-    <p class="mt-2 px-1 text-[11px] leading-snug text-gray-500">💡 <span class="font-semibold text-gray-600">Si Boxly lo compra por ti</span>, se suma <span class="font-semibold text-gray-600">10%</span> sobre el <span class="font-semibold text-gray-600">total final de la compra al pagar</span> (incluye el envío de la tienda a nuestra bodega), no solo sobre este precio. <span class="font-semibold text-gray-600">Si tú lo compras</span> y solo lo enviamos a México, <span class="font-semibold text-gray-600">sin comisión</span>.</p>
+    <!-- Pricing clarity — shown with EVERY result set. -->
+    <p class="mt-2 px-1 text-[11px] leading-snug text-gray-500">💡 <span class="font-semibold text-gray-600">Si Boxly lo compra por ti</span>, se suma 10% sobre la compra. El envío a México es separado por caja consolidada.</p>
   </div>
 </template>
 
