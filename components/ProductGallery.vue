@@ -14,7 +14,7 @@
       >{{ s }}</button>
     </div>
 
-    <div class="relative">
+    <div class="relative group">
     <div
       ref="track"
       @scroll.passive="measure"
@@ -54,7 +54,7 @@
             ${{ p.price }} <span class="text-[10px] font-semibold text-gray-400">USD</span>
             <span v-if="p.was" class="ml-1 text-[10px] font-medium text-gray-300 line-through">${{ p.was }}</span>
           </p>
-          <p v-if="p.price" class="text-[9.5px] text-gray-400 mt-0.5 leading-tight">Precio de tienda · si Boxly lo compra por ti, +10% de comisión</p>
+          <p v-if="p.price" class="text-[9.5px] text-gray-400 mt-0.5 leading-tight">Precio de tienda + 10% Boxly</p>
 
           <!-- THE BOXLY VALUE — the value prop, not a shipping calculator. -->
           <div class="mt-2 rounded-xl bg-primary-50/80 border border-primary-100 px-3 py-2.5 space-y-1">
@@ -90,7 +90,7 @@
         type="button"
         @click="scrollByPage(-1)"
         aria-label="Anterior"
-        class="hidden md:grid place-items-center w-9 h-9 rounded-full bg-white/95 shadow-md ring-1 ring-black/5 text-gray-600 hover:text-gray-900 hover:scale-105 active:scale-95 transition absolute left-1.5 top-1/2 -translate-y-1/2 z-10"
+        class="hidden md:grid place-items-center w-9 h-9 rounded-full bg-white shadow-md ring-1 ring-black/5 text-gray-600 hover:text-gray-900 hover:scale-105 active:scale-95 transition-all absolute left-1.5 top-16 -translate-y-1/2 z-10 opacity-0 group-hover:opacity-100"
       >
         <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
       </button>
@@ -99,13 +99,13 @@
         type="button"
         @click="scrollByPage(1)"
         aria-label="Siguiente"
-        class="hidden md:grid place-items-center w-9 h-9 rounded-full bg-white/95 shadow-md ring-1 ring-black/5 text-gray-600 hover:text-gray-900 hover:scale-105 active:scale-95 transition absolute right-1.5 top-1/2 -translate-y-1/2 z-10"
+        class="hidden md:grid place-items-center w-9 h-9 rounded-full bg-white shadow-md ring-1 ring-black/5 text-gray-600 hover:text-gray-900 hover:scale-105 active:scale-95 transition-all absolute right-1.5 top-16 -translate-y-1/2 z-10 opacity-0 group-hover:opacity-100"
       >
         <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
       </button>
 
-      <!-- Faint nudging arrow: swipe-right cue (touch only) -->
-      <div v-show="canScroll && !atEnd" class="md:hidden swipe-arrow pointer-events-none absolute right-1.5 top-1/2">
+      <!-- Faint nudging arrow: swipe-right cue (touch only) — over the image area -->
+      <div v-show="canScroll && !atEnd" class="md:hidden swipe-arrow pointer-events-none absolute right-1.5 top-16">
         <span class="grid place-items-center w-7 h-7 rounded-full bg-white/80 shadow-md ring-1 ring-black/5">
           <svg class="w-4 h-4 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
         </span>
