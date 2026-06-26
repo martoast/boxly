@@ -44,23 +44,26 @@
         </div>
       </div>
 
-      <!-- ===== EMPTY STATE — ChatGPT-style picture cards; tapping one writes the
-                 prompt into the input. Composer pinned at the bottom. ===== -->
+      <!-- ===== EMPTY STATE — ChatGPT-style: title, subtitle, the input box, then
+                 the picture cards. Tapping a card sends its prompt. ===== -->
       <Transition name="fade-fast">
-        <div v-if="!loadingChat && !chat.messages.length && !activeId" class="flex-1 flex flex-col min-h-0">
-          <!-- Centered loader until every card image is resolved + decoded, then
-               reveal the whole grid at once (no emoji-then-image pop-in). -->
-          <Transition name="fade-fast" mode="out-in">
-          <div v-if="!cardsReady" key="cards-loading" class="flex-1 grid place-items-center">
-            <svg class="w-7 h-7 animate-spin text-gray-300" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
-          </div>
-          <!-- scrollable cards -->
-          <div v-else key="cards-ready" class="flex-1 overflow-y-auto px-4 md:px-5 pt-5 pb-2">
-            <div class="max-w-2xl mx-auto">
-              <h1 class="text-[26px] md:text-3xl font-extrabold text-gray-900 tracking-tight">Compra en Estados Unidos</h1>
-              <p class="text-gray-500 mt-1 mb-4 text-[14px] md:text-[15px]">Toca una idea o escribe lo que buscas — Boxly lo consigue, lo importa y te lo entrega en México.</p>
+        <div v-if="!loadingChat && !chat.messages.length && !activeId" class="flex-1 overflow-y-auto px-4 md:px-5 pt-5 pb-6">
+          <div class="max-w-2xl mx-auto">
+            <h1 class="text-[26px] md:text-3xl font-extrabold text-gray-900 tracking-tight">Compra en Estados Unidos</h1>
+            <p class="text-gray-500 mt-1 mb-4 text-[14px] md:text-[15px]">Escribe lo que buscas o toca una idea — Boxly lo consigue, lo importa y te lo entrega en México.</p>
 
-              <div>
+            <!-- input at the top -->
+            <div class="mb-6">
+              <AssistantComposer ref="composerRef" v-model:text="input" :mic-recording="micRecording" :mic-transcribing="micTranscribing" :mic-levels="micLevels" :mic-error="micError" :busy="isBusy" placeholder="Compra lo que sea de USA…" @send="onComposerSend" @mic="toggleMic" />
+            </div>
+
+            <!-- Centered loader until every card image is resolved + decoded, then
+                 reveal the whole grid at once (no emoji-then-image pop-in). -->
+            <Transition name="fade-fast" mode="out-in">
+              <div v-if="!cardsReady" key="cards-loading" class="py-16 grid place-items-center">
+                <svg class="w-7 h-7 animate-spin text-gray-300" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
+              </div>
+              <div v-else key="cards-ready">
                 <!-- featured (first) card -->
                 <button
                   v-if="suggestions[0]"
@@ -92,15 +95,7 @@
                   </button>
                 </div>
               </div>
-            </div>
-          </div>
-          </Transition>
-
-          <!-- composer pinned at the bottom -->
-          <div class="px-3 md:px-4 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-gray-50 border-t border-gray-100">
-            <div class="max-w-2xl mx-auto">
-              <AssistantComposer ref="composerRef" v-model:text="input" :mic-recording="micRecording" :mic-transcribing="micTranscribing" :mic-levels="micLevels" :mic-error="micError" :busy="isBusy" placeholder="Compra lo que sea de USA…" @send="onComposerSend" @mic="toggleMic" />
-            </div>
+            </Transition>
           </div>
         </div>
       </Transition>
