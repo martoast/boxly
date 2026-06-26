@@ -48,8 +48,14 @@
                  prompt into the input. Composer pinned at the bottom. ===== -->
       <Transition name="fade-fast">
         <div v-if="!loadingChat && !chat.messages.length && !activeId" class="flex-1 flex flex-col min-h-0">
+          <!-- Centered loader until every card image is resolved + decoded, then
+               reveal the whole grid at once (no emoji-then-image pop-in). -->
+          <Transition name="fade-fast" mode="out-in">
+          <div v-if="!cardsReady" key="cards-loading" class="flex-1 grid place-items-center">
+            <svg class="w-7 h-7 animate-spin text-gray-300" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
+          </div>
           <!-- scrollable cards -->
-          <div class="flex-1 overflow-y-auto px-4 md:px-5 pt-5 pb-2">
+          <div v-else key="cards-ready" class="flex-1 overflow-y-auto px-4 md:px-5 pt-5 pb-2">
             <div class="max-w-2xl mx-auto">
               <h1 class="text-[26px] md:text-3xl font-extrabold text-gray-900 tracking-tight">Compra en Estados Unidos</h1>
               <p class="text-gray-500 mt-1 mb-4 text-[14px] md:text-[15px]">Toca una idea o escribe lo que buscas — Boxly lo consigue, lo importa y te lo entrega en México.</p>
@@ -88,6 +94,7 @@
               </TransitionGroup>
             </div>
           </div>
+          </Transition>
 
           <!-- composer pinned at the bottom -->
           <div class="px-3 md:px-4 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-gray-50 border-t border-gray-100">
@@ -412,6 +419,28 @@ function saveCardImageCache() {
 }
 function cardImg(s) { return s?.img || cardImages.value[s?.imgq] || null }
 function onCardImgError(s) { if (s?.imgq) { cardImages.value = { ...cardImages.value, [s.imgq]: '' }; saveCardImageCache() } }
+
+// The starter cards stay hidden behind a single centered loader until ALL their
+// images are resolved AND decoded — so the whole grid paints at once instead of
+// flashing emoji placeholders and popping images in one by one.
+const cardsReady = ref(false)
+// Resolve once the browser has actually fetched+decoded each URL (or failed).
+function preloadImages(urls) {
+  return Promise.all((urls || []).map((u) => new Promise((resolve) => {
+    const img = new Image()
+    img.referrerPolicy = 'no-referrer'
+    img.onload = img.onerror = () => resolve()
+    img.src = u
+  })))
+}
+// Full first-paint pipeline: load admin cards → resolve a photo per card →
+// preload them → reveal everything together.
+async function prepareStarterCards() {
+  await loadStarterPrompts()
+  await ensureCardImages(suggestions.value)
+  await preloadImages(suggestions.value.map(cardImg).filter(Boolean))
+  cardsReady.value = true
+}
 async function ensureCardImages(list) {
   for (const s of list || []) {
     const q = s?.imgq
@@ -475,11 +504,15 @@ onMounted(() => {
   watch(user, (u) => { if (u && !inited) initLoggedIn() }, { immediate: true })
   // Reflect the active chat in the URL as ?c=<id> (query, no remount).
   watch(activeId, (id) => syncUrl(id))
-  // Load admin-managed starter cards (falls back to hardcoded defaults).
-  loadStarterPrompts()
   // Resolve a real product photo for each starter card (cached in localStorage).
   loadCardImageCache()
-  watch(suggestions, (list) => ensureCardImages(list), { immediate: true })
+  // Prepare ALL starter cards + images, then reveal them at once (centered loader
+  // until ready — no emoji-then-image pop-in). Never block longer than 6s on the
+  // image prefetch in case a lookup is slow/unreachable.
+  prepareStarterCards()
+  setTimeout(() => { cardsReady.value = true }, 6000)
+  // After the first reveal, keep filling images if the personalized set changes.
+  watch(suggestions, (list) => { if (cardsReady.value) ensureCardImages(list) })
 })
 
 async function initLoggedIn() {
