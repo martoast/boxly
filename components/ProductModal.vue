@@ -83,11 +83,13 @@
             <div class="mt-6">
               <p class="text-[12px] font-bold text-gray-800 mb-2">¿Cómo lo quieres?</p>
               <div class="grid grid-cols-2 gap-3">
-                <!-- Self-buy: open the original store -->
+                <!-- Self-buy: open the original store (gated until the real link resolves) -->
                 <a
-                  :href="bestLink" target="_blank" rel="noopener noreferrer"
-                  @click="$emit('close')"
-                  class="flex flex-col items-start gap-1 rounded-2xl border border-gray-200 hover:border-primary-300 hover:bg-gray-50 p-3.5 active:scale-[.98] transition"
+                  :href="linkPending ? undefined : bestLink"
+                  :target="linkPending ? undefined : '_blank'"
+                  rel="noopener noreferrer"
+                  @click="linkPending ? $event.preventDefault() : $emit('close')"
+                  :class="['flex flex-col items-start gap-1 rounded-2xl border border-gray-200 p-3.5 transition', linkPending ? 'opacity-60 cursor-wait' : 'hover:border-primary-300 hover:bg-gray-50 active:scale-[.98]']"
                 >
                   <span class="flex items-center gap-1.5 text-[14px] font-bold text-gray-900">
                     <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
@@ -95,8 +97,14 @@
                   </span>
                   <span class="text-[11.5px] text-gray-500 leading-snug">Tú lo compras en la tienda original</span>
                   <span class="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-primary-600">
-                    Ir a {{ product.store || 'la tienda' }}
-                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                    <template v-if="linkPending">
+                      <svg class="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
+                      Cargando enlace…
+                    </template>
+                    <template v-else>
+                      Ir a {{ product.store || 'la tienda' }}
+                      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                    </template>
                   </span>
                 </a>
                 <!-- Assisted: Boxly buys it (Purchase Request) -->
@@ -155,6 +163,13 @@ const gallery = computed(() => {
 })
 const description = computed(() => fetchedDesc.value || props.product?.snippet || null)
 const bestLink = computed(() => fetchedLink.value || props.product?.url || '#')
+
+// Search-result products carry a GOOGLE SHOPPING link as their url; the real
+// merchant link only arrives after the detail fetch resolves it. Don't let the
+// "Yo lo compro" button fire until we have a real store link (otherwise an early
+// click opens a Google page / the wrong product).
+function isGoogleLink(u) { return typeof u === 'string' && (u.includes('google.com') || u.includes('gstatic.com')) }
+const linkPending = computed(() => loadingDetail.value && isGoogleLink(bestLink.value))
 
 const displayPrice = computed(() => fetchedPrice.value ?? props.product?.price ?? null)
 const displayWas = computed(() => fetchedWas.value ?? props.product?.was ?? null)
