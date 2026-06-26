@@ -347,59 +347,27 @@ const acct = reactive({ name: '', email: '', phone: '' })
 const acctLoading = ref(false)
 const acctError = ref('')
 
-// ChatGPT-style picture cards. `grad` is the card background; `img` (optional) is a
-// real product photo that overrides the gradient when set (graceful fallback to the
-// gradient + emoji if the image is missing/fails).
-// `imgq` is the query used to fetch a representative product photo for the card.
-const DEFAULT_SUGGESTIONS = [
-  { emoji: '👟', text: 'Tenis Nike para correr', grad: 'from-slate-600 to-slate-900', imgq: 'Nike running shoes women' },
-  { emoji: '🥤', text: 'Stanley Cups', grad: 'from-teal-500 to-cyan-800', imgq: 'Stanley cup tumbler' },
-  { emoji: '🧴', text: 'Skincare de Sephora', grad: 'from-rose-400 to-pink-700', imgq: 'Sephora skincare set' },
-  { emoji: '👜', text: 'Bolsas Coach', grad: 'from-amber-500 to-orange-800', imgq: 'Coach handbag' },
-  { emoji: '🎴', text: 'Cartas Pokémon', grad: 'from-indigo-500 to-violet-800', imgq: 'Pokemon trading cards' },
-  { emoji: '📦', text: '¿Cómo funciona Boxly?', grad: 'from-primary-500 to-blue-800', imgq: '' },
-]
+// ChatGPT-style picture cards — ENTIRELY admin-managed. Whatever active starter
+// prompts exist in the backend is exactly what shows (no hardcoded defaults, no
+// personalized injections). No cards created → no cards shown.
+// `grad` is the card background; `img` is an uploaded photo that wins over the
+// `imgq` product-photo lookup; `imgq` resolves a representative photo otherwise.
 const GRAD_PALETTE = ['from-fuchsia-500 to-purple-800', 'from-emerald-500 to-teal-800', 'from-sky-500 to-indigo-800', 'from-orange-500 to-rose-800']
-const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s)
-
-// Admin-managed starter cards loaded from the backend (falls back to the
-// hardcoded defaults above if the fetch fails or returns nothing). `img` is an
-// uploaded image that wins over the `imgq` product-photo lookup.
-const serverPrompts = ref(null)
+const serverPrompts = ref([])
 async function loadStarterPrompts() {
   try {
     const rows = (await $customFetch('/starter-prompts'))?.data
-    if (Array.isArray(rows) && rows.length) {
-      serverPrompts.value = rows.map((r, i) => ({
-        emoji: r.emoji || '🛍️',
-        text: r.prompt_text,
-        title: r.title,
-        grad: GRAD_PALETTE[i % GRAD_PALETTE.length],
-        imgq: r.image_query || '',
-        img: r.image_url || null,
-      }))
-    }
-  } catch { /* keep hardcoded defaults */ }
+    serverPrompts.value = (Array.isArray(rows) ? rows : []).map((r, i) => ({
+      emoji: r.emoji || '🛍️',
+      text: r.prompt_text,
+      title: r.title,
+      grad: GRAD_PALETTE[i % GRAD_PALETTE.length],
+      imgq: r.image_query || '',
+      img: r.image_url || null,
+    }))
+  } catch { serverPrompts.value = [] }
 }
-const baseSuggestions = computed(() => serverPrompts.value || DEFAULT_SUGGESTIONS)
-// Personalize the starter cards from the shopper's long-term memory (favorite
-// brands + interests), then top up with the defaults. Empty memory → defaults.
-const suggestions = computed(() => {
-  const p = shoppingProfile.value || {}
-  const out = []
-  let gi = 0
-  for (const b of (Array.isArray(p.favorite_brands) ? p.favorite_brands : []).slice(0, 2)) {
-    if (b) out.push({ emoji: '🔥', text: `Ofertas en ${b}`, grad: GRAD_PALETTE[gi++ % GRAD_PALETTE.length], imgq: b })
-  }
-  const cats = [...(Array.isArray(p.interests) ? p.interests : []), ...(Array.isArray(p.categories) ? p.categories : [])]
-  for (const c of cats.slice(0, 2)) {
-    if (c) out.push({ emoji: '🛍️', text: `${cap(c)} en oferta`, grad: GRAD_PALETTE[gi++ % GRAD_PALETTE.length], imgq: c })
-  }
-  const seen = new Set()
-  return [...out, ...baseSuggestions.value]
-    .filter((s) => { const k = s.text.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true })
-    .slice(0, 5)
-})
+const suggestions = computed(() => serverPrompts.value)
 
 // --- Card images: resolve a representative product photo per card, cached in
 //     localStorage so each query is fetched at most once per browser. ---
