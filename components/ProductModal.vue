@@ -74,6 +74,7 @@
               <span class="text-2xl font-extrabold" :class="displayOnSale ? 'text-red-600' : 'text-gray-900'">${{ displayPrice }}<span class="text-sm font-semibold text-gray-400"> USD</span></span>
               <span v-if="displayWas" class="text-sm font-medium text-gray-400 line-through">${{ displayWas }}</span>
               <span v-if="displayOnSale" class="px-1.5 py-0.5 rounded-md bg-red-500 text-white text-[10px] font-bold">OFERTA</span>
+              <span v-if="!available" class="px-1.5 py-0.5 rounded-md bg-gray-700 text-white text-[10px] font-bold">AGOTADO</span>
             </div>
             <p class="text-xs text-gray-400 mt-1">Precio de tienda. Si Boxly lo compra por ti (compra asistida), se suma 10% sobre el <span class="font-medium text-gray-500">total final de la compra al pagar</span> — producto + el envío que cobre la tienda a nuestra bodega en San Diego — no solo sobre este precio. Si tú lo compras y solo lo envías, no hay comisión. El total final se confirma en tu cotización.</p>
 
@@ -81,6 +82,13 @@
 
             <!-- ===== Two ways to get it ===== -->
             <div class="mt-6">
+              <!-- Out of stock at the store (live check) — don't send the user to a dead page. -->
+              <div v-if="!available" class="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3.5">
+                <p class="text-[13px] font-bold text-amber-900">Agotado en la tienda</p>
+                <p class="text-[12px] text-amber-800/90 mt-0.5 leading-snug">Este producto no está disponible ahora mismo. Cierra y te ayudo a encontrar una opción similar.</p>
+              </div>
+
+              <template v-else>
               <p class="text-[12px] font-bold text-gray-800 mb-2">¿Cómo lo quieres?</p>
               <div class="grid grid-cols-2 gap-3">
                 <!-- Self-buy: open the original store (gated until the real link resolves) -->
@@ -125,6 +133,7 @@
                 📦 Si lo compras tú, al pagar envíalo a tu <span class="font-semibold text-gray-700">dirección de bodega Boxly</span> y nosotros lo importamos a México.
                 <NuxtLink to="/app/" @click="$emit('close')" class="text-primary-600 font-semibold whitespace-nowrap">Ver mi casillero →</NuxtLink>
               </p>
+              </template>
             </div>
           </div>
         </div>
@@ -154,6 +163,7 @@ const fetchedLink = ref(null)
 const fetchedPrice = ref(null)
 const fetchedWas = ref(null)
 const fetchedOnSale = ref(false)
+const available = ref(true) // live stock from the store (Shopify .js); true = unknown/in-stock
 const loadingDetail = ref(false)
 const broken = ref(new Set())
 
@@ -204,6 +214,7 @@ async function loadDetails(p) {
     if (d.price != null) fetchedPrice.value = d.price
     if (d.was != null) fetchedWas.value = d.was
     if (typeof d.on_sale === 'boolean') fetchedOnSale.value = d.on_sale
+    if (typeof d.available === 'boolean') available.value = d.available
   } catch { /* keep the single thumbnail */ } finally {
     loadingDetail.value = false
   }
@@ -228,6 +239,7 @@ watch(() => props.product, (p) => {
   fetchedPrice.value = null
   fetchedWas.value = null
   fetchedOnSale.value = false
+  available.value = true
   loadingDetail.value = false
   broken.value = new Set()
   imgIndex.value = 0
