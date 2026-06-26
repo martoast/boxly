@@ -96,54 +96,45 @@
               </ul>
             </div>
 
-            <!-- Variant selectors: pick size / color etc. Unavailable combos grey out. -->
-            <div v-if="loadingDetail && !hasVariants" class="mt-5 flex items-center gap-2 text-[13px] text-gray-400">
-              <svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
-              Cargando tallas y colores disponibles…
-            </div>
-            <div v-if="hasVariants" class="mt-5 space-y-3.5">
-              <div v-for="opt in options" :key="opt.name">
-                <p class="text-[12px] font-bold text-gray-800 mb-1.5">{{ opt.name }}<span v-if="selected[opt.name]" class="font-medium text-gray-400"> · {{ selected[opt.name] }}</span></p>
-                <div class="flex flex-wrap gap-2">
-                  <button
-                    v-for="val in opt.values" :key="val"
-                    type="button"
-                    :disabled="!valueAvailable(opt.name, val)"
-                    @click="selectValue(opt.name, val)"
-                    class="px-3 py-1.5 rounded-xl border text-[13px] font-semibold transition"
-                    :class="[
-                      selected[opt.name] === val ? 'border-primary-500 bg-primary-50 text-primary-700 ring-1 ring-primary-300' : 'border-gray-200 text-gray-700 hover:border-gray-300',
-                      !valueAvailable(opt.name, val) ? 'opacity-40 line-through cursor-not-allowed hover:border-gray-200' : '',
-                    ]"
-                  >{{ val }}</button>
-                </div>
+            <!-- ===== Two ways to get it ===== -->
+            <div class="mt-6">
+              <p class="text-[12px] font-bold text-gray-800 mb-2">¿Cómo lo quieres?</p>
+              <div class="grid grid-cols-2 gap-3">
+                <!-- Self-buy: open the original store -->
+                <a
+                  :href="bestLink" target="_blank" rel="noopener noreferrer"
+                  @click="$emit('close')"
+                  class="flex flex-col items-start gap-1 rounded-2xl border border-gray-200 hover:border-primary-300 hover:bg-gray-50 p-3.5 active:scale-[.98] transition"
+                >
+                  <span class="flex items-center gap-1.5 text-[14px] font-bold text-gray-900">
+                    <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                    Yo lo compro
+                  </span>
+                  <span class="text-[11.5px] text-gray-500 leading-snug">Tú pagas en la tienda · sin comisión</span>
+                  <span class="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-primary-600">
+                    Ir a {{ product.store || 'la tienda' }}
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                  </span>
+                </a>
+                <!-- Assisted: Boxly buys it (Purchase Request) -->
+                <button
+                  type="button" @click="assisted"
+                  class="flex flex-col items-start gap-1 rounded-2xl border-2 border-primary-500 bg-primary-50/60 hover:bg-primary-50 p-3.5 active:scale-[.98] transition text-left"
+                >
+                  <span class="flex items-center gap-1.5 text-[14px] font-bold text-primary-800">
+                    <svg class="w-4 h-4 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+                    Boxly lo compra
+                  </span>
+                  <span class="text-[11.5px] text-primary-700/80 leading-snug">Lo compramos por ti · +10%</span>
+                  <span class="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-primary-600">Crear solicitud</span>
+                </button>
               </div>
-              <p v-if="allChosen && matchedVariant && !matchedVariant.available" class="text-[12px] font-semibold text-red-500">Esta combinación está agotada — elige otra.</p>
+              <!-- self-buy address instruction (honors the no-reveal rule: points to the panel) -->
+              <p class="mt-3 text-[11.5px] text-gray-500 leading-relaxed">
+                📦 Si lo compras tú, al pagar envíalo a tu <span class="font-semibold text-gray-700">dirección de bodega Boxly</span> y nosotros lo importamos a México.
+                <NuxtLink to="/app/" @click="$emit('close')" class="text-primary-600 font-semibold whitespace-nowrap">Ver mi casillero →</NuxtLink>
+              </p>
             </div>
-
-            <!-- Quantity -->
-            <div class="mt-5 flex items-center gap-3">
-              <p class="text-[12px] font-bold text-gray-800">Cantidad</p>
-              <div class="flex items-center border border-gray-200 rounded-xl overflow-hidden">
-                <button type="button" @click="qty = Math.max(1, qty - 1)" class="w-9 h-9 grid place-items-center text-gray-600 hover:bg-gray-50 active:scale-90 transition text-lg leading-none" aria-label="Menos">−</button>
-                <span class="w-10 text-center text-[14px] font-bold tabular-nums">{{ qty }}</span>
-                <button type="button" @click="qty = qty + 1" class="w-9 h-9 grid place-items-center text-gray-600 hover:bg-gray-50 active:scale-90 transition text-lg leading-none" aria-label="Más">+</button>
-              </div>
-            </div>
-
-            <!-- CTAs -->
-            <button
-              @click="pick"
-              :disabled="!canAdd"
-              class="mt-5 w-full py-3 rounded-2xl text-[15px] font-bold shadow-sm transition-all"
-              :class="canAdd ? 'bg-primary-500 hover:bg-primary-600 active:scale-[.98] text-white shadow-primary-500/25' : 'bg-gray-200 text-gray-400 cursor-not-allowed'"
-            >
-              {{ canAdd ? 'Agregar a mi envío' : 'Elige tus opciones' }}
-            </button>
-            <a :href="bestLink" target="_blank" rel="noopener noreferrer" class="mt-2 w-full flex items-center justify-center gap-1.5 py-3 rounded-2xl border border-gray-200 text-gray-700 text-[15px] font-semibold hover:bg-gray-50 active:scale-[.98] transition-all">
-              Ver en línea
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-            </a>
           </div>
         </div>
       </div>
@@ -153,7 +144,7 @@
 
 <script setup>
 const props = defineProps({ product: { type: Object, default: null } })
-const emit = defineEmits(['close', 'pick'])
+const emit = defineEmits(['close', 'assisted'])
 const { $customFetch } = useNuxtApp()
 
 const boxlyBenefits = [
@@ -168,20 +159,18 @@ function formatReviews(n) {
 }
 
 
-// --- Lazily fetched FULL product detail: images, description, link, AND the live
-//     variant matrix (sizes/colors + per-variant availability) from /products/page.
+// --- Lazily fetched product detail: extra images, description, and the REAL
+//     merchant link (resolves a Google view link → the actual store) via
+//     /products/page. No variant/size scraping — the customer picks options on
+//     the store's own page (or Boxly handles it on an assisted purchase).
 const fetchedImages = ref([])
 const fetchedDesc = ref(null)
 const fetchedLink = ref(null)
-const fetchedOptions = ref([])   // [{ name, values: [] }]
-const fetchedVariants = ref([])  // [{ id, title, options:{name:val}, price, was, on_sale, available }]
 const fetchedPrice = ref(null)
 const fetchedWas = ref(null)
 const fetchedOnSale = ref(false)
 const loadingDetail = ref(false)
 const broken = ref(new Set())
-const selected = reactive({})    // optionName -> chosen value
-const qty = ref(1)
 
 const gallery = computed(() => {
   const base = fetchedImages.value.length ? fetchedImages.value : (props.product?.image ? [props.product.image] : [])
@@ -190,38 +179,9 @@ const gallery = computed(() => {
 const description = computed(() => fetchedDesc.value || props.product?.snippet || null)
 const bestLink = computed(() => fetchedLink.value || props.product?.url || '#')
 
-// --- Variant logic ---
-const options = computed(() => fetchedOptions.value || [])
-const variants = computed(() => fetchedVariants.value || [])
-const hasVariants = computed(() => variants.value.length > 0)
-
-// A value is selectable if at least one AVAILABLE variant matches it together with
-// the OTHER currently-selected options — so impossible/out-of-stock combos grey out live.
-function valueAvailable(optName, value) {
-  return variants.value.some((v) => {
-    if (!v.available) return false
-    if (v.options?.[optName] !== value) return false
-    for (const [k, val] of Object.entries(selected)) {
-      if (k === optName || !val) continue
-      if (v.options?.[k] !== val) return false
-    }
-    return true
-  })
-}
-function selectValue(optName, value) {
-  selected[optName] = selected[optName] === value ? null : value
-}
-const allChosen = computed(() => options.value.every((o) => selected[o.name]))
-const matchedVariant = computed(() => {
-  if (!hasVariants.value || !allChosen.value) return null
-  const names = options.value.map((o) => o.name)
-  return variants.value.find((v) => names.every((n) => v.options?.[n] === selected[n])) || null
-})
-const displayPrice = computed(() => matchedVariant.value?.price ?? fetchedPrice.value ?? props.product?.price ?? null)
-const displayWas = computed(() => matchedVariant.value?.was ?? fetchedWas.value ?? props.product?.was ?? null)
-const displayOnSale = computed(() => matchedVariant.value?.on_sale ?? fetchedOnSale.value ?? props.product?.onSale ?? false)
-// Can add: no variants → always; variants → a complete, in-stock selection.
-const canAdd = computed(() => !hasVariants.value || (!!matchedVariant.value && matchedVariant.value.available))
+const displayPrice = computed(() => fetchedPrice.value ?? props.product?.price ?? null)
+const displayWas = computed(() => fetchedWas.value ?? props.product?.was ?? null)
+const displayOnSale = computed(() => fetchedOnSale.value ?? props.product?.onSale ?? false)
 
 const imgTrack = ref(null)
 const imgIndex = ref(0)
@@ -249,33 +209,23 @@ async function loadDetails(p) {
     if (Array.isArray(d.images) && d.images.length) fetchedImages.value = d.images
     if (d.description) fetchedDesc.value = d.description
     if (d.buy_url) fetchedLink.value = d.buy_url
-    if (Array.isArray(d.options)) fetchedOptions.value = d.options
-    if (Array.isArray(d.variants)) fetchedVariants.value = d.variants
     if (d.price != null) fetchedPrice.value = d.price
     if (d.was != null) fetchedWas.value = d.was
     if (typeof d.on_sale === 'boolean') fetchedOnSale.value = d.on_sale
-    // Auto-select any option that has a single value (nothing to choose).
-    for (const o of fetchedOptions.value) {
-      if (Array.isArray(o.values) && o.values.length === 1) selected[o.name] = o.values[0]
-    }
   } catch { /* keep the single thumbnail */ } finally {
     loadingDetail.value = false
   }
 }
 
-function pick() {
-  // Prefer the resolved direct merchant link, and pass the chosen variant so the
-  // order is created WITH the size/color/quantity (no need to re-ask in chat).
-  emit('pick', {
+// "Boxly lo compra" — hand the product to the chat so the assistant creates a
+// Purchase Request (assisted purchase, +10%). Pass the resolved merchant link.
+function assisted() {
+  emit('assisted', {
     ...props.product,
     url: bestLink.value,
     price: displayPrice.value,
     was: displayWas.value,
     onSale: displayOnSale.value,
-    selectedOptions: hasVariants.value ? { ...selected } : null,
-    variantId: matchedVariant.value?.id || null,
-    variantTitle: matchedVariant.value?.title || null,
-    quantity: qty.value,
   })
 }
 
@@ -283,16 +233,12 @@ watch(() => props.product, (p) => {
   fetchedImages.value = []
   fetchedDesc.value = null
   fetchedLink.value = null
-  fetchedOptions.value = []
-  fetchedVariants.value = []
   fetchedPrice.value = null
   fetchedWas.value = null
   fetchedOnSale.value = false
   loadingDetail.value = false
   broken.value = new Set()
   imgIndex.value = 0
-  qty.value = 1
-  for (const k of Object.keys(selected)) delete selected[k]
   if (imgTrack.value) imgTrack.value.scrollLeft = 0
   if (p?.url || p?.token) loadDetails(p)
 })

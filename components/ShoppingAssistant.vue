@@ -189,7 +189,7 @@
     </main>
 
     <!-- Full-screen product detail modal -->
-    <ProductModal :product="selectedProduct" @close="selectedProduct = null" @pick="onModalPick" />
+    <ProductModal :product="selectedProduct" @close="selectedProduct = null" @assisted="onModalAssisted" />
 
     <!-- Shopping-profile (assistant memory): bottom sheet on mobile, centered
          dialog on desktop. Teleported to <body> so it's never clipped by the
@@ -573,28 +573,35 @@ function pickSuggestion(text) {
 // is still streaming its follow-up text (common on desktop — mouse clicks land
 // faster than the stream finishes), we can't send mid-stream. Queue it and flush
 // the instant the chat is ready, so the button never silently does nothing.
-const pendingPick = ref(null)
-function onPickProduct(p) {
-  ensureChatToken()
-  if (isBusy.value) { pendingPick.value = p; return }
+const pendingPick = ref(null) // { p, assisted } queued while the assistant streams
+// Build the price/url tail shared by both flows, stating the EXACT price the
+// customer saw (the sale price if on sale) so the AI records that, not a
+// re-extracted one. Google Shopping links aren't buyable — omit so the AI
+// resolves the real page; pass real merchant URLs through.
+function productTail(p) {
   const store = p.store ? ` de ${p.store}` : ''
-  // State the EXACT price the customer saw — the sale price if on sale — so the
-  // AI records that price (not a re-extracted regular price).
   const onSale = p.onSale && p.was
   const price = p.price ? ` — precio $${p.price} USD${onSale ? ` (EN OFERTA, antes $${p.was})` : ''}` : ''
-  // Google Shopping links aren't buyable URLs — omit so the AI resolves the real
-  // product page; include real merchant URLs directly.
   const isGoogle = (p.url || '').includes('google.com/search')
   const urlPart = p.url && !isGoogle ? ` — ${p.url}` : ''
-  // If the customer picked a variant in the modal, pass it through so the AI adds
-  // it DIRECTLY (size/color/quantity already chosen — don't re-ask).
-  const opts = p.selectedOptions && Object.keys(p.selectedOptions).length
-    ? ' — ' + Object.entries(p.selectedOptions).filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`).join(', ')
-    : ''
-  const qtyN = Number(p.quantity) > 0 ? Number(p.quantity) : 1
-  const qtyPart = ` — cantidad ${qtyN}`
-  const ready = opts ? ' (ya elegí estas opciones, agrégalo directo sin volver a preguntar)' : ''
-  const text = `Agrégalo a mi envío: ${p.title}${store}${opts}${qtyPart}${price}${urlPart}${ready}`
+  return { store, price, urlPart }
+}
+// "Boxly lo compra" — assisted purchase → the AI creates a Purchase Request (+10%).
+function onAssistedProduct(p) {
+  ensureChatToken()
+  if (isBusy.value) { pendingPick.value = { p, assisted: true }; return }
+  const { store, price, urlPart } = productTail(p)
+  const text = `Quiero que Boxly lo compre por mí (compra asistida): ${p.title}${store}${price}${urlPart}`
+  ensureConversation(text)
+  chat.sendMessage({ text })
+  scrollDown()
+}
+// Gallery "Pedir" — add to the consolidated shipment/order (self-import flow).
+function onPickProduct(p) {
+  ensureChatToken()
+  if (isBusy.value) { pendingPick.value = { p, assisted: false }; return }
+  const { store, price, urlPart } = productTail(p)
+  const text = `Agrégalo a mi envío: ${p.title}${store}${price}${urlPart}`
   ensureConversation(text)
   chat.sendMessage({ text })
   scrollDown()
@@ -629,7 +636,7 @@ function onAddMore() {
 }
 
 function openProduct(p) { selectedProduct.value = p }
-function onModalPick(p) { selectedProduct.value = null; onPickProduct(p) }
+function onModalAssisted(p) { selectedProduct.value = null; onAssistedProduct(p) }
 
 async function toggleMic() {
   const text = await micToggle()
@@ -666,9 +673,9 @@ watch(() => chat.status, async (s) => {
   registerFromMessages() // keep the product registry current with what's shown
   // Flush a product pick that was queued while the assistant was streaming.
   if ((s === 'ready' || s === 'error') && pendingPick.value) {
-    const p = pendingPick.value
+    const { p, assisted } = pendingPick.value
     pendingPick.value = null
-    onPickProduct(p)
+    assisted ? onAssistedProduct(p) : onPickProduct(p)
     return
   }
   if (s === 'ready' && user.value && chat.messages.length > savedCount.value) {
