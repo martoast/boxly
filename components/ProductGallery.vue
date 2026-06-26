@@ -22,13 +22,18 @@
     >
       <!-- A "BOXLY Offer" card: the offer (we buy + import + deliver, landed total)
            is the hero; the product is the supporting detail. -->
+      <!-- The whole card opens the product modal — one clear action. -->
       <div
         v-for="(p, i) in visible"
         :key="i"
-        class="group snap-start text-left bg-white border border-gray-200/80 hover:border-gray-300 rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-200 flex flex-col"
+        @click="$emit('open', p)"
+        @keydown.enter="$emit('open', p)"
+        role="button"
+        tabindex="0"
+        class="group snap-start text-left bg-white border border-gray-200/80 hover:border-gray-300 rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-200 flex flex-col cursor-pointer"
       >
-        <!-- Product (secondary): smaller image, tiny store badge -->
-        <div class="relative bg-gray-50 cursor-pointer" @click="$emit('open', p)">
+        <!-- Product image + badges -->
+        <div class="relative bg-gray-50">
           <div class="h-32 flex items-center justify-center p-3 overflow-hidden">
             <img
               v-if="p.image && !p.broken"
@@ -56,18 +61,12 @@
           </p>
           <p v-if="p.price" class="text-[9.5px] text-gray-400 mt-0.5 leading-tight">Precio de tienda</p>
 
-          <!-- Actions: build a SHIPMENT (not buy one product); details; keep talking. -->
-          <div class="mt-auto pt-2.5 space-y-1.5">
-            <button
-              type="button"
-              @click.stop="$emit('order', p)"
-              class="w-full py-2 rounded-xl bg-primary-500 hover:bg-primary-600 active:scale-[.97] text-white text-[12.5px] font-bold shadow-sm shadow-primary-500/20 transition-all"
-            >Agregar a mi envío</button>
-            <div class="flex items-center justify-center gap-2.5 text-[11px] font-semibold text-gray-400">
-              <button type="button" @click.stop="$emit('open', p)" class="hover:text-gray-700 transition">Ver detalles</button>
-              <span class="text-gray-200">·</span>
-              <button type="button" @click.stop="$emit('ask', p)" class="hover:text-primary-600 transition">Preguntar 💬</button>
-            </div>
+          <!-- Single affordance: the whole card opens the details modal. -->
+          <div class="mt-auto pt-2.5">
+            <span class="inline-flex items-center gap-1 text-[12.5px] font-bold text-primary-600 group-hover:gap-1.5 transition-all">
+              Ver detalles
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            </span>
           </div>
         </div>
       </div>
@@ -116,14 +115,12 @@
       </Transition>
     </div>
 
-    <!-- Pricing clarity — shown with EVERY result set. -->
-    <p class="mt-2 px-1 text-[11px] leading-snug text-gray-500">💡 <span class="font-semibold text-gray-600">Si Boxly lo compra por ti</span>, se suma 10% sobre la compra. El envío a México es separado por caja consolidada.</p>
   </div>
 </template>
 
 <script setup>
 const props = defineProps({ products: { type: Array, default: () => [] } })
-defineEmits(['open', 'order', 'ask'])
+defineEmits(['open'])
 
 const activeStore = ref(null)
 

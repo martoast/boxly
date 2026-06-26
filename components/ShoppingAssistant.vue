@@ -122,7 +122,7 @@
                   <div v-if="msgText(m)" class="bg-white border border-gray-100 rounded-3xl rounded-bl-lg px-4 py-3 shadow-sm text-[15px]"><MarkdownText :text="msgText(m)" /></div>
 
                   <template v-for="(part, i) in m.parts" :key="i">
-                    <ProductGallery v-if="isGalleryTool(part) && part.state === 'output-available' && part.output?.products?.length" :products="part.output.products" @open="openProduct" @order="onPickProduct" @ask="onAskProduct" />
+                    <ProductGallery v-if="isGalleryTool(part) && part.state === 'output-available' && part.output?.products?.length" :products="part.output.products" @open="openProduct" />
                     <!-- Search/browse finished but found nothing — clean message, not an empty
                          carousel. Suppress it if ANOTHER search in this turn did find options. -->
                     <div v-else-if="isGalleryTool(part) && part.state === 'output-available' && !hasProducts(m)" class="text-[13px] text-gray-500 bg-white border border-gray-100 rounded-2xl px-4 py-3 shadow-sm">No encontré opciones para eso ahora. ¿Probamos con otra marca o término?</div>
