@@ -54,7 +54,7 @@
 
             <!-- input at the top -->
             <div class="mb-6">
-              <AssistantComposer ref="composerRef" v-model:text="input" :mic-recording="micRecording" :mic-transcribing="micTranscribing" :mic-levels="micLevels" :mic-error="micError" :busy="isBusy" placeholder="Compra lo que sea de USA…" @send="onComposerSend" @mic="toggleMic" />
+              <AssistantComposer ref="composerRef" v-model:text="input" :mic-recording="micRecording" :mic-transcribing="micTranscribing" :mic-levels="micLevels" :mic-error="micError" :busy="isBusy" placeholder="Compra lo que sea…" @send="onComposerSend" @mic="toggleMic" />
             </div>
 
             <!-- Centered loader until every card image is resolved + decoded, then

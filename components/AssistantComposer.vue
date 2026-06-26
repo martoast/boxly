@@ -55,7 +55,7 @@
         rows="1"
         :placeholder="placeholder"
         style="field-sizing:content"
-        class="flex-1 resize-none border-0 bg-transparent px-1 py-1 text-[16px] leading-6 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-0 max-h-40"
+        class="flex-1 resize-none border-0 bg-transparent px-1 py-1 text-[16px] leading-6 text-gray-900 placeholder:text-gray-400 placeholder:whitespace-nowrap placeholder:overflow-hidden placeholder:text-ellipsis focus:outline-none focus:ring-0 max-h-40"
       ></textarea>
 
       <!-- mic / stop -->
