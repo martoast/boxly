@@ -125,7 +125,7 @@
                     <ProductGallery v-if="isGalleryTool(part) && part.state === 'output-available' && part.output?.products?.length" :products="part.output.products" @open="openProduct" />
                     <!-- Search/browse finished but found nothing — clean message, not an empty
                          carousel. Suppress it if ANOTHER search in this turn did find options. -->
-                    <div v-else-if="isGalleryTool(part) && part.state === 'output-available' && !hasProducts(m)" class="text-[13px] text-gray-500 bg-white border border-gray-100 rounded-2xl px-4 py-3 shadow-sm">No encontré opciones para eso ahora. ¿Probamos con otra marca o término?</div>
+                    <div v-else-if="showNoResults(m, part)" class="text-[13px] text-gray-500 bg-white border border-gray-100 rounded-2xl px-4 py-3 shadow-sm">No encontré opciones para eso ahora. ¿Probamos con otra marca o término?</div>
 
                     <ShipmentCard v-else-if="part.type === 'tool-show_shipment' && part.state === 'output-available'" :shipment="part.output" @order="onFinalizeShipment" @add="onAddMore" />
 
@@ -438,6 +438,14 @@ function msgText(m) { return (m.parts || []).filter((p) => p.type === 'text' && 
 // Did ANY gallery tool in this message return products? Used to suppress a stray
 // "no results" message when another search in the same turn did find options.
 function hasProducts(m) { return (m.parts || []).some((p) => isGalleryTool(p) && p.state === 'output-available' && p.output?.products?.length) }
+// Show the "no results" line ONLY once the turn has fully settled — never while the
+// current message is still streaming (a second search may still be loading), which
+// caused a false "no encontré opciones" to flash before the real results arrived.
+function showNoResults(m, part) {
+  if (!isGalleryTool(part) || part.state !== 'output-available' || hasProducts(m)) return false
+  const isCurrent = m.id === chat.messages[chat.messages.length - 1]?.id
+  return !(isBusy.value && isCurrent)
+}
 // Show the typing dots ONLY while the assistant turn has nothing visible yet — once
 // any text or tool widget/spinner appears, that's the indicator (no double bubble).
 const showTyping = computed(() => {
