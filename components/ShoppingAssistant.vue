@@ -60,7 +60,7 @@
               <h1 class="text-[26px] md:text-3xl font-extrabold text-gray-900 tracking-tight">Compra en Estados Unidos</h1>
               <p class="text-gray-500 mt-1 mb-4 text-[14px] md:text-[15px]">Toca una idea o escribe lo que buscas — Boxly lo consigue, lo importa y te lo entrega en México.</p>
 
-              <TransitionGroup tag="div" name="chip" appear>
+              <div>
                 <!-- featured (first) card -->
                 <button
                   v-if="suggestions[0]"
@@ -91,7 +91,7 @@
                     <span class="absolute left-3 bottom-2.5 right-3 text-white text-[15px] font-bold leading-snug drop-shadow">{{ s.title || s.text }}</span>
                   </button>
                 </div>
-              </TransitionGroup>
+              </div>
             </div>
           </div>
           </Transition>
