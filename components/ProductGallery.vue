@@ -48,10 +48,15 @@
           </div>
           <span class="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-white/95 text-gray-700 text-[10px] font-bold shadow-sm ring-1 ring-black/5">🇺🇸 ➜ 🇲🇽 Disponible con Boxly</span>
           <span v-if="p.onSale" class="absolute top-2 right-2 px-1.5 py-0.5 rounded-md bg-red-500 text-white text-[10px] font-bold shadow-sm">OFERTA</span>
-          <span v-if="p.store" class="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 rounded-md bg-white/90 text-gray-500 text-[9px] font-semibold shadow-sm max-w-[75%] truncate">{{ p.store }}</span>
         </div>
 
         <div class="p-3 flex flex-col flex-1">
+          <!-- Store pill: make it obvious WHICH store this product is from (results
+               can come from a different seller than the one searched). -->
+          <span v-if="p.store" class="inline-flex items-center gap-1 self-start mb-1.5 max-w-full px-2 py-0.5 rounded-full bg-primary-50 text-primary-700 text-[10.5px] font-bold ring-1 ring-primary-100">
+            <svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9l1-5h16l1 5M4 9v10a1 1 0 001 1h14a1 1 0 001-1V9M4 9h16M9 20v-6h6v6"/></svg>
+            <span class="truncate">{{ p.store }}</span>
+          </span>
           <span class="text-[13px] font-semibold text-gray-900 leading-snug line-clamp-2 min-h-[2.4rem]">{{ p.title }}</span>
 
           <!-- Product price (the real, known number). -->

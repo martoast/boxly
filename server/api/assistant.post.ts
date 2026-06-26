@@ -344,7 +344,7 @@ export default defineEventHandler(async (event) => {
       }),
 
       browse_store: tool({
-        description: "Pull REAL products straight from a US store's own catalog (works for Shopify stores like YoungLA, Gymshark, Alo, Chubbies). Use this whenever the user names or links a specific store — show their latest drop, or pass a query to search within that store (e.g. \"joggers\"). Returns products with real images/prices that render as a gallery. If it returns no products the store isn't supported — fall back to web_search.",
+        description: "Pull REAL products straight from a US store's own catalog (works for Shopify stores like YoungLA, Gymshark, Alo, Chubbies). Use this whenever the user names or links a specific store — show their latest drop, or pass a query to search within that store (e.g. \"joggers\"). Results are ALREADY filtered to items publicly available to order RIGHT NOW — gated/unreleased early-access drops (e.g. a future-dated \"… - July 7th\" item) are excluded — so everything returned is the latest AVAILABLE drop and safe to present as orderable. Returns products with real images/prices that render as a gallery. If it returns no products the store isn't supported — fall back to web_search.",
         inputSchema: z.object({
           store_url: z.string().describe('Store homepage or any URL on it, e.g. https://www.youngla.com'),
           query: z.string().describe('Optional keyword to search within the store; omit for the latest drop.').optional(),
