@@ -19,7 +19,7 @@ import { FALLBACK_KNOWLEDGE } from '../utils/boxlyKnowledge'
  */
 
 const API_BASE = (process.env.API_URL || 'https://api.boxly.mx').replace(/\/$/, '')
-const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6'
+const MODEL = process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001'
 const RANK_MODEL = process.env.ANTHROPIC_TITLE_MODEL || 'claude-haiku-4-5-20251001'
 
 // AI-first gallery ranking: a fast model reorders raw search results to put the
@@ -223,7 +223,11 @@ const BOX_GUIDE = [
   { key: 'XL', label: 'Extra grande', price_mxn: 6250, dims: '52×62×53 cm', max_kg: 50, fits: '~55–70 prendas · 30–35 pares' },
 ]
 
-function systemPrompt(loggedIn: boolean, shoppingProfile: any, savedProducts: any[] = [], knowledge = '') {
+// The per-shopper, per-turn context: long-term memory + the in-chat product
+// registry. Kept SEPARATE from systemPrompt() so it can be sent as its own
+// (uncached) system block — it changes during a conversation, while the big
+// static instructions above stay byte-identical and stay cached.
+function shopperContext(loggedIn: boolean, shoppingProfile: any, savedProducts: any[] = []): string {
   const profileBlock = !loggedIn
     ? ''
     : (shoppingProfile && Object.keys(shoppingProfile).length
@@ -233,6 +237,10 @@ function systemPrompt(loggedIn: boolean, shoppingProfile: any, savedProducts: an
     ? `\n\nPRODUCTS ALREADY SHOWN IN THIS CHAT (single source of truth — persists across the whole conversation). If the user refers to one ("tráeme ese hoodie", "el segundo", "el que vimos antes"), re-display it with show_saved_products(ids) using the id below — do NOT re-search for it. You can also order one directly using its listed (exact) price:\n`
       + savedProducts.slice(-40).map((p: any) => `- ${p.id}: ${p.title}${p.store ? ' — ' + p.store : ''}${p.price ? ' — $' + p.price + (p.on_sale && p.was ? ' (oferta, antes $' + p.was + ')' : '') : ''}`).join('\n')
     : ''
+  return (profileBlock + savedBlock).trim()
+}
+
+function systemPrompt(loggedIn: boolean, knowledge = '') {
   const knowledgeBlock = `\n\n=== BASE DE CONOCIMIENTO (Modo Experto — responde preguntas del negocio SOLO con esto) ===\n${knowledge || 'No disponible ahora — si te preguntan algo del negocio que no sepas con certeza, dilo y ofrece WhatsApp.'}\n=== FIN BASE DE CONOCIMIENTO ===`
 
   return `You are the BOXLY CONCIERGE — a warm, expert guide who helps customers in Mexico buy from the United States. THE CONVERSATION IS THE PRODUCT: you help people like a top-performing sales rep would — answer their questions, build their confidence, help them find the right thing, and get it ordered. Product search is just ONE tool you reach for during that conversation (think Perplexity, not Google). Boxly's edge is the WHOLE job: you find U.S. products, BOXLY BUYS them for the customer, imports them to Mexico, and delivers to their door. No U.S. card, no VPN, no blocked stores.
@@ -297,7 +305,7 @@ Your tools, and when to use them:
 ${loggedIn
   ? '- This user is signed in. Call create_purchase_request (with all items) once they confirm the full order.'
   : '- This user is a GUEST. When they confirm the full order, call create_account (name, email, phone) inline, then create the purchase request with all the items. Never send them away to a separate signup.'}
-- Be concise, friendly, and in the user's language (default Spanish, es-MX).${profileBlock}${savedBlock}`
+- Be concise, friendly, and in the user's language (default Spanish, es-MX).`
 }
 
 export default defineEventHandler(async (event) => {
@@ -322,10 +330,26 @@ export default defineEventHandler(async (event) => {
 
   const authedNote = { ok: false, error: 'not_authenticated', message: 'Ask the user to create an account first (call create_account).' }
 
+  // Prompt caching: the big static instructions (+ tool defs, which Anthropic
+  // caches as part of the same prefix) go in ONE system block with an ephemeral
+  // cache breakpoint, so every turn after the first reads them from cache (~90%
+  // cheaper) instead of re-billing ~9k tokens. The per-shopper memory + in-chat
+  // product registry change mid-conversation, so they ride in a SEPARATE,
+  // uncached system block after it — keeping the cached prefix byte-identical.
+  const ctx = shopperContext(!!token, shoppingProfile, savedProducts)
+  const modelMessages: any[] = [
+    {
+      role: 'system',
+      content: systemPrompt(!!token, knowledge),
+      providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' } } },
+    },
+    ...(ctx ? [{ role: 'system', content: ctx }] : []),
+    ...await convertToModelMessages(stripIncompleteToolCalls(messages)),
+  ]
+
   const result = streamText({
     model: anthropic(MODEL),
-    system: systemPrompt(!!token, shoppingProfile, savedProducts, knowledge),
-    messages: await convertToModelMessages(stripIncompleteToolCalls(messages)),
+    messages: modelMessages,
     stopWhen: stepCountIs(10),
     onError: ({ error }) => console.error('[assistant] error:', error instanceof Error ? error.message : error),
     onFinish: ({ text, steps }) => {
