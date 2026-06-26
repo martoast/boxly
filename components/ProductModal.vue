@@ -241,7 +241,10 @@ function scrollToImage(idx) {
 async function loadDetails(p) {
   loadingDetail.value = true
   try {
-    const r = await $customFetch('/products/page', { method: 'POST', body: { url: p?.url || null, token: p?.token || null, store: p?.store || null, title: p?.title || null } })
+    // Bound the wait: some stores (Cloudflare-protected SPAs like Sephora / Victoria's
+    // Secret) can't be scraped and the backend cascade takes a while before giving up.
+    // Cap it so the spinner never hangs — we degrade to the search-card image/price.
+    const r = await $customFetch('/products/page', { method: 'POST', timeout: 15000, body: { url: p?.url || null, token: p?.token || null, store: p?.store || null, title: p?.title || null } })
     const d = r.data || {}
     if (Array.isArray(d.images) && d.images.length) fetchedImages.value = d.images
     if (d.description) fetchedDesc.value = d.description
