@@ -585,12 +585,15 @@ function onComposerSend({ files } = {}) {
   chat.sendMessage({ text: text || undefined, files: files || undefined })
   scrollDown()
 }
-// Tapping a suggestion card just WRITES the prompt into the input (ChatGPT-style)
-// and focuses it — the user reviews/edits and hits send.
+// Tapping a suggestion card sends the prompt right away (no edit step).
 const composerRef = ref(null)
 function pickSuggestion(text) {
-  input.value = text
-  nextTick(() => composerRef.value?.focus?.())
+  if (isBusy.value || !text) return
+  input.value = ''
+  ensureChatToken()
+  ensureConversation(text)
+  chat.sendMessage({ text })
+  scrollDown()
 }
 
 // When the user taps "Pedir con Boxly"/"Agregar al pedido" while the assistant
