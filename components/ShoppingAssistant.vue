@@ -10,9 +10,9 @@
       </aside>
     </Transition>
 
-    <!-- ===== Desktop sidebar ===== -->
-    <aside v-if="user" class="hidden md:flex md:flex-col w-72 border-r border-gray-200 bg-white">
-      <ConversationsList :conversations="conversations" :active-id="activeId" @new="newChat" @open="openChat" @delete="deleteConversation" />
+    <!-- ===== Desktop sidebar (collapsible icon rail, ChatGPT-style) ===== -->
+    <aside v-if="user" class="hidden md:flex md:flex-col shrink-0 border-r border-gray-200 bg-white transition-[width] duration-200 ease-out" :class="sidebarCollapsed ? 'w-16' : 'w-72'">
+      <ConversationsList :conversations="conversations" :active-id="activeId" :collapsed="sidebarCollapsed" @new="newChat" @open="openChat" @delete="deleteConversation" @memory="showMemory = true" @toggle="toggleSidebar" />
     </aside>
 
     <!-- ===== Chat area ===== -->
@@ -265,6 +265,14 @@ const savedCount = ref(0)
 const input = ref('')
 const scroller = ref(null)
 const drawerOpen = ref(false)
+// Desktop conversations sidebar — collapsed (icon rail) by default, ChatGPT-style.
+// Remembers the user's choice across visits.
+const SIDEBAR_KEY = 'boxly_assistant_sidebar_collapsed'
+const sidebarCollapsed = ref(true)
+function toggleSidebar() {
+  sidebarCollapsed.value = !sidebarCollapsed.value
+  try { localStorage.setItem(SIDEBAR_KEY, sidebarCollapsed.value ? '1' : '0') } catch { /* ignore */ }
+}
 // Start in the loading state when the URL already points at a conversation, so a
 // deep-link/refresh shows ONE loader from the first paint (no flash of the empty
 // "new chat" screen before openChat kicks in).
@@ -476,6 +484,8 @@ onMounted(() => {
   setTimeout(() => { cardsReady.value = true }, 6000)
   // After the first reveal, keep filling images if the personalized set changes.
   watch(suggestions, (list) => { if (cardsReady.value) ensureCardImages(list) })
+  // Restore the saved sidebar collapsed/expanded preference (default collapsed).
+  try { const v = localStorage.getItem(SIDEBAR_KEY); if (v !== null) sidebarCollapsed.value = v === '1' } catch { /* ignore */ }
 })
 
 async function initLoggedIn() {
