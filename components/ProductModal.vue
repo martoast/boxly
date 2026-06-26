@@ -77,24 +77,7 @@
             </div>
             <p class="text-xs text-gray-400 mt-1">Precio de tienda. Si Boxly lo compra por ti (compra asistida), se suma 10% sobre el <span class="font-medium text-gray-500">total final de la compra al pagar</span> — producto + el envío que cobre la tienda a nuestra bodega en San Diego — no solo sobre este precio. Si tú lo compras y solo lo envías, no hay comisión. El total final se confirma en tu cotización.</p>
 
-            <!-- THE BOXLY VALUE — value prop, not a shipping calculator. -->
-            <div class="mt-3 rounded-2xl bg-primary-50/80 border border-primary-100 px-4 py-3 space-y-1.5">
-              <p class="flex items-center gap-2 text-[13px] font-semibold text-primary-900">📦 Compra desde México con Boxly</p>
-              <p class="flex items-center gap-2 text-[13px] font-semibold text-primary-900">🚚 Lo recibes en tu puerta</p>
-            </div>
-
             <p v-if="description" class="text-sm text-gray-600 leading-relaxed mt-4 whitespace-pre-line">{{ description }}</p>
-
-            <!-- Boxly value reinforcement -->
-            <div class="mt-4 rounded-2xl bg-primary-50/70 border border-primary-100 px-4 py-3">
-              <p class="text-[13px] font-bold text-primary-900 mb-1.5">Boxly se encarga de todo</p>
-              <ul class="space-y-1">
-                <li v-for="b in boxlyBenefits" :key="b" class="flex items-center gap-1.5 text-[12.5px] text-primary-800">
-                  <svg class="w-3.5 h-3.5 text-primary-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-                  {{ b }}
-                </li>
-              </ul>
-            </div>
 
             <!-- ===== Two ways to get it ===== -->
             <div class="mt-6">
@@ -110,7 +93,7 @@
                     <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
                     Yo lo compro
                   </span>
-                  <span class="text-[11.5px] text-gray-500 leading-snug">Tú pagas en la tienda · sin comisión</span>
+                  <span class="text-[11.5px] text-gray-500 leading-snug">Tú lo compras en la tienda original</span>
                   <span class="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-primary-600">
                     Ir a {{ product.store || 'la tienda' }}
                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
@@ -125,7 +108,7 @@
                     <svg class="w-4 h-4 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
                     Boxly lo compra
                   </span>
-                  <span class="text-[11.5px] text-primary-700/80 leading-snug">Lo compramos por ti · +10%</span>
+                  <span class="text-[11.5px] text-primary-700/80 leading-snug">Precio total al checkout + 10%</span>
                   <span class="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-primary-600">Crear solicitud</span>
                 </button>
               </div>
@@ -146,12 +129,6 @@
 const props = defineProps({ product: { type: Object, default: null } })
 const emit = defineEmits(['close', 'assisted'])
 const { $customFetch } = useNuxtApp()
-
-const boxlyBenefits = [
-  'La compra por ti (sin tarjeta de USA)',
-  'La importa a México',
-  'Te la entrega en tu puerta',
-]
 
 function formatReviews(n) {
   const v = Number(n) || 0
