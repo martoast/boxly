@@ -1,118 +1,66 @@
-# Smart box that flips — unified search + business Q&A
+# Chat: two purchase paths (Boxly buys vs. I bought it myself)
 
 ## Goal
-Make the `/buscar` box route **per message** by intent:
-- **Product query** → today's gallery flow, **unchanged** (`/buscar/resultados`).
-- **Question about Boxly** → the box morphs into a **chat thread** that answers.
+In the assistant chat, when a product is being confirmed, make BOTH paths clear in the message itself (not just in the product modal):
+1. **Compra asistida** — Boxly buys it (+10% at checkout) → **Purchase Request** (already wired: `create_purchase_request`).
+2. **Compra propia (casillero)** — customer buys it themselves, ships to their Boxly US address → **normal shipping ORDER** (no 10%). NEW.
 
-v1 capabilities: **product search (existing)** + **business Q&A**. No account tools,
-no in-chat PR creation (later). Product search stays the polished search-first flow;
-the chat only appears when someone asks a question.
+And wire it so when the user says in chat "ya lo compré / lo compré yo", the chat collects the **proof of purchase** (key for verification) and creates the shipping order with that product.
 
-## Design
+## What creating a shipping order needs (from API audit)
+- `POST /orders` → order in `collecting` status. Requires `order_type:shipping` + `delivery_address` (full_address string OR street/colonia/municipio/estado/postal_code). `OrderController@create`.
+- `POST /orders/{order}/items` (multipart) → `product_name` (req), `quantity` (req), `product_url`, `declared_value`, optional `proof_of_purchase` file (jpg/png/pdf, ≤10MB), optional `product_image` file. `OrderItemController@store` / `StoreOrderItemRequest`.
+- Per-item proof accepts images (good for phone receipts); order-level `/proofs` is PDF-only (not used here).
+- Item create does NOT currently accept `product_image_url` (only a file) → tiny API change so we can pass the registry image URL.
+- User model already stores a saved address (street/colonia/postal_code/full_address).
 
-### Intent routing (per message)
-1. **Client heuristic first (no network hop)** so product searches stay instant:
-   - Spanish question markers → `chat` (¿, cómo, cuánto/cuánta, qué, cuál, cuándo,
-     dónde, por qué, puedo/pueden, funciona, sirve, tarda, cuesta, cobran, seguro,
-     garantía, "se puede", etc.).
-   - Otherwise → `search` (today's default; safe — preserves current behavior).
-2. **AI fallback only when ambiguous** → `server/api/intent.post.ts` (Haiku),
-   returns `{ mode: 'search'|'chat', query }`. Keeps the common product path
-   zero-latency; only fuzzy inputs pay for a classify call.
+## Plan
 
-### Knowledge base = admin-managed WIKI (Karpathy-style)
-The KB is NOT hardcoded. It's a wiki of focused markdown articles the admin owns,
-stored in the DB and editable in a new admin page. The whole published wiki is fed
-into the assistant's system prompt (no retrieval needed at our scale).
+### API (api/) — minimal
+- [ ] `StoreOrderItemRequest`: add `product_image_url => nullable|url|max:1000`.
+- [ ] `OrderItemController@store`: include `product_image_url` in the `items()->create([...])` array (uploaded `product_image` file still overwrites it later, unchanged).
 
-**Backend (api/):**
-- Migration `knowledge_articles`: id, title, slug (unique), section (nullable),
-  content (markdown text), sort_order, is_published (default true), updated_by
-  (nullable), timestamps. Mirrors the categories table style.
-- Model `KnowledgeArticle`: fillable + casts + boot slug auto-gen + `scopePublished`.
-  `CACHE_KEY` constant for the assembled-wiki cache.
-- `Admin\AdminKnowledgeController` (index/store/show/update/destroy) — mirrors
-  AdminCategoryController; busts the assembled cache on every write.
-- `KnowledgeController@index` (PUBLIC, throttled): returns the assembled published
-  wiki `{ markdown, articles, updated_at }`, `Cache::remember` 5 min. This is what
-  the assistant consumes (nitro has no DB, so it fetches over HTTP).
-- `KnowledgeBaseSeeder`: seeds initial articles (Cómo funciona, Precios y comisiones,
-  Envíos y entregas, Tu casillero US, Compras presenciales, Métodos de pago, Sobre
-  Boxly). Idempotent (updateOrCreate by slug). MUST be run on prod manually.
+### Backend chat tool (app/server/api/assistant.post.ts)
+- [ ] Add CLIENT-executed tool `create_self_order` (no server `execute`, mirrors `create_account`) — the browser owns it because the proof file lives in the browser. Input: `items[]` (saved_id OR product_name/url/image/price, quantity, notes).
+- [ ] System prompt: when confirming a product the user wants, present BOTH paths in text (tú lo compras → casillero, sin comisión; Boxly lo compra → +10%). On "ya lo compré / lo compré yo" → confirm product, explain we need the comprobante to verify, call `create_self_order`. On "cómpralo por mí" → `create_purchase_request` (unchanged).
 
-### Business Q&A (streaming)
-- `server/api/ask.post.ts`: `streamText` (uses `ANTHROPIC_MODEL`, default Sonnet 4.6),
-  `system` = **fetched wiki markdown** + tone rules. Input `{ messages }`. **No tools in v1.**
-  Fetch cached in-memory ~60s; falls back to `server/utils/boxlyKnowledge.ts` (a small
-  built-in constant) if the API is unreachable, so the assistant never goes dark.
-- Tone rules (in the prompt, not the wiki): concise, warm, plain Mexican Spanish;
-  answer ONLY from the wiki; if unknown, say so + point to WhatsApp/support; nudge to
-  search a product or start a request when relevant, but **don't force a sale**.
+### Frontend (app/components/ShoppingAssistant.vue)
+- [ ] `onToolCall`: handle `create_self_order` → `pendingSelfOrder = { toolCallId, items }`.
+- [ ] Proof-upload modal (mirrors pendingAccount): shows item(s), required file input (image/pdf), [address handling — see decision], submit/cancel.
+- [ ] Submit: resolve delivery_address → `POST /orders` → for each item multipart `POST /orders/{id}/items` (product_name, quantity, product_url, declared_value=price, product_image_url; attach proof file to first item) → `addToolResult({ tool:'create_self_order', toolCallId, output:{ success, order_number } })`.
+- [ ] Guest: same create_account gate as PR before this can run.
 
-### Admin page — the wiki editor
-- `pages/app/admin/knowledge/index.vue`: master–detail. Left = article list grouped
-  by section + "Nuevo". Right = editor (title, section, published toggle, markdown
-  textarea + live `MarkdownText` preview, save, delete). `layout: 'admin'`,
-  `middleware: ['auth','admin']`, `$customFetch('/admin/knowledge')`.
-- `AdminSidebar.vue`: add "Base de conocimiento" nav entry (BookOpenIcon).
+## DECISION (resolved)
+Delivery address: reuse the SAVED address but ALWAYS show it in the modal,
+prefilled and editable, so the user confirms "this is the address I have for
+you — ship here?" before the order is created.
 
-### SearchLanding.vue — add chat mode
-- State: `messages[]` + derived `mode` (hero when empty, thread when chatting).
-- Submit (hero box OR thread input): classify →
-  - `search`: stash conversation to sessionStorage, `navigateTo` results (unchanged flow).
-  - `chat`: append user msg, stream assistant reply (@ai-sdk/vue `Chat` → `/api/ask`),
-    render with `MarkdownText`.
-- Conversation persists in `sessionStorage` so returning from a product detour restores it.
-- Add a couple of question suggestions ("¿Cómo funciona?", "¿Cuánto cobran?").
+## Review
+**API (api/) — 2 tiny changes:**
+- `StoreOrderItemRequest`: added `product_image_url => nullable|url|max:1000`.
+- `OrderItemController@store`: pass `product_image_url` into the item create (an
+  uploaded `product_image` file still overwrites it, unchanged). Lets the chat
+  attach the product image we already have from the search registry.
 
-### Untouched
-- `producto.vue`, `SearchResults.vue`, `ResultsGrid.vue`, `/products/*` — no changes.
-  The product funnel, analytics, geo-pinning, auth gate all stay as-is.
+**Chat backend (app/server/api/assistant.post.ts):**
+- New CLIENT-executed tool `create_self_order` (no server execute) for "ya lo
+  compré yo" → casillero shipping order. Mirrors `create_account`.
+- System prompt: now ALWAYS presents BOTH paths in the message when the user
+  zeroes in on a product (Tú lo compras → casillero sin comisión; Boxly lo
+  compra → +10%), and routes to the right tool: `create_purchase_request`
+  (assisted, 10%) vs `create_self_order` (self-buy, no fee). Added post-success
+  confirmation guidance + guest/cancel handling.
 
-## Tasks
-- [ ] `server/utils/boxlyKnowledge.ts` — knowledge base string
-- [ ] `server/api/ask.post.ts` — streaming Q&A endpoint (no tools)
-- [ ] `server/api/intent.post.ts` — Haiku classifier (ambiguous-only fallback)
-- [ ] `SearchLanding.vue` — heuristic + chat mode + thread UI + sessionStorage persistence
-- [ ] Manual test: product query → results (unchanged); question → streamed answer;
-      follow-up question; mixed routing; guest + logged-in.
+**Frontend (app/components/ShoppingAssistant.vue):**
+- `onToolCall` handles `create_self_order` → `openSelfOrder` opens a proof+address
+  card. Guests are bounced back to account creation (avoids a /login redirect).
+- Modal: shows item(s), delivery address (prefilled from saved profile via
+  /profile, editable, required), required proof-of-purchase file (image/pdf).
+- `submitSelfOrder`: POST /orders (shipping, full_address) → multipart POST
+  /orders/{id}/items per item (proof attached to the first) → addToolResult.
+- `continueAfterAccount` extended to resume the model after `create_self_order`
+  completes, so it confirms the order to the user.
 
-## Fast-follow (not v1)
-- [x] Log questions to analytics (`search_events` type `question`) + dashboard Q&A view +
-      CSV export. DONE 2026-06-22: questions logged server-side from /api/ask onFinish
-      (question + answer) to /search-events; dashboard now shows a "Preguntas al asistente"
-      card, a questions series in the daily chart, recent Q&A pairs, and "Preguntas más
-      comunes"; CSV export gained an `answer` column. Page renamed "Asistente IA". Needs
-      prod migrate (widen `query` to TEXT).
-- Account-help tools (track order, my PRs, my casillero address) for logged-in users.
-- In-chat PR creation from a pasted link.
-- Inline gallery inside the chat thread (vs navigating to results).
+**Deploy:** app AND api both need redeploy (api for the item product_image_url
+field; app for the tool + UI).
 
-## Review (built 2026-06-22)
-
-Shipped the smart-box-that-flips with an admin-managed knowledge wiki.
-
-**API (new):** `knowledge_articles` migration; `KnowledgeArticle` model (slug auto-gen,
-`scopePublished`, `CACHE_KEY`); `Admin\AdminKnowledgeController` (CRUD, busts cache on
-write); public `KnowledgeController@index` (assembled published wiki, cached 5 min);
-`KnowledgeBaseSeeder` (9 starter articles); routes (admin CRUD + public GET /knowledge).
-
-**App (new):** `server/api/ask.post.ts` (streaming Q&A, Sonnet 4.6, grounded ONLY in the
-fetched wiki, plain-text stream, 60s wiki cache + `boxlyKnowledge.ts` fallback);
-`server/api/intent.post.ts` (Haiku classifier, ambiguous-only); `pages/app/admin/knowledge/
-index.vue` (master–detail wiki editor with live markdown preview).
-**App (edited):** `SearchLanding.vue` (heuristic + chat mode + thread + sessionStorage
-persistence; product path unchanged); `AdminSidebar.vue` ("Base de conocimiento" nav).
-
-**Verified locally:** admin CRUD + draft exclusion + cache-busting on publish; public
-assembled endpoint; `/api/ask` streamed an accurate grounded answer (10% comisión, IVA 16%
-≥$50, pago tras cotización); `/api/intent` routed ambiguous question→chat, product→search;
-`/buscar` + admin page compile (200).
-
-**DEPLOY NOTES (prod, manual):**
-1. `php artisan migrate` (migrations don't auto-run on prod).
-2. `php artisan db:seed --class='Database\Seeders\KnowledgeBaseSeeder'` (populate the wiki).
-3. ANTHROPIC_API_KEY already set (assistant uses it); nitro fetches API_URL/knowledge.
-
-Product search flow, analytics, geo-pinning, auth gate: untouched.

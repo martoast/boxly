@@ -178,6 +178,37 @@
               </button>
             </div>
           </Transition>
+
+          <!-- "Ya lo compré yo" → confirm address + upload proof → shipping order -->
+          <Transition name="pop">
+            <div v-if="pendingSelfOrder" class="max-w-sm mx-auto mt-5 bg-white border border-primary-200 rounded-2xl p-4 shadow-lg ring-1 ring-primary-100">
+              <p class="text-sm font-bold text-gray-900 mb-0.5">Confirma tu pedido (lo compraste tú)</p>
+              <p class="text-xs text-gray-500 mb-3">Sube tu comprobante para verificar la compra. Lo recibimos, importamos y entregamos. Sin comisión.</p>
+
+              <div class="space-y-1.5 mb-3">
+                <div v-for="(it, i) in pendingSelfOrder.items" :key="i" class="flex items-center gap-2 text-xs text-gray-700">
+                  <img v-if="it.image" :src="it.image" class="w-9 h-9 rounded-lg object-cover border border-gray-200" />
+                  <span class="flex-1 truncate">{{ it.title }}<span v-if="it.quantity > 1" class="text-gray-400"> ×{{ it.quantity }}</span></span>
+                  <span v-if="it.price" class="shrink-0 font-semibold text-gray-500">${{ it.price }}</span>
+                </div>
+              </div>
+
+              <label class="block text-xs font-semibold text-gray-700 mb-1">Dirección de entrega en México</label>
+              <textarea v-model="selfOrder.address" rows="2" placeholder="Calle, colonia, ciudad, C.P." class="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 mb-3"></textarea>
+
+              <label class="block text-xs font-semibold text-gray-700 mb-1">Comprobante de compra (recibo o captura)</label>
+              <input type="file" accept="image/*,application/pdf" @change="onSelfFile" class="w-full text-xs text-gray-600 file:mr-3 file:px-3 file:py-2 file:rounded-lg file:border-0 file:bg-primary-50 file:text-primary-700 file:text-xs file:font-semibold hover:file:bg-primary-100 mb-1" />
+              <p v-if="selfOrder.file" class="text-[11px] text-emerald-600 truncate">✓ {{ selfOrder.file.name }}</p>
+
+              <p v-if="selfOrderError" class="text-xs text-red-600 mt-2">{{ selfOrderError }}</p>
+              <div class="flex items-center gap-2 mt-3">
+                <button @click="cancelSelfOrder" :disabled="selfOrderLoading" class="px-3 py-2.5 text-gray-500 hover:bg-gray-100 text-sm font-semibold rounded-xl transition-all">Cancelar</button>
+                <button @click="submitSelfOrder" :disabled="selfOrderLoading" class="flex-1 px-4 py-2.5 bg-primary-500 hover:bg-primary-600 active:scale-[.98] disabled:bg-gray-300 text-white text-sm font-bold rounded-xl transition-all">
+                  {{ selfOrderLoading ? 'Creando pedido…' : 'Crear pedido' }}
+                </button>
+              </div>
+            </div>
+          </Transition>
         </div>
 
         <div class="bg-gradient-to-t from-gray-50 via-gray-50 to-transparent px-3 md:px-4 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
@@ -227,8 +258,12 @@ import { DefaultChatTransport } from 'ai'
 function continueAfterAccount({ messages }) {
   const last = messages?.[messages.length - 1]
   if (!last || last.role !== 'assistant') return false
-  const acct = (last.parts || []).find((p) => p.type === 'tool-create_account')
-  return !!acct && acct.state === 'output-available'
+  // Resume the model once a CLIENT-executed tool (account creation or a
+  // self-purchase order) has produced its result, so it can confirm to the user.
+  const done = (last.parts || []).find(
+    (p) => (p.type === 'tool-create_account' || p.type === 'tool-create_self_order') && p.state === 'output-available',
+  )
+  return !!done
 }
 
 const props = defineProps({
@@ -349,6 +384,109 @@ const pendingAccount = ref(null)
 const acct = reactive({ name: '', email: '', phone: '' })
 const acctLoading = ref(false)
 const acctError = ref('')
+
+// "Ya lo compré yo" → create a normal SHIPPING order (casillero). Client-side
+// because the proof-of-purchase file lives in the browser. We confirm the
+// delivery address (prefilled from their saved address) and upload the proof.
+const pendingSelfOrder = ref(null) // { toolCallId, items: [{title,url,image,price,quantity,notes}] }
+const selfOrder = reactive({ address: '', file: null })
+const selfOrderLoading = ref(false)
+const selfOrderError = ref('')
+
+// Build a one-line address from the saved profile address object
+// ({street, exterior_number, colonia, municipio, estado, postal_code}).
+function composeAddress(a) {
+  if (!a) return ''
+  const line1 = [a.street, a.exterior_number].filter(Boolean).join(' ')
+  const parts = [
+    line1,
+    a.interior_number ? `Int. ${a.interior_number}` : null,
+    a.colonia, a.municipio, a.estado, a.postal_code,
+  ].filter(Boolean)
+  return parts.join(', ')
+}
+
+function openSelfOrder(toolCall) {
+  // Guests can't create an order yet (and hitting authed routes would bounce
+  // them to /login). Tell the model to create the account first, then retry.
+  if (!user.value) {
+    chat.addToolResult({ tool: 'create_self_order', toolCallId: toolCall.toolCallId, output: { success: false, error: 'not_authenticated', message: 'Ask the user to create an account first (call create_account), then call create_self_order again.' } })
+    return
+  }
+  const raw = (toolCall.input?.items) || []
+  const items = raw.map((it) => {
+    const saved = it.saved_id ? savedProducts.value.find((p) => p.id === it.saved_id) : null
+    return {
+      title: saved?.title || it.product_name || 'Producto',
+      url: saved?.url || it.product_url || null,
+      image: saved?.image || it.product_image_url || null,
+      price: saved?.price ?? it.price ?? null,
+      quantity: it.quantity || 1,
+      notes: it.notes || null,
+    }
+  }).filter((it) => it.title || it.url)
+  selfOrder.file = null
+  selfOrderError.value = ''
+  pendingSelfOrder.value = { toolCallId: toolCall.toolCallId, items }
+  // Prefill the delivery address from their saved profile (best-effort).
+  $customFetch('/profile').then((res) => {
+    selfOrder.address = composeAddress(res?.data?.address)
+  }).catch(() => {})
+}
+
+function onSelfFile(e) {
+  selfOrder.file = e.target.files?.[0] || null
+}
+
+async function submitSelfOrder() {
+  selfOrderError.value = ''
+  if (!selfOrder.address.trim()) { selfOrderError.value = 'Confirma tu dirección de entrega en México.'; return }
+  if (!selfOrder.file) { selfOrderError.value = 'Sube tu comprobante de compra para verificar tu pedido.'; return }
+  selfOrderLoading.value = true
+  try {
+    // 1) Create the shipping order (collecting status, full_address path).
+    const ores = await $customFetch('/orders', {
+      method: 'POST',
+      body: { order_type: 'shipping', delivery_address: { full_address: selfOrder.address.trim() } },
+    })
+    const order = ores?.data || ores
+    const orderId = order.id
+    const orderNumber = order.order_number || null
+
+    // 2) Add each item; attach the proof file to the first one (it's the
+    //    receipt for the whole purchase). Uses multipart so the file uploads.
+    const items = pendingSelfOrder.value.items
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i]
+      const fd = new FormData()
+      fd.append('product_name', it.title)
+      fd.append('quantity', String(it.quantity || 1))
+      if (it.url) fd.append('product_url', it.url)
+      if (it.image) fd.append('product_image_url', it.image)
+      if (it.price && it.price > 0) fd.append('declared_value', String(it.price))
+      if (i === 0) fd.append('proof_of_purchase', selfOrder.file)
+      await $customFetch(`/orders/${orderId}/items`, { method: 'POST', body: fd })
+    }
+
+    const toolCallId = pendingSelfOrder.value.toolCallId
+    pendingSelfOrder.value = null
+    selfOrder.file = null
+    await chat.addToolResult({ tool: 'create_self_order', toolCallId, output: { success: true, order_number: orderNumber } })
+    loadConversations().catch(() => {})
+  } catch (e) {
+    selfOrderError.value = e?.data?.message || 'No se pudo crear el pedido. Intenta de nuevo.'
+  } finally {
+    selfOrderLoading.value = false
+  }
+}
+
+function cancelSelfOrder() {
+  if (!pendingSelfOrder.value) return
+  const toolCallId = pendingSelfOrder.value.toolCallId
+  pendingSelfOrder.value = null
+  selfOrder.file = null
+  chat.addToolResult({ tool: 'create_self_order', toolCallId, output: { success: false, cancelled: true } })
+}
 
 // ChatGPT-style picture cards — ENTIRELY admin-managed. Whatever active starter
 // prompts exist in the backend is exactly what shows (no hardcoded defaults, no
@@ -471,6 +609,8 @@ const chat = new Chat({
       acct.email = inp.email || acct.email
       acct.phone = inp.phone || acct.phone
       pendingAccount.value = { toolCallId: toolCall.toolCallId }
+    } else if (toolCall.toolName === 'create_self_order') {
+      openSelfOrder(toolCall)
     }
   },
 })
