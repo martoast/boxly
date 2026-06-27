@@ -33,15 +33,18 @@
         tabindex="0"
         class="group snap-start text-left flex flex-col cursor-pointer transition-transform duration-200 hover:-translate-y-1"
       >
-        <!-- The HERO image. Big, rounded, full-bleed; cycles on hover. -->
-        <div class="relative h-80 rounded-2xl overflow-hidden bg-gray-50 ring-1 ring-black/5 shadow-sm group-hover:shadow-xl transition-shadow duration-200">
+        <!-- The HERO image. Big, rounded; cycles on hover. We DON'T control the
+             source images (varied crops/ratios/backgrounds), so use object-contain
+             on white + padding: the whole product always shows, centered and
+             uniform, instead of cover cropping it badly. -->
+        <div class="relative h-80 rounded-2xl overflow-hidden bg-white ring-1 ring-black/5 shadow-sm group-hover:shadow-xl transition-shadow duration-200">
           <img
             v-if="(p.image || p.images.length) && !p.broken"
             :src="displaySrc(p, i)"
             :alt="p.title"
             loading="lazy"
             referrerpolicy="no-referrer"
-            class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+            class="w-full h-full object-contain p-3 transition-transform duration-300 group-hover:scale-[1.03]"
             @error="p.broken = true"
           />
           <span v-else class="absolute inset-0 grid place-items-center text-[13px] font-bold text-gray-400 uppercase tracking-wide leading-tight line-clamp-3 text-center px-3">{{ p.store || p.title }}</span>
@@ -55,7 +58,7 @@
 
           <!-- Hover-cycle dots (Google-style), only while cycling >1 image. -->
           <div v-if="cyclingCard === i && p.images.length > 1" class="absolute bottom-2 left-0 right-0 flex justify-center gap-1">
-            <span v-for="(img, d) in p.images" :key="d" class="h-1.5 rounded-full transition-all" :class="d === cycleIdx ? 'w-3 bg-white' : 'w-1.5 bg-white/55'"></span>
+            <span v-for="(img, d) in p.images" :key="d" class="h-1.5 rounded-full transition-all" :class="d === cycleIdx ? 'w-3 bg-gray-700' : 'w-1.5 bg-gray-300'"></span>
           </div>
         </div>
 
