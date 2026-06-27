@@ -60,6 +60,30 @@ const COORDS = {
   "san pedro garza garcia": [-100.4022, 25.6585],
 };
 
+// State centroids — fallback so EVERY city with a known estado lands on the map,
+// even when its exact city coords aren't in COORDS above.
+const STATE_COORDS = {
+  "aguascalientes": [-102.36, 21.88], "baja california": [-115.4, 30.6],
+  "baja california sur": [-111.67, 25.5], "campeche": [-90.4, 18.85],
+  "chiapas": [-92.5, 16.4], "chihuahua": [-106.0, 28.4],
+  "coahuila": [-101.7, 27.3], "coahuila de zaragoza": [-101.7, 27.3],
+  "colima": [-103.85, 19.15], "ciudad de mexico": [-99.13, 19.43],
+  "durango": [-104.8, 24.8], "guanajuato": [-101.1, 21.0],
+  "guerrero": [-99.8, 17.6], "hidalgo": [-98.8, 20.5],
+  "jalisco": [-103.5, 20.5], "mexico": [-99.7, 19.35],
+  "estado de mexico": [-99.7, 19.35], "michoacan": [-101.7, 19.4],
+  "michoacan de ocampo": [-101.7, 19.4], "morelos": [-99.1, 18.75],
+  "nayarit": [-104.9, 21.75], "nuevo leon": [-99.9, 25.6],
+  "oaxaca": [-96.5, 17.0], "puebla": [-98.0, 19.0],
+  "queretaro": [-99.9, 20.8], "queretaro de arteaga": [-99.9, 20.8],
+  "quintana roo": [-88.3, 19.6], "san luis potosi": [-100.4, 22.5],
+  "sinaloa": [-107.5, 25.0], "sonora": [-110.3, 29.3],
+  "tabasco": [-92.6, 17.9], "tamaulipas": [-98.5, 24.3],
+  "tlaxcala": [-98.2, 19.4], "veracruz": [-96.4, 19.2],
+  "veracruz de ignacio de la llave": [-96.4, 19.2], "yucatan": [-89.1, 20.7],
+  "zacatecas": [-102.7, 22.9],
+};
+
 // Deterministic pseudo-random so dots don't reshuffle when toggling metrics.
 const hash = (s) => {
   let h = 2166136261;
@@ -82,24 +106,41 @@ const caption = computed(() =>
     : `cada punto = 1 ${(props.metricLabel || "").toLowerCase().replace(/s$/, "")}`
 );
 
+// Resolve a plotting centre for a city: exact city coords when known, otherwise
+// the city's estado centroid nudged by a city-seeded offset so different cities
+// in the same state form their own clusters instead of stacking on one point.
+const resolveCenter = (c) => {
+  const exact = COORDS[norm(c.city)];
+  if (exact) return exact;
+  const est = STATE_COORDS[norm(c.estado)];
+  if (!est) return null;
+  const seed = hash(c.city + "|" + c.estado);
+  const ox = (rand(seed * 1.3) - 0.5) * 0.8;
+  const oy = (rand(seed * 2.7) - 0.5) * 0.8;
+  return [est[0] + ox, est[1] + oy];
+};
+
 const buildGeoJson = () => {
   const metric = props.metric;
-  const located = props.cities.filter((c) => (c[metric] ?? 0) > 0 && COORDS[norm(c.city)]);
-  unlocated.value = props.cities.filter((c) => (c[metric] ?? 0) > 0 && !COORDS[norm(c.city)]).length;
+  const active = props.cities.filter((c) => (c[metric] ?? 0) > 0);
+  const located = active
+    .map((c) => ({ c, center: resolveCenter(c) }))
+    .filter((x) => x.center);
+  unlocated.value = active.length - located.length;
 
   // For revenue, one dot per chunk so the country isn't a single mass of dots.
-  const total = located.reduce((s, c) => s + (c[metric] ?? 0), 0);
+  const total = located.reduce((s, x) => s + (x.c[metric] ?? 0), 0);
   let unit = 1;
   if (metric === "revenue") unit = Math.max(1, Math.round(total / 600));
   dotUnit.value = unit;
 
   // Cap total dots for performance.
-  let dotsWanted = located.reduce((s, c) => s + Math.max(1, Math.round((c[metric] ?? 0) / unit)), 0);
+  let dotsWanted = located.reduce((s, x) => s + Math.max(1, Math.round((x.c[metric] ?? 0) / unit)), 0);
   const scale = dotsWanted > MAX_DOTS ? MAX_DOTS / dotsWanted : 1;
 
   const features = [];
-  for (const c of located) {
-    const [lng, lat] = COORDS[norm(c.city)];
+  for (const { c, center } of located) {
+    const [lng, lat] = center;
     const n = Math.max(1, Math.round(((c[metric] ?? 0) / unit) * scale));
     const seedBase = hash(c.city + c.estado);
     const spread = 0.06 + Math.min(0.16, Math.sqrt(n) * 0.012); // bigger cities spread a touch more

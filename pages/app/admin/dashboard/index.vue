@@ -109,8 +109,8 @@
 
           <!-- top cities by orders -->
           <div class="rounded-2xl border border-gray-100 bg-white shadow-sm p-6">
-            <p class="text-sm font-bold text-gray-900 mb-4">{{ t.topCities }}</p>
-            <div v-if="topCities.length" class="space-y-3">
+            <p class="text-sm font-bold text-gray-900 mb-4">{{ t.topCities }} <span class="text-gray-400 font-normal">· {{ fmtInt(topCities.length) }}</span></p>
+            <div v-if="topCities.length" class="space-y-3 max-h-[400px] overflow-y-auto pr-1">
               <div v-for="s in topCities" :key="s.city + s.estado">
                 <div class="flex items-center justify-between text-sm mb-1">
                   <span class="font-medium text-gray-700 truncate pr-2">{{ s.city }}<span class="text-gray-400 font-normal"> · {{ s.estado }}</span></span>
@@ -163,7 +163,7 @@ const t = createTranslations({
   geoTitle: { es: "Alcance geográfico", en: "Geographic Reach" },
   geoSub: { es: "Presencia nacional por estado", en: "National presence by state" },
   topStates: { es: "Estados principales", en: "Top states" },
-  topCities: { es: "Ciudades principales", en: "Top cities" },
+  topCities: { es: "Todas las ciudades", en: "All cities" },
   statesActiveLabel: { es: "estados activos", en: "active states" },
   noGeo: { es: "Sin datos geográficos aún", en: "No geographic data yet" },
   unlocatedCities: { es: "ciudades sin ubicar en el mapa", en: "cities not placed on the map" },
@@ -259,7 +259,7 @@ const heroChartOptions = computed(() => ({
 // ---- geographic (orders only — where the orders are going) ----
 const geoCities = computed(() => geo.value?.cities ?? []);
 const topCities = computed(() =>
-  [...geoCities.value].sort((a, b) => (b.orders ?? 0) - (a.orders ?? 0)).slice(0, 8)
+  [...geoCities.value].sort((a, b) => (b.orders ?? 0) - (a.orders ?? 0))
 );
 const topCityMax = computed(() => Math.max(1, ...topCities.value.map((s) => s.orders ?? 0)));
 
