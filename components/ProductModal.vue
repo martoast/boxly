@@ -68,7 +68,6 @@
               <span v-if="displayOnSale" class="px-1.5 py-0.5 rounded-md bg-red-500 text-white text-[10px] font-bold">OFERTA</span>
               <span v-if="!available" class="px-1.5 py-0.5 rounded-md bg-gray-700 text-white text-[10px] font-bold">AGOTADO</span>
             </div>
-            <p class="text-xs text-gray-400 mt-1">Precio de la tienda. Si tú lo compras y solo lo envías con Boxly, no hay comisión. Si Boxly lo compra por ti (compra asistida), se suma 10% sobre el <span class="font-medium text-gray-500">total final al pagar en la tienda</span> —el producto más el envío e impuestos que la tienda cobre hasta nuestra bodega en San Diego—, no solo sobre este precio. El total final se confirma en tu cotización.</p>
 
             <!-- ===== Two ways to get it ===== -->
             <div class="mt-6">
