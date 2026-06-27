@@ -3,7 +3,7 @@
     <!-- ============ FULL-BLEED MAP ============ -->
     <ClientOnly>
       <CitiesMap
-        :cities="geoCities"
+        :cities="sortedCities"
         metric="orders"
         :metric-label="t.orders"
         format="number"
@@ -147,6 +147,7 @@ const t = createTranslations({
 
 // ---- state ----
 const geo = ref(null);
+const overview = ref(null); // headline KPIs — same source as the main dashboard
 const range = ref("all"); // all-time is the default on the wall
 
 const ranges = [
@@ -199,9 +200,12 @@ const tween = (getTarget) => {
   onBeforeUnmount(() => { if (raf) cancelAnimationFrame(raf); });
   return val;
 };
-const ordersV = tween(() => geo.value?.totals?.orders ?? 0);
-const customersV = tween(() => geo.value?.totals?.customers ?? 0);
-const revenueV = tween(() => geo.value?.totals?.revenue ?? 0);
+// Órdenes / Clientes / Ingresos come from the SAME endpoint as the main dashboard
+// (overview) so manually-entered months are included and the numbers match exactly.
+const ordersV = tween(() => overview.value?.orders ?? 0);
+const customersV = tween(() => overview.value?.customers ?? 0);
+const revenueV = tween(() => overview.value?.revenue ?? 0);
+// Estados is a purely geographic figure, only the geo endpoint has it.
 const statesV = tween(() => geo.value?.totals?.states_active ?? 0);
 
 const statCards = computed(() => [
@@ -220,16 +224,22 @@ const toggleFullscreen = () => {
 const onFsChange = () => { isFullscreen.value = !!document.fullscreenElement; };
 
 // ---- fetch + live refresh ----
+const q = () => ({ query: { range: range.value } });
 const fetchGeographic = async () => {
-  try { geo.value = (await $customFetch("/admin/dashboard/v3/geographic", { query: { range: range.value } })).data; }
+  try { geo.value = (await $customFetch("/admin/dashboard/v3/geographic", q())).data; }
   catch (e) { console.error("v3 geographic", e); }
 };
-const setRange = (r) => { range.value = r; fetchGeographic(); };
+const fetchOverview = async () => {
+  try { overview.value = (await $customFetch("/admin/dashboard/v3/overview", q())).data; }
+  catch (e) { console.error("v3 overview", e); }
+};
+const fetchAll = () => { fetchGeographic(); fetchOverview(); };
+const setRange = (r) => { range.value = r; fetchAll(); };
 
 let timer = null;
 onMounted(() => {
-  fetchGeographic();
-  timer = setInterval(fetchGeographic, 60000); // keep the wall live
+  fetchAll();
+  timer = setInterval(fetchAll, 60000); // keep the wall live
   document.addEventListener("fullscreenchange", onFsChange);
 });
 onBeforeUnmount(() => {
