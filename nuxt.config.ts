@@ -13,12 +13,17 @@ export default defineNuxtConfig({
     '/app/**':   { ssr: false },
     '/login':    { ssr: false },
     '/register': { ssr: false },
-    // The BOXLY Concierge now lives at /app/search (authenticated, app layout,
-    // already ssr:false via /app/**). Old entry points redirect there.
-    '/assistant':     { redirect: '/app/search' },
-    '/app/assistant': { redirect: '/app/search' },
-    '/buscar':        { redirect: '/app/search' },
-    '/buscar/**':     { redirect: '/app/search' },
+    // The BOXLY Concierge now lives at the PUBLIC /search (standalone, no navbar,
+    // guest-friendly via auth-soft). Client-rendered like the rest of the app.
+    '/search':        { ssr: false },
+    '/search/**':     { ssr: false },
+    // Old entry points (incl. the previous authed /app/search) redirect here.
+    '/app/search':    { redirect: '/search' },
+    '/app/search/**': { redirect: '/search' },
+    '/assistant':     { redirect: '/search' },
+    '/app/assistant': { redirect: '/search' },
+    '/buscar':        { redirect: '/search' },
+    '/buscar/**':     { redirect: '/search' },
     // The product page is auth-gated (token-expensive) — client-rendered so the
     // auth middleware resolves the user reliably.
     '/producto':          { ssr: false },

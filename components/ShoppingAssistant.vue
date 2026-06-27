@@ -1,30 +1,30 @@
 <template>
-  <div class="flex bg-gray-50 overflow-hidden relative" :class="fullscreenMobile ? 'h-[100dvh] md:h-[calc(100dvh-4rem)]' : 'h-[calc(100dvh-4rem)]'">
+  <div class="flex bg-gray-50 overflow-hidden relative" :class="standalone ? 'h-[100dvh]' : (fullscreenMobile ? 'h-[100dvh] md:h-[calc(100dvh-4rem)]' : 'h-[calc(100dvh-4rem)]')">
     <!-- ===== Mobile history drawer ===== -->
     <Transition name="backdrop">
-      <div v-if="user && drawerOpen" class="md:hidden absolute inset-0 z-40 bg-black/30 backdrop-blur-sm" @click="drawerOpen = false" />
+      <div v-if="showSidebar && drawerOpen" class="md:hidden absolute inset-0 z-40 bg-black/30 backdrop-blur-sm" @click="drawerOpen = false" />
     </Transition>
     <Transition name="drawer">
-      <aside v-if="user && drawerOpen" class="md:hidden absolute inset-y-0 left-0 z-50 w-72 bg-white border-r border-gray-200 flex flex-col shadow-2xl">
-        <ConversationsList :conversations="conversations" :active-id="activeId" @new="newChat" @open="openChat" @delete="deleteConversation" @memory="showMemory = true" />
+      <aside v-if="showSidebar && drawerOpen" class="md:hidden absolute inset-y-0 left-0 z-50 w-72 bg-white border-r border-gray-200 flex flex-col shadow-2xl">
+        <ConversationsList :conversations="conversations" :active-id="activeId" :user="user" :show-profile="standalone" @new="newChat" @open="openChat" @delete="deleteConversation" @memory="showMemory = true" @logout="logout" />
       </aside>
     </Transition>
 
     <!-- ===== Desktop sidebar (collapsible icon rail, ChatGPT-style) ===== -->
-    <aside v-if="user" class="hidden md:flex md:flex-col shrink-0 border-r border-gray-200 bg-white transition-[width] duration-200 ease-out" :class="sidebarCollapsed ? 'w-16' : 'w-72'">
-      <ConversationsList :conversations="conversations" :active-id="activeId" :collapsed="sidebarCollapsed" @new="newChat" @open="openChat" @delete="deleteConversation" @memory="showMemory = true" @toggle="toggleSidebar" />
+    <aside v-if="showSidebar" class="hidden md:flex md:flex-col shrink-0 border-r border-gray-200 bg-white transition-[width] duration-200 ease-out" :class="sidebarCollapsed ? 'w-16' : 'w-72'">
+      <ConversationsList :conversations="conversations" :active-id="activeId" :collapsed="sidebarCollapsed" :user="user" :show-profile="standalone" @new="newChat" @open="openChat" @delete="deleteConversation" @memory="showMemory = true" @toggle="toggleSidebar" @logout="logout" />
     </aside>
 
     <!-- ===== Chat area ===== -->
     <main class="flex-1 flex flex-col min-w-0">
-      <!-- Mobile top bar (logged-in: history access) -->
-      <header v-if="user" class="md:hidden flex items-center justify-between px-3 min-h-[3rem] border-b border-gray-100 bg-white/80 backdrop-blur shrink-0" :class="fullscreenMobile ? 'pt-[env(safe-area-inset-top)]' : ''">
+      <!-- Mobile top bar (history access) -->
+      <header v-if="showSidebar" class="md:hidden flex items-center justify-between px-3 min-h-[3rem] border-b border-gray-100 bg-white/80 backdrop-blur shrink-0" :class="(fullscreenMobile || standalone) ? 'pt-[env(safe-area-inset-top)]' : ''">
         <button @click="drawerOpen = true" class="p-2 -ml-1 rounded-lg text-gray-600 active:scale-90 transition-transform" aria-label="Historial">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
         </button>
         <span class="text-sm font-semibold text-gray-700 truncate px-2">{{ activeTitle }}</span>
         <div class="flex items-center">
-          <button @click="showMemory = true" class="p-2 rounded-lg text-gray-600 active:scale-90 transition-transform" aria-label="Tu perfil de compras">
+          <button v-if="user" @click="showMemory = true" class="p-2 rounded-lg text-gray-600 active:scale-90 transition-transform" aria-label="Tu perfil de compras">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
           </button>
           <button @click="newChat" class="p-2 -mr-1 rounded-lg text-primary-600 active:scale-90 transition-transform" aria-label="Nuevo chat">
@@ -265,11 +265,27 @@ const props = defineProps({
   // When true (in-app page), go full-screen on mobile since the site navbar is
   // hidden there — the chat's own header is the single top bar.
   fullscreenMobile: { type: Boolean, default: false },
+  // When true (public /search page), there is NO site navbar at all: take the
+  // full viewport height, show the sidebar even for guests, and put the profile
+  // (login/logout) in the sidebar's bottom-left (ChatGPT-style).
+  standalone: { type: Boolean, default: false },
 })
-const { fullscreenMobile } = toRefs(props)
+const { fullscreenMobile, standalone } = toRefs(props)
 
 const { $customFetch } = useNuxtApp()
 const user = useState('user')
+
+// On the standalone page the sidebar shows for everyone (guests get an empty
+// history + the login entry at the bottom); in-app it's authed-only.
+const showSidebar = computed(() => standalone.value || !!user.value)
+
+// Profile sign-out (sidebar widget) → drop the session and reload as a guest.
+async function logout() {
+  try { await $customFetch('/auth/logout', { method: 'POST' }) } catch { /* ignore */ }
+  user.value = null
+  const csrf = useCookie('XSRF-TOKEN'); csrf.value = null
+  window.location.href = standalone.value ? '/search' : '/login'
+}
 
 // Reflect the active conversation in the URL as a QUERY param (?c=<id>) — NOT a
 // path segment. A path change (/app/search → /app/search/<id>) remounts the page
@@ -798,7 +814,7 @@ function goRegister() {
   const messages = chat.messages.map((m) => ({ role: m.role, content: { parts: cleanParts(m.parts) } }))
   try { localStorage.setItem(GUEST_RESUME_KEY, JSON.stringify({ messages, intent, ts: Date.now() })) } catch { /* ignore */ }
   pendingAccount.value = null
-  navigateTo(`/register?redirect=${encodeURIComponent('/app/search?resume=1')}`)
+  navigateTo(`/register?redirect=${encodeURIComponent('/search?resume=1')}`)
 }
 
 // On return from register/Google sign-in: if a fresh guest stash exists, restore
