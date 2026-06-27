@@ -262,6 +262,7 @@ import {
   ClipboardDocumentCheckIcon,
   BookOpenIcon,
   RectangleStackIcon,
+  GlobeAmericasIcon,
 } from '@heroicons/vue/24/outline';
 
 const { $customFetch } = useNuxtApp();
@@ -273,6 +274,7 @@ const { t: createTranslations } = useLanguage();
 
 const translations = {
   dashboard: { es: 'Panel de Control', en: 'Dashboard' },
+  liveMap: { es: 'Mapa en vivo', en: 'Live Map' },
   aiSearch: { es: 'Búsqueda con IA', en: 'AI Search' },
   knowledgeBase: { es: 'Base de conocimiento', en: 'Knowledge Base' },
   starterPrompts: { es: 'Tarjetas de sugerencia', en: 'Starter Prompts' },
@@ -301,6 +303,7 @@ const t = createTranslations(translations);
 const navItems = computed(() => [
   { route: '/app/admin/dashboard', icon: SparklesIcon, label: t.value.dashboard },
   { route: '/app/admin/dashboard/classic', icon: Squares2X2Icon, label: t.value.classicDashboard },
+  { route: '/app/admin/wall', icon: GlobeAmericasIcon, label: t.value.liveMap },
   { route: '/app/admin/ai-search', icon: MagnifyingGlassIcon, label: t.value.aiSearch },
   { route: '/app/admin/knowledge', icon: BookOpenIcon, label: t.value.knowledgeBase },
   { route: '/app/admin/starter-prompts', icon: RectangleStackIcon, label: t.value.starterPrompts },

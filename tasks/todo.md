@@ -31,3 +31,28 @@ Done — frontend only, no API change.
   - Label "Ciudades principales" → "Todas las ciudades" / "All cities".
 
 Net effect: the map shows a point for (essentially) every order, the "72 sin ubicar" banner drops to ~0, and the sidebar scrolls through all cities. Two separate repos noted — only the `app` repo was touched.
+
+---
+
+# Part 2 — Dedicated full-screen "Live Map" wall page (for the office TV)
+
+## Goal
+Turn the geo visualization into its own premium, full-screen page to flex on a TV.
+Light premium theme · auto-scrolling city list · 30D/90D/1Y/ALL filter (default ALL).
+
+## Done
+- `components/admin/CitiesMap.vue` — added backward-compatible presentation props
+  (`height`, `mapStyle`, `dotColor`, `dotStroke`, `showNav`, `showCaption`, `glow`,
+  `center`, `zoom`). Defaults preserve the dashboard's existing look exactly. Added an
+  optional soft "glow" halo layer beneath the dots.
+- `pages/app/admin/wall/index.vue` — NEW page on the `empty` layout (no sidebar chrome),
+  `/app/admin/wall`, auth+admin protected. Full-bleed map with frosted-glass overlays:
+  live brand bar, range filter (default ALL), fullscreen toggle (Fullscreen API) + exit,
+  auto-scrolling city leaderboard (CSS marquee, pauses on hover, only scrolls when >12
+  cities), and animated count-up stat cards (Órdenes/Clientes/Ingresos/Estados). Polls
+  the geographic endpoint every 60s so the wall stays live.
+- `components/AdminSidebar.vue` — added "Mapa en vivo / Live Map" nav item (GlobeAmericasIcon).
+
+## Verification
+- `yarn dev` compiles clean; `GET /app/admin/wall` → 200, no Vue/Vite errors.
+- Could not grab a live screenshot (Chrome extension not connected + page is admin-gated).

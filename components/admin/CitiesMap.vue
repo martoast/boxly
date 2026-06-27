@@ -1,10 +1,10 @@
 <template>
-  <div class="relative">
-    <div ref="mapEl" class="w-full h-[440px] rounded-xl overflow-hidden bg-gray-100"></div>
+  <div class="relative h-full">
+    <div ref="mapEl" class="w-full rounded-xl overflow-hidden bg-gray-100" :style="{ height }"></div>
     <div v-if="!token" class="absolute inset-0 flex items-center justify-center text-sm text-gray-400">
       Falta configurar MAPBOX_API_TOKEN
     </div>
-    <div class="flex items-center justify-between mt-2">
+    <div v-if="showCaption" class="flex items-center justify-between mt-2">
       <p class="text-[11px] text-gray-400">{{ caption }}</p>
       <p v-if="unlocated > 0" class="text-[11px] text-gray-400">{{ unlocated }} {{ unlocatedLabel }}</p>
     </div>
@@ -19,6 +19,16 @@ const props = defineProps({
   format: { type: String, default: "number" },
   token: { type: String, default: "" },
   unlocatedLabel: { type: String, default: "ciudades sin ubicar en el mapa" },
+  // presentation (defaults preserve the dashboard look) ----------------------
+  height: { type: String, default: "440px" },
+  mapStyle: { type: String, default: "mapbox://styles/mapbox/light-v11" },
+  dotColor: { type: String, default: "#2E6BB7" },
+  dotStroke: { type: String, default: "#1E4E8C" },
+  showNav: { type: Boolean, default: true },
+  showCaption: { type: Boolean, default: true },
+  glow: { type: Boolean, default: false },
+  center: { type: Array, default: () => [-102, 23.6] },
+  zoom: { type: Number, default: 4.1 },
 });
 
 const mapEl = ref(null);
@@ -170,17 +180,31 @@ onMounted(async () => {
 
   map = new mapboxgl.Map({
     container: mapEl.value,
-    style: "mapbox://styles/mapbox/light-v11",
-    center: [-102, 23.6],
-    zoom: 4.1,
+    style: props.mapStyle,
+    center: props.center,
+    zoom: props.zoom,
     attributionControl: false,
   });
-  map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "top-right");
+  if (props.showNav) map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "top-right");
   map.scrollZoom.disable();
   popup = new mapboxgl.Popup({ closeButton: false, closeOnClick: false, offset: 10 });
 
   map.on("load", () => {
     map.addSource("dots", { type: "geojson", data: buildGeoJson() });
+    // soft halo beneath the dots — gives the "glowing" look on the wall display
+    if (props.glow) {
+      map.addLayer({
+        id: "dots-glow",
+        type: "circle",
+        source: "dots",
+        paint: {
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 6, 6, 11, 9, 18],
+          "circle-color": props.dotColor,
+          "circle-opacity": 0.16,
+          "circle-blur": 1,
+        },
+      });
+    }
     map.addLayer({
       id: "dots",
       type: "circle",
@@ -188,10 +212,10 @@ onMounted(async () => {
       paint: {
         // grow slightly with zoom so clusters read at every level
         "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 2.2, 6, 3.4, 9, 5],
-        "circle-color": "#2E6BB7",
+        "circle-color": props.dotColor,
         "circle-opacity": 0.5,
         "circle-stroke-width": 0.4,
-        "circle-stroke-color": "#1E4E8C",
+        "circle-stroke-color": props.dotStroke,
       },
     });
 
