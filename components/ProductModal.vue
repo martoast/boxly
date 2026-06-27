@@ -65,7 +65,8 @@
             <div v-if="displayPrice != null" class="flex items-baseline gap-2 mt-3">
               <span class="text-2xl font-extrabold" :class="displayOnSale ? 'text-red-600' : 'text-gray-900'">${{ displayPrice }}<span class="text-sm font-semibold text-gray-400"> USD</span></span>
               <span v-if="displayWas" class="text-sm font-medium text-gray-400 line-through">${{ displayWas }}</span>
-              <span v-if="displayOnSale" class="px-1.5 py-0.5 rounded-md bg-red-500 text-white text-[10px] font-bold">OFERTA</span>
+              <span v-if="displayDiscount" class="px-1.5 py-0.5 rounded-md bg-red-500 text-white text-[10px] font-extrabold">-{{ displayDiscount }}%</span>
+              <span v-else-if="displayOnSale" class="px-1.5 py-0.5 rounded-md bg-red-500 text-white text-[10px] font-bold">OFERTA</span>
               <span v-if="!available" class="px-1.5 py-0.5 rounded-md bg-gray-700 text-white text-[10px] font-bold">AGOTADO</span>
             </div>
 
@@ -216,6 +217,10 @@ const linkPending = computed(() => loadingDetail.value && isGoogleLink(bestLink.
 const displayPrice = computed(() => fetchedPrice.value ?? props.product?.price ?? null)
 const displayWas = computed(() => fetchedWas.value ?? props.product?.was ?? null)
 const displayOnSale = computed(() => fetchedOnSale.value ?? props.product?.onSale ?? false)
+const displayDiscount = computed(() => {
+  const w = displayWas.value, p = displayPrice.value
+  return displayOnSale.value && w && p && w > p ? Math.round(((w - p) / w) * 100) : null
+})
 
 const imgTrack = ref(null)
 const imgIndex = ref(0)

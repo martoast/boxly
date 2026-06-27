@@ -54,7 +54,8 @@
             <svg class="w-3 h-3 shrink-0 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9l1-5h16l1 5M4 9v10a1 1 0 001 1h14a1 1 0 001-1V9M4 9h16M9 20v-6h6v6"/></svg>
             <span class="truncate">{{ p.store }}</span>
           </span>
-          <span v-if="p.onSale" class="absolute top-2 right-2 px-1.5 py-0.5 rounded-md bg-red-500 text-white text-[10px] font-bold shadow-sm">OFERTA</span>
+          <span v-if="p.discount" class="absolute top-2 right-2 px-1.5 py-0.5 rounded-md bg-red-500 text-white text-[10px] font-extrabold shadow-sm">-{{ p.discount }}%</span>
+          <span v-else-if="p.onSale" class="absolute top-2 right-2 px-1.5 py-0.5 rounded-md bg-red-500 text-white text-[10px] font-bold shadow-sm">OFERTA</span>
 
           <!-- Hover-cycle dots (Google-style), only while cycling >1 image. -->
           <div v-if="cyclingCard === i && p.images.length > 1" class="absolute bottom-2 left-0 right-0 flex justify-center gap-1">
@@ -170,14 +171,20 @@ const normalized = computed(() =>
     // to the single thumbnail for sources that only return one image.
     const imgs = (Array.isArray(p.images) ? p.images : []).filter((u) => typeof u === 'string' && u)
     const images = imgs.length ? imgs : (image ? [image] : [])
+    const price = p.price ?? p.price_usd ?? null
+    const was = p.was ?? null
+    const onSale = p.on_sale ?? p.onSale ?? false
+    // % off when we have both a was-price and a lower current price.
+    const discount = onSale && was && price && was > price ? Math.round(((was - price) / was) * 100) : null
     return {
       title,
       url: p.url || p.product_url || p.source_url || '#',
       image,
       images,
-      price: p.price ?? p.price_usd ?? null,
-      was: p.was ?? null,
-      onSale: p.on_sale ?? p.onSale ?? false,
+      price,
+      was,
+      onSale,
+      discount,
       store: p.store || null,
       note: p.note || p.reason || null,
       snippet: p.snippet || null,
