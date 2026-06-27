@@ -25,6 +25,8 @@ const props = defineProps({
   dotColor: { type: String, default: "#2E6BB7" },
   dotStroke: { type: String, default: "#1E4E8C" },
   showNav: { type: Boolean, default: true },
+  navPosition: { type: String, default: "top-right" },
+  scrollZoom: { type: Boolean, default: false },
   showCaption: { type: Boolean, default: true },
   glow: { type: Boolean, default: false },
   center: { type: Array, default: () => [-102, 23.6] },
@@ -185,8 +187,8 @@ onMounted(async () => {
     zoom: props.zoom,
     attributionControl: false,
   });
-  if (props.showNav) map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "top-right");
-  map.scrollZoom.disable();
+  if (props.showNav) map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), props.navPosition);
+  if (!props.scrollZoom) map.scrollZoom.disable();
   popup = new mapboxgl.Popup({ closeButton: false, closeOnClick: false, offset: 10 });
 
   map.on("load", () => {

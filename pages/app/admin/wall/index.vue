@@ -10,7 +10,8 @@
         :token="mapboxToken"
         height="100dvh"
         :show-caption="false"
-        :show-nav="false"
+        nav-position="bottom-right"
+        scroll-zoom
         glow
         :center="[-101.5, 23.2]"
         :zoom="4.55"
