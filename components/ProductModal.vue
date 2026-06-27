@@ -20,38 +20,30 @@
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
 
-          <!-- image carousel (swipe through fetched images) -->
+          <!-- image bento (multiple images at a glance; tap any to open the slideshow) -->
           <div class="relative bg-gray-50">
-            <div ref="imgTrack" @scroll.passive="onImgScroll" class="flex overflow-x-auto snap-x snap-mandatory no-scrollbar h-72">
-              <div v-if="!gallery.length" class="shrink-0 w-full h-72 grid place-items-center">
-                <span class="text-base font-bold text-gray-400 uppercase tracking-wide text-center px-6">{{ product.store || product.title }}</span>
-              </div>
-              <div v-for="(img, idx) in gallery" :key="idx" class="snap-center shrink-0 w-full h-72 flex items-center justify-center p-6">
-                <img :src="img" :alt="product.title" referrerpolicy="no-referrer" class="max-h-full max-w-full object-contain" @error="onImgError(img)" />
-              </div>
+            <!-- no images yet → store/title placeholder -->
+            <div v-if="!gallery.length" class="w-full h-80 grid place-items-center">
+              <span class="text-base font-bold text-gray-400 uppercase tracking-wide text-center px-6">{{ product.store || product.title }}</span>
             </div>
-            <!-- prev / next arrows -->
-            <button
-              v-if="gallery.length > 1 && imgIndex > 0"
-              type="button" @click="scrollToImage(imgIndex - 1)" aria-label="Imagen anterior"
-              class="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 grid place-items-center rounded-full bg-white/90 shadow-md ring-1 ring-black/5 text-gray-700 hover:bg-white hover:scale-105 active:scale-95 transition"
-            >
-              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
-            </button>
-            <button
-              v-if="gallery.length > 1 && imgIndex < gallery.length - 1"
-              type="button" @click="scrollToImage(imgIndex + 1)" aria-label="Imagen siguiente"
-              class="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 grid place-items-center rounded-full bg-white/90 shadow-md ring-1 ring-black/5 text-gray-700 hover:bg-white hover:scale-105 active:scale-95 transition"
-            >
-              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
-            </button>
-
-            <!-- image counter -->
-            <div v-if="gallery.length > 1" class="absolute top-2.5 right-2.5 text-[11px] font-semibold text-white bg-black/45 rounded-full px-2 py-0.5 tabular-nums">{{ imgIndex + 1 }}/{{ gallery.length }}</div>
-
-            <!-- dots (tap to jump) -->
-            <div v-if="gallery.length > 1" class="absolute bottom-2.5 left-0 right-0 flex justify-center gap-1.5">
-              <button v-for="(img, idx) in gallery" :key="idx" type="button" @click="scrollToImage(idx)" :aria-label="`Ir a la imagen ${idx + 1}`" class="h-1.5 rounded-full transition-all" :class="idx === imgIndex ? 'w-4 bg-gray-700' : 'w-1.5 bg-gray-300 hover:bg-gray-400'"></button>
+            <!-- bento grid: hero + up to two tiles -->
+            <div v-else class="grid grid-cols-3 grid-rows-2 gap-1 h-80">
+              <button
+                v-for="(img, idx) in bentoImgs" :key="idx" type="button"
+                @click="openLightbox(idx)"
+                :class="['group relative overflow-hidden bg-white', bentoClass(idx)]"
+                :aria-label="`Ver imagen ${idx + 1}`"
+              >
+                <img :src="img" :alt="product.title" referrerpolicy="no-referrer" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" @error="onImgError(img)" />
+                <!-- "+N" overlay on the last tile when there are more images -->
+                <span v-if="idx === bentoImgs.length - 1 && extraCount > 0" class="absolute inset-0 grid place-items-center bg-black/50 text-white">
+                  <span class="text-lg font-extrabold">+{{ extraCount }}</span>
+                </span>
+                <!-- subtle expand hint on the hero -->
+                <span v-else-if="idx === 0" class="absolute bottom-2 right-2 w-7 h-7 grid place-items-center rounded-full bg-white/85 shadow text-gray-700 opacity-0 group-hover:opacity-100 transition">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/></svg>
+                </span>
+              </button>
             </div>
             <!-- loading detail -->
             <div v-if="loadingDetail" class="absolute top-2.5 left-2.5 flex items-center gap-1.5 bg-white/85 rounded-full pl-1.5 pr-2.5 py-1 shadow-sm">
@@ -76,9 +68,7 @@
               <span v-if="displayOnSale" class="px-1.5 py-0.5 rounded-md bg-red-500 text-white text-[10px] font-bold">OFERTA</span>
               <span v-if="!available" class="px-1.5 py-0.5 rounded-md bg-gray-700 text-white text-[10px] font-bold">AGOTADO</span>
             </div>
-            <p class="text-xs text-gray-400 mt-1">Precio de tienda. Si Boxly lo compra por ti (compra asistida), se suma 10% sobre el <span class="font-medium text-gray-500">total final de la compra al pagar</span> — producto + el envío que cobre la tienda a nuestra bodega en San Diego — no solo sobre este precio. Si tú lo compras y solo lo envías, no hay comisión. El total final se confirma en tu cotización.</p>
-
-            <p v-if="description" class="text-sm text-gray-600 leading-relaxed mt-4 whitespace-pre-line">{{ description }}</p>
+            <p class="text-xs text-gray-400 mt-1">Precio de la tienda. Si tú lo compras y solo lo envías con Boxly, no hay comisión. Si Boxly lo compra por ti (compra asistida), se suma 10% sobre el <span class="font-medium text-gray-500">total final al pagar en la tienda</span> —el producto más el envío e impuestos que la tienda cobre hasta nuestra bodega en San Diego—, no solo sobre este precio. El total final se confirma en tu cotización.</p>
 
             <!-- ===== Two ways to get it ===== -->
             <div class="mt-6">
@@ -137,6 +127,41 @@
             </div>
           </div>
         </div>
+
+        <!-- ===== Fullscreen image slideshow (opens from the bento) ===== -->
+        <Transition name="lb">
+          <div v-if="lightboxOpen" class="fixed inset-0 z-[1200] bg-black/95 flex flex-col" @click.self="closeLightbox">
+            <button @click="closeLightbox" class="absolute top-4 right-4 z-10 w-10 h-10 grid place-items-center rounded-full bg-white/15 hover:bg-white/25 text-white active:scale-90 transition" aria-label="Cerrar">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+            <div v-if="gallery.length > 1" class="absolute top-5 left-1/2 -translate-x-1/2 z-10 text-[12px] font-semibold text-white/90 bg-white/10 rounded-full px-2.5 py-0.5 tabular-nums">{{ imgIndex + 1 }}/{{ gallery.length }}</div>
+
+            <div ref="imgTrack" @scroll.passive="onImgScroll" class="flex-1 flex overflow-x-auto snap-x snap-mandatory no-scrollbar">
+              <div v-for="(img, idx) in gallery" :key="idx" class="snap-center shrink-0 w-full h-full flex items-center justify-center p-6">
+                <img :src="img" :alt="product.title" referrerpolicy="no-referrer" class="max-h-full max-w-full object-contain" @error="onImgError(img)" />
+              </div>
+            </div>
+
+            <button
+              v-if="gallery.length > 1 && imgIndex > 0"
+              type="button" @click="scrollToImage(imgIndex - 1)" aria-label="Imagen anterior"
+              class="absolute left-3 top-1/2 -translate-y-1/2 w-11 h-11 grid place-items-center rounded-full bg-white/15 hover:bg-white/25 text-white active:scale-90 transition"
+            >
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            </button>
+            <button
+              v-if="gallery.length > 1 && imgIndex < gallery.length - 1"
+              type="button" @click="scrollToImage(imgIndex + 1)" aria-label="Imagen siguiente"
+              class="absolute right-3 top-1/2 -translate-y-1/2 w-11 h-11 grid place-items-center rounded-full bg-white/15 hover:bg-white/25 text-white active:scale-90 transition"
+            >
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            </button>
+
+            <div v-if="gallery.length > 1" class="shrink-0 flex justify-center gap-1.5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3">
+              <button v-for="(img, idx) in gallery" :key="idx" type="button" @click="scrollToImage(idx)" :aria-label="`Ir a la imagen ${idx + 1}`" class="h-1.5 rounded-full transition-all" :class="idx === imgIndex ? 'w-5 bg-white' : 'w-1.5 bg-white/40 hover:bg-white/60'"></button>
+            </div>
+          </div>
+        </Transition>
       </div>
     </Transition>
   </Teleport>
@@ -171,7 +196,15 @@ const gallery = computed(() => {
   const base = fetchedImages.value.length ? fetchedImages.value : (props.product?.image ? [props.product.image] : [])
   return base.filter((u) => !broken.value.has(u))
 })
-const description = computed(() => fetchedDesc.value || props.product?.snippet || null)
+// Bento: show up to 3 tiles (hero + 2); a "+N" overlay hints at the rest.
+const bentoImgs = computed(() => gallery.value.slice(0, 3))
+const extraCount = computed(() => Math.max(0, gallery.value.length - 3))
+function bentoClass(idx) {
+  const n = Math.min(gallery.value.length, 3)
+  if (n === 1) return 'col-span-3 row-span-2'
+  if (n === 2) return idx === 0 ? 'col-span-2 row-span-2' : 'col-span-1 row-span-2'
+  return idx === 0 ? 'col-span-2 row-span-2' : 'col-span-1 row-span-1'
+}
 const bestLink = computed(() => fetchedLink.value || props.product?.url || '#')
 
 // Search-result products carry a GOOGLE SHOPPING link as their url; the real
@@ -187,6 +220,7 @@ const displayOnSale = computed(() => fetchedOnSale.value ?? props.product?.onSal
 
 const imgTrack = ref(null)
 const imgIndex = ref(0)
+const lightboxOpen = ref(false)
 function onImgScroll() {
   const el = imgTrack.value
   if (el && el.clientWidth) imgIndex.value = Math.round(el.scrollLeft / el.clientWidth)
@@ -199,6 +233,14 @@ function scrollToImage(idx) {
   el.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' })
   imgIndex.value = i // optimistic; onImgScroll will confirm
 }
+async function openLightbox(idx) {
+  lightboxOpen.value = true
+  imgIndex.value = idx
+  await nextTick()
+  const el = imgTrack.value // the track only exists once the lightbox renders
+  if (el) el.scrollLeft = idx * el.clientWidth
+}
+function closeLightbox() { lightboxOpen.value = false }
 
 async function loadDetails(p) {
   loadingDetail.value = true
@@ -243,6 +285,7 @@ watch(() => props.product, (p) => {
   loadingDetail.value = false
   broken.value = new Set()
   imgIndex.value = 0
+  lightboxOpen.value = false
   if (imgTrack.value) imgTrack.value.scrollLeft = 0
   if (p?.url || p?.token) loadDetails(p)
 })
@@ -289,6 +332,9 @@ onBeforeUnmount(() => setLock(false))
 .pm-enter-active, .pm-leave-active { transition: opacity .25s ease; }
 .pm-enter-from .pm-card, .pm-leave-to .pm-card { transform: translateY(24px); }
 .pm-enter-active .pm-card, .pm-leave-active .pm-card { transition: transform .28s cubic-bezier(.2,.8,.2,1); }
+
+.lb-enter-from, .lb-leave-to { opacity: 0; }
+.lb-enter-active, .lb-leave-active { transition: opacity .2s ease; }
 @media (prefers-reduced-motion: reduce) {
   .pm-enter-active, .pm-leave-active, .pm-enter-active .pm-card, .pm-leave-active .pm-card { transition: none; }
 }

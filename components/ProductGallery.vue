@@ -18,7 +18,7 @@
     <div
       ref="track"
       @scroll.passive="measure"
-      class="grid grid-flow-col items-stretch auto-cols-[15rem] md:auto-cols-[15.5rem] gap-3 overflow-x-auto pb-2 px-1 snap-x no-scrollbar grid-rows-[auto]"
+      class="grid grid-flow-col items-stretch auto-cols-[16rem] md:auto-cols-[17rem] gap-3 overflow-x-auto py-2 px-1 snap-x no-scrollbar grid-rows-[auto]"
     >
       <!-- A "BOXLY Offer" card: the offer (we buy + import + deliver, landed total)
            is the hero; the product is the supporting detail. -->
@@ -30,33 +30,31 @@
         @keydown.enter="$emit('open', p)"
         role="button"
         tabindex="0"
-        class="group snap-start text-left bg-white border border-gray-200/80 hover:border-gray-300 rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-200 flex flex-col cursor-pointer"
+        class="group snap-start text-left bg-white border border-gray-200/80 hover:border-gray-300 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 hover:scale-[1.02] transition-all duration-200 flex flex-col cursor-pointer"
       >
-        <!-- Product image + badges -->
-        <div class="relative bg-gray-50">
-          <div class="h-32 flex items-center justify-center p-3 overflow-hidden">
-            <img
-              v-if="p.image && !p.broken"
-              :src="p.image"
-              :alt="p.title"
-              loading="lazy"
-              referrerpolicy="no-referrer"
-              class="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
-              @error="p.broken = true"
-            />
-            <span v-else class="text-[13px] font-bold text-gray-400 uppercase tracking-wide leading-tight line-clamp-3 text-center px-1">{{ p.store || p.title }}</span>
-          </div>
-          <span class="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-white/95 text-gray-700 text-[10px] font-bold shadow-sm ring-1 ring-black/5">🇺🇸 ➜ 🇲🇽 Disponible con Boxly</span>
+        <!-- Product image = the HERO. Big, full-bleed; store named up top. -->
+        <div class="relative bg-gray-50 h-64 overflow-hidden">
+          <img
+            v-if="p.image && !p.broken"
+            :src="p.image"
+            :alt="p.title"
+            loading="lazy"
+            referrerpolicy="no-referrer"
+            class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            @error="p.broken = true"
+          />
+          <span v-else class="absolute inset-0 grid place-items-center text-[13px] font-bold text-gray-400 uppercase tracking-wide leading-tight line-clamp-3 text-center px-3">{{ p.store || p.title }}</span>
+
+          <!-- Store/brand header (replaces the old "Disponible con Boxly" badge):
+               makes it obvious WHICH store the product is from. -->
+          <span v-if="p.store" class="absolute top-2 left-2 inline-flex items-center gap-1 max-w-[82%] px-2 py-0.5 rounded-full bg-white/90 backdrop-blur text-gray-800 text-[10.5px] font-bold shadow-sm ring-1 ring-black/5">
+            <svg class="w-3 h-3 shrink-0 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9l1-5h16l1 5M4 9v10a1 1 0 001 1h14a1 1 0 001-1V9M4 9h16M9 20v-6h6v6"/></svg>
+            <span class="truncate">{{ p.store }}</span>
+          </span>
           <span v-if="p.onSale" class="absolute top-2 right-2 px-1.5 py-0.5 rounded-md bg-red-500 text-white text-[10px] font-bold shadow-sm">OFERTA</span>
         </div>
 
         <div class="p-3 flex flex-col flex-1">
-          <!-- Store pill: make it obvious WHICH store this product is from (results
-               can come from a different seller than the one searched). -->
-          <span v-if="p.store" class="inline-flex items-center gap-1 self-start mb-1.5 max-w-full px-2 py-0.5 rounded-full bg-primary-50 text-primary-700 text-[10.5px] font-bold ring-1 ring-primary-100">
-            <svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9l1-5h16l1 5M4 9v10a1 1 0 001 1h14a1 1 0 001-1V9M4 9h16M9 20v-6h6v6"/></svg>
-            <span class="truncate">{{ p.store }}</span>
-          </span>
           <span class="text-[13px] font-semibold text-gray-900 leading-snug line-clamp-2 min-h-[2.4rem]">{{ p.title }}</span>
 
           <!-- Product price (the real, known number). -->
@@ -88,7 +86,7 @@
         type="button"
         @click="scrollByPage(-1)"
         aria-label="Anterior"
-        class="hidden md:grid place-items-center w-9 h-9 rounded-full bg-white shadow-md ring-1 ring-black/5 text-gray-600 hover:text-gray-900 hover:scale-105 active:scale-95 transition-all absolute left-1.5 top-16 -translate-y-1/2 z-10 opacity-0 group-hover:opacity-100"
+        class="hidden md:grid place-items-center w-9 h-9 rounded-full bg-white shadow-md ring-1 ring-black/5 text-gray-600 hover:text-gray-900 hover:scale-105 active:scale-95 transition-all absolute left-1.5 top-32 -translate-y-1/2 z-10 opacity-0 group-hover:opacity-100"
       >
         <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
       </button>
@@ -97,13 +95,13 @@
         type="button"
         @click="scrollByPage(1)"
         aria-label="Siguiente"
-        class="hidden md:grid place-items-center w-9 h-9 rounded-full bg-white shadow-md ring-1 ring-black/5 text-gray-600 hover:text-gray-900 hover:scale-105 active:scale-95 transition-all absolute right-1.5 top-16 -translate-y-1/2 z-10 opacity-0 group-hover:opacity-100"
+        class="hidden md:grid place-items-center w-9 h-9 rounded-full bg-white shadow-md ring-1 ring-black/5 text-gray-600 hover:text-gray-900 hover:scale-105 active:scale-95 transition-all absolute right-1.5 top-32 -translate-y-1/2 z-10 opacity-0 group-hover:opacity-100"
       >
         <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
       </button>
 
       <!-- Faint nudging arrow: swipe-right cue (touch only) — over the image area -->
-      <div v-show="canScroll && !atEnd" class="md:hidden swipe-arrow pointer-events-none absolute right-1.5 top-16">
+      <div v-show="canScroll && !atEnd" class="md:hidden swipe-arrow pointer-events-none absolute right-1.5 top-32">
         <span class="grid place-items-center w-7 h-7 rounded-full bg-white/80 shadow-md ring-1 ring-black/5">
           <svg class="w-4 h-4 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
         </span>
