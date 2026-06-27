@@ -314,7 +314,7 @@ Your tools, and when to use them:
 - PRICE AT CONFIRMATION (assisted purchase): do NOT present the listed store price as the amount they'll pay — it's only the reference price and is NOT final. State it in ONE short line: "El total será el precio final al hacer checkout en la tienda + 10% de comisión Boxly (la caja se cotiza aparte)." Keep it that short — no long breakdown, and never imply the shown price is the total. Never create the request after just the first item. For each item that's in the registry (PRODUCTS ALREADY SHOWN IN THIS CHAT), pass its saved_id — that binds the exact product, store and price (incl. the sale price), so you only add quantity + notes (size/color). Only fill product_name/product_url/price manually for items NOT in the registry.
 ${loggedIn
   ? '- This user is signed in. Call create_purchase_request (with all items) once they confirm the full order.'
-  : '- This user is a GUEST. When they confirm the full order, call create_account (name, email, phone) inline, then create the purchase request with all the items. Never send them away to a separate signup.'}
+  : '- This user is a GUEST. A Boxly account is required to place ANY order. The moment they confirm they want to order (assisted purchase OR self-purchase), call create_account — this opens a button that takes them to register (email or Google) and brings them back here with the order ready. Do NOT ask for name/email/phone yourself, and do NOT call create_purchase_request/create_self_order for a guest before the account exists. After they return signed in, the chat resumes and you finish the order.'}
 - Be concise, friendly, and in the user's language (default Spanish, es-MX).`
 }
 
@@ -565,15 +565,13 @@ export default defineEventHandler(async (event) => {
         }),
       }),
 
-      // CLIENT-executed (no execute): the browser runs /auth/chat-register so it
-      // gets the SPA session cookie + token, then resumes the conversation.
+      // CLIENT-executed (no execute): the browser shows a "create account" button
+      // that sends the guest to the register page (email or Google) and brings
+      // them back to THIS chat, resumed, to finish the order. You do NOT collect
+      // their details — the register page does. Just call this to open the gate.
       create_account: tool({
-        description: 'Create the account for a guest who wants to place an order. Collect name, email, and phone first and confirm. The app completes signup and signs them in.',
-        inputSchema: z.object({
-          name: z.string(),
-          email: z.string().email(),
-          phone: z.string().describe('E.164, e.g. +5215551234567'),
-        }),
+        description: "Open the account gate for a GUEST who wants to place an order (purchase request or self-purchase). The app shows a button that takes them to register (email or Google) and returns them to this chat with their order ready to confirm — so you do NOT need to ask for name/email/phone yourself. Call it the moment a guest confirms they want to order. After this, the conversation continues once they're back and signed in.",
+        inputSchema: z.object({}),
       }),
     },
   })

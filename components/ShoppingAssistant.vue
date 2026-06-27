@@ -165,16 +165,11 @@
 
           <Transition name="pop">
             <div v-if="pendingAccount" class="max-w-sm mx-auto mt-5 bg-white border border-primary-200 rounded-2xl p-4 shadow-lg ring-1 ring-primary-100">
-              <p class="text-sm font-bold text-gray-900 mb-0.5">Crea tu cuenta para enviar tu pedido</p>
-              <p class="text-xs text-gray-500 mb-3">Te conectamos automáticamente. Nada más sale de aquí.</p>
-              <div class="space-y-2">
-                <input v-model="acct.name" placeholder="Nombre completo" class="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-primary-500" />
-                <input v-model="acct.email" type="email" inputmode="email" placeholder="Correo electrónico" class="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-primary-500" />
-                <input v-model="acct.phone" type="tel" inputmode="tel" placeholder="Teléfono (+52...)" class="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-primary-500" />
-              </div>
-              <p v-if="acctError" class="text-xs text-red-600 mt-2">{{ acctError }}</p>
-              <button @click="submitAccount" :disabled="acctLoading" class="mt-3 w-full px-4 py-2.5 bg-primary-500 hover:bg-primary-600 active:scale-[.98] disabled:bg-gray-300 text-white text-sm font-bold rounded-xl transition-all">
-                {{ acctLoading ? 'Creando…' : 'Crear cuenta y continuar' }}
+              <p class="text-sm font-bold text-gray-900 mb-0.5">Crea tu cuenta para continuar 🛍️</p>
+              <p class="text-xs text-gray-500 mb-3">Necesitas una cuenta Boxly para hacer tu pedido. Te llevamos al registro y te traemos de vuelta justo aquí, con tu pedido listo para confirmar.</p>
+              <button @click="goRegister" class="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-primary-500 hover:bg-primary-600 active:scale-[.98] text-white text-sm font-bold rounded-xl transition-all">
+                Crear cuenta y continuar
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
               </button>
             </div>
           </Transition>
@@ -381,9 +376,7 @@ const { recording: micRecording, transcribing: micTranscribing, levels: micLevel
 
 const retitled = ref(false)
 const pendingAccount = ref(null)
-const acct = reactive({ name: '', email: '', phone: '' })
-const acctLoading = ref(false)
-const acctError = ref('')
+const GUEST_RESUME_KEY = 'boxly_guest_resume'
 
 // "Ya lo compré yo" → create a normal SHIPPING order (casillero). Client-side
 // because the proof-of-purchase file lives in the browser. We confirm the
@@ -407,12 +400,9 @@ function composeAddress(a) {
 }
 
 function openSelfOrder(toolCall) {
-  // Guests can't create an order yet (and hitting authed routes would bounce
-  // them to /login). Tell the model to create the account first, then retry.
-  if (!user.value) {
-    chat.addToolResult({ tool: 'create_self_order', toolCallId: toolCall.toolCallId, output: { success: false, error: 'not_authenticated', message: 'Ask the user to create an account first (call create_account), then call create_self_order again.' } })
-    return
-  }
+  // Guests must register first → send them to register and resume on return
+  // (goRegister stashes this chat; the self-order intent re-fires authenticated).
+  if (!user.value) { goRegister(); return }
   const raw = (toolCall.input?.items) || []
   const items = raw.map((it) => {
     const saved = it.saved_id ? savedProducts.value.find((p) => p.id === it.saved_id) : null
@@ -604,10 +594,9 @@ const chat = new Chat({
   sendAutomaticallyWhen: continueAfterAccount,
   onToolCall({ toolCall }) {
     if (toolCall.toolName === 'create_account') {
-      const inp = toolCall.input || {}
-      acct.name = inp.name || acct.name
-      acct.email = inp.email || acct.email
-      acct.phone = inp.phone || acct.phone
+      // Guest hit the purchase gate → show a button that sends them to register
+      // (and resumes this chat on return). No inline form; the register page
+      // collects details and supports Google sign-in.
       pendingAccount.value = { toolCallId: toolCall.toolCallId }
     } else if (toolCall.toolName === 'create_self_order') {
       openSelfOrder(toolCall)
@@ -641,6 +630,8 @@ async function initLoggedIn() {
   inited = true
   await Promise.all([loadConversations(), loadProfile()])
   ensureChatToken()
+  // Just came back from register/Google sign-in mid-purchase? Restore + continue.
+  if (await maybeResumeGuest()) return
   // Refresh / deep-link: load the conversation named in the URL FROM THE SERVER.
   // Accept ?c=<id> (new) or an old /app/search/<id> path id.
   const cid = route.query.c || route.params.id
@@ -657,7 +648,7 @@ let tokenPromise = null
 function ensureChatToken() {
   // Guests have no session — minting a chat token would 401 and the global
   // $fetch plugin would bounce them to /login. They don't need a token until
-  // they create an account (submitAccount sets it directly). So skip for guests.
+  // they're signed in (resume mints it on return). So skip for guests.
   if (!user.value || token.value) return
   if (!tokenPromise) {
     tokenPromise = $customFetch('/me/chat-token', { method: 'POST' })
@@ -791,29 +782,49 @@ async function toggleMic() {
   if (text) input.value = (input.value ? input.value.trim() + ' ' : '') + text
 }
 
-async function submitAccount() {
-  acctError.value = ''
-  if (!acct.name || !acct.email || !acct.phone) { acctError.value = 'Completa todos los campos.'; return }
-  acctLoading.value = true
-  try {
-    const res = await $customFetch('/auth/chat-register', { method: 'POST', body: { name: acct.name, email: acct.email, phone: acct.phone } })
-    token.value = res.token
-    user.value = res.user
-    try {
-      const msgs = chat.messages.map((m) => ({ role: m.role, content: { parts: cleanParts(m.parts) } }))
-      const c = await $customFetch('/conversations/claim', { method: 'POST', body: { messages: msgs } })
-      activeId.value = c.data.id
-      savedCount.value = chat.messages.length
-      await loadConversations()
-    } catch {}
-    const toolCallId = pendingAccount.value.toolCallId
-    pendingAccount.value = null
-    await chat.addToolResult({ tool: 'create_account', toolCallId, output: { success: true, user: res.user } })
-  } catch (e) {
-    acctError.value = e?.data?.message || 'No se pudo crear la cuenta. ¿Ya tienes una? Inicia sesión.'
-  } finally {
-    acctLoading.value = false
+// Guest purchase gate → send them to the real register page, then resume THIS
+// chat when they come back (works for email signup AND Google sign-in, since the
+// stash is in localStorage and the register/OAuth flows honor ?redirect).
+function goRegister() {
+  // The last thing the guest asked for = the intent to pick back up on return.
+  let intent = ''
+  for (let i = chat.messages.length - 1; i >= 0; i--) {
+    if (chat.messages[i].role === 'user') {
+      intent = (chat.messages[i].parts || []).filter((p) => p.type === 'text').map((p) => p.text).join(' ')
+      break
+    }
   }
+  intent = intent.replace(/https?:\/\/\S+/g, '').replace(/\s+/g, ' ').trim()
+  const messages = chat.messages.map((m) => ({ role: m.role, content: { parts: cleanParts(m.parts) } }))
+  try { localStorage.setItem(GUEST_RESUME_KEY, JSON.stringify({ messages, intent, ts: Date.now() })) } catch { /* ignore */ }
+  pendingAccount.value = null
+  navigateTo(`/register?redirect=${encodeURIComponent('/app/search?resume=1')}`)
+}
+
+// On return from register/Google sign-in: if a fresh guest stash exists, restore
+// the conversation, claim it under the new account, and continue the purchase.
+async function maybeResumeGuest() {
+  let stash = null
+  try { stash = JSON.parse(localStorage.getItem(GUEST_RESUME_KEY) || 'null') } catch { /* ignore */ }
+  if (!stash || !Array.isArray(stash.messages) || !stash.messages.length) return false
+  localStorage.removeItem(GUEST_RESUME_KEY)
+  if (Date.now() - (stash.ts || 0) > 30 * 60 * 1000) return false // too old — don't surprise them
+  // Restore the chat history into the live chat.
+  chat.messages = stash.messages.map((m, i) => ({ id: 'r' + i, role: m.role, parts: (m.content && m.content.parts) || [] }))
+  registerFromMessages() // rebuild the in-chat product registry so the PR can bind the saved product
+  // Migrate the conversation under the now-authenticated account.
+  try {
+    const c = await $customFetch('/conversations/claim', { method: 'POST', body: { messages: stash.messages } })
+    activeId.value = c.data.id
+    savedCount.value = chat.messages.length
+    await loadConversations()
+  } catch (e) { console.error('resume claim failed', e) }
+  scrollDown()
+  // Continue where they left off (token is minted by initLoggedIn).
+  await ensureChatToken()
+  chat.sendMessage({ text: `Ya creé mi cuenta ✅ ${stash.intent || 'Continuemos con el pedido.'}`.trim() })
+  scrollDown()
+  return true
 }
 
 watch(() => chat.status, async (s) => {

@@ -1,58 +1,73 @@
-# Dashboard "Alcance geográfico" — show ALL order locations
-
-## Problem
-- Map only plots cities that exist in a hardcoded ~51-city `COORDS` table in `components/admin/CitiesMap.vue`. Every other city is counted as "X ciudades sin ubicar en el mapa" (72 right now) and NOT drawn.
-- Sidebar "Ciudades principales" is `.slice(0, 8)` — only top 8 shown.
-- API already returns ALL cities + their `estado` + order counts, no limit. So this is 100% a frontend fix. No API repo change.
-
-## Plan (app repo only)
-1. **CitiesMap.vue — guarantee every city gets a point.**
-   - Add a `STATE_COORDS` table of the 32 Mexican state centroids (small, fixed, no external API).
-   - Add `resolveCenter(city)`: use precise city coords if known; otherwise fall back to the city's `estado` centroid, nudged by a city-seeded offset so distinct cities in the same state form separate clusters instead of stacking.
-   - Rewrite `buildGeoJson()` to plot any city that resolves to a center. "unlocated" now only counts cities whose estado is also unknown (≈0).
-2. **dashboard/index.vue — sidebar shows all cities, scrollable.**
-   - Remove `.slice(0, 8)` so the list contains every city, sorted by orders.
-   - Make the list container scrollable (`max-h` + `overflow-y-auto`).
-   - Relabel "Ciudades principales" → "Todas las ciudades" / "All cities".
-
-## Notes
-- State-centroid fallback chosen over an external geocoding service: zero new dependency/cost, and it makes coverage complete since the API gives `estado` for every order. Cities with exact coords still plot exactly.
-
-## Review
-Done — frontend only, no API change.
-
-- `components/admin/CitiesMap.vue`
-  - Added `STATE_COORDS` (32 Mexican state centroids).
-  - Added `resolveCenter(c)`: exact city coords when known, else estado centroid + per-city seeded offset (±0.4°) so cities in the same state don't stack.
-  - `buildGeoJson()` now plots every city that resolves to a centre; `unlocated` only counts cities whose estado is also unknown (≈0 in practice). Dot capping/revenue chunking logic unchanged.
-- `pages/app/admin/dashboard/index.vue`
-  - `topCities` no longer `.slice(0, 8)` — lists all cities, sorted by orders desc.
-  - Sidebar list is scrollable (`max-h-[400px] overflow-y-auto`), header shows the count.
-  - Label "Ciudades principales" → "Todas las ciudades" / "All cities".
-
-Net effect: the map shows a point for (essentially) every order, the "72 sin ubicar" banner drops to ~0, and the sidebar scrolls through all cities. Two separate repos noted — only the `app` repo was touched.
-
----
-
-# Part 2 — Dedicated full-screen "Live Map" wall page (for the office TV)
+# Guest → register gate on the (eventually public) AI search/chat page
 
 ## Goal
-Turn the geo visualization into its own premium, full-screen page to flex on a TV.
-Light premium theme · auto-scrolling city list · 30D/90D/1Y/ALL filter (default ALL).
+On a public `/app/search`, a guest can search, but to create a Purchase Request
+(or a self-ship order) they must have an account. When a guest hits that gate,
+the chat shows a button → `/register?redirect=…` → after signup they land back
+in the SAME chat, resumed where they left off, and the action continues.
 
-## Done
-- `components/admin/CitiesMap.vue` — added backward-compatible presentation props
-  (`height`, `mapStyle`, `dotColor`, `dotStroke`, `showNav`, `showCaption`, `glow`,
-  `center`, `zoom`). Defaults preserve the dashboard's existing look exactly. Added an
-  optional soft "glow" halo layer beneath the dots.
-- `pages/app/admin/wall/index.vue` — NEW page on the `empty` layout (no sidebar chrome),
-  `/app/admin/wall`, auth+admin protected. Full-bleed map with frosted-glass overlays:
-  live brand bar, range filter (default ALL), fullscreen toggle (Fullscreen API) + exit,
-  auto-scrolling city leaderboard (CSS marquee, pauses on hover, only scrolls when >12
-  cities), and animated count-up stat cards (Órdenes/Clientes/Ingresos/Estados). Polls
-  the geographic endpoint every 60s so the wall stays live.
-- `components/AdminSidebar.vue` — added "Mapa en vivo / Live Map" nav item (GlobeAmericasIcon).
+## Key facts (from audit)
+- `/register` ALREADY reads `?redirect=<path>` and navigates there after signup
+  (register.vue ~785-793). Login page too. So the round-trip is already supported.
+- `/app/search` (`pages/app/search/[[id]].vue`) is currently `middleware: ['auth']`
+  — making it public is a SEPARATE change (do when ready to launch publicly).
+- Guest chat is IN-MEMORY only (`chat.messages`); guests can't persist to backend.
+  A hard redirect to /register LOSES the conversation unless we stash it.
+- Existing inline flow: `create_account` tool → inline form → `/auth/chat-register`
+  (PASSWORDLESS account, social-login only later) → `/conversations/claim` migrates
+  the guest messages. Never leaves the page; no context loss.
 
-## Verification
-- `yarn dev` compiles clean; `GET /app/admin/wall` → 200, no Vue/Vite errors.
-- Could not grab a live screenshot (Chrome extension not connected + page is admin-gated).
+## The fork (needs confirmation — see AskUserQuestion)
+Redirect-to-full-register (user's described flow, real password account, but loses
++ must restore the in-memory chat) vs keep the inline passwordless form (no context
+loss, already built) vs offer both.
+
+## Plan (assuming redirect flow is chosen)
+1. **Stash before leaving** — helper to save `{messages (cleaned), pendingIntent, ts}`
+   to localStorage (`boxly_guest_resume`, ~30min TTL) right before navigating.
+2. **Guest gate in chat** — when a guest triggers assisted purchase / PR, the AI
+   surfaces a "Crea tu cuenta para continuar" button (client-rendered, like the
+   pendingAccount card) → stash → `navigateTo('/register?redirect=/app/search?resume=1')`.
+   Prompt: tell the model that for guests it must call the gate tool, not ask for
+   name/email/phone inline.
+3. **Resume on return** — on `/app/search` mount, if authenticated AND a fresh
+   `boxly_guest_resume` exists: restore messages into the chat, `/conversations/claim`
+   them under the new account, clear the stash, and continue the pending action
+   (re-send the purchase intent / let the model confirm).
+4. **(Later) make the page public** — relax the `auth` middleware on the search page;
+   keep authed tools (PR/order/profile) gated server-side (they already are).
+
+## Decisions (confirmed)
+- Redirect to full register (email OR Google) + FULL resume & continue.
+
+## Review — built (app only)
+**Frontend `components/ShoppingAssistant.vue`:**
+- Replaced the inline passwordless account form with a GATE BUTTON. When the
+  model calls `create_account` (guest), a card shows "Crea tu cuenta para
+  continuar" → `goRegister()`.
+- `goRegister()`: stashes the cleaned chat + the last user intent (URLs stripped)
+  to localStorage `boxly_guest_resume` (30-min TTL), then
+  `navigateTo('/register?redirect=' + enc('/app/search?resume=1'))`.
+- `maybeResumeGuest()` (run in `initLoggedIn`, before deep-link open): if a fresh
+  stash exists, restore the messages into the chat, rebuild the product registry,
+  `/conversations/claim` under the new account, mint the chat token, and re-send
+  "Ya creé mi cuenta ✅ <intent>" so the model finishes the order.
+- Self-purchase guest branch (`openSelfOrder`) now also routes through
+  `goRegister()` instead of bouncing the model.
+- Removed dead inline `submitAccount` + `acct` refs.
+
+**Backend `server/api/assistant.post.ts`:**
+- `create_account` tool: empty input schema; description says it opens the gate
+  (app handles register + return) — model must NOT collect name/email/phone.
+- Guest prompt line: call `create_account` the moment a guest confirms an order;
+  never call PR/self-order for a guest before the account exists.
+
+**Works with Google sign-in:** the stash is in localStorage (survives the OAuth
+round-trip), and register.vue + the Socialite callback both honor `?redirect`
+(new Google users detour via complete-profile?redirect=… then land on /app/search).
+
+## Still pending (intentionally NOT done — separate launch step)
+- `/app/search` is still `middleware: ['auth']`. To actually let guests in, that
+  gate must be relaxed AND the /app layout/nav checked for guest-safety. Bigger
+  change with SEO/layout implications — do as a focused follow-up when launching
+  the public page. Until then this flow is in place but dormant.
