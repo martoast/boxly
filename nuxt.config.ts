@@ -13,10 +13,11 @@ export default defineNuxtConfig({
     '/app/**':   { ssr: false },
     '/login':    { ssr: false },
     '/register': { ssr: false },
-    // The BOXLY Concierge now lives at the PUBLIC /search (standalone, no navbar,
-    // guest-friendly via auth-soft). Client-rendered like the rest of the app.
-    '/search':        { ssr: false },
-    '/search/**':     { ssr: false },
+    // The BOXLY Concierge lives at the PUBLIC /search (standalone, no navbar,
+    // guest-friendly via auth-soft). SSR is ON here (default) so social share
+    // previews + search crawlers get the server-rendered <head> meta and a
+    // crawlable hero; the heavy interactive chat is wrapped in <ClientOnly>
+    // in the page, so only the lightweight shell renders on the server.
     // Old entry points (incl. the previous authed /app/search) redirect here.
     '/app/search':    { redirect: '/search' },
     '/app/search/**': { redirect: '/search' },
