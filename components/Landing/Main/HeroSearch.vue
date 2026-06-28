@@ -44,7 +44,7 @@ const { $customFetch } = useNuxtApp()
 const q = ref('')
 
 const t = createTranslations({
-  placeholder: { es: 'Escribe un producto, marca o tienda…', en: 'Type a product, brand or store…' },
+  placeholder: { es: 'Escribe un producto, marca o pega un link…', en: 'Type a product, brand or paste a link…' },
   search:      { es: 'Buscar', en: 'Search' },
 })
 
