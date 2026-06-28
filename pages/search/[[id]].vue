@@ -1,25 +1,14 @@
 <template>
   <ClientOnly>
     <ShoppingAssistant standalone />
-    <!-- SSR / pre-hydration fallback. Crawlers and social scrapers that don't
-         run JS see this (plus the <head> meta below), so the link is indexable
-         and gets a real preview. It mirrors the chat's empty state visually so
-         there's no flash when the interactive app hydrates. -->
+    <!-- Pre-hydration fallback: just a spinner, no text. SEO/share crawlers
+         rely on the <head> meta below, not on visible body copy. -->
     <template #fallback>
-      <div class="h-[100dvh] flex flex-col items-center justify-center bg-white px-6 text-center">
-        <img src="/logo.svg" alt="Boxly" class="h-10 mb-6" />
-        <h1 class="text-2xl md:text-3xl font-bold text-gray-900 max-w-xl">
-          Compra en cualquier tienda de Estados Unidos y recíbelo en México
-        </h1>
-        <p class="mt-3 text-gray-500 max-w-md">
-          Tu asistente de compras Boxly: busca productos de tiendas de USA, te
-          cotizamos el total con envío a México y nosotros lo compramos y lo
-          enviamos por ti.
-        </p>
-        <div class="mt-8 flex items-center gap-2 text-gray-400 text-sm">
-          <span class="w-2 h-2 rounded-full bg-primary-500 animate-pulse" />
-          Cargando tu asistente…
-        </div>
+      <div class="h-[100dvh] flex items-center justify-center bg-white">
+        <svg class="w-8 h-8 animate-spin text-primary-500" viewBox="0 0 24 24" fill="none" aria-label="Cargando">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+          <path class="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+        </svg>
       </div>
     </template>
   </ClientOnly>
