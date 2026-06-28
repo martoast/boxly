@@ -638,6 +638,9 @@ const chat = new Chat({
 let inited = false
 onMounted(() => {
   watch(user, (u) => { if (u && !inited) initLoggedIn() }, { immediate: true })
+  // Guest who bounced to /register and hit BACK (no account yet): bring their
+  // chat back. Logged-in returns are handled by maybeResumeGuest in initLoggedIn.
+  if (!user.value) maybeRestoreGuestChat()
   // Reflect the active chat in the URL as ?c=<id> (query, no remount).
   watch(activeId, (id) => syncUrl(id))
   // Resolve a real product photo for each starter card (cached in localStorage).
@@ -867,6 +870,22 @@ async function maybeResumeGuest() {
   return true
 }
 
+// Guest tapped "create account", landed on /register, then hit BACK without
+// signing up. They're STILL a guest (initLoggedIn / maybeResumeGuest never run),
+// so rehydrate their chat from the gate stash here so they don't lose it. Purely
+// visual — no claim, no token, no auto-message. The stash is LEFT in place: if
+// they later go register, maybeResumeGuest() restores + claims + continues it.
+function maybeRestoreGuestChat() {
+  if (chat.messages.length) return // don't clobber an active chat
+  let stash = null
+  try { stash = JSON.parse(localStorage.getItem(GUEST_RESUME_KEY) || 'null') } catch { /* ignore */ }
+  if (!stash || !Array.isArray(stash.messages) || !stash.messages.length) return
+  if (Date.now() - (stash.ts || 0) > 30 * 60 * 1000) { localStorage.removeItem(GUEST_RESUME_KEY); return } // too old
+  chat.messages = stash.messages.map((m, i) => ({ id: 'g' + i, role: m.role, parts: (m.content && m.content.parts) || [] }))
+  registerFromMessages() // rebuild the product registry so a later PR can bind the saved product
+  scrollDown()
+}
+
 watch(() => chat.status, async (s) => {
   scrollDown()
   registerFromMessages() // keep the product registry current with what's shown
@@ -938,6 +957,10 @@ function newChat() {
   hasMoreOlder.value = false
   savedProducts.value = []
   drawerOpen.value = false
+  // Starting fresh on purpose → drop any guest gate stash so the old chat won't
+  // resurrect on a later refresh (the post-register resume only matters if they
+  // were mid-purchase, which a deliberate "new chat" supersedes).
+  try { localStorage.removeItem(GUEST_RESUME_KEY) } catch { /* ignore */ }
 }
 
 async function openChat(id) {
