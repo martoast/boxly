@@ -650,7 +650,11 @@ onMounted(() => {
   // After the first reveal, keep filling images if the personalized set changes.
   watch(suggestions, (list) => { if (cardsReady.value) ensureCardImages(list) })
   // Restore the saved sidebar collapsed/expanded preference (default collapsed).
-  try { const v = localStorage.getItem(SIDEBAR_KEY); if (v !== null) sidebarCollapsed.value = v === '1' } catch { /* ignore */ }
+  // On the public /search page always start CLOSED (landing-style) — don't reopen
+  // from a stored preference.
+  if (!standalone.value) {
+    try { const v = localStorage.getItem(SIDEBAR_KEY); if (v !== null) sidebarCollapsed.value = v === '1' } catch { /* ignore */ }
+  }
 })
 
 async function initLoggedIn() {
