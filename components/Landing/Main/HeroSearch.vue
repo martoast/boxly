@@ -11,6 +11,7 @@
         :placeholder="t.placeholder"
         :aria-label="t.placeholder"
         autocomplete="off"
+        @focus="warmSearch"
         class="w-full rounded-2xl bg-white/95 backdrop-blur pl-5 pr-14 py-4 text-base text-gray-900 placeholder-gray-500 shadow-xl ring-1 ring-black/5 focus:outline-none focus:ring-2 focus:ring-primary-500 transition"
       />
       <button
@@ -49,8 +50,29 @@ const t = createTranslations({
 })
 
 function go(text) {
+  warmSearch() // no-op if already warmed; covers chip taps that skip input focus
   const query = (text ?? q.value).toString().trim()
   navigateTo(query ? `/search?q=${encodeURIComponent(query)}` : '/search')
+}
+
+// We KNOW the next step is /search, so warm the path ahead of the navigation:
+//  1) preload its JS chunks (the ~1.7MB AI-SDK/ShoppingAssistant bundle) so the
+//     page mounts instantly with no download, and
+//  2) ping the Nitro server function so the first /api/assistant call isn't a
+//     cold start. Done once, on the first engagement signal (focus/idle/submit).
+let warmed = false
+function warmSearch() {
+  if (warmed) return
+  warmed = true
+  preloadRouteComponents('/search')
+  $fetch('/api/ping').catch(() => {})
+}
+// Also warm during browser idle even if they never focus — by the time they
+// engage, chunks are likely already cached. Cheap; runs after hydration.
+onNuxtReady(() => { requestIdleCallbackSafe(warmSearch) })
+function requestIdleCallbackSafe(cb) {
+  if (typeof window !== 'undefined' && 'requestIdleCallback' in window) window.requestIdleCallback(cb, { timeout: 2500 })
+  else setTimeout(cb, 1200)
 }
 
 // Curated bilingual defaults shown instantly (SSR, no request). Enhanced on the
