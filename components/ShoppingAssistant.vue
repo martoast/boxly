@@ -319,14 +319,19 @@ function syncUrl(id) {
 }
 
 // Hand-off from the landing hero (or any deep link): /search?q=... auto-sends the
-// query as the first message, then strips q from the URL so a refresh won't resend
-// it. Reuses pickSuggestion (token + conversation + send). Works for guests too.
+// query as the first message. Reuses pickSuggestion (token + conversation + send).
+// Works for guests too. Guarded so it fires exactly once per mount (a guest fires
+// it in setup for an instant first paint; authed fires it after the chat token is
+// minted in initLoggedIn). URL cleanup is deferred so we never nest a navigation
+// inside setup; the guard already prevents a resend before the URL settles.
+let initialQuerySent = false
 function sendInitialQuery() {
+  if (initialQuerySent) return false
   const q = (route.query.q ?? '').toString().trim()
   if (!q) return false
-  const clean = { ...route.query }; delete clean.q
-  router.replace({ query: clean })
+  initialQuerySent = true
   pickSuggestion(q)
+  nextTick(() => { const clean = { ...route.query }; delete clean.q; router.replace({ query: clean }) })
   return true
 }
 
@@ -647,6 +652,13 @@ const chat = new Chat({
   },
 })
 
+// INSTANT first paint for the landing-hero hand-off: a GUEST arriving with ?q=...
+// fires it synchronously HERE in setup (not onMounted), so the very first render
+// already shows their message bubble + typing dots — no starter-cards flash, no
+// wait. Guests need no chat token, so there's nothing to wait for. Authed users
+// go through initLoggedIn instead (their token must be minted before sending).
+if (import.meta.client && !user.value) sendInitialQuery()
+
 // Init on the client once the user is known. Load history + profile in PARALLEL
 // so the sidebar shows fast; the chat token is only needed to SEND (authed
 // tools), so it's minted in the background, off the load path.
@@ -654,9 +666,9 @@ let inited = false
 onMounted(() => {
   watch(user, (u) => { if (u && !inited) initLoggedIn() }, { immediate: true })
   // Guest entry points (logged-in users go through initLoggedIn):
-  //  1) arrived from the landing hero with ?q=... → fire that search, else
+  //  1) arrived from the landing hero with ?q=... → already fired in setup, or
   //  2) bounced to /register and hit BACK (no account yet) → restore their chat.
-  if (!user.value && !sendInitialQuery()) maybeRestoreGuestChat()
+  if (!user.value && !initialQuerySent && !sendInitialQuery()) maybeRestoreGuestChat()
   // Reflect the active chat in the URL as ?c=<id> (query, no remount).
   watch(activeId, (id) => syncUrl(id))
   // Resolve a real product photo for each starter card (cached in localStorage).
