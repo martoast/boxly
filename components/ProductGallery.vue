@@ -80,10 +80,6 @@
       </div>
     </div>
 
-      <!-- Edge fades: hint there's more to either side -->
-      <div v-show="canScroll && !atEnd" class="pointer-events-none absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-gray-50 to-transparent"></div>
-      <div v-show="canScroll && !atStart" class="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-gray-50 to-transparent"></div>
-
       <!-- Desktop arrow buttons: clickable scroll controls (hover devices only,
            since touch users just swipe). -->
       <button
