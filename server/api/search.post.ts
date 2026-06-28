@@ -1,13 +1,15 @@
 import { generateText } from 'ai'
 import { createAnthropic } from '@ai-sdk/anthropic'
+import { curateProducts } from '../utils/curate'
 
 /**
  * Smart search backend for the search-first shopping flow.
  *
- * Accepts natural language, a link, or an image and returns ranked products
- * (deals-first — the Laravel layer already prioritizes on-sale items). The AI is
- * an invisible "smart search" brain here, not a chat: it only turns an image
- * (vision) or a vague phrase into a clean US-store query.
+ * Accepts natural language, a link, or an image and returns ranked products.
+ * The AI is an invisible "smart search" brain here, not a chat: vision turns a
+ * photo into a query, and curateProducts() (server/utils/curate.ts) does one
+ * pass over the raw results — relevance + color/attribute match + trust ranking,
+ * and extracts any store the shopper named so we can float it to the top.
  *
  * Body: { q?, image?, filters?: { store, min_price, max_price, sale }, shoppingProfile? }
  * Returns: { type: 'results', query, products, price_range, filters }
@@ -60,62 +62,6 @@ async function describeImage(dataUrl: string): Promise<string> {
   }
 }
 
-// AI intent filter: titles often hide the real color (a Spanish query like
-// "owala rosa", or marketing names like "Misty Meadows" = teal), so plain text
-// matching can't tell. Use the model's knowledge to keep results that match the
-// query's color/attribute on top — preserving the cheapest-first order within
-// the matches. Falls back to the original order on any failure.
-async function reorderByIntent(query: string, products: any[]): Promise<any[]> {
-  const words = query.trim().split(/\s+/).filter((w) => w.length >= 2)
-  if (words.length < 2 || products.length < 4 || !process.env.ANTHROPIC_API_KEY) return products
-  try {
-    const anthropic = createAnthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-    const list = products.map((p, i) => `${i}: ${p.title || ''}`).join('\n')
-    const { text } = await generateText({
-      model: anthropic(PARSE_MODEL),
-      system:
-        'You filter US-shopping results to those matching the shopper\'s intent — ESPECIALLY color. The query may be Spanish (rosa=pink, azul=blue, negro=black, verde=green, morado/lila=purple, gris=gray, blanco=white, rojo=red, amarillo=yellow, naranja=orange, café/marrón=brown). Map marketing color names to real colors using product knowledge (e.g. "Misty Meadows"=teal/green, "Sugar Spice"=pink, "Blossom Bunny"=pink). Return ONLY the item numbers that MATCH the query, comma-separated, no prose. If a title has NO color/attribute info, INCLUDE it (unknown could match). Exclude only clear mismatches.',
-      prompt: `Query: "${query}"\n\nItems:\n${list}\n\nMatching item numbers:`,
-    })
-    const idx = (text.match(/\d+/g) || []).map(Number).filter((n) => n >= 0 && n < products.length)
-    if (!idx.length || idx.length === products.length) return products
-    const matchSet = new Set(idx)
-    const matched = products.filter((_, i) => matchSet.has(i)) // keep backend (cheapest) order
-    const rest = products.filter((_, i) => !matchSet.has(i))
-    return [...matched, ...rest]
-  } catch {
-    return products
-  }
-}
-
-// Big-box US retailers people name in a query ("owala rosa DE TARGET"). When one
-// is detected (or passed as a filter), we float that store's listings to the top.
-const RETAILERS = [
-  'target', 'walmart', 'amazon', 'costco', 'best buy', 'macy', "macy's", 'nordstrom',
-  'kohl', "kohl's", 'sephora', 'ulta', 'dick', "dick's", 'rei', 'gamestop', 'lowes',
-  "lowe's", 'home depot', 'cvs', 'walgreens', 'petco', 'petsmart', 'nike', 'adidas',
-  'lululemon', 'gap', 'old navy', 'american eagle', 'urban outfitters', 'tjmaxx',
-]
-function detectRequestedStore(query: string, filterStore?: string): string {
-  if (filterStore) return filterStore
-  const q = ` ${(query || '').toLowerCase()} `
-  for (const r of RETAILERS) if (q.includes(` ${r} `) || q.includes(` ${r},`) || q.includes(`de ${r}`) || q.includes(`from ${r}`)) return r
-  return ''
-}
-// Stable-float products whose store matches the requested one (deterministic — the
-// requested store always wins over a cheaper/“more trusted” competing seller).
-function floatRequestedStore(products: any[], requested: string): any[] {
-  const want = requested.toLowerCase().replace(/[^a-z0-9]/g, '')
-  if (!want || !Array.isArray(products)) return products
-  const norm = (s: any) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '')
-  const match: any[] = [], rest: any[] = []
-  for (const p of products) {
-    const ps = norm(p.store)
-    ;(ps && ps.includes(want) ? match : rest).push(p)
-  }
-  return match.length ? [...match, ...rest] : products
-}
-
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
   const filters = body?.filters || {}
@@ -159,9 +105,10 @@ export default defineEventHandler(async (event) => {
     start,
   })
 
-  let products = await reorderByIntent(q, r?.products || [])
-  // If the shopper named a specific store, put that store's listings first.
-  products = floatRequestedStore(products, detectRequestedStore(q, filters.store))
+  // One smart pass: relevance + color/attribute match + trust ranking, plus the
+  // model extracts any named store from the free-text query; code then floats it
+  // (an explicit store filter, if set, wins over what the model inferred).
+  const products = await curateProducts(q, r?.products || [], { store: filters.store })
 
   return {
     type: 'results',
