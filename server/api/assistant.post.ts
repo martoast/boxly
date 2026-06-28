@@ -58,6 +58,31 @@ function lastUserText(messages: any[]): string {
 
 const PRODUCT_TOOLS = new Set(['search_products', 'browse_store', 'browse_stores', 'show_products', 'show_saved_products', 'extract_product', 'web_search'])
 
+// Token efficiency: a gallery tool returns rich product objects, but most of each
+// is DISPLAY-ONLY — the image URL, the buy/Google link, and especially the
+// immersive `token` (an opaque page token that can be THOUSANDS of chars, used
+// only by the frontend modal). The UI renders all of that from the full tool
+// output; the MODEL never uses it. So we keep only the fields the model reasons
+// over and feed THAT to the model via `toModelOutput`, while the client still
+// receives the complete object. On a 16-item search that's the difference between
+// the model re-reading ~16 long tokens + URLs every turn vs. a tiny summary.
+const MODEL_FIELDS = ['id', 'title', 'store', 'price', 'was', 'on_sale', 'rating', 'reviews']
+function compactProduct(p: any) {
+  if (!p || typeof p !== 'object') return p
+  const o: any = {}
+  for (const k of MODEL_FIELDS) if (p[k] !== undefined && p[k] !== null) o[k] = p[k]
+  if (p.snippet) o.snippet = String(p.snippet).slice(0, 140)
+  return o
+}
+// toModelOutput for gallery tools: full output → client (rendering); compact
+// products → model (context). Non-product fields (price_range, has_more…) pass through.
+function galleryModelOutput({ output }: { output: any }) {
+  if (output && Array.isArray(output.products)) {
+    return { type: 'json' as const, value: { ...output, products: output.products.map(compactProduct) } }
+  }
+  return { type: 'json' as const, value: output ?? null }
+}
+
 // Analytics: a turn that used a product tool is a SEARCH (already logged server-side
 // by /products/search); a turn with no product tool is a business QUESTION. Log the
 // latter to /search-events, forwarding the user's identity so it's attributed.
@@ -360,6 +385,7 @@ export default defineEventHandler(async (event) => {
           sale: z.boolean().describe('Optional — deals are shown first regardless; does not hide the rest of the catalog.').optional(),
         }),
         execute: async ({ store_url, query, sale }) => callApi('/products/store-feed', { method: 'POST', body: { url: store_url, query: query || undefined, sale: sale || undefined, limit: 12 }, timeoutMs: 25000 }),
+        toModelOutput: galleryModelOutput,
       }),
 
       browse_stores: tool({
@@ -387,6 +413,7 @@ export default defineEventHandler(async (event) => {
           }))
           return { products: interleave(perStore) }
         },
+        toModelOutput: galleryModelOutput,
       }),
 
       search_products: tool({
@@ -405,6 +432,7 @@ export default defineEventHandler(async (event) => {
           if (r && Array.isArray(r.products)) r.products = await curateProducts(query, r.products, { store })
           return r
         },
+        toModelOutput: galleryModelOutput,
       }),
 
       show_saved_products: tool({
@@ -417,6 +445,7 @@ export default defineEventHandler(async (event) => {
           const products = savedProducts.filter((p) => set.has(p.id))
           return { products }
         },
+        toModelOutput: galleryModelOutput,
       }),
 
       show_products: tool({
@@ -451,6 +480,7 @@ export default defineEventHandler(async (event) => {
           const verified = enriched.filter((p) => p.ok).map(({ ok, ...p }) => p)
           return { products: verified }
         },
+        toModelOutput: galleryModelOutput,
       }),
 
       show_shipment: tool({
