@@ -312,7 +312,22 @@ function syncUrl(id) {
   const have = route.query.c != null ? String(route.query.c)
     : (route.params.id != null ? String(route.params.id) : null)
   if (want === have) return
-  router.replace({ query: want ? { ...route.query, c: want } : (() => { const q = { ...route.query }; delete q.c; return q })() })
+  const q = { ...route.query }
+  delete q.q // hero hand-off param — never keep it once a conversation is reflected
+  if (want) q.c = want; else delete q.c
+  router.replace({ query: q })
+}
+
+// Hand-off from the landing hero (or any deep link): /search?q=... auto-sends the
+// query as the first message, then strips q from the URL so a refresh won't resend
+// it. Reuses pickSuggestion (token + conversation + send). Works for guests too.
+function sendInitialQuery() {
+  const q = (route.query.q ?? '').toString().trim()
+  if (!q) return false
+  const clean = { ...route.query }; delete clean.q
+  router.replace({ query: clean })
+  pickSuggestion(q)
+  return true
 }
 
 const token = ref(null)
@@ -638,9 +653,10 @@ const chat = new Chat({
 let inited = false
 onMounted(() => {
   watch(user, (u) => { if (u && !inited) initLoggedIn() }, { immediate: true })
-  // Guest who bounced to /register and hit BACK (no account yet): bring their
-  // chat back. Logged-in returns are handled by maybeResumeGuest in initLoggedIn.
-  if (!user.value) maybeRestoreGuestChat()
+  // Guest entry points (logged-in users go through initLoggedIn):
+  //  1) arrived from the landing hero with ?q=... → fire that search, else
+  //  2) bounced to /register and hit BACK (no account yet) → restore their chat.
+  if (!user.value && !sendInitialQuery()) maybeRestoreGuestChat()
   // Reflect the active chat in the URL as ?c=<id> (query, no remount).
   watch(activeId, (id) => syncUrl(id))
   // Resolve a real product photo for each starter card (cached in localStorage).
@@ -667,6 +683,8 @@ async function initLoggedIn() {
   ensureChatToken()
   // Just came back from register/Google sign-in mid-purchase? Restore + continue.
   if (await maybeResumeGuest()) return
+  // Arrived from the landing hero with ?q=... → fire that search as the first message.
+  if (sendInitialQuery()) return
   // Refresh / deep-link: load the conversation named in the URL FROM THE SERVER.
   // Accept ?c=<id> (new) or an old /app/search/<id> path id.
   const cid = route.query.c || route.params.id

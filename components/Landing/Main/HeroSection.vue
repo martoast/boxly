@@ -43,23 +43,21 @@
             <p class="text-base sm:text-lg lg:text-xl text-white/85 mt-4 sm:mt-5 max-w-xl leading-relaxed">
               {{ t.subtitle }}
             </p>
-            <div class="mt-7 flex flex-col sm:flex-row gap-3">
-              <!-- Primary — register (or dashboard if signed in). On mobile
-                   this is the main entry to the app since the nav doesn't
-                   expose auth buttons. -->
-              <NuxtLink
-                :to="primaryHref"
-                class="inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-primary-600 text-white font-bold rounded-full shadow-lg hover:shadow-xl hover:bg-primary-700 transition-all text-base"
-              >
+
+            <!-- Primary funnel: the concierge search box. Hands off to /search,
+                 which fires the query as the first message (guests included). -->
+            <div class="mt-7">
+              <HeroSearch />
+            </div>
+
+            <!-- Secondary links, de-emphasized — the search box is the main CTA.
+                 Authed users get a "Mi cuenta" shortcut; everyone gets how-it-works. -->
+            <div class="mt-5 flex items-center gap-x-5 gap-y-2 flex-wrap text-sm">
+              <NuxtLink :to="primaryHref" class="inline-flex items-center gap-1.5 text-white font-semibold hover:text-white/80 transition-colors">
                 {{ primaryLabel }}
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
               </NuxtLink>
-              <!-- Secondary — non-auth users see "Iniciar sesión", signed-in
-                   users see "Cómo funciona" because they don't need login. -->
-              <NuxtLink
-                :to="secondaryHref"
-                class="inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-white/10 backdrop-blur border border-white/20 text-white font-semibold rounded-full hover:bg-white/20 transition-colors text-base"
-              >
+              <NuxtLink :to="secondaryHref" class="text-white/75 font-medium hover:text-white transition-colors">
                 {{ secondaryLabel }}
               </NuxtLink>
             </div>
@@ -94,6 +92,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import HeroSearch from './HeroSearch.vue'
 
 const { t: createTranslations } = useLanguage()
 const user = useUser()
