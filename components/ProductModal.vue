@@ -20,7 +20,27 @@
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
 
+          <!-- Loading: fetch the high-res images + details FIRST, then reveal it
+               all at once — no flash of the low-res Google thumbnail. -->
+          <div v-if="loadingDetail">
+            <div class="h-80 bg-gray-100 animate-pulse"></div>
+            <div class="p-5 space-y-3">
+              <div class="h-3 w-20 bg-gray-100 rounded animate-pulse"></div>
+              <div class="h-5 w-3/4 bg-gray-100 rounded animate-pulse"></div>
+              <div class="h-7 w-28 bg-gray-100 rounded animate-pulse"></div>
+              <div class="grid grid-cols-2 gap-3 pt-3">
+                <div class="h-[4.5rem] bg-gray-100 rounded-2xl animate-pulse"></div>
+                <div class="h-[4.5rem] bg-gray-100 rounded-2xl animate-pulse"></div>
+              </div>
+              <div class="flex items-center justify-center gap-2 pt-2 text-gray-400">
+                <svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
+                <span class="text-xs font-medium">Cargando producto…</span>
+              </div>
+            </div>
+          </div>
+
           <!-- image bento (multiple images at a glance; tap any to open the slideshow) -->
+          <template v-else>
           <div class="relative bg-gray-50">
             <!-- no images yet → store/title placeholder -->
             <div v-if="!gallery.length" class="w-full h-80 grid place-items-center">
@@ -44,11 +64,6 @@
                   <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/></svg>
                 </span>
               </button>
-            </div>
-            <!-- loading detail -->
-            <div v-if="loadingDetail" class="absolute top-2.5 left-2.5 flex items-center gap-1.5 bg-white/85 rounded-full pl-1.5 pr-2.5 py-1 shadow-sm">
-              <svg class="w-3.5 h-3.5 animate-spin text-gray-400" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
-              <span class="text-[11px] text-gray-500 font-medium">Cargando detalles…</span>
             </div>
           </div>
 
@@ -126,6 +141,7 @@
               </template>
             </div>
           </div>
+          </template>
         </div>
 
         <!-- ===== Fullscreen image slideshow (opens from the bento) ===== -->
