@@ -104,7 +104,7 @@ const desktopImageSrc = '/images/hero-shopper.png'
 const mobileImageSrc  = '/images/hero-shopper.png'
 
 const t = createTranslations({
-  title:          { es: 'Compra en USA sin fronteras.', en: 'Shop the US without borders.' },
+  title:          { es: '¿Qué quieres traer de Estados Unidos?', en: 'What do you want from the United States?' },
   subtitle:       { es: 'Nosotros lo compramos, lo recibimos y lo trasladamos. Tú lo recibes en tu casa en México.', en: 'We buy it, receive it, and ship it. You get it delivered to your door in Mexico.' },
   createAccount:  { es: 'Crear cuenta gratis', en: 'Create free account' },
   myAccount:      { es: 'Ir a mi cuenta', en: 'Go to my account' },
