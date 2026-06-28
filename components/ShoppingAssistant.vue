@@ -151,6 +151,18 @@
                       <p class="text-xs text-green-700 mt-1">Solicitud <span class="font-semibold">{{ part.output.request_number }}</span> creada. Te enviamos la cotización (producto + servicio + envío) para que la apruebes — no pagas nada todavía.</p>
                       <NuxtLink to="/app/purchase-requests" class="inline-block mt-2 text-xs font-semibold text-green-800 underline active:scale-95 transition-transform">Ver mis solicitudes →</NuxtLink>
                     </div>
+
+                    <!-- Tappable follow-ups (cross-sell / build-the-set) -->
+                    <div v-else-if="part.type === 'tool-suggest_followups' && part.state === 'output-available' && part.output?.suggestions?.length" class="flex flex-wrap gap-2 mt-1">
+                      <button
+                        v-for="(s, si) in part.output.suggestions" :key="si"
+                        @click="sendFollowup(s)" :disabled="isBusy"
+                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-gray-200 text-gray-700 text-[12.5px] font-medium hover:border-primary-300 hover:bg-primary-50 hover:text-primary-700 active:scale-95 transition disabled:opacity-50 disabled:cursor-not-allowed text-left"
+                      >
+                        <svg class="w-3.5 h-3.5 shrink-0 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                        <span>{{ s }}</span>
+                      </button>
+                    </div>
                   </template>
                 </template>
               </div>
@@ -718,6 +730,14 @@ const composerRef = ref(null)
 function pickSuggestion(text) {
   if (isBusy.value || !text) return
   input.value = ''
+  ensureChatToken()
+  ensureConversation(text)
+  chat.sendMessage({ text })
+  scrollDown()
+}
+// Tapping a follow-up chip (cross-sell) sends it as the next shopper message.
+function sendFollowup(text) {
+  if (isBusy.value || !text) return
   ensureChatToken()
   ensureConversation(text)
   chat.sendMessage({ text })
