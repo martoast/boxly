@@ -52,6 +52,22 @@ async function rankProducts(query: string, products: any[]): Promise<any[]> {
   }
 }
 
+// When the shopper explicitly asks for a specific store/retailer ("el owala rosa
+// DE TARGET"), guarantee that store's listings come first — deterministically,
+// after the AI ranking, so it can never be overruled by a "more trustworthy" or
+// cheaper competing seller. Stable: preserves the existing order within each group.
+function floatRequestedStore(products: any[], requested?: string): any[] {
+  const want = String(requested || '').toLowerCase().replace(/[^a-z0-9]/g, '')
+  if (!want || !Array.isArray(products)) return products
+  const norm = (s: any) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '')
+  const match: any[] = [], rest: any[] = []
+  for (const p of products) {
+    const ps = norm(p.store)
+    ;(ps && ps.includes(want) ? match : rest).push(p)
+  }
+  return match.length ? [...match, ...rest] : products
+}
+
 // Admin-managed knowledge wiki (Mode 1 — Expert). Cached briefly; falls back to a
 // built-in constant if the API is unreachable so the concierge never goes dark.
 let wikiCache: { markdown: string; at: number } | null = null
@@ -418,14 +434,18 @@ export default defineEventHandler(async (event) => {
         description: "THE UNIVERSAL product search — searches the entire US market via Google Shopping, so it works for ANY store/brand on ANY platform (Shopify, headless, JS-rendered, Cloudflare-blocked: Gymshark, Nike, Lululemon, Alo, boutiques, etc.). Use as the DEFAULT for broad/category discovery, for any specific store NOT in the directory (set store to the brand name), and whenever browse_store/browse_stores can't reach a store. Returns a gallery with real images, prices (incl. sale prices), and the source store of each item. Put descriptive attributes (color, size, gender, fit/style, material, category) IN the query; use the structured params for budget and deals.",
         inputSchema: z.object({
           query: z.string().describe('What to find, WITH every descriptive attribute the user gave: category + gender + color + size + fit/style + material + brand. E.g. "black wide-leg jeans women size 30", "men running shoes wide", "leather crossbody bag".'),
-          store: z.string().describe('Optional brand/store to focus on, e.g. "Gymshark", "American Eagle".').optional(),
+          store: z.string().describe('The store/retailer/brand to focus on, whenever the user names one — a brand store ("Gymshark", "American Eagle") OR a big-box retailer ("Target", "Walmart", "Amazon", "Costco", "Best Buy"). ALWAYS set this if the user says "de/from/en <store>" (e.g. "el owala rosa de Target" → store:"Target"); we use it to put that store\'s listings FIRST in the gallery.').optional(),
           min_price: z.number().describe('Minimum USD price.').optional(),
           max_price: z.number().describe('Maximum USD price — use for budgets like "under $50" (max_price: 50).').optional(),
           sale: z.boolean().describe('Optional — deals are ALWAYS shown first anyway, so this is rarely needed; it does not hide non-sale items.').optional(),
         }),
         execute: async ({ query, store, min_price, max_price, sale }) => {
           const r: any = await callApi('/products/search', { method: 'POST', body: { query, store: store || undefined, min_price, max_price, sale: sale || undefined, limit: 16 }, timeoutMs: 50000 })
-          if (r && Array.isArray(r.products)) r.products = await rankProducts(query, r.products)
+          if (r && Array.isArray(r.products)) {
+            r.products = await rankProducts(query, r.products)
+            // If a specific store was requested, its listings lead the gallery.
+            r.products = floatRequestedStore(r.products, store)
+          }
           return r
         },
       }),

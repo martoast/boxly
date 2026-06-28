@@ -88,6 +88,34 @@ async function reorderByIntent(query: string, products: any[]): Promise<any[]> {
   }
 }
 
+// Big-box US retailers people name in a query ("owala rosa DE TARGET"). When one
+// is detected (or passed as a filter), we float that store's listings to the top.
+const RETAILERS = [
+  'target', 'walmart', 'amazon', 'costco', 'best buy', 'macy', "macy's", 'nordstrom',
+  'kohl', "kohl's", 'sephora', 'ulta', 'dick', "dick's", 'rei', 'gamestop', 'lowes',
+  "lowe's", 'home depot', 'cvs', 'walgreens', 'petco', 'petsmart', 'nike', 'adidas',
+  'lululemon', 'gap', 'old navy', 'american eagle', 'urban outfitters', 'tjmaxx',
+]
+function detectRequestedStore(query: string, filterStore?: string): string {
+  if (filterStore) return filterStore
+  const q = ` ${(query || '').toLowerCase()} `
+  for (const r of RETAILERS) if (q.includes(` ${r} `) || q.includes(` ${r},`) || q.includes(`de ${r}`) || q.includes(`from ${r}`)) return r
+  return ''
+}
+// Stable-float products whose store matches the requested one (deterministic — the
+// requested store always wins over a cheaper/“more trusted” competing seller).
+function floatRequestedStore(products: any[], requested: string): any[] {
+  const want = requested.toLowerCase().replace(/[^a-z0-9]/g, '')
+  if (!want || !Array.isArray(products)) return products
+  const norm = (s: any) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '')
+  const match: any[] = [], rest: any[] = []
+  for (const p of products) {
+    const ps = norm(p.store)
+    ;(ps && ps.includes(want) ? match : rest).push(p)
+  }
+  return match.length ? [...match, ...rest] : products
+}
+
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
   const filters = body?.filters || {}
@@ -131,7 +159,9 @@ export default defineEventHandler(async (event) => {
     start,
   })
 
-  const products = await reorderByIntent(q, r?.products || [])
+  let products = await reorderByIntent(q, r?.products || [])
+  // If the shopper named a specific store, put that store's listings first.
+  products = floatRequestedStore(products, detectRequestedStore(q, filters.store))
 
   return {
     type: 'results',
