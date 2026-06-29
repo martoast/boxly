@@ -23,15 +23,15 @@
       </button>
     </form>
 
-    <!-- A few natural-language example prompts — they teach users they can just
-         talk to the AI (incl. a non-literal request like a gift). -->
-    <div class="mt-4 flex flex-wrap justify-center gap-2">
+    <!-- Example prompts. On MOBILE: one swipeable row (no vertical stacking that
+         eats the screen). On desktop: wrapped + centered. -->
+    <div class="mt-4 flex gap-2 overflow-x-auto sm:flex-wrap sm:justify-center sm:overflow-visible -mx-4 px-4 sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden">
       <button
         v-for="(c, i) in chips"
         :key="i"
         type="button"
         @click="go(c.q)"
-        class="px-3.5 py-1.5 rounded-full bg-gray-100 hover:bg-gray-200 border border-gray-200 text-gray-700 text-sm font-medium active:scale-95 transition"
+        class="shrink-0 whitespace-nowrap px-3.5 py-1.5 rounded-full bg-gray-100 hover:bg-gray-200 border border-gray-200 text-gray-700 text-sm font-medium active:scale-95 transition"
       >
         {{ c.label }}
       </button>

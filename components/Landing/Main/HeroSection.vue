@@ -3,32 +3,33 @@
        question. No lifestyle photo, no dark overlay, no logo marquee, no benefits
        row — those moved below so nothing competes with the input. Clean, centered,
        full-height: it should feel like opening an AI assistant, not a store. -->
-  <header class="relative isolate overflow-hidden bg-white min-h-[100svh] flex flex-col items-center justify-center text-center px-4 sm:px-6">
+  <header class="relative isolate overflow-hidden bg-white min-h-[100svh] flex flex-col">
     <!-- Soft brand glow behind the input — the only decoration. -->
     <div class="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(50%_45%_at_50%_42%,#d5e5f5,transparent_72%)]"></div>
 
-    <!-- Store logos floating OVER the hero near the top (transparent, absolute —
-         it does NOT take flow space, so the content stays perfectly centered). -->
-    <div class="absolute top-0 inset-x-0 pt-20 sm:pt-24">
+    <!-- Store logos near the top. On MOBILE it sits in normal flow (so it can't
+         overlap the title); on desktop it's an absolute overlay so the content
+         stays perfectly centered. Top padding clears the fixed navbar. -->
+    <div class="relative sm:absolute sm:top-0 sm:inset-x-0 pt-20 sm:pt-24">
       <TrustedStores />
     </div>
 
-    <!-- Centered AI focal point. -->
-    <div class="relative w-full max-w-3xl">
-      <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-gray-900 leading-[1.07] tracking-tight">
+    <!-- Centered AI focal point — fills the remaining space. -->
+    <div class="relative flex-1 flex flex-col items-center justify-center text-center w-full max-w-3xl mx-auto px-4 sm:px-6 py-8">
+      <h1 class="text-3xl sm:text-5xl lg:text-6xl font-extrabold text-gray-900 leading-[1.08] tracking-tight">
         {{ t.title }}
       </h1>
-      <p class="mt-4 text-lg sm:text-xl text-gray-500">
+      <p class="mt-3 sm:mt-4 text-base sm:text-xl text-gray-500">
         {{ t.subtitle }}
       </p>
 
       <!-- The focal point: the largest interactive element on the page. -->
-      <div class="mt-8 w-full">
+      <div class="mt-6 sm:mt-8 w-full">
         <HeroSearch />
       </div>
 
       <!-- One subtle row of links — never competes with the input. -->
-      <div class="mt-7 flex items-center justify-center gap-x-5 text-sm">
+      <div class="mt-6 sm:mt-7 flex items-center justify-center gap-x-5 text-sm">
         <NuxtLink :to="primaryHref" class="font-semibold text-primary-700 hover:text-primary-800 transition-colors">{{ primaryLabel }}</NuxtLink>
         <NuxtLink :to="secondaryHref" class="text-gray-400 hover:text-gray-600 transition-colors">{{ secondaryLabel }}</NuxtLink>
       </div>
