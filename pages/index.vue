@@ -2,8 +2,11 @@
   <div>
     <WhatsAppButton />
 
-    <!-- 1. Hero — positioning + brand statement -->
+    <!-- 1. Hero — software-first AI concierge: ask Boxly AI your first question. -->
     <MainHeroSection />
+
+    <!-- 1b. Trusted US stores (moved out of the hero so it doesn't compete). -->
+    <TrustedStores />
 
     <!-- 2. Three service lanes — wedge (assisted online), wow (in-person),
             utility (casillero). Anchor for the hero's "see how we help" CTA. -->
@@ -27,6 +30,7 @@
 <script setup>
 import WhatsAppButton from '~/components/Landing/WhatsAppButton.vue'
 import MainHeroSection from '~/components/Landing/Main/HeroSection.vue'
+import TrustedStores from '~/components/Landing/Main/TrustedStores.vue'
 import ServiceLanes from '~/components/Landing/Main/ServiceLanes.vue'
 import ConciergeSpotlight from '~/components/Landing/Main/ConciergeSpotlight.vue'
 import WedgeCTA from '~/components/Landing/Main/WedgeCTA.vue'

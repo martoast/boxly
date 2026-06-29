@@ -1,95 +1,33 @@
 <template>
-  <!-- Landing hero — bright outlet-shopping photo with a gradient overlay
-       so the white headline stays readable. Overlay is left-heavy on
-       desktop (text sits left, subject sits right) and bottom-heavy on
-       mobile where the layout stacks. Primary CTA on mobile is
-       register/login because the mobile nav doesn't expose those buttons;
-       signed-in users see a "Mi cuenta" shortcut instead. -->
-  <header class="relative w-full overflow-hidden bg-gray-900">
-    <picture>
-      <source media="(max-width: 768px)" :srcset="mobileImageSrc" type="image/png" />
-      <source :srcset="desktopImageSrc" type="image/png" />
-      <img
-        :src="desktopImageSrc"
-        :alt="t.imageAlt"
-        width="1920" height="1080"
-        fetchpriority="high"
-        decoding="async"
-        class="absolute inset-0 w-full h-full object-cover"
-      />
-    </picture>
+  <!-- Software-first AI hero. ONE job: get the user to ask Boxly AI their first
+       question. No lifestyle photo, no dark overlay, no logo marquee, no benefits
+       row — those moved below so nothing competes with the input. Clean, centered,
+       full-height: it should feel like opening an AI assistant, not a store. -->
+  <header class="relative isolate overflow-hidden bg-white">
+    <!-- Soft brand glow behind the input — the only decoration. -->
+    <div class="pointer-events-none absolute inset-x-0 -top-24 h-[520px] bg-[radial-gradient(55%_55%_at_50%_0%,#d5e5f5,transparent_72%)]"></div>
 
-    <!-- Readability gradient. Mobile: strong bottom-up dark fade.
-         Desktop (sm+): left-to-right fade so the text column reads while
-         the subject on the right stays visible. -->
-    <div class="absolute inset-0 bg-gradient-to-t from-gray-900/65 via-gray-900/35 to-gray-900/25 sm:bg-gradient-to-r sm:from-gray-900/85 sm:via-gray-900/55 sm:to-transparent"></div>
-
-    <!-- Mobile-only top fade: darkens the light sky so the white headline
-         reads. Desktop is handled by the left-to-right overlay above. -->
-    <div class="sm:hidden absolute inset-x-0 top-0 h-2/3 bg-gradient-to-b from-gray-900/55 via-gray-900/20 to-transparent pointer-events-none"></div>
-
-    <!-- Extra bottom fade so the white logo strip reads across the full
-         width (the desktop l-to-r overlay leaves the bottom-right light). -->
-    <div class="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-gray-900/80 to-transparent pointer-events-none"></div>
-
-    <!-- Column layout: content fills the top, logo strip pins to the bottom. -->
-    <div class="relative min-h-[480px] sm:min-h-[540px] lg:min-h-[620px] flex flex-col">
-      <div class="flex-1 flex items-center">
-        <div class="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 pt-16 sm:pt-20 lg:pt-24 pb-8">
-          <div class="max-w-2xl">
-            <!-- AI positioning: make it obvious in the first second that this is
-                 a shopping AI, not a logistics search bar. -->
-            <div class="inline-flex items-center gap-1.5 rounded-full bg-white/15 backdrop-blur border border-white/25 px-3 py-1 text-sm font-semibold text-white mb-4">
-              <span aria-hidden="true">✨</span> {{ t.aiBadge }}
-            </div>
-            <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-white leading-[1.05] tracking-tight">
-              {{ t.title }}
-            </h1>
-            <p class="text-base sm:text-lg lg:text-xl text-white/85 mt-4 sm:mt-5 max-w-xl leading-relaxed">
-              {{ t.subtitle }}
-            </p>
-
-            <!-- Primary funnel: the concierge search box. Hands off to /search,
-                 which fires the query as the first message (guests included). -->
-            <div class="mt-7">
-              <HeroSearch />
-            </div>
-
-            <!-- Secondary links, de-emphasized — the search box is the main CTA.
-                 Authed users get a "Mi cuenta" shortcut; everyone gets how-it-works. -->
-            <div class="mt-5 flex items-center gap-x-5 gap-y-2 flex-wrap text-sm">
-              <NuxtLink :to="primaryHref" class="inline-flex items-center gap-1.5 text-white font-semibold hover:text-white/80 transition-colors">
-                {{ primaryLabel }}
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
-              </NuxtLink>
-              <NuxtLink :to="secondaryHref" class="text-white/75 font-medium hover:text-white transition-colors">
-                {{ secondaryLabel }}
-              </NuxtLink>
-            </div>
-          </div>
-        </div>
+    <div class="relative mx-auto max-w-3xl px-4 sm:px-6 min-h-[100svh] flex flex-col items-center justify-center text-center pt-20 pb-16">
+      <div class="inline-flex items-center gap-1.5 rounded-full border border-primary-200 bg-primary-50 px-3 py-1 text-sm font-semibold text-primary-700 mb-6">
+        <span aria-hidden="true">✨</span> Boxly AI
       </div>
 
-      <!-- Infinite logo strip, white-on-photo, pinned to the bottom of the
-           hero. Edges are masked so logos fade in/out over the image. -->
-      <div class="relative pb-5 sm:pb-6">
-        <div class="logo-marquee-mask overflow-hidden">
-          <div class="flex gap-8 sm:gap-10 lg:gap-12 w-max animate-hero-logo-scroll">
-            <template v-for="n in 3" :key="`set-${n}`">
-              <img
-                v-for="(logo, index) in logos"
-                :key="`logo-${n}-${index}`"
-                :src="logo.src"
-                :alt="logo.alt"
-                width="120" height="40"
-                class="h-10 sm:h-12 w-auto object-contain flex-shrink-0 hero-logo-white opacity-70"
-                loading="lazy"
-                decoding="async"
-                draggable="false"
-              />
-            </template>
-          </div>
-        </div>
+      <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-gray-900 leading-[1.07] tracking-tight">
+        {{ t.title }}
+      </h1>
+      <p class="mt-4 text-lg sm:text-xl text-gray-500">
+        {{ t.subtitle }}
+      </p>
+
+      <!-- The focal point: the largest interactive element on the page. -->
+      <div class="mt-8 w-full">
+        <HeroSearch />
+      </div>
+
+      <!-- One subtle row of links — never competes with the input. -->
+      <div class="mt-7 flex items-center gap-x-5 text-sm">
+        <NuxtLink :to="primaryHref" class="font-semibold text-primary-700 hover:text-primary-800 transition-colors">{{ primaryLabel }}</NuxtLink>
+        <NuxtLink :to="secondaryHref" class="text-gray-400 hover:text-gray-600 transition-colors">{{ secondaryLabel }}</NuxtLink>
       </div>
     </div>
   </header>
@@ -102,73 +40,18 @@ import HeroSearch from './HeroSearch.vue'
 const { t: createTranslations } = useLanguage()
 const user = useUser()
 
-// Image swap: hero-candidate.png is the new generation; falls back to the
-// existing hero1/mobilehero1 if you ever want to revert. Same files used
-// for mobile + desktop since the new hero already accounts for both.
-const desktopImageSrc = '/images/hero-shopper.png'
-const mobileImageSrc  = '/images/hero-shopper.png'
-
 const t = createTranslations({
-  aiBadge:        { es: 'Asistente de compras con IA', en: 'AI shopping assistant' },
-  title:          { es: '¿Qué quieres comprar de Estados Unidos?', en: 'What do you want to buy from the United States?' },
-  subtitle:       { es: 'Dile a Boxly AI lo que buscas. Nosotros encontramos el producto, lo compramos y lo entregamos hasta tu casa en México.', en: 'Tell Boxly AI what you want. We find the product, buy it, and deliver it to your door in Mexico.' },
-  createAccount:  { es: 'Crear cuenta gratis', en: 'Create free account' },
-  myAccount:      { es: 'Ir a mi cuenta', en: 'Go to my account' },
-  signIn:         { es: 'Iniciar sesión', en: 'Sign in' },
-  howItWorks:     { es: 'Cómo funciona', en: 'How it works' },
-  imageAlt:       { es: 'Compra en USA con Boxly', en: 'Shop the US with Boxly' },
+  title:         { es: '¿Qué quieres comprar de Estados Unidos?', en: 'What do you want to buy from the US?' },
+  subtitle:      { es: 'Dile a Boxly AI qué quieres comprar.', en: 'Tell Boxly AI what you want to buy.' },
+  createAccount: { es: 'Crear cuenta gratis', en: 'Create free account' },
+  myAccount:     { es: 'Ir a mi cuenta', en: 'Go to my account' },
+  signIn:        { es: 'Iniciar sesión', en: 'Sign in' },
+  howItWorks:    { es: 'Cómo funciona', en: 'How it works' },
 })
 
 const isAuthed = computed(() => Boolean(user?.value?.id))
-
-const primaryHref  = computed(() => (isAuthed.value ? '/app' : '/register'))
-const primaryLabel = computed(() => (isAuthed.value ? t.value.myAccount : t.value.createAccount))
+const primaryHref    = computed(() => (isAuthed.value ? '/app' : '/register'))
+const primaryLabel   = computed(() => (isAuthed.value ? t.value.myAccount : t.value.createAccount))
 const secondaryHref  = computed(() => (isAuthed.value ? '/how-it-works' : '/login'))
 const secondaryLabel = computed(() => (isAuthed.value ? t.value.howItWorks : t.value.signIn))
-
-// US stores whose logos scroll across the bottom of the hero. Rendered
-// solid white over the photo via the .hero-logo-white filter.
-const logos = [
-  { src: 'https://static.nc-myus.com/images/pub/www/uploads/image/21afeea318a64a71bcb1dbd3ef27ffec/shein-logo.png', alt: 'SHEIN' },
-  { src: 'https://static.nc-myus.com/images/pub/www/uploads/image/c7378301189a420a8648cdc317dad98b/sephora.png', alt: 'Sephora' },
-  { src: 'https://static.nc-myus.com/images/pub/www/uploads/image/4342cf740e1d4c809a5266f006012ffc/macys-logo.png', alt: "Macy's" },
-  { src: 'https://static.nc-myus.com/images/pub/www/uploads/image/9b11fc458968411b972a0f7df9e42c67/apple-logo.png', alt: 'Apple' },
-  { src: 'https://static.nc-myus.com/images/pub/www/uploads/image/22ea4c4db5df4d4fbb4f5067de096869/shop-disney-logo.png', alt: 'Disney' },
-  { src: 'https://static.nc-myus.com/images/pub/www/uploads/image/9c6f199c00bc41a8ba335347cbb4ac66/ready-edit-nordstrom-logo-transparent-2.png', alt: 'Nordstrom' },
-  { src: 'https://static.nc-myus.com/images/pub/www/uploads/image/3706eb76defa4368bf0c8b1d738b3456/amazon-logo.png', alt: 'Amazon' },
-  { src: 'https://static.nc-myus.com/images/pub/www/uploads/image/7569832f95cb49f8af42a2aa4c4adc8d/walmart-logo.png', alt: 'Walmart' },
-  { src: 'https://static.nc-myus.com/images/pub/www/uploads/image/fbd77ea07e224a73b1fecf4137d7ba78/ebay-logo.png', alt: 'eBay' },
-  { src: 'https://static.nc-myus.com/images/pub/www/uploads/image/f3ffc5a464e94ff89d4405d026923c27/bath-body-works.png', alt: 'Bath & Body Works' },
-  { src: 'https://static.nc-myus.com/images/pub/www/uploads/image/774f8d281cfe45ef81f7882de1599be2/carters-logo-120x120.png', alt: "Carter's" },
-]
 </script>
-
-<style scoped>
-/* Solid-white treatment so dark-mark logos read over the photo. */
-.hero-logo-white {
-  filter: brightness(0) invert(1);
-}
-
-/* Track is tripled; shifting by one set (-100%/3) loops seamlessly. */
-@keyframes hero-logo-scroll {
-  from { transform: translateX(0); }
-  to   { transform: translateX(calc(-100% / 3)); }
-}
-.animate-hero-logo-scroll {
-  animation: hero-logo-scroll 50s linear infinite;
-  will-change: transform;
-}
-.animate-hero-logo-scroll:hover {
-  animation-play-state: paused;
-}
-
-/* Fade the strip edges into the photo instead of a hard cut. */
-.logo-marquee-mask {
-  -webkit-mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent);
-          mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .animate-hero-logo-scroll { animation: none; }
-}
-</style>
