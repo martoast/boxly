@@ -40,6 +40,12 @@
                   </NuxtLink>
                 </li>
                 <li>
+                  <NuxtLink to="/precios" class="text-gray-600 hover:text-primary-600 transition-colors flex items-center gap-2">
+                    <ChevronRightIcon class="w-4 h-4" />
+                    {{ t.pricing }}
+                  </NuxtLink>
+                </li>
+                <li>
                   <NuxtLink to="/shipping-calculator" class="text-gray-600 hover:text-primary-600 transition-colors flex items-center gap-2">
                     <ChevronRightIcon class="w-4 h-4" />
                     {{ t.shippingCalculator }}
@@ -235,6 +241,10 @@
     howItWorks: {
       es: 'Cómo Funciona',
       en: 'How It Works'
+    },
+    pricing: {
+      es: 'Precios',
+      en: 'Pricing'
     },
     shippingCalculator: {
       es: 'Calculadora de Envío',
