@@ -3,17 +3,18 @@
        question. No lifestyle photo, no dark overlay, no logo marquee, no benefits
        row — those moved below so nothing competes with the input. Clean, centered,
        full-height: it should feel like opening an AI assistant, not a store. -->
-  <header class="relative isolate overflow-hidden bg-white min-h-[100svh] flex flex-col">
+  <header class="relative isolate overflow-hidden bg-white min-h-[100svh] flex flex-col items-center justify-center text-center px-4 sm:px-6">
     <!-- Soft brand glow behind the input — the only decoration. -->
-    <div class="pointer-events-none absolute inset-x-0 top-1/4 h-[460px] bg-[radial-gradient(55%_55%_at_50%_0%,#d5e5f5,transparent_72%)]"></div>
+    <div class="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(50%_45%_at_50%_42%,#d5e5f5,transparent_72%)]"></div>
 
-    <!-- Store logos scrolling near the top (cleared below the fixed navbar). -->
-    <div class="relative pt-20 sm:pt-24">
+    <!-- Store logos floating OVER the hero near the top (transparent, absolute —
+         it does NOT take flow space, so the content stays perfectly centered). -->
+    <div class="absolute top-0 inset-x-0 pt-20 sm:pt-24">
       <TrustedStores />
     </div>
 
-    <!-- Centered AI focal point — fills the rest of the screen. -->
-    <div class="relative flex-1 flex flex-col items-center justify-center text-center mx-auto max-w-3xl w-full px-4 sm:px-6 pb-16">
+    <!-- Centered AI focal point. -->
+    <div class="relative w-full max-w-3xl">
       <div class="inline-flex items-center gap-1.5 rounded-full border border-primary-200 bg-primary-50 px-3 py-1 text-sm font-semibold text-primary-700 mb-6">
         <span aria-hidden="true">✨</span> Boxly AI
       </div>
@@ -31,7 +32,7 @@
       </div>
 
       <!-- One subtle row of links — never competes with the input. -->
-      <div class="mt-7 flex items-center gap-x-5 text-sm">
+      <div class="mt-7 flex items-center justify-center gap-x-5 text-sm">
         <NuxtLink :to="primaryHref" class="font-semibold text-primary-700 hover:text-primary-800 transition-colors">{{ primaryLabel }}</NuxtLink>
         <NuxtLink :to="secondaryHref" class="text-gray-400 hover:text-gray-600 transition-colors">{{ secondaryLabel }}</NuxtLink>
       </div>
