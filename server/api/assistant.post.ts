@@ -186,42 +186,49 @@ function interleave(arrays: any[][]) {
 // compressibility; small rigid items (sanitizers, cosmetics) add very little. It's
 // an ESTIMATE — the real box is confirmed when Boxly receives and packs the items.
 //
-// Calibration anchors (validated): 4 leggings ≈ XS ~80% full; +10 small sanitizers
-// ≈ XS basically full (NOT a jump to Medium). Shoes (boxed): XS ~1 pair, S ~3-4,
-// M ~10, L ~15, XL ~20.
+// Calibration (updated 2026-06-29 to the new box capacities). Folded-clothes
+// capacity per box: XS ~5–7, S ~10–15, M ~24–34, L ~38–48, XL ~52–72 prendas, at
+// flat_soft = 0.30 shoe-units/garment. VOLUME, not count: 10 small sanitizers
+// barely move the bar; one thick coat fills more than many shirts. Shoes are boxed
+// pairs and are NOT part of the prenda capacity.
 const ARCHETYPE_VOL: Record<string, number> = {
-  flat_soft: 0.30,    // leggings, shirts, underwear, socks (compressible)
-  rigid_small: 0.05,  // hand sanitizer, perfume, skincare, cosmetics, cards, jewelry
+  rigid_small: 0.05,  // OCUPAN MUY POCO: cosmetics, makeup, perfume, jewelry, accessories, phone cases, cables, Touchland sanitizers, small wallets
+  flat_soft: 0.30,    // OCUPAN POCO: t-shirts, leggings, shorts, underwear, socks, swimwear (compress well)
+  medium_soft: 0.45,  // OCUPAN MEDIO: jeans, hoodies/sweatshirts, joggers, light jackets, mid bags, backpacks
   rigid_medium: 0.25, // bottles, tumblers, electronics
   shoes: 1.50,        // a boxed pair
-  bulky_soft: 0.80,   // jackets, hoodies, plush, blankets
+  bulky_soft: 0.80,   // OCUPAN MUCHO: boots, thick coats, blankets, pillows, plush, helmets, appliances (pots, coffee makers)
   fragile: 2.00,      // lamps, glass, decor (awkward, low packing efficiency)
 }
 const DEFAULT_VOL = 0.40 // unknown item → a generic medium
 const ARCH_LABEL: Record<string, string> = {
-  flat_soft: 'Ropa', rigid_small: 'Pequeño', rigid_medium: 'Mediano', shoes: 'Calzado', bulky_soft: 'Voluminoso', fragile: 'Frágil',
+  rigid_small: 'Pequeño', flat_soft: 'Ropa', medium_soft: 'Mediano', rigid_medium: 'Mediano', shoes: 'Calzado', bulky_soft: 'Voluminoso', fragile: 'Frágil',
 }
+// usable = volume at which the box is full (in shoe-units), calibrated so the
+// flat_soft prenda counts above land on the right box.
 const BOXES = [
-  { key: 'XS', label: 'Extra chica', usable: 1.5 },
-  { key: 'S', label: 'Chica', usable: 5.5 },
-  { key: 'M', label: 'Mediana', usable: 16 },
-  { key: 'L', label: 'Grande', usable: 22 },
-  { key: 'XL', label: 'Extra grande', usable: 32 },
+  { key: 'XS', label: 'Extra chica', usable: 2.0 },
+  { key: 'S', label: 'Chica', usable: 4.5 },
+  { key: 'M', label: 'Mediana', usable: 10 },
+  { key: 'L', label: 'Grande', usable: 14.5 },
+  { key: 'XL', label: 'Extra grande', usable: 21.5 },
 ]
 
 // Fallback classification from the product name when the model didn't pass a type.
 const RE_SHOES = /shoe|sneaker|tenis|boot|bota|cleat|sandal|heel|loafer|zapat/i
 const RE_FRAGILE = /lamp|l[aá]mpara|glass|vidrio|vase|florero|mirror|espejo|frame|cuadro|ceramic|porcelain|decor/i
-const RE_BULKY = /jacket|coat|parka|hoodie|sweater|sudadera|abrigo|chamarra|blanket|comforter|duvet|cobija|plush|peluche|pillow|almohada|duffel|backpack|mochila|luggage|maleta|suitcase|tent|sleeping bag/i
 const RE_RIGID_SMALL = /saniti|mist|antibac|perfume|cologne|fragran|skincare|serum|lipstick|labial|mascara|cosmetic|maquillaje|cream|crema|lotion|loci[oó]n|cards?|cartas|pok[eé]mon|wallet|cartera|watch|reloj|jewel|joy|ring|anillo|necklace|collar|earring|arete|sunglass|lentes|case|funda|charger|cargador|earbuds|airpods|keychain|llavero/i
+const RE_BULKY = /coat|parka|abrigo|puffer|\bdown\b|blanket|comforter|duvet|cobija|plush|peluche|pillow|almohada|duffel|luggage|maleta|suitcase|tent|sleeping bag|appliance|electrodom|coffee maker|cafetera|\bpot\b|olla|helmet|casco/i
+const RE_MEDIUM = /jean|pant|pantal[oó]n|jogger|sudadera|hoodie|sweater|sweatshirt|jacket|chamarra|backpack|mochila|handbag|bolsa|\bbag\b|purse/i
 const RE_RIGID_MEDIUM = /bottle|botella|tumbler|termo|\bcup\b|\bmug\b|taza|owala|stanley|hydro|flask|speaker|bocina|camera|c[aá]mara|console|consola|electronic|electr[oó]nico/i
-const RE_FLAT_SOFT = /legging|mall[oó]n|shirt|camisa|\btee\b|playera|\btop\b|blouse|blusa|dress|vestido|short|jean|pant|pantal[oó]n|skirt|falda|underwear|ropa interior|sock|calcet|\bbra\b|brasier|swim|traje de ba/i
+const RE_FLAT_SOFT = /legging|mall[oó]n|shirt|camisa|\btee\b|playera|\btop\b|blouse|blusa|dress|vestido|short|skirt|falda|underwear|ropa interior|sock|calcet|\bbra\b|brasier|swim|traje de ba/i
 function archetypeFromName(name: string): string | null {
   const t = name || ''
   if (RE_SHOES.test(t)) return 'shoes'
   if (RE_FRAGILE.test(t)) return 'fragile'
-  if (RE_BULKY.test(t)) return 'bulky_soft'
   if (RE_RIGID_SMALL.test(t)) return 'rigid_small'
+  if (RE_BULKY.test(t)) return 'bulky_soft'
+  if (RE_MEDIUM.test(t)) return 'medium_soft'
   if (RE_RIGID_MEDIUM.test(t)) return 'rigid_medium'
   if (RE_FLAT_SOFT.test(t)) return 'flat_soft'
   return null
@@ -250,11 +257,11 @@ function buildShipment(items: any[]) {
 // Boxly's default box price table (shipping cost per consolidated box to Mexico).
 // Source of truth for the in-chat box-guide component. Update here if prices change.
 const BOX_GUIDE = [
-  { key: 'XS', label: 'Extra chica', price_mxn: 1200, dims: '32×24×13 cm', max_kg: 8, fits: '~4–6 prendas · 1–2 pares · 20–40 cosas pequeñas' },
-  { key: 'S', label: 'Chica', price_mxn: 2200, dims: '42×27×32 cm', max_kg: 15, fits: '~10–15 prendas · 5–6 pares · 60–100 pequeñas' },
-  { key: 'M', label: 'Mediana', price_mxn: 4000, dims: '42×52×40 cm', max_kg: 25, fits: '~25–35 prendas · 15–18 pares · cientos', popular: true },
-  { key: 'L', label: 'Grande', price_mxn: 5100, dims: '52×42×40 cm', max_kg: 35, fits: '~40–50 prendas · 20–25 pares' },
-  { key: 'XL', label: 'Extra grande', price_mxn: 6250, dims: '52×62×53 cm', max_kg: 50, fits: '~55–70 prendas · 30–35 pares' },
+  { key: 'XS', label: 'Extra chica', price_mxn: 1200, dims: '32×24×13 cm', max_kg: 8, fits: '~5–7 prendas dobladas' },
+  { key: 'S', label: 'Chica', price_mxn: 2200, dims: '42×27×32 cm', max_kg: 15, fits: '~10–15 prendas dobladas' },
+  { key: 'M', label: 'Mediana', price_mxn: 4000, dims: '42×52×40 cm', max_kg: 25, fits: '~24–34 prendas dobladas', popular: true },
+  { key: 'L', label: 'Grande', price_mxn: 5100, dims: '52×42×40 cm', max_kg: 35, fits: '~38–48 prendas dobladas' },
+  { key: 'XL', label: 'Extra grande', price_mxn: 6250, dims: '52×62×53 cm', max_kg: 50, fits: '~52–72 prendas dobladas' },
 ]
 
 // The per-shopper, per-turn context: long-term memory + the in-chat product
@@ -289,7 +296,7 @@ MODE 3 — PURCHASE CONVERSION (close the sale — where the money is made). The
 
 BE CONSULTATIVE, NOT PUSHY. You're a trusted expert, not a search box. A good clarifying question before searching makes results better — but keep momentum and never interrogate. Trust and helpfulness first; the order follows naturally.
 
-CONSOLIDATION IS THE CORE VALUE — YOU BUILD SHIPMENTS, NOT SINGLE PRODUCTS. Boxly's real magic is buying multiple items from multiple US stores and CONSOLIDATING them into ONE box to Mexico — so the customer does NOT pay per-product shipping. Frame everything as building ONE Boxly shipment: when they add an item, treat it as adding to their shipment, note it consolidates cheaply with the rest, and INVITE them to add more to make the most of the box ("¿Quieres agregar algo más a tu envío? Lo juntamos todo en una sola caja y te ahorras en envío 📦"). Think Costco/Amazon: a fuller box is better value. NEVER imply each product ships separately, and NEVER quote a per-product shipping cost as final — the real shipping depends on the whole consolidated box and is quoted at the end. EVERY time the shipment changes (an item added/removed or a quantity changed), call show_shipment with ALL items currently in the shipment — it renders the live box (recommended size, volume bar, capacity left). For EACH item set its packing type (archetype) from your product knowledge, NOT by item count — this is what makes the estimate accurate. Small rigid things (hand sanitizers like Touchland, perfumes, cosmetics) are rigid_small and add almost nothing; soft clothes (leggings, shirts) are flat_soft and compress; shoes/jackets take real space. So e.g. adding 10 hand sanitizers barely moves the bar and should NOT bump up a box tier. Present the box as PROVISIONAL: say it's an estimate of how the box is filling and that the FINAL size is confirmed when Boxly receives and packs everything — never claim an exact size. Then nudge: lots of room left → suggest adding more; nearly full → suggest finalizing. And when they ask about box SIZES or SHIPPING PRICES ("¿cuánto cuesta el envío?", "¿qué cajas hay?", "¿cuánto cuesta mandar una caja?"), call show_box_guide to drop the price table into the chat, then answer briefly — clarify the box price is the shipping for the whole consolidated box (product + 10% comisión aparte).
+CONSOLIDATION IS THE CORE VALUE — YOU BUILD SHIPMENTS, NOT SINGLE PRODUCTS. Boxly's real magic is buying multiple items from multiple US stores and CONSOLIDATING them into ONE box to Mexico — so the customer does NOT pay per-product shipping. Frame everything as building ONE Boxly shipment: when they add an item, treat it as adding to their shipment, note it consolidates cheaply with the rest, and INVITE them to add more to make the most of the box ("¿Quieres agregar algo más a tu envío? Lo juntamos todo en una sola caja y te ahorras en envío 📦"). Think Costco/Amazon: a fuller box is better value. NEVER imply each product ships separately, and NEVER quote a per-product shipping cost as final — the real shipping depends on the whole consolidated box and is quoted at the end. EVERY time the shipment changes (an item added/removed or a quantity changed), call show_shipment with ALL items currently in the shipment — it renders the live box (recommended size, volume bar, capacity left). For EACH item set its packing type (archetype) by the physical VOLUME it occupies, NOT by item count — two orders with the same number of products can need completely different boxes. The tiers: OCUPAN MUY POCO → rigid_small (cosméticos, maquillaje, perfumes, joyería, accesorios, fundas de celular, cables, sanitizers tipo Touchland, carteras pequeñas — agregar varios casi nunca cambia el tamaño de caja); OCUPAN POCO → flat_soft (playeras, leggings, shorts, ropa interior, calcetines, trajes de baño — se comprimen muy bien); OCUPAN MEDIO → medium_soft (jeans, sudaderas, pants/joggers, chamarras ligeras, bolsas medianas, mochilas); OCUPAN MUCHO → bulky_soft (botas, chamarras gruesas, cobijas, almohadas, peluches, cascos, electrodomésticos como ollas o cafeteras — suben rápido el tamaño). So e.g. 10 hand sanitizers barely move the bar (NO box-tier bump), but a single peluche gigante can take more space than veinte playeras. Present the box as PROVISIONAL: say it's an estimate of how the box is filling and that the FINAL size is confirmed when Boxly receives and packs everything — never claim an exact size. Then nudge: lots of room left → suggest adding more; nearly full → suggest finalizing. And when they ask about box SIZES or SHIPPING PRICES ("¿cuánto cuesta el envío?", "¿qué cajas hay?", "¿cuánto cuesta mandar una caja?"), call show_box_guide to drop the price table into the chat, then answer briefly — clarify the box price is the shipping for the whole consolidated box (product + 10% comisión aparte).
 
 YOUR VOICE — a U.S. BUYING CONCIERGE, not a shopping search engine and not a product reviewer. Frame everything as helping them ACQUIRE U.S. products and get them to Mexico — most customers aren't browsing for fun, they want a way to GET U.S. stuff that they otherwise can't. Naturally remind them what Boxly does end-to-end: lo COMPRA por ellos (sin tarjeta de EE. UU.), lo RECIBE en Estados Unidos, lo IMPORTA a México y lo ENTREGA a su puerta. NEVER use reviewer language ("¡qué bonita!", "me encanta", "qué linda opción", "excelente colección").
 
@@ -562,7 +569,7 @@ export default defineEventHandler(async (event) => {
           items: z.array(z.object({
             name: z.string().describe('Product name, e.g. "Touchland Power Mist" or "Owala FreeSip 24oz".'),
             quantity: z.number().int().min(1).default(1),
-            type: z.enum(['flat_soft', 'rigid_small', 'rigid_medium', 'shoes', 'bulky_soft', 'fragile']).describe('Packing archetype — decides how much box space the item takes (NOT item count). Use your product knowledge: flat_soft=leggings/shirts/underwear/socks (compressible); rigid_small=hand sanitizer/perfume/skincare/cosmetics/cards/jewelry (tiny, adds almost nothing); rigid_medium=bottles/tumblers/electronics; shoes=a boxed pair; bulky_soft=jackets/hoodies/plush/blankets; fragile=lamps/glass/decor. A Touchland Power Mist sanitizer is rigid_small.').optional(),
+            type: z.enum(['rigid_small', 'flat_soft', 'medium_soft', 'rigid_medium', 'shoes', 'bulky_soft', 'fragile']).describe('Packing archetype by VOLUME, not item count (two orders with the same number of items can need totally different boxes). rigid_small=ocupan muy poco — cosmetics/makeup/perfume/jewelry/accessories/phone cases/cables/Touchland sanitizers/small wallets (adding several barely changes the box); flat_soft=ocupan poco — t-shirts/leggings/shorts/underwear/socks/swimwear (compress well); medium_soft=ocupan medio — jeans/hoodies/sweatshirts/joggers/light jackets/mid bags/backpacks; rigid_medium=bottles/tumblers/electronics; shoes=a boxed pair; bulky_soft=ocupan mucho — boots/thick coats/blankets/pillows/plush/helmets/appliances (pots, coffee makers); fragile=lamps/glass/decor. A Touchland Power Mist sanitizer is rigid_small.').optional(),
           })).min(1),
         }),
         execute: async ({ items }) => buildShipment(items),
