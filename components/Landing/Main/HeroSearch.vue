@@ -18,7 +18,7 @@
         type="submit"
         class="absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center gap-1.5 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-semibold text-sm sm:text-base pl-3.5 pr-4 py-3 shadow-md shadow-primary-600/30 active:scale-95 transition"
       >
-        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l1.6 4.6L18 8l-4.4 1.4L12 14l-1.6-4.6L6 8l4.4-1.4L12 2zM5 14l.9 2.6L8.5 17l-2.6.9L5 20l-.9-2.1L1.5 17l2.6-.4L5 14zM18 13l1 2.8 2.8 1-2.8 1L18 21l-1-3.2-2.8-1 2.8-1L18 13z"/></svg>
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path stroke-linecap="round" d="M21 21l-4.3-4.3"/></svg>
         {{ t.cta }}
       </button>
     </form>
@@ -45,7 +45,7 @@ const q = ref('')
 
 const t = createTranslations({
   placeholder: { es: 'Describe lo que quieres comprar…', en: 'Describe what you want to buy…' },
-  cta:         { es: 'Preguntar', en: 'Ask' },
+  cta:         { es: 'Buscar', en: 'Search' },
 })
 
 // Natural-language example prompts (not product categories) — demonstrate that
