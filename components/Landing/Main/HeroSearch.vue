@@ -23,11 +23,16 @@
       </button>
     </form>
 
-    <!-- Example prompts. On MOBILE: one swipeable row (no vertical stacking that
-         eats the screen). On desktop: wrapped + centered. -->
-    <div class="mt-4 flex gap-2 overflow-x-auto sm:flex-wrap sm:justify-center sm:overflow-visible -mx-4 px-4 sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden">
+    <!-- Example prompts — managed in the admin CMS (/starter-prompts). Shows a small
+         spinner until they load (NO hardcoded placeholders that would visibly swap).
+         On MOBILE: one swipeable row; on desktop: wrapped + centered. min-h reserves
+         space so the layout doesn't jump when chips replace the spinner. -->
+    <div class="mt-4 flex gap-2 overflow-x-auto sm:flex-wrap sm:justify-center sm:overflow-visible -mx-4 px-4 sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden min-h-[2.25rem]">
+      <div v-if="chips === null" class="flex items-center justify-center w-full py-1.5 text-gray-400">
+        <svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
+      </div>
       <button
-        v-for="(c, i) in chips"
+        v-for="(c, i) in (chips || [])"
         :key="i"
         type="button"
         @click="go(c.q)"
@@ -49,29 +54,22 @@ const t = createTranslations({
   cta:         { es: 'Buscar', en: 'Search' },
 })
 
-// Suggestion chips come from the SAME admin-managed starter prompts as the search
-// page (/starter-prompts), so the team controls them from the CMS. Curated
-// natural-language defaults show instantly (SSR, no request) and as a fallback if
-// the endpoint is empty/unreachable; admin prompts replace them on the client.
-const chipsT = createTranslations({
-  c1: { es: 'Quiero unos Jordan Retro negros talla 9', en: 'I want black Jordan Retro, size 9' },
-  c2: { es: 'Encuentra la Dyson Airwrap más barata', en: 'Find the cheapest Dyson Airwrap' },
-  c3: { es: 'Necesito un regalo para mi esposa', en: 'I need a gift for my wife' },
-  c4: { es: 'Muéstrame bolsos Coach en oferta', en: 'Show me Coach bags on sale' },
-})
-const fallbackChips = computed(() => [chipsT.value.c1, chipsT.value.c2, chipsT.value.c3, chipsT.value.c4].map((s) => ({ label: s, q: s })))
-const adminChips = ref(null)
-const chips = computed(() => adminChips.value ?? fallbackChips.value)
+// Suggestion chips come ONLY from the admin-managed starter prompts (/starter-prompts),
+// the SAME source as the search page, so the team controls them from the CMS. We show
+// a small spinner until they load — no hardcoded placeholders, which would visibly
+// "switch" to the real ones once the fetch returns. null = loading; [] = loaded (none).
+const chips = ref(null)
 
 onMounted(async () => {
   try {
     const rows = (await $customFetch('/starter-prompts'))?.data
-    const items = (Array.isArray(rows) ? rows : [])
+    chips.value = (Array.isArray(rows) ? rows : [])
       .map((r) => ({ label: r.prompt_text || r.title, q: r.prompt_text || r.title }))
       .filter((c) => c.q)
       .slice(0, 6)
-    if (items.length) adminChips.value = items
-  } catch { /* keep curated fallback */ }
+  } catch {
+    chips.value = []
+  }
 })
 
 function go(text) {
