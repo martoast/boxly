@@ -3,6 +3,7 @@ import { createAnthropic } from '@ai-sdk/anthropic'
 import { z } from 'zod'
 import { FALLBACK_KNOWLEDGE } from '../utils/boxlyKnowledge'
 import { curateProducts } from '../utils/curate'
+import { chatModel, isGoogle, providerOptions, hasModelKey } from '../utils/aiProvider'
 
 /**
  * AI shopping-assistant chat backend (Phase 2).
@@ -20,7 +21,8 @@ import { curateProducts } from '../utils/curate'
  */
 
 const API_BASE = (process.env.API_URL || 'https://api.boxly.mx').replace(/\/$/, '')
-const MODEL = process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001'
+// Which model/provider runs this chat is decided centrally in ../utils/aiProvider
+// (chatModel()), so the whole app can switch between Gemini and Claude via env.
 
 // Gallery ranking now lives in one shared "smart curate" pass — see
 // server/utils/curate.ts (relevance + color/attribute match + trust in a single
@@ -336,11 +338,11 @@ ${loggedIn
 }
 
 export default defineEventHandler(async (event) => {
-  const key = process.env.ANTHROPIC_API_KEY
-  if (!key) {
+  if (!hasModelKey()) {
     setResponseStatus(event, 503)
-    return { error: 'assistant_not_configured', message: 'Missing ANTHROPIC_API_KEY on the server.' }
+    return { error: 'assistant_not_configured', message: 'Missing LLM provider API key on the server.' }
   }
+  const useGoogle = isGoogle()
 
   const body = await readBody(event)
   const messages = body?.messages ?? []
@@ -348,8 +350,19 @@ export default defineEventHandler(async (event) => {
   const shoppingProfile = body?.shoppingProfile ?? null
   const savedProducts: any[] = Array.isArray(body?.savedProducts) ? body.savedProducts : []
 
-  const anthropic = createAnthropic({ apiKey: key })
   const knowledge = await getKnowledge()
+
+  // web_search: on Claude we use Anthropic's native server-side web search. On
+  // Gemini that built-in (google_search) can't coexist with our custom function
+  // tools (it suppresses them), so we expose web_search as a normal function tool
+  // backed by the API's SerpAPI organic search — same role: find stores/URLs.
+  const webSearchTool = useGoogle
+    ? tool({
+        description: "Search the web (Google) for stores, product pages and general info. FALLBACK when search_products returns nothing, and the way to find a real merchant product-page URL at order time. Returns results with title, url and snippet — pass good product-page URLs to show_products or extract_product.",
+        inputSchema: z.object({ query: z.string().describe('What to search for, e.g. "YoungLA joggers men", "owala 24oz official site".') }),
+        execute: async ({ query }) => callApi('/products/web-search', { method: 'POST', body: { query }, timeoutMs: 12000 }),
+      })
+    : createAnthropic({ apiKey: process.env.ANTHROPIC_API_KEY }).tools.webSearch_20250305({ maxUses: 6 })
 
   // Identity for analytics question-logging (searches log themselves server-side).
   const auth = { cookie: getHeader(event, 'cookie'), origin: getHeader(event, 'origin'), token }
@@ -368,14 +381,17 @@ export default defineEventHandler(async (event) => {
     {
       role: 'system',
       content: systemPrompt(!!token, knowledge),
-      providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' } } },
+      // Anthropic-only prompt caching of the big static prefix. Gemini does its own
+      // implicit caching automatically, so we just omit the breakpoint there.
+      ...(useGoogle ? {} : { providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' } } } }),
     },
     ...(ctx ? [{ role: 'system', content: ctx }] : []),
     ...await convertToModelMessages(stripIncompleteToolCalls(messages)),
   ]
 
   const result = streamText({
-    model: anthropic(MODEL),
+    model: chatModel(),
+    providerOptions: providerOptions(),
     messages: modelMessages,
     stopWhen: stepCountIs(10),
     onError: ({ error }) => console.error('[assistant] error:', error instanceof Error ? error.message : error),
@@ -386,7 +402,7 @@ export default defineEventHandler(async (event) => {
       if (!usedProductTool) logQuestion(question, text || '', auth)
     },
     tools: {
-      web_search: anthropic.tools.webSearch_20250305({ maxUses: 6 }),
+      web_search: webSearchTool,
 
       extract_product: tool({
         description: 'Fetch clean details (title, USD price, image, store) from a specific US product URL the user picked.',

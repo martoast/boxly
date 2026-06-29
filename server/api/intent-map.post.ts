@@ -1,6 +1,6 @@
 import { generateObject } from 'ai'
-import { createAnthropic } from '@ai-sdk/anthropic'
 import { z } from 'zod'
+import { auxModel, providerOptions, hasModelKey } from '../utils/aiProvider'
 
 /**
  * AI "intent map" for the admin dashboard. Takes the query corpus (product
@@ -14,7 +14,6 @@ import { z } from 'zod'
  * Body: { days }
  */
 const API_BASE = (process.env.API_URL || 'https://api.boxly.mx').replace(/\/$/, '')
-const PARSE_MODEL = process.env.ANTHROPIC_TITLE_MODEL || 'claude-haiku-4-5-20251001'
 
 // Small in-memory cache so re-opening the dashboard doesn't re-cluster.
 const cache = new Map<string, { at: number; data: any }>()
@@ -51,7 +50,7 @@ export default defineEventHandler(async (event) => {
     if (res.ok) queries = data?.data?.queries ?? []
   } catch { /* leave empty */ }
 
-  if (!queries.length || !process.env.ANTHROPIC_API_KEY) {
+  if (!queries.length || !hasModelKey()) {
     return { clusters: [], total: 0, days }
   }
 
@@ -64,10 +63,10 @@ export default defineEventHandler(async (event) => {
   if (hit && Date.now() - hit.at < TTL_MS) return hit.data
 
   try {
-    const anthropic = createAnthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
     const list = queries.map((q) => `[${q.type === 'question' ? 'P' : 'B'}] ${q.query} (${q.c})`).join('\n')
     const { object } = await generateObject({
-      model: anthropic(PARSE_MODEL),
+      model: auxModel(),
+      providerOptions: providerOptions(),
       schema: ClusterSchema,
       system:
         'You organize a US→Mexico shopping assistant\'s query log into an INTENT MAP, the way a search engine understands intent. Each line is tagged [B]=product search or [P]=question, with a frequency. Group them into clear intent themes. [B] searches cluster by WHAT they want to buy (brand or category). [P] questions cluster by TOPIC (precios/comisiones, envíos/tiempos, casillero, pagos, cómo funciona, confianza/seguridad, devoluciones, compras presenciales…). intent="shopping" for buy themes, "learning" for question themes. Use the exact input query strings in each theme\'s queries[]. Aim for 4–9 meaningful themes total; merge tiny ones. Labels and emojis in Spanish/universal.',

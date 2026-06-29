@@ -1,6 +1,6 @@
 import { streamText } from 'ai'
-import { createAnthropic } from '@ai-sdk/anthropic'
 import { FALLBACK_KNOWLEDGE } from '../utils/boxlyKnowledge'
+import { auxModel, providerOptions, hasModelKey } from '../utils/aiProvider'
 
 /**
  * Business Q&A backend for the "smart box that flips". When a message is a
@@ -14,7 +14,6 @@ import { FALLBACK_KNOWLEDGE } from '../utils/boxlyKnowledge'
  * Streams back plain text deltas (toTextStreamResponse).
  */
 const API_BASE = (process.env.API_URL || 'https://api.boxly.mx').replace(/\/$/, '')
-const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6'
 
 // In-memory cache of the assembled wiki so we don't hit the API on every message.
 let wikiCache: { markdown: string; at: number } | null = null
@@ -58,10 +57,9 @@ ${knowledge}
 }
 
 export default defineEventHandler(async (event) => {
-  const key = process.env.ANTHROPIC_API_KEY
-  if (!key) {
+  if (!hasModelKey()) {
     setResponseStatus(event, 503)
-    return { error: 'assistant_not_configured', message: 'Missing ANTHROPIC_API_KEY on the server.' }
+    return { error: 'assistant_not_configured', message: 'Missing LLM provider API key on the server.' }
   }
 
   const body = await readBody(event)
@@ -76,7 +74,6 @@ export default defineEventHandler(async (event) => {
     return { error: 'no_messages' }
   }
 
-  const anthropic = createAnthropic({ apiKey: key })
   const knowledge = await getKnowledge()
 
   const question = messages[messages.length - 1]?.content || ''
@@ -92,7 +89,8 @@ export default defineEventHandler(async (event) => {
   }
 
   const result = streamText({
-    model: anthropic(MODEL),
+    model: auxModel(),
+    providerOptions: providerOptions(),
     system: systemPrompt(knowledge),
     messages,
     onError: ({ error }) => console.error('[ask] error:', error instanceof Error ? error.message : error),

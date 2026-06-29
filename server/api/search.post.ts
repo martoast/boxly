@@ -1,6 +1,6 @@
 import { generateText } from 'ai'
-import { createAnthropic } from '@ai-sdk/anthropic'
 import { curateProducts } from '../utils/curate'
+import { auxModel, providerOptions, hasModelKey } from '../utils/aiProvider'
 
 /**
  * Smart search backend for the search-first shopping flow.
@@ -16,7 +16,6 @@ import { curateProducts } from '../utils/curate'
  *       or { type: 'product', product: { url } }   // a pasted product link
  */
 const API_BASE = (process.env.API_URL || 'https://api.boxly.mx').replace(/\/$/, '')
-const PARSE_MODEL = process.env.ANTHROPIC_TITLE_MODEL || 'claude-haiku-4-5-20251001'
 
 async function api(path: string, body: any) {
   try {
@@ -41,11 +40,11 @@ const isProductUrl = (u: string) =>
   /\/products?\/|\/p\/|\/dp\/|\/itm\/|\/gp\/product\//i.test(u)
 
 async function describeImage(dataUrl: string): Promise<string> {
-  if (!process.env.ANTHROPIC_API_KEY) return ''
+  if (!hasModelKey()) return ''
   try {
-    const anthropic = createAnthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
     const { text } = await generateText({
-      model: anthropic(PARSE_MODEL),
+      model: auxModel(),
+      providerOptions: providerOptions(),
       system:
         'You convert a product photo into a concise US-store search query. Include the brand if visible, the item type, color and any standout attribute. Output ONLY the query (2–7 words), in English, no quotes.',
       messages: [{

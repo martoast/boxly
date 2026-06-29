@@ -1,6 +1,6 @@
 import { generateObject } from 'ai'
-import { createAnthropic } from '@ai-sdk/anthropic'
 import { z } from 'zod'
+import { auxModel, providerOptions, hasModelKey } from './aiProvider'
 
 /**
  * Smart gallery curation — ONE model pass that does all the JUDGMENT, wrapped in
@@ -22,8 +22,8 @@ import { z } from 'zod'
  * caller-supplied store float. Replaces the old rankProducts()/reorderByIntent()
  * + hardcoded retailer list.
  */
-const CURATE_MODEL =
-  process.env.ANTHROPIC_RANK_MODEL || process.env.ANTHROPIC_TITLE_MODEL || 'claude-haiku-4-5-20251001'
+// Model + provider are chosen centrally in ./aiProvider (auxModel()), so this
+// pass follows whatever the app is set to (Gemini Flash-Lite or Claude Haiku).
 
 const SYSTEM = `You curate a US shopping gallery for a Boxly customer in Mexico. You are given the shopper's query and a numbered list of product results (title — store — price). Return how to present them.
 
@@ -75,19 +75,19 @@ export async function curateProducts(
 ): Promise<any[]> {
   if (!Array.isArray(products) || products.length === 0) return products
   // Too few to bother the model — just honor any caller-supplied store.
-  if (products.length < 3 || !process.env.ANTHROPIC_API_KEY) {
+  if (products.length < 3 || !hasModelKey()) {
     return floatRequestedStore(products, opts.store)
   }
   try {
-    const anthropic = createAnthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
     const list = products
       .map((p, i) => `${i}: ${(p.title || '').slice(0, 90)} — ${p.store || '?'}${p.price ? ` — $${p.price}` : ''}${p.on_sale ? ' (oferta)' : ''}`)
       .join('\n')
     const { object } = await generateObject({
-      model: anthropic(CURATE_MODEL),
+      model: auxModel(),
       schema,
       system: SYSTEM,
       prompt: `Query: "${query}"\n\nItems:\n${list}`,
+      providerOptions: providerOptions(),
       // Cap it so curation never blocks the gallery for long — on timeout we fall
       // back to the backend (relevance/deals) order, still floating any named store.
       abortSignal: AbortSignal.timeout(3500),
