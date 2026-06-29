@@ -3,11 +3,17 @@
        question. No lifestyle photo, no dark overlay, no logo marquee, no benefits
        row — those moved below so nothing competes with the input. Clean, centered,
        full-height: it should feel like opening an AI assistant, not a store. -->
-  <header class="relative isolate overflow-hidden bg-white">
+  <header class="relative isolate overflow-hidden bg-white min-h-[100svh] flex flex-col">
     <!-- Soft brand glow behind the input — the only decoration. -->
-    <div class="pointer-events-none absolute inset-x-0 -top-24 h-[520px] bg-[radial-gradient(55%_55%_at_50%_0%,#d5e5f5,transparent_72%)]"></div>
+    <div class="pointer-events-none absolute inset-x-0 top-1/4 h-[460px] bg-[radial-gradient(55%_55%_at_50%_0%,#d5e5f5,transparent_72%)]"></div>
 
-    <div class="relative mx-auto max-w-3xl px-4 sm:px-6 min-h-[100svh] flex flex-col items-center justify-center text-center pt-20 pb-16">
+    <!-- Store logos scrolling near the top (cleared below the fixed navbar). -->
+    <div class="relative pt-20 sm:pt-24">
+      <TrustedStores />
+    </div>
+
+    <!-- Centered AI focal point — fills the rest of the screen. -->
+    <div class="relative flex-1 flex flex-col items-center justify-center text-center mx-auto max-w-3xl w-full px-4 sm:px-6 pb-16">
       <div class="inline-flex items-center gap-1.5 rounded-full border border-primary-200 bg-primary-50 px-3 py-1 text-sm font-semibold text-primary-700 mb-6">
         <span aria-hidden="true">✨</span> Boxly AI
       </div>
@@ -36,6 +42,7 @@
 <script setup>
 import { computed } from 'vue'
 import HeroSearch from './HeroSearch.vue'
+import TrustedStores from './TrustedStores.vue'
 
 const { t: createTranslations } = useLanguage()
 const user = useUser()

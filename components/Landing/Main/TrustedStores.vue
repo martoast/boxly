@@ -1,34 +1,27 @@
 <template>
-  <!-- Social-proof strip, moved OUT of the hero so it doesn't compete with the
-       AI input. Sits just below the fold: the US stores Boxly buys from. -->
-  <section class="bg-white border-t border-gray-100 py-8 sm:py-10">
-    <p class="text-center text-xs sm:text-sm font-medium text-gray-400 mb-5 px-4">{{ t.heading }}</p>
-    <div class="logo-marquee-mask overflow-hidden">
-      <div class="flex gap-8 sm:gap-10 lg:gap-12 w-max animate-logo-scroll">
-        <template v-for="n in 3" :key="`set-${n}`">
-          <img
-            v-for="(logo, index) in logos"
-            :key="`logo-${n}-${index}`"
-            :src="logo.src"
-            :alt="logo.alt"
-            width="120" height="40"
-            class="h-8 sm:h-10 w-auto object-contain flex-shrink-0 grayscale opacity-60 hover:opacity-100 hover:grayscale-0 transition"
-            loading="lazy"
-            decoding="async"
-            draggable="false"
-          />
-        </template>
-      </div>
+  <!-- Store-logo marquee that scrolls near the TOP of the hero (social proof of
+       the US stores Boxly buys from), kept subtle so it never competes with the
+       AI input below it. -->
+  <div class="logo-marquee-mask overflow-hidden py-1">
+    <div class="flex gap-8 sm:gap-10 lg:gap-12 w-max animate-logo-scroll">
+      <template v-for="n in 3" :key="`set-${n}`">
+        <img
+          v-for="(logo, index) in logos"
+          :key="`logo-${n}-${index}`"
+          :src="logo.src"
+          :alt="logo.alt"
+          width="120" height="40"
+          class="h-7 sm:h-8 w-auto object-contain flex-shrink-0 grayscale opacity-50 hover:opacity-100 hover:grayscale-0 transition"
+          loading="lazy"
+          decoding="async"
+          draggable="false"
+        />
+      </template>
     </div>
-  </section>
+  </div>
 </template>
 
 <script setup>
-const { t: createTranslations } = useLanguage()
-const t = createTranslations({
-  heading: { es: 'Compra de las mejores tiendas de Estados Unidos', en: 'Shop the best stores in the United States' },
-})
-
 // US stores whose logos scroll across the strip.
 const logos = [
   { src: 'https://static.nc-myus.com/images/pub/www/uploads/image/21afeea318a64a71bcb1dbd3ef27ffec/shein-logo.png', alt: 'SHEIN' },
