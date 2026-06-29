@@ -11,7 +11,7 @@
           :src="logo.src"
           :alt="logo.alt"
           width="120" height="40"
-          class="h-7 sm:h-8 w-auto object-contain flex-shrink-0 grayscale opacity-50 hover:opacity-100 hover:grayscale-0 transition"
+          class="h-9 sm:h-12 lg:h-16 w-auto object-contain flex-shrink-0 grayscale opacity-50 hover:opacity-100 hover:grayscale-0 transition"
           loading="lazy"
           decoding="async"
           draggable="false"
