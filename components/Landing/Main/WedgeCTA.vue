@@ -15,14 +15,14 @@
         <p class="text-sm sm:text-base text-gray-600 mt-3 max-w-xl mx-auto leading-relaxed">{{ t.subtitle }}</p>
         <div class="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
           <NuxtLink
-            to="/app/purchase-requests/create/online"
+            to="/search"
             class="inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-full shadow-md transition-colors"
           >
             {{ t.cta }}
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
           </NuxtLink>
           <NuxtLink
-            to="/how-it-works"
+            to="/register"
             class="inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold rounded-full transition-colors"
           >
             {{ t.howCta }}
@@ -38,8 +38,8 @@ const { t: createTranslations } = useLanguage()
 
 const t = createTranslations({
   title:   { es: '¿No encuentras el producto que quieres?', en: 'Can\'t find the product you want?' },
-  subtitle:{ es: 'Mándanos el link, foto o nombre y lo conseguimos desde cualquier tienda de USA. Sin catálogos limitados.', en: 'Send us the link, photo, or name and we\'ll source it from any US store. No catalog limits.' },
-  cta:     { es: 'Crear solicitud', en: 'Create request' },
-  howCta:  { es: 'Cómo funciona', en: 'How it works' },
+  subtitle:{ es: 'Dile a Boxly AI el link, foto o nombre y lo conseguimos desde cualquier tienda de USA. Sin catálogos limitados.', en: 'Tell Boxly AI the link, photo, or name and we\'ll source it from any US store. No catalog limits.' },
+  cta:     { es: 'Buscar con Boxly AI', en: 'Search with Boxly AI' },
+  howCta:  { es: 'Crear cuenta gratis', en: 'Create free account' },
 })
 </script>

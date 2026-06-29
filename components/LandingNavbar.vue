@@ -34,6 +34,18 @@
             {{ t.howItWorks }}
           </NuxtLink>
 
+          <NuxtLink
+            to="/precios"
+            :class="[
+              isActiveRoute('/precios')
+                ? 'text-primary-600 font-semibold'
+                : 'text-gray-700 hover:text-primary-600',
+              'transition-colors duration-200'
+            ]"
+          >
+            {{ t.pricing }}
+          </NuxtLink>
+
           <!-- HIDDEN: Track my package page temporarily disabled
           <NuxtLink
             to="/track"
@@ -201,6 +213,19 @@
             {{ t.howItWorks }}
           </NuxtLink>
 
+          <NuxtLink
+            to="/precios"
+            @click="mobileMenuOpen = false"
+            class="block px-3 py-2 rounded-md text-base font-medium"
+            :class="[
+              isActiveRoute('/precios')
+                ? 'bg-primary-50 text-primary-600'
+                : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+            ]"
+          >
+            {{ t.pricing }}
+          </NuxtLink>
+
           <!-- HIDDEN: Track my package page temporarily disabled
           <NuxtLink
             to="/track"
@@ -339,6 +364,10 @@ const translations = {
   howItWorks: {
     es: 'Cómo Funciona',
     en: 'How It Works'
+  },
+  pricing: {
+    es: 'Precios',
+    en: 'Pricing'
   },
   calculator: {
     es: 'Cotiza tu Envío',
