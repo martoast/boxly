@@ -30,10 +30,10 @@
         v-for="(c, i) in chips"
         :key="i"
         type="button"
-        @click="go(c)"
+        @click="go(c.q)"
         class="px-3.5 py-1.5 rounded-full bg-gray-100 hover:bg-gray-200 border border-gray-200 text-gray-700 text-sm font-medium active:scale-95 transition"
       >
-        {{ c }}
+        {{ c.label }}
       </button>
     </div>
   </div>
@@ -41,6 +41,7 @@
 
 <script setup>
 const { t: createTranslations } = useLanguage()
+const { $customFetch } = useNuxtApp()
 const q = ref('')
 
 const t = createTranslations({
@@ -48,15 +49,30 @@ const t = createTranslations({
   cta:         { es: 'Buscar', en: 'Search' },
 })
 
-// Natural-language example prompts (not product categories) — demonstrate that
-// you can speak to the AI, including a non-literal request like a gift.
+// Suggestion chips come from the SAME admin-managed starter prompts as the search
+// page (/starter-prompts), so the team controls them from the CMS. Curated
+// natural-language defaults show instantly (SSR, no request) and as a fallback if
+// the endpoint is empty/unreachable; admin prompts replace them on the client.
 const chipsT = createTranslations({
   c1: { es: 'Quiero unos Jordan Retro negros talla 9', en: 'I want black Jordan Retro, size 9' },
   c2: { es: 'Encuentra la Dyson Airwrap más barata', en: 'Find the cheapest Dyson Airwrap' },
   c3: { es: 'Necesito un regalo para mi esposa', en: 'I need a gift for my wife' },
   c4: { es: 'Muéstrame bolsos Coach en oferta', en: 'Show me Coach bags on sale' },
 })
-const chips = computed(() => [chipsT.value.c1, chipsT.value.c2, chipsT.value.c3, chipsT.value.c4])
+const fallbackChips = computed(() => [chipsT.value.c1, chipsT.value.c2, chipsT.value.c3, chipsT.value.c4].map((s) => ({ label: s, q: s })))
+const adminChips = ref(null)
+const chips = computed(() => adminChips.value ?? fallbackChips.value)
+
+onMounted(async () => {
+  try {
+    const rows = (await $customFetch('/starter-prompts'))?.data
+    const items = (Array.isArray(rows) ? rows : [])
+      .map((r) => ({ label: r.prompt_text || r.title, q: r.prompt_text || r.title }))
+      .filter((c) => c.q)
+      .slice(0, 6)
+    if (items.length) adminChips.value = items
+  } catch { /* keep curated fallback */ }
+})
 
 function go(text) {
   warmSearch() // no-op if already warmed; covers chip taps that skip input focus
