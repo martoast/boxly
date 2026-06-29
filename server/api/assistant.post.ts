@@ -77,6 +77,21 @@ function lastUserText(messages: any[]): string {
 
 const PRODUCT_TOOLS = new Set(['search_products', 'browse_store', 'browse_stores', 'show_products', 'show_saved_products', 'extract_product', 'web_search'])
 
+// Tools that RENDER a product gallery on the client. We enforce "ONE gallery per
+// reply" in CODE, not just the prompt: once one of these returns products, a
+// per-request flag flips and prepareStep() removes ALL gallery tools from the
+// toolset for the rest of the turn — so the model physically cannot fire a second
+// (often empty) gallery. Claude obeyed the prompt rule; Gemini does not, calling a
+// gallery tool again in a later step and rendering a duplicate empty gallery.
+const GALLERY_TOOLS = ['search_products', 'browse_store', 'browse_stores', 'show_products', 'show_saved_products']
+// Everything the model may still use AFTER a gallery has rendered (write text, add
+// follow-ups, build the shipment, take the order) — i.e. all tools minus GALLERY_TOOLS.
+const NON_GALLERY_TOOLS = [
+  'web_search', 'extract_product', 'show_shipment', 'show_box_guide', 'suggest_followups',
+  'create_purchase_request', 'get_profile', 'list_orders', 'update_shopping_profile',
+  'create_self_order', 'create_account',
+]
+
 // Token efficiency: a gallery tool returns rich product objects, but most of each
 // is DISPLAY-ONLY — the image URL, the buy/Google link, and especially the
 // immersive `token` (an opaque page token that can be THOUSANDS of chars, used
@@ -284,6 +299,8 @@ CRITICAL — NEVER invent products. You may ONLY show a product (name, URL, pric
 
 CRITICAL — ONE gallery per reply. Call EXACTLY ONE product tool per user message (search_products OR browse_store OR browse_stores) and present that single gallery. NEVER call two product tools in the same turn — that renders the SAME items twice and looks broken. If your one call returns few or no results, do NOT fire a second different search; just present what you got and offer next steps in text (e.g. "¿quieres ver el catálogo completo?"). (suggest_followups is NOT a product/gallery tool — it's fine, and expected, to call it in the same turn after your gallery.)
 
+CRITICAL — NEVER narrate or announce the gallery. The gallery renders by itself from the tool result. Do NOT write meta lines like "(aquí aparecería la galería)", "la galería aparece arriba/abajo", "a continuación te muestro", or "déjame buscar". Write ONE clean reply that talks about the products as if they're already on screen — never describe the act of showing them, and never repeat your reply twice.
+
 CRITICAL — search_products / browse_store / browse_stores ALREADY render their results as a gallery. Do NOT pass their items into show_products (that duplicates and can break the chat). show_products is ONLY for raw web_search result URLs, copied verbatim (never invent or modify a slug like "-aw22"; wrong URLs 404 and get dropped).
 
 You are a SHOPPING COMPANION and DEAL FINDER. Deals are your HEADLINE, not a filter: every search already puts on-sale items first (flagged on_sale with a was price), so a normal search shows the full selection WITH the deals on top. Call out the deals, but always show a rich set of options — never reduce results to just the discounted ones (a one-item result is a bad experience). Only filter to sale-ONLY (sale:true) if the user explicitly says "solo ofertas / only what's on sale", and if that comes back sparse, show the full catalog instead. Show options from DIFFERENT stores side by side, point out the deals, then dive deeper. Conversational — suggest, compare, narrow, pivot.
@@ -389,11 +406,34 @@ export default defineEventHandler(async (event) => {
     ...await convertToModelMessages(stripIncompleteToolCalls(messages)),
   ]
 
+  // "One gallery per reply" guard (see GALLERY_TOOLS): a gallery tool flips this
+  // when it returns products; prepareStep() then strips gallery tools from later
+  // steps. Wrap a gallery tool's result with markGallery() to arm it.
+  let galleryShown = false
+  const markGallery = (r: any) => {
+    if (r && Array.isArray(r.products) && r.products.length > 0) galleryShown = true
+    return r
+  }
+
   const result = streamText({
     model: chatModel(),
     providerOptions: providerOptions(),
     messages: modelMessages,
-    stopWhen: stepCountIs(10),
+    // Stop at 10 steps, OR — once a gallery has shown — the moment the model calls
+    // suggest_followups (its intended last action: gallery → one closing line +
+    // follow-ups → done). This prevents a runaway extra step where some models
+    // (Gemini) re-answer the whole thing a second time. Gated on galleryShown so
+    // normal multi-step turns (ordering, profile updates) are unaffected.
+    stopWhen: [
+      stepCountIs(10),
+      ({ steps }: any) => {
+        const last = steps?.[steps.length - 1]
+        return galleryShown && (last?.toolCalls || []).some((c: any) => c.toolName === 'suggest_followups')
+      },
+    ],
+    // Once a gallery has rendered, only non-gallery tools remain available — the
+    // model can write its closing line and add follow-ups, but can't draw a 2nd gallery.
+    prepareStep: () => (galleryShown ? { activeTools: NON_GALLERY_TOOLS } : undefined),
     onError: ({ error }) => console.error('[assistant] error:', error instanceof Error ? error.message : error),
     onFinish: ({ text, steps }) => {
       // A turn that used a product tool is a SEARCH (logged server-side by
@@ -417,7 +457,7 @@ export default defineEventHandler(async (event) => {
           query: z.string().describe('Optional keyword to search within the store; omit for the latest drop.').optional(),
           sale: z.boolean().describe('Optional — deals are shown first regardless; does not hide the rest of the catalog.').optional(),
         }),
-        execute: async ({ store_url, query, sale }) => callApi('/products/store-feed', { method: 'POST', body: { url: store_url, query: query || undefined, sale: sale || undefined, limit: 12 }, timeoutMs: 25000 }),
+        execute: async ({ store_url, query, sale }) => markGallery(await callApi('/products/store-feed', { method: 'POST', body: { url: store_url, query: query || undefined, sale: sale || undefined, limit: 12 }, timeoutMs: 25000 })),
         toModelOutput: galleryModelOutput,
       }),
 
@@ -444,7 +484,7 @@ export default defineEventHandler(async (event) => {
               return (r?.products || []).map((p: any) => ({ ...p, store: s.name || r?.store || p.store }))
             } catch { return [] }
           }))
-          return { products: interleave(perStore) }
+          return markGallery({ products: interleave(perStore) })
         },
         toModelOutput: galleryModelOutput,
       }),
@@ -463,7 +503,7 @@ export default defineEventHandler(async (event) => {
           // One smart pass: relevance + color/attribute match + trust ranking,
           // then deterministically float the requested store (the explicit param wins).
           if (r && Array.isArray(r.products)) r.products = await curateProducts(query, r.products, { store })
-          return r
+          return markGallery(r)
         },
         toModelOutput: galleryModelOutput,
       }),
@@ -476,7 +516,7 @@ export default defineEventHandler(async (event) => {
         execute: async ({ ids }) => {
           const set = new Set(ids)
           const products = savedProducts.filter((p) => set.has(p.id))
-          return { products }
+          return markGallery({ products })
         },
         toModelOutput: galleryModelOutput,
       }),
@@ -511,7 +551,7 @@ export default defineEventHandler(async (event) => {
           // verify, return empty so nothing renders — better than broken cards
           // (the model likely already showed a good gallery via search_products).
           const verified = enriched.filter((p) => p.ok).map(({ ok, ...p }) => p)
-          return { products: verified }
+          return markGallery({ products: verified })
         },
         toModelOutput: galleryModelOutput,
       }),
