@@ -196,6 +196,24 @@
             </div>
           </Transition>
 
+          <!-- First-use soft conversion gate (guest only, once) -->
+          <Transition name="pop">
+            <div v-if="softGate" class="max-w-sm mx-auto mt-5 bg-white border border-primary-200 rounded-2xl p-4 shadow-lg ring-1 ring-primary-100">
+              <p class="text-sm font-bold text-gray-900 mb-0.5">Guarda tu búsqueda con una cuenta ✨</p>
+              <p class="text-xs text-gray-500 mb-3">Crea tu cuenta Boxly gratis para guardar tus productos y pedir cuando quieras — te traemos justo aquí para seguir chateando.</p>
+              <button @click="dismissSoftGate(); goRegister()" class="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-primary-500 hover:bg-primary-600 active:scale-[.98] text-white text-sm font-bold rounded-xl transition-all">
+                Crear cuenta gratis
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+              </button>
+              <button @click="dismissSoftGate(); goLogin()" class="w-full flex items-center justify-center gap-2 px-4 py-2.5 mt-2 border border-gray-200 hover:bg-gray-50 active:scale-[.98] text-gray-700 text-sm font-semibold rounded-xl transition-all">
+                Ya tengo cuenta · Iniciar sesión
+              </button>
+              <button @click="dismissSoftGate" class="w-full mt-2 px-4 py-2 text-gray-400 hover:text-gray-600 text-xs font-medium transition-colors">
+                Seguir explorando
+              </button>
+            </div>
+          </Transition>
+
           <!-- "Ya lo compré yo" → confirm address + upload proof → shipping order -->
           <Transition name="pop">
             <div v-if="pendingSelfOrder" class="max-w-sm mx-auto mt-5 bg-white border border-primary-200 rounded-2xl p-4 shadow-lg ring-1 ring-primary-100">
@@ -435,6 +453,26 @@ const { recording: micRecording, transcribing: micTranscribing, levels: micLevel
 const retitled = ref(false)
 const pendingAccount = ref(null)
 const GUEST_RESUME_KEY = 'boxly_guest_resume'
+
+// First-use soft conversion gate: the moment a GUEST's first reply with results
+// lands, nudge them (once) to grab an account — same stash+resume as the hard
+// purchase gate, so they pick right back up here, authenticated. Dismissible;
+// never blocks. Shown at most once per guest (localStorage flag).
+const softGate = ref(false)
+const SOFTGATE_SEEN_KEY = 'boxly_guest_softgate_seen'
+function dismissSoftGate() {
+  softGate.value = false
+  try { localStorage.setItem(SOFTGATE_SEEN_KEY, '1') } catch { /* ignore */ }
+}
+function maybeSoftGate() {
+  if (softGate.value || user.value || pendingAccount.value) return // guests only, once, never over the hard gate
+  try { if (localStorage.getItem(SOFTGATE_SEEN_KEY)) return } catch { /* ignore */ }
+  // Only after at least one assistant reply that actually showed products.
+  if (!chat.messages.some((m) => m.role === 'assistant' && hasProducts(m))) return
+  softGate.value = true
+}
+// The hard purchase gate always wins — collapse the soft nudge if it appears.
+watch(pendingAccount, (v) => { if (v) softGate.value = false })
 
 // "Ya lo compré yo" → create a normal SHIPPING order (casillero). Client-side
 // because the proof-of-purchase file lives in the browser. We confirm the
@@ -949,6 +987,8 @@ watch(() => chat.status, async (s) => {
     await persist()
     maybeRetitle()
   }
+  // First reply with results just finished for a guest → soft conversion nudge.
+  if (s === 'ready' && !user.value) maybeSoftGate()
 })
 
 // ChatGPT-style: after the first reply, ask a fast model for a concise title
