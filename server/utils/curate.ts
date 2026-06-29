@@ -25,12 +25,17 @@ import { z } from 'zod'
 const CURATE_MODEL =
   process.env.ANTHROPIC_RANK_MODEL || process.env.ANTHROPIC_TITLE_MODEL || 'claude-haiku-4-5-20251001'
 
-const SYSTEM = `You curate a US shopping gallery for a Boxly customer in Mexico. You are given the shopper's query and a numbered list of product results. Return how to present them.
+const SYSTEM = `You curate a US shopping gallery for a Boxly customer in Mexico. You are given the shopper's query and a numbered list of product results (title — store — price). Return how to present them.
 
-1) order — every item index exactly once, best-first. Rank by, in priority:
-   a) MATCH to the query's specifics, ESPECIALLY color and attributes. The query may be Spanish (rosa=pink, azul=blue, negro=black, verde=green, morado/lila=purple, gris=gray, blanco=white, rojo=red, amarillo=yellow, naranja=orange, café/marrón=brown). Decode marketing color names with product knowledge (e.g. "Misty Meadows"=teal/green, "Sugar Spice"=pink, "Blossom Bunny"=pink, "Rose Quartz"=pink). Items that clearly DON'T match (wrong color, wrong item type) go LAST — but NEVER omit them; include every index.
-   b) TRUSTWORTHY seller — big-box/department retailers (Target, Walmart, Best Buy, Costco, Macy's, Nordstrom…) and recognized brand stores (Nike, Adidas, Lululemon, Stanley, Owala…) ABOVE tiny unknown niche resellers and random marketplace third-parties.
-   c) a good price/deal — tiebreaker only, never the main factor.
+1) order — list EVERY item index exactly once, best-first, applying these rules IN THIS ORDER:
+
+   A) RELEVANCE — the item must match what the shopper actually asked for, on EVERY specific they gave: product type, color, COUNTRY / nationality / team / edition, size, gender, material. The query may be Spanish (rosa=pink, azul=blue, negro=black, verde=green, morado/lila=purple, gris=gray, blanco=white, rojo=red, amarillo=yellow, naranja=orange, café/marrón=brown). Decode marketing & edition names with product knowledge — colors ("Misty Meadows"=teal, "Blossom Bunny"=pink, "Rose Quartz"=pink) AND nationality/team (a player or team name implies a country, e.g. "Messi" ⇒ Argentina; a flag/country word ⇒ that country). If the shopper named a COUNTRY or edition (e.g. "Stanley de México del Mundial"), items for a DIFFERENT country/team (e.g. an Argentina / Messi cup) are a CLEAR MISMATCH → send them to the very BOTTOM. Include every index, but clear mismatches always rank last.
+
+   B) SELLER QUALITY — among relevant items, this is the PRIMARY ranking: ALWAYS lead with the maker's own store and big-box / chain retailers, and push third-party RESALE MARKETPLACES to the bottom.
+      • TOP (prioritize): the brand's official store (e.g. Stanley) and major chains — Target, Walmart, Amazon, Dick's Sporting Goods, Best Buy, Costco, Macy's, Nordstrom, Kohl's, REI, Scheels, Academy, Sephora, Ulta, Nike, Adidas, Lululemon, etc.
+      • BOTTOM (avoid — rank BELOW every legitimate retailer, even when cheaper): individual / unverified third-party resale platforms — eBay, Poshmark, Mercari, Etsy, Depop, Vinted, AliExpress, Facebook Marketplace, OfferUp, StockX, Grailed, Whatnot. A store name like "eBay - gius3187" or "Etsy - Seller" is a random reseller. A relevant item from Target/Dick's/Stanley ALWAYS outranks the same item from eBay/Poshmark/Mercari/Etsy.
+
+   C) PRICE/DEAL — only a tiebreaker between similar items from similar-quality sellers; it NEVER lifts a resale-marketplace listing above a real retailer.
 
 2) store — if the shopper explicitly named a store/retailer/brand to buy FROM (e.g. "de Target", "from Walmart", "en Costco", "el de Nike"), return that store's name. Otherwise return "". Return the RETAILER they want to buy from, not the product's brand if they're different (in "owala rosa de Target", the store is "Target", not "Owala").`
 
