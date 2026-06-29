@@ -15,10 +15,6 @@
 
     <!-- Centered AI focal point. -->
     <div class="relative w-full max-w-3xl">
-      <div class="inline-flex items-center gap-1.5 rounded-full border border-primary-200 bg-primary-50 px-3 py-1 text-sm font-semibold text-primary-700 mb-6">
-        <span aria-hidden="true">✨</span> Boxly AI
-      </div>
-
       <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-gray-900 leading-[1.07] tracking-tight">
         {{ t.title }}
       </h1>
