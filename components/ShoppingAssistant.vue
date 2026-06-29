@@ -177,11 +177,14 @@
 
           <Transition name="pop">
             <div v-if="pendingAccount" class="max-w-sm mx-auto mt-5 bg-white border border-primary-200 rounded-2xl p-4 shadow-lg ring-1 ring-primary-100">
-              <p class="text-sm font-bold text-gray-900 mb-0.5">Crea tu cuenta para continuar 🛍️</p>
-              <p class="text-xs text-gray-500 mb-3">Necesitas una cuenta Boxly para hacer tu pedido. Te llevamos al registro y te traemos de vuelta justo aquí, con tu pedido listo para confirmar.</p>
+              <p class="text-sm font-bold text-gray-900 mb-0.5">Continúa con tu cuenta Boxly 🛍️</p>
+              <p class="text-xs text-gray-500 mb-3">Necesitas tu cuenta Boxly para hacer el pedido. Crea una o inicia sesión — te traemos de vuelta justo aquí, con tu pedido listo para confirmar.</p>
               <button @click="goRegister" class="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-primary-500 hover:bg-primary-600 active:scale-[.98] text-white text-sm font-bold rounded-xl transition-all">
                 Crear cuenta y continuar
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+              </button>
+              <button @click="goLogin" class="w-full flex items-center justify-center gap-2 px-4 py-2.5 mt-2 border border-gray-200 hover:bg-gray-50 active:scale-[.98] text-gray-700 text-sm font-semibold rounded-xl transition-all">
+                Ya tengo cuenta · Iniciar sesión
               </button>
             </div>
           </Transition>
@@ -448,9 +451,9 @@ function composeAddress(a) {
 }
 
 function openSelfOrder(toolCall) {
-  // Guests must register first → send them to register and resume on return
-  // (goRegister stashes this chat; the self-order intent re-fires authenticated).
-  if (!user.value) { goRegister(); return }
+  // Guests must authenticate first → show the gate (register OR login) and resume
+  // on return; the self-order intent re-fires once they're signed in.
+  if (!user.value) { pendingAccount.value = { toolCallId: toolCall.toolCallId }; return }
   const raw = (toolCall.input?.items) || []
   const items = raw.map((it) => {
     const saved = it.saved_id ? savedProducts.value.find((p) => p.id === it.saved_id) : null
@@ -855,10 +858,12 @@ async function toggleMic() {
   if (text) input.value = (input.value ? input.value.trim() + ' ' : '') + text
 }
 
-// Guest purchase gate → send them to the real register page, then resume THIS
-// chat when they come back (works for email signup AND Google sign-in, since the
-// stash is in localStorage and the register/OAuth flows honor ?redirect).
-function goRegister() {
+// Guest purchase gate → send them to authenticate, then resume THIS chat when
+// they come back. Works for BOTH register and login (many customers already have
+// an account but start as guests), and for email AND Google sign-in: the stash is
+// in localStorage and both auth pages honor ?redirect (Google packs it into the
+// OAuth state). On return, maybeResumeGuest restores + claims + continues.
+function stashGuestChat() {
   // The last thing the guest asked for = the intent to pick back up on return.
   let intent = ''
   for (let i = chat.messages.length - 1; i >= 0; i--) {
@@ -871,8 +876,10 @@ function goRegister() {
   const messages = chat.messages.map((m) => ({ role: m.role, content: { parts: cleanParts(m.parts) } }))
   try { localStorage.setItem(GUEST_RESUME_KEY, JSON.stringify({ messages, intent, ts: Date.now() })) } catch { /* ignore */ }
   pendingAccount.value = null
-  navigateTo(`/register?redirect=${encodeURIComponent('/search?resume=1')}`)
 }
+const RESUME_REDIRECT = encodeURIComponent('/search?resume=1')
+function goRegister() { stashGuestChat(); navigateTo(`/register?redirect=${RESUME_REDIRECT}`) }
+function goLogin() { stashGuestChat(); navigateTo(`/login?redirect=${RESUME_REDIRECT}`) }
 
 // On return from register/Google sign-in: if a fresh guest stash exists, restore
 // the conversation, claim it under the new account, and continue the purchase.
