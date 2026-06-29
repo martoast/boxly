@@ -88,6 +88,9 @@ export async function curateProducts(
       schema,
       system: SYSTEM,
       prompt: `Query: "${query}"\n\nItems:\n${list}`,
+      // Cap it so curation never blocks the gallery for long — on timeout we fall
+      // back to the backend (relevance/deals) order, still floating any named store.
+      abortSignal: AbortSignal.timeout(3500),
     })
     const ordered = applyOrder(products, object?.order || [])
     // Code enforces the store promise: caller-supplied store (the chat tool's

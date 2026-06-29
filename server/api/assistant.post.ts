@@ -30,11 +30,28 @@ const MODEL = process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001'
 // Admin-managed knowledge wiki (Mode 1 — Expert). Cached briefly; falls back to a
 // built-in constant if the API is unreachable so the concierge never goes dark.
 let wikiCache: { markdown: string; at: number } | null = null
-const WIKI_TTL_MS = 60_000
+let wikiRefreshing = false
+const WIKI_TTL_MS = 300_000 // 5 min
+// Fetch the wiki in the background and update the cache. Never throws.
+function refreshKnowledge(): void {
+  if (wikiRefreshing) return
+  wikiRefreshing = true
+  fetch(`${API_BASE}/knowledge`, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(8000) })
+    .then((res) => res.json().then((data) => ({ ok: res.ok, md: data?.data?.markdown })))
+    .then(({ ok, md }) => { if (ok && typeof md === 'string' && md.trim()) wikiCache = { markdown: md, at: Date.now() } })
+    .catch(() => { /* keep last good cache */ })
+    .finally(() => { wikiRefreshing = false })
+}
+// Stale-while-revalidate: NEVER block the chat on the wiki. If we have any cached
+// copy we return it instantly (and refresh in the background when stale). Only the
+// very first request with an empty cache waits — briefly — then falls back.
 async function getKnowledge(): Promise<string> {
-  if (wikiCache && Date.now() - wikiCache.at < WIKI_TTL_MS) return wikiCache.markdown
+  if (wikiCache) {
+    if (Date.now() - wikiCache.at > WIKI_TTL_MS) refreshKnowledge() // non-blocking
+    return wikiCache.markdown
+  }
   try {
-    const res = await fetch(`${API_BASE}/knowledge`, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(8000) })
+    const res = await fetch(`${API_BASE}/knowledge`, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(4000) })
     const data = await res.json()
     const md = data?.data?.markdown
     if (res.ok && typeof md === 'string' && md.trim()) {
