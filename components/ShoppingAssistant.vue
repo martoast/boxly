@@ -662,6 +662,11 @@ const chat = new Chat({
 // go through initLoggedIn instead (their token must be minted before sending).
 if (import.meta.client && !user.value) sendInitialQuery()
 
+// Warm the Nitro server function the moment the chat mounts (direct /search loads
+// don't come through the hero's warm-up), so the first /api/assistant call skips
+// the serverless cold start. Cheap, fire-and-forget, client-only.
+if (import.meta.client) $fetch('/api/ping').catch(() => {})
+
 // Init on the client once the user is known. Load history + profile in PARALLEL
 // so the sidebar shows fast; the chat token is only needed to SEND (authed
 // tools), so it's minted in the background, off the load path.
