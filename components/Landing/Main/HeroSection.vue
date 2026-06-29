@@ -37,6 +37,11 @@
       <div class="flex-1 flex items-center">
         <div class="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 pt-16 sm:pt-20 lg:pt-24 pb-8">
           <div class="max-w-2xl">
+            <!-- AI positioning: make it obvious in the first second that this is
+                 a shopping AI, not a logistics search bar. -->
+            <div class="inline-flex items-center gap-1.5 rounded-full bg-white/15 backdrop-blur border border-white/25 px-3 py-1 text-sm font-semibold text-white mb-4">
+              <span aria-hidden="true">✨</span> {{ t.aiBadge }}
+            </div>
             <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-white leading-[1.05] tracking-tight">
               {{ t.title }}
             </h1>
@@ -104,8 +109,9 @@ const desktopImageSrc = '/images/hero-shopper.png'
 const mobileImageSrc  = '/images/hero-shopper.png'
 
 const t = createTranslations({
+  aiBadge:        { es: 'Asistente de compras con IA', en: 'AI shopping assistant' },
   title:          { es: '¿Qué quieres comprar de Estados Unidos?', en: 'What do you want to buy from the United States?' },
-  subtitle:       { es: 'Nosotros lo compramos, lo recibimos y lo trasladamos. Tú lo recibes en tu casa en México.', en: 'We buy it, receive it, and ship it. You get it delivered to your door in Mexico.' },
+  subtitle:       { es: 'Dile a Boxly AI lo que buscas. Nosotros encontramos el producto, lo compramos y lo entregamos hasta tu casa en México.', en: 'Tell Boxly AI what you want. We find the product, buy it, and deliver it to your door in Mexico.' },
   createAccount:  { es: 'Crear cuenta gratis', en: 'Create free account' },
   myAccount:      { es: 'Ir a mi cuenta', en: 'Go to my account' },
   signIn:         { es: 'Iniciar sesión', en: 'Sign in' },

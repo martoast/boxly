@@ -1,8 +1,8 @@
 <template>
   <!-- Landing-hero entry point into the BOXLY concierge. It does NOT chat here —
        it hands off to /search?q=... which auto-fires the query as the first
-       message (works for guests; the account gate happens at purchase). This is
-       the main top-of-funnel: ask → search → (eventually) create account. -->
+       message (works for guests; the account gate happens at purchase). Framed as
+       a conversation with an AI, not a product search box. -->
   <div class="w-full max-w-xl">
     <form @submit.prevent="go()" class="relative">
       <input
@@ -12,28 +12,36 @@
         :aria-label="t.placeholder"
         autocomplete="off"
         @focus="warmSearch"
-        class="w-full rounded-2xl bg-white/95 backdrop-blur pl-5 pr-14 py-4 text-base text-gray-900 placeholder-gray-500 shadow-xl ring-1 ring-black/5 focus:outline-none focus:ring-2 focus:ring-primary-500 transition"
+        class="w-full rounded-2xl bg-white/95 backdrop-blur pl-5 pr-32 py-4 text-base text-gray-900 placeholder-gray-500 shadow-xl ring-1 ring-black/5 focus:outline-none focus:ring-2 focus:ring-primary-500 transition"
       />
       <button
         type="submit"
-        :aria-label="t.search"
-        class="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 grid place-items-center rounded-xl bg-primary-600 hover:bg-primary-700 text-white shadow-md shadow-primary-600/30 active:scale-90 transition"
+        class="absolute right-1.5 top-1/2 -translate-y-1/2 inline-flex items-center gap-1.5 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-semibold text-sm pl-3 pr-3.5 py-2.5 shadow-md shadow-primary-600/30 active:scale-95 transition"
       >
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M13 6l6 6-6 6"/></svg>
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l1.6 4.6L18 8l-4.4 1.4L12 14l-1.6-4.6L6 8l4.4-1.4L12 2zM5 14l.9 2.6L8.5 17l-2.6.9L5 20l-.9-2.1L1.5 17l2.6-.4L5 14zM18 13l1 2.8 2.8 1-2.8 1L18 21l-1-3.2-2.8-1 2.8-1L18 13z"/></svg>
+        {{ t.cta }}
       </button>
     </form>
 
-    <!-- Suggestion chips — tappable example prompts (incl. a "how it works"
-         question, since the concierge answers those too). -->
-    <div class="mt-3.5 flex flex-wrap gap-2">
+    <!-- Capability strip: spells out the whole job so it's clearly a concierge,
+         not a search engine. -->
+    <div class="mt-3 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-sm text-white/80">
+      <template v-for="(cap, i) in caps" :key="i">
+        <span v-if="i" class="text-white/40" aria-hidden="true">•</span>
+        <span>{{ cap }}</span>
+      </template>
+    </div>
+
+    <!-- Natural-language example prompts — they teach users they can just talk. -->
+    <div class="mt-4 flex flex-wrap gap-2">
       <button
         v-for="(c, i) in chips"
         :key="i"
         type="button"
-        @click="go(c.q)"
+        @click="go(c)"
         class="px-3.5 py-1.5 rounded-full bg-white/15 hover:bg-white/25 backdrop-blur border border-white/25 text-white text-sm font-medium active:scale-95 transition"
       >
-        {{ c.label }}
+        {{ c }}
       </button>
     </div>
   </div>
@@ -41,13 +49,31 @@
 
 <script setup>
 const { t: createTranslations } = useLanguage()
-const { $customFetch } = useNuxtApp()
 const q = ref('')
 
 const t = createTranslations({
-  placeholder: { es: 'Escribe un producto, marca o pega un link…', en: 'Type a product, brand or paste a link…' },
-  search:      { es: 'Buscar', en: 'Search' },
+  placeholder: { es: 'Ej. “Quiero unos tenis New Balance blancos talla 8”', en: 'e.g. “I want white New Balance sneakers, size 8”' },
+  cta:         { es: 'Preguntar', en: 'Ask' },
 })
+
+// The whole job, in four beats — concierge, not search.
+const capsT = createTranslations({
+  c1: { es: 'Encuentra productos', en: 'Finds products' },
+  c2: { es: 'Compara tiendas', en: 'Compares stores' },
+  c3: { es: 'Compra por ti', en: 'Buys for you' },
+  c4: { es: 'Lo recibes en México', en: 'Delivered in Mexico' },
+})
+const caps = computed(() => [capsT.value.c1, capsT.value.c2, capsT.value.c3, capsT.value.c4])
+
+// Natural-language example prompts (not product categories) — demonstrate that
+// you can speak to the AI, including a non-literal request like a gift.
+const chipsT = createTranslations({
+  c1: { es: 'Quiero unos Jordan Retro negros talla 9', en: 'I want black Jordan Retro, size 9' },
+  c2: { es: 'Encuentra la Dyson Airwrap más barata', en: 'Find the cheapest Dyson Airwrap' },
+  c3: { es: 'Necesito un regalo para mi esposa', en: 'I need a gift for my wife' },
+  c4: { es: 'Muéstrame bolsos Coach en oferta', en: 'Show me Coach bags on sale' },
+})
+const chips = computed(() => [chipsT.value.c1, chipsT.value.c2, chipsT.value.c3, chipsT.value.c4])
 
 function go(text) {
   warmSearch() // no-op if already warmed; covers chip taps that skip input focus
@@ -67,36 +93,9 @@ function warmSearch() {
   preloadRouteComponents('/search')
   $fetch('/api/ping').catch(() => {})
 }
-// Also warm during browser idle even if they never focus — by the time they
-// engage, chunks are likely already cached. Cheap; runs after hydration.
 onNuxtReady(() => { requestIdleCallbackSafe(warmSearch) })
 function requestIdleCallbackSafe(cb) {
   if (typeof window !== 'undefined' && 'requestIdleCallback' in window) window.requestIdleCallback(cb, { timeout: 2500 })
   else setTimeout(cb, 1200)
 }
-
-// Curated bilingual defaults shown instantly (SSR, no request). Enhanced on the
-// client with the admin-managed starter prompts so the hero stays in sync with
-// what the team curates for /search — best of both: fast first paint + control.
-const defaults = createTranslations({
-  c1: { es: 'Tenis Nike para correr', en: 'Nike running shoes' },
-  c2: { es: 'Bolsa Coach', en: 'Coach bag' },
-  c3: { es: 'Perfumes de Sephora', en: 'Sephora perfumes' },
-  c4: { es: '¿Cómo funciona Boxly?', en: 'How does Boxly work?' },
-})
-const chips = ref([])
-watchEffect(() => {
-  chips.value = [defaults.value.c1, defaults.value.c2, defaults.value.c3, defaults.value.c4].map((s) => ({ label: s, q: s }))
-})
-
-onMounted(async () => {
-  try {
-    const rows = (await $customFetch('/starter-prompts'))?.data
-    const items = (Array.isArray(rows) ? rows : [])
-      .map((r) => ({ label: r.title || r.prompt_text, q: r.prompt_text }))
-      .filter((c) => c.q)
-      .slice(0, 4)
-    if (items.length) chips.value = items
-  } catch { /* keep curated defaults */ }
-})
 </script>
