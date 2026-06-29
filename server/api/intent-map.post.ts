@@ -58,6 +58,18 @@ export default defineEventHandler(async (event) => {
   const countOf = new Map(queries.map((q) => [q.query, q.c]))
   const typeOf = new Map(queries.map((q) => [q.query, q.type]))
 
+  // Tolerant resolver: the model often echoes a query back with the "[B] "/"[P] "
+  // prefix and/or the " (N)" frequency we showed it (Gemini does this; Claude
+  // didn't), so an exact match dropped every query → empty clusters. Normalize
+  // both sides (strip tag prefix + trailing count, trim, lowercase) and map back
+  // to the canonical query.
+  const norm = (s: string) => String(s || '')
+    .replace(/^\s*\[[bp]\]\s*/i, '')
+    .replace(/\s*\(\d+\)\s*$/, '')
+    .trim()
+    .toLowerCase()
+  const byNorm = new Map(queries.map((q) => [norm(q.query), q]))
+
   const key = hash(days + '|' + queries.map((q) => `${q.type}:${q.query}:${q.c}`).join('|'))
   const hit = cache.get(key)
   if (hit && Date.now() - hit.at < TTL_MS) return hit.data
@@ -75,9 +87,12 @@ export default defineEventHandler(async (event) => {
 
     const clusters = (object.clusters || [])
       .map((c) => {
+        const seen = new Set<string>()
         const items = (c.queries || [])
-          .filter((q) => countOf.has(q))
-          .map((q) => ({ q, c: countOf.get(q) || 1, type: typeOf.get(q) || 'search' }))
+          .map((raw) => byNorm.get(norm(raw)))            // resolve to the canonical query
+          .filter((q): q is { query: string; type: string; c: number } => !!q)
+          .filter((q) => !seen.has(q.query) && seen.add(q.query)) // dedupe repeats
+          .map((q) => ({ q: q.query, c: q.c, type: q.type }))
           .sort((a, b) => b.c - a.c)
         return { label: c.label, intent: c.intent, emoji: c.emoji || '•', total: items.reduce((s, i) => s + i.c, 0), queries: items }
       })
