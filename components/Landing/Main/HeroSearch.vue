@@ -8,8 +8,8 @@
       <input
         v-model="q"
         type="text"
-        :placeholder="t.placeholder"
-        :aria-label="t.placeholder"
+        :placeholder="placeholder"
+        :aria-label="t.aria"
         autocomplete="off"
         @focus="warmSearch"
         class="w-full rounded-2xl bg-white pl-5 pr-36 py-5 text-base sm:text-lg text-gray-900 placeholder-gray-400 shadow-[0_8px_40px_-12px_rgba(0,0,0,0.25)] ring-1 ring-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500 transition"
@@ -50,9 +50,34 @@ const { $customFetch } = useNuxtApp()
 const q = ref('')
 
 const t = createTranslations({
-  placeholder: { es: 'Describe lo que quieres comprar…', en: 'Describe what you want to buy…' },
-  cta:         { es: 'Buscar', en: 'Search' },
+  aria: { es: 'Busca cualquier producto de Estados Unidos', en: 'Search any product from the US' },
+  cta:  { es: 'Buscar', en: 'Search' },
+  // Rotating placeholders — the search bar itself teaches the value prop.
+  ph0: { es: '🔍 Busca cualquier producto de EE.UU…',        en: '🔍 Search any US product…' },
+  ph1: { es: '🇺🇸 Compra desde México sin VPN…',             en: '🇺🇸 Shop from Mexico, no VPN…' },
+  ph2: { es: '📦 Sin dirección en EE.UU…',                    en: '📦 No US address needed…' },
+  ph3: { es: '💳 Sin tarjeta americana…',                     en: '💳 No US credit card…' },
+  ph4: { es: '🚚 Recíbelo hasta tu puerta en México…',        en: '🚚 Delivered to your door in Mexico…' },
+  ph5: { es: '✨ Ej. "Nike Air Max 97"',                      en: '✨ e.g. "Nike Air Max 97"' },
 })
+const phrases = computed(() => [t.ph0, t.ph1, t.ph2, t.ph3, t.ph4, t.ph5])
+
+// Rotate the placeholder every few seconds so the prime-real-estate search bar
+// reinforces what makes Boxly different — even for users who skip the copy above.
+// Honors prefers-reduced-motion (stays on the first phrase) and stops once the
+// user types (the placeholder isn't visible then anyway).
+const phIndex = ref(0)
+const placeholder = computed(() => phrases.value[phIndex.value] || phrases.value[0])
+let phTimer = null
+onMounted(() => {
+  const reduce = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+  if (reduce) return
+  phTimer = setInterval(() => {
+    if (q.value) return // don't churn while they're typing
+    phIndex.value = (phIndex.value + 1) % phrases.value.length
+  }, 3000)
+})
+onBeforeUnmount(() => { if (phTimer) clearInterval(phTimer) })
 
 // Suggestion chips come ONLY from the admin-managed starter prompts (/starter-prompts),
 // the SAME source as the search page, so the team controls them from the CMS. We show
