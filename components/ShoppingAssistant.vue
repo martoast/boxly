@@ -128,15 +128,12 @@
                          carousel. Suppress it if ANOTHER search in this turn did find options. -->
                     <div v-else-if="showNoResults(m, part)" class="text-[13px] text-gray-500 bg-white border border-gray-100 rounded-2xl px-4 py-3 shadow-sm">No encontré opciones para eso ahora. ¿Probamos con otra marca o término?</div>
 
-                    <div v-else-if="part.type === 'tool-search_products' && part.state !== 'output-available'" class="flex items-center gap-2 text-xs text-gray-400 pl-1">
-                      <svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
-                      Buscando en todo el mercado…
-                    </div>
+                    <SearchLoader v-else-if="part.type === 'tool-search_products' && part.state !== 'output-available'" />
 
-                    <div v-else-if="(part.type === 'tool-browse_store' || part.type === 'tool-browse_stores') && part.state !== 'output-available'" class="flex items-center gap-2 text-xs text-gray-400 pl-1">
-                      <svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
-                      Revisando tiendas…
-                    </div>
+                    <SearchLoader
+                      v-else-if="(part.type === 'tool-browse_store' || part.type === 'tool-browse_stores') && part.state !== 'output-available'"
+                      :messages="['Revisando tiendas…', 'Abriendo el catálogo…', 'Trayendo lo mejor de la tienda…']"
+                    />
 
                     <div v-else-if="part.type === 'tool-web_search' && part.state !== 'output-available'" class="flex items-center gap-2 text-xs text-gray-400 pl-1">
                       <svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
