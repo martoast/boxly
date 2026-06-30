@@ -2,8 +2,8 @@
   <div>
     <WhatsAppButton />
 
-    <!-- 1. Hero — software-first AI concierge: ask Boxly AI your first question.
-            (Store-logo marquee scrolls near the top, inside the hero.) -->
+    <!-- 1. Hero — the proven conversion hero: outlet-shopping photo, brand
+            statement, register/login CTAs, store-logo marquee. -->
     <MainHeroSection />
 
     <!-- 2. Three service lanes — wedge (assisted online), wow (in-person),
@@ -11,6 +11,10 @@
     <section id="service-lanes">
       <ServiceLanes />
     </section>
+
+    <!-- AI search — supplementary optional pipeline, promoted here and in the
+         navbar; hands off to /search. The hero stays the proven funnel. -->
+    <AiSearchPromo />
 
     <!-- Wedge CTA — "send us the link": the unlimited-access promise. -->
     <WedgeCTA />
@@ -29,6 +33,7 @@
 import WhatsAppButton from '~/components/Landing/WhatsAppButton.vue'
 import MainHeroSection from '~/components/Landing/Main/HeroSection.vue'
 import ServiceLanes from '~/components/Landing/Main/ServiceLanes.vue'
+import AiSearchPromo from '~/components/Landing/Main/AiSearchPromo.vue'
 import ConciergeSpotlight from '~/components/Landing/Main/ConciergeSpotlight.vue'
 import WedgeCTA from '~/components/Landing/Main/WedgeCTA.vue'
 import FooterSection from '~/components/Landing/FooterSection.vue'

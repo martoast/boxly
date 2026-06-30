@@ -45,23 +45,23 @@
 
       </div>
 
-      <!-- Primary funnel CTA — the lanes above educate; this drives the action:
-           search with the AI or create a free account. -->
+      <!-- Primary funnel CTA — the lanes above educate; this drives the proven
+           action: create a free account. (AI search has its own section below.) -->
       <div class="mt-10 sm:mt-12 text-center">
         <p class="text-sm sm:text-base text-gray-600 mb-4">{{ t.ctaLead }}</p>
         <div class="flex flex-col sm:flex-row gap-3 justify-center">
           <NuxtLink
-            to="/search"
+            to="/register"
             class="inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-full shadow-md transition-colors"
           >
-            {{ t.ctaSearch }}
+            {{ t.ctaRegister }}
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
           </NuxtLink>
           <NuxtLink
-            to="/register"
+            to="/how-it-works"
             class="inline-flex items-center justify-center px-7 py-3.5 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold rounded-full transition-colors"
           >
-            {{ t.ctaRegister }}
+            {{ t.ctaHow }}
           </NuxtLink>
         </div>
       </div>
@@ -80,8 +80,8 @@ const t = createTranslations({
   subtitle:          { es: 'Elige el servicio que mejor te funcione. Mismo equipo, misma bodega, misma entrega segura a México.', en: 'Pick the service that fits you. Same team, same warehouse, same secure delivery to Mexico.' },
 
   ctaLead:           { es: '¿Listo para empezar?', en: 'Ready to start?' },
-  ctaSearch:         { es: 'Buscar con Boxly AI', en: 'Search with Boxly AI' },
   ctaRegister:       { es: 'Crear cuenta gratis', en: 'Create free account' },
+  ctaHow:            { es: 'Cómo funciona', en: 'How it works' },
 
   onlineTitle:       { es: 'Mándanos el link', en: 'Send us the link' },
   onlineDesc:        { es: 'Encuentra el producto que quieres en cualquier tienda de USA — nosotros lo compramos y te lo enviamos a México.', en: 'Find any product in any US store — we buy it and ship it to Mexico for you.' },
