@@ -60,7 +60,9 @@ const t = createTranslations({
   ph4: { es: '🚚 Recíbelo hasta tu puerta en México…',        en: '🚚 Delivered to your door in Mexico…' },
   ph5: { es: '✨ Ej. "Nike Air Max 97"',                      en: '✨ e.g. "Nike Air Max 97"' },
 })
-const phrases = computed(() => [t.ph0, t.ph1, t.ph2, t.ph3, t.ph4, t.ph5])
+// `t` is a computed ref (auto-unwrapped in templates, but NOT in script), so
+// read through .value here.
+const phrases = computed(() => [t.value.ph0, t.value.ph1, t.value.ph2, t.value.ph3, t.value.ph4, t.value.ph5])
 
 // Rotate the placeholder every few seconds so the prime-real-estate search bar
 // reinforces what makes Boxly different — even for users who skip the copy above.
