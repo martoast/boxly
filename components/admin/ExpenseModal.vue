@@ -55,6 +55,27 @@
                 </div>
               </Transition>
 
+              <!-- Scope: Business vs Personal -->
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">{{ t.scopeLabel }}</label>
+                <div class="grid grid-cols-2 gap-2">
+                  <button
+                    v-for="s in ['business', 'personal']"
+                    :key="s"
+                    type="button"
+                    @click="setScope(s)"
+                    :class="[
+                      'px-4 py-2.5 rounded-xl text-sm font-medium border transition-colors',
+                      form.scope === s
+                        ? 'bg-primary-600 text-white border-primary-600'
+                        : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                    ]"
+                  >
+                    {{ s === 'business' ? t.scopeBusiness : t.scopePersonal }}
+                  </button>
+                </div>
+              </div>
+
               <!-- Category -->
               <div>
                 <label for="category" class="block text-sm font-medium text-gray-700 mb-2">
@@ -68,17 +89,14 @@
                   class="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
                 >
                   <option value="">{{ t.selectCategory }}</option>
-                  <option value="shipping">{{ t.shipping }}</option>
-                  <option value="ads">{{ t.ads }}</option>
-                  <option value="software">{{ t.software }}</option>
-                  <option value="office">{{ t.office }}</option>
-                  <option value="po_box">{{ t.po_box }}</option>
-                  <option value="misc">{{ t.misc }}</option>
+                  <option v-for="opt in categoryOptionsForScope(form.scope)" :key="opt.value" :value="opt.value">
+                    {{ opt.label }}
+                  </option>
                 </select>
               </div>
 
-              <!-- Subcategory (Predefined based on category) -->
-              <div v-if="form.category && getSubcategoryOptions(form.category).length > 0">
+              <!-- Subcategory (business only; predefined based on category) -->
+              <div v-if="form.scope === 'business' && form.category && getSubcategoryOptions(form.category).length > 0">
                 <label for="subcategory" class="block text-sm font-medium text-gray-700 mb-2">
                   {{ t.subcategory }}
                 </label>
@@ -190,6 +208,11 @@ const props = defineProps({
   categories: {
     type: Array,
     required: true
+  },
+  // Which scope the expense screen is currently on. New expenses default to it.
+  scope: {
+    type: String,
+    default: 'business'
   }
 })
 
@@ -197,6 +220,7 @@ const emit = defineEmits(['close', 'saved'])
 
 const { $customFetch, $toast } = useNuxtApp()
 const { t: createTranslations } = useLanguage()
+const { categoryOptionsForScope } = useExpenseCategories()
 
 // State
 const saving = ref(false)
@@ -204,6 +228,7 @@ const errorMessage = ref('')
 
 // Form data
 const form = ref({
+  scope: props.scope || 'business',
   category: '',
   subcategory: '',
   amount: '',
@@ -211,6 +236,14 @@ const form = ref({
   description: '',
   reference_number: ''
 })
+
+// Switching scope resets the category (its options change per scope).
+const setScope = (s) => {
+  if (form.value.scope === s) return
+  form.value.scope = s
+  form.value.category = ''
+  form.value.subcategory = ''
+}
 
 // Computed
 const isEdit = computed(() => !!props.expense)
@@ -274,6 +307,9 @@ const subcategoryOptions = {
 const translations = {
   addNewExpense: { es: 'Agregar Nuevo Gasto', en: 'Add New Expense' },
   editExpense: { es: 'Editar Gasto', en: 'Edit Expense' },
+  scopeLabel: { es: 'Tipo de gasto', en: 'Expense type' },
+  scopeBusiness: { es: 'Negocio', en: 'Business' },
+  scopePersonal: { es: 'Personal', en: 'Personal' },
   category: { es: 'Categoría', en: 'Category' },
   selectCategory: { es: 'Selecciona una categoría', en: 'Select a category' },
   subcategory: { es: 'Subcategoría', en: 'Subcategory' },
@@ -318,7 +354,10 @@ const handleSubmit = async () => {
   try {
     // Create a copy of the form data
     const submitData = { ...form.value }
-    
+
+    // Personal expenses never carry a subcategory.
+    if (submitData.scope === 'personal') submitData.subcategory = ''
+
     // Convert the date to ISO format at noon UTC to avoid timezone issues
     // This ensures the date is interpreted correctly regardless of timezone
     const [year, month, day] = submitData.expense_date.split('-')
@@ -355,6 +394,7 @@ onMounted(() => {
     const expenseDate = props.expense.expense_date.split('T')[0]
     
     form.value = {
+      scope: props.expense.scope || 'business',
       category: props.expense.category,
       subcategory: props.expense.subcategory || '',
       amount: props.expense.amount,

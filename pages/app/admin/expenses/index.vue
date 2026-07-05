@@ -63,10 +63,27 @@
   
       <!-- Main Content -->
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-        <!-- Month Summary Cards -->
-        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
-          <div 
-            v-for="(category, index) in expenseCategories"
+        <!-- Scope tabs: Business / Personal / All -->
+        <div class="mb-6">
+          <div class="inline-flex items-center gap-1 bg-gray-100 p-1 rounded-xl">
+            <button
+              v-for="tab in scopeTabs"
+              :key="tab.value"
+              @click="scopeTab = tab.value"
+              :class="[
+                'px-5 py-2 rounded-lg text-sm font-semibold transition-colors',
+                scopeTab === tab.value ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+              ]"
+            >
+              {{ tab.label }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Month Summary Cards (per-category totals for the active scope) -->
+        <div v-if="summaryCards.length" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
+          <div
+            v-for="(category, index) in summaryCards"
             :key="category.key"
             class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 animate-fadeIn"
             :style="`animation-delay: ${index * 0.1}s`"
@@ -119,13 +136,14 @@
                   class="w-full sm:w-auto px-4 py-3 sm:py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
                 >
                   <option value="">{{ t.allCategories }}</option>
-                  <option v-for="cat in expenseCategories" :key="cat.key" :value="cat.key">
+                  <option v-for="cat in categoryFilterOptions" :key="cat.value" :value="cat.value">
                     {{ cat.label }}
                   </option>
                 </select>
-  
-                <select 
-                  v-model="subcategoryFilter" 
+
+                <select
+                  v-if="scopeTab !== 'personal'"
+                  v-model="subcategoryFilter"
                   class="w-full sm:w-auto px-4 py-3 sm:py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
                   :disabled="!categoryFilter"
                 >
@@ -252,6 +270,7 @@
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
                           {{ getCategoryLabel(expense.category) }}
                         </span>
+                        <span v-if="expense.scope === 'personal'" class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-100 text-rose-700 ml-1">{{ t.scopePersonal }}</span>
                         <p v-if="expense.subcategory" class="text-xs text-primary-600 mt-1 font-medium">{{ getSubcategoryLabel(expense.subcategory) }}</p>
                       </div>
                     </td>
@@ -316,6 +335,7 @@
         v-if="showCreateModal || showEditModal"
         :expense="selectedExpense"
         :categories="expenseCategories"
+        :scope="scopeTab === 'all' ? 'business' : scopeTab"
         @close="closeModal"
         @saved="handleExpenseSaved"
       />
@@ -347,8 +367,16 @@
   const router = useRouter()
   const user = useUser().value
   const { t: createTranslations } = useLanguage()
-  
+  const {
+    categoryOptionsForScope,
+    categoryCardsForScope,
+    getCategoryLabel: getScopeCategoryLabel,
+    BUSINESS_CATEGORIES,
+    PERSONAL_CATEGORIES,
+  } = useExpenseCategories()
+
   // State
+  const scopeTab = ref('business') // 'business' | 'personal' | 'all'
   const loading = ref(true)
   const expenses = ref([])
   const categoryFilter = ref('')
@@ -462,6 +490,27 @@
     }
   ])
   
+  // Scope tabs
+  const scopeTabs = computed(() => [
+    { value: 'business', label: t.value.scopeBusiness },
+    { value: 'personal', label: t.value.scopePersonal },
+    { value: 'all', label: t.value.scopeAll },
+  ])
+
+  // Summary cards for the active scope (hidden on the combined "All" tab).
+  const summaryCards = computed(() =>
+    scopeTab.value === 'all' ? [] : categoryCardsForScope(scopeTab.value)
+  )
+
+  // Category filter options — scope-aware; "All" merges both sets (unique).
+  const categoryFilterOptions = computed(() => {
+    if (scopeTab.value !== 'all') return categoryOptionsForScope(scopeTab.value)
+    const seen = new Set()
+    return [...BUSINESS_CATEGORIES, ...PERSONAL_CATEGORIES]
+      .filter((k) => (seen.has(k) ? false : seen.add(k)))
+      .map((k) => ({ value: k, label: getScopeCategoryLabel(k) }))
+  })
+
   // Available subcategories based on selected category
   const availableSubcategories = computed(() => {
     if (!categoryFilter.value) return []
@@ -493,8 +542,11 @@
   
   // Translations
   const translations = {
-    businessExpenses: { es: 'Gastos del Negocio', en: 'Business Expenses' },
-    trackAndManage: { es: 'Rastrea y gestiona todos los gastos', en: 'Track and manage all expenses' },
+    businessExpenses: { es: 'Gastos', en: 'Expenses' },
+    trackAndManage: { es: 'Rastrea y gestiona los gastos del negocio y personales', en: 'Track and manage business and personal expenses' },
+    scopeBusiness: { es: 'Negocio', en: 'Business' },
+    scopePersonal: { es: 'Personal', en: 'Personal' },
+    scopeAll: { es: 'Todos', en: 'All' },
     addExpense: { es: 'Agregar Gasto', en: 'Add Expense' },
     addFirstExpense: { es: 'Agregar Primer Gasto', en: 'Add First Expense' },
     searchPlaceholder: { es: 'Buscar por descripción...', en: 'Search by description...' },
@@ -541,6 +593,7 @@
         per_page: 50
       }
   
+      if (scopeTab.value !== 'all') params.scope = scopeTab.value
       if (categoryFilter.value) params.category = categoryFilter.value
       if (subcategoryFilter.value) params.subcategory = subcategoryFilter.value
       if (searchQuery.value) params.search = searchQuery.value
@@ -574,9 +627,7 @@
       .reduce((sum, e) => sum + parseFloat(e.amount), 0)
   }
   
-  const getCategoryLabel = (category) => {
-    return t.value[category] || category
-  }
+  const getCategoryLabel = (category) => getScopeCategoryLabel(category)
   
   const getSubcategoryLabel = (subcategory) => {
     if (!subcategory) return ''
@@ -673,6 +724,12 @@
   }
   
   // Watchers
+  watch(scopeTab, () => {
+    // Category/subcategory options differ per scope — reset when switching tabs.
+    categoryFilter.value = ''
+    subcategoryFilter.value = ''
+    fetchExpenses(1)
+  })
   watch(categoryFilter, () => {
     subcategoryFilter.value = '' // Clear subcategory when category changes
     fetchExpenses(1)

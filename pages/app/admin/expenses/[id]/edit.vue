@@ -61,6 +61,27 @@
           <!-- Form Card -->
           <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sm:p-8">
             <div class="space-y-6">
+              <!-- Scope: Business vs Personal -->
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">{{ t.scopeLabel }}</label>
+                <div class="grid grid-cols-2 gap-2 max-w-sm">
+                  <button
+                    v-for="s in ['business', 'personal']"
+                    :key="s"
+                    type="button"
+                    @click="setScope(s)"
+                    :class="[
+                      'px-4 py-2.5 rounded-xl text-sm font-medium border transition-colors',
+                      form.scope === s
+                        ? 'bg-primary-600 text-white border-primary-600'
+                        : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                    ]"
+                  >
+                    {{ s === 'business' ? t.scopeBusiness : t.scopePersonal }}
+                  </button>
+                </div>
+              </div>
+
               <!-- Category -->
               <div>
                 <label for="category" class="block text-sm font-medium text-gray-700 mb-2">
@@ -73,7 +94,7 @@
                   class="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
                 >
                   <option value="">{{ t.selectCategory }}</option>
-                  <option v-for="cat in categories" :key="cat.key" :value="cat.key">
+                  <option v-for="cat in categories" :key="cat.value" :value="cat.value">
                     {{ cat.label }}
                   </option>
                 </select>
@@ -184,22 +205,23 @@
   const router = useRouter()
   const { $customFetch, $toast } = useNuxtApp()
   const { t: createTranslations } = useLanguage()
-  
+  const { categoryOptionsForScope } = useExpenseCategories()
+
   // State
   const loading = ref(true)
   const saving = ref(false)
   const errorMessage = ref('')
   const form = ref(null)
-  
-  // Categories
-  const categories = computed(() => [
-    { key: 'shipping', label: t.value.shipping },
-    { key: 'ads', label: t.value.ads },
-    { key: 'software', label: t.value.software },
-    { key: 'office', label: t.value.office },
-    { key: 'po_box', label: t.value.po_box },
-    { key: 'misc', label: t.value.misc },
-  ])
+
+  // Categories for the active scope
+  const categories = computed(() => categoryOptionsForScope(form.value?.scope || 'business'))
+
+  // Switching scope resets the category (options differ per scope).
+  const setScope = (s) => {
+    if (!form.value || form.value.scope === s) return
+    form.value.scope = s
+    form.value.category = ''
+  }
   
   const maxDate = computed(() => {
     return new Date().toISOString().split('T')[0]
@@ -209,6 +231,9 @@
   const translations = {
     editExpense: { es: 'Editar Gasto', en: 'Edit Expense' },
     updateExpenseInfo: { es: 'Actualizar información del gasto', en: 'Update expense information' },
+    scopeLabel: { es: 'Tipo de gasto', en: 'Expense type' },
+    scopeBusiness: { es: 'Negocio', en: 'Business' },
+    scopePersonal: { es: 'Personal', en: 'Personal' },
     category: { es: 'Categoría', en: 'Category' },
     selectCategory: { es: 'Selecciona una categoría', en: 'Select a category' },
     amount: { es: 'Monto', en: 'Amount' },
@@ -237,6 +262,7 @@
     try {
       const response = await $customFetch(`/admin/expenses/${route.params.id}`)
       form.value = {
+        scope: response.data.scope || 'business',
         category: response.data.category,
         amount: response.data.amount,
         expense_date: response.data.expense_date,

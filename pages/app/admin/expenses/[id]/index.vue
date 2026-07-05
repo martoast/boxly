@@ -51,6 +51,10 @@
                   <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-700">
                     {{ getCategoryLabel(expense.category) }}
                   </span>
+                  <span
+                    v-if="expense.scope === 'personal'"
+                    class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-100 text-rose-700 ml-2"
+                  >{{ t.personalBadge }}</span>
                 </div>
   
                 <!-- Date -->
@@ -188,6 +192,7 @@
     deleteExpenseMessage: { es: '¿Estás seguro que deseas eliminar este gasto?', en: 'Are you sure you want to delete this expense?' },
     deleteConfirm: { es: 'Sí, Eliminar', en: 'Yes, Delete' },
     cancel: { es: 'Cancelar', en: 'Cancel' },
+    personalBadge: { es: 'Personal', en: 'Personal' },
     // Categories
     shipping: { es: 'Envíos', en: 'Shipping' },
     ads: { es: 'Publicidad', en: 'Advertising' },
@@ -196,8 +201,9 @@
     po_box: { es: 'Apartado Postal', en: 'PO Box' },
     misc: { es: 'Varios', en: 'Miscellaneous' },
   }
-  
+
   const t = createTranslations(translations)
+  const { getCategoryLabel: getScopeCategoryLabel } = useExpenseCategories()
   
   // Methods
   const fetchExpense = async () => {
@@ -213,9 +219,7 @@
     }
   }
   
-  const getCategoryLabel = (category) => {
-    return t.value[category] || category
-  }
+  const getCategoryLabel = (category) => getScopeCategoryLabel(category)
   
   const formatMoney = (amount) => {
     return new Intl.NumberFormat('en-US', {

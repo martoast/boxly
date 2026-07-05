@@ -864,6 +864,25 @@
               </svg>
               <p class="text-sm text-text-secondary">{{ t.noExpenses }}</p>
             </div>
+
+            <!-- Personal expenses (separate from business profit) -->
+            <div v-if="personalTotal > 0" class="mt-6 pt-5 border-t border-border-light">
+              <div class="flex items-center justify-between mb-3">
+                <h4 class="text-sm font-bold text-rose-700 uppercase tracking-wider">{{ t.personalExpenses }}</h4>
+                <span class="text-lg font-bold text-rose-600">${{ formatMoney(personalTotal) }}</span>
+              </div>
+              <div class="space-y-2">
+                <div
+                  v-for="(amount, category) in personalExpenses"
+                  :key="category"
+                  class="flex items-center justify-between py-2 border-b border-border-light last:border-0"
+                >
+                  <span class="text-sm font-medium text-text-primary">{{ getCategoryLabel(category) }}</span>
+                  <span class="text-lg font-bold text-text-primary">${{ formatMoney(amount) }}</span>
+                </div>
+              </div>
+              <p class="text-xs text-text-secondary mt-3">{{ t.personalExpensesNote }}</p>
+            </div>
           </div>
 
           <!-- Box Sizes Distribution -->
@@ -1320,6 +1339,23 @@ const expenses = computed(() => {
   return exp;
 });
 
+// Personal expenses — the owners' own spending, tracked separately from the
+// business P&L (never counted against business profit).
+const personalTotal = computed(
+  () => dashboardData.value?.financial?.personal_expenses?.total || 0
+);
+const personalExpenses = computed(() => {
+  const src = dashboardData.value?.financial?.personal_expenses;
+  if (!src) return {};
+  const exp = { ...src };
+  delete exp.total;
+  // Only show categories that actually have spend.
+  Object.keys(exp).forEach((k) => {
+    if (!exp[k]) delete exp[k];
+  });
+  return exp;
+});
+
 // Computed - Box distribution
 const boxDistribution = computed(() => {
   if (!dashboardData.value?.box_distribution) return {};
@@ -1370,6 +1406,8 @@ const translations = {
   totalCustomers: { es: "Clientes Totales", en: "Total Customers" },
   awaiting: { es: "esperando", en: "awaiting" },
   expenseBreakdown: { es: "Desglose de Gastos", en: "Expense Breakdown" },
+  personalExpenses: { es: "Gastos Personales", en: "Personal Expenses" },
+  personalExpensesNote: { es: "No cuentan en la ganancia del negocio.", en: "Not counted in business profit." },
   boxSizeDistribution: {
     es: "Distribución de Cajas",
     en: "Box Size Distribution",
@@ -1491,8 +1529,10 @@ const refreshData = async () => {
   await fetchDashboard();
 };
 
+const { getCategoryLabel: getScopeCategoryLabel } = useExpenseCategories();
 const getCategoryLabel = (category) => {
-  return t.value[category] || category;
+  // Business labels stay as-is; fall back to the shared map for personal (rent/food).
+  return t.value[category] || getScopeCategoryLabel(category);
 };
 
 const formatMoney = (amount) => {
