@@ -967,6 +967,20 @@
               >
                 <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">{{ t.financials }}</h3>
 
+                <!-- Payment location (where the order was paid) — editable once paid -->
+                <div v-if="order.paid_at" class="mb-3 flex items-center justify-between gap-3 p-3 bg-green-50 rounded-lg border border-green-100">
+                  <span class="text-xs font-semibold text-green-700">{{ t.paidLocationLabel }}</span>
+                  <select
+                    :value="order.paid_location || ''"
+                    :disabled="savingPaidLocation"
+                    @change="savePaidLocation"
+                    class="text-sm font-medium border border-gray-300 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50"
+                  >
+                    <option value="" disabled>{{ t.paidLocationPlaceholder }}</option>
+                    <option v-for="loc in paidLocations" :key="loc" :value="loc">{{ loc }}</option>
+                  </select>
+                </div>
+
                 <!-- NEW FLOW: Full Payment (100%) for SHIPPING orders (no deposit_amount = new flow) -->
                 <div v-if="!isCrossing && !order.deposit_amount && order.box_price" class="mb-3 p-3 bg-primary-50 rounded-lg border border-primary-100">
                   <div class="flex justify-between items-center mb-2">
@@ -1437,6 +1451,9 @@ const translations = {
   notAssigned: { es: "No asignado", en: "Not assigned" },
   noGiaFile: { es: "Sin archivo", en: "No file" },
   financials: { es: "Financieros", en: "Financials" },
+  paidLocationLabel: { es: "Pagado en", en: "Paid at" },
+  paidLocationPlaceholder: { es: "Seleccionar…", en: "Select…" },
+  paidLocationSaved: { es: "Lugar de pago actualizado", en: "Payment location updated" },
   deposit: { es: "Depósito", en: "Deposit" },
   fullPayment: { es: "Pago Completo", en: "Full Payment" },
   finalBalance: { es: "Saldo Final", en: "Final Balance" },
@@ -1586,8 +1603,9 @@ const nextAction = computed(() => {
     };
   }
 
-  // processing/paid → Ship Order (shipping) or Mark Ready for Pickup (crossing)
-  if (['processing', 'paid'].includes(status)) {
+  // processing (legacy) → Ship Order (shipping) or Mark Ready for Pickup (crossing).
+  // 'paid' is intentionally excluded: paid is now the final status (no post-paid tracking).
+  if (status === 'processing') {
     if (crossing) {
       return {
         label: t.value.markReadyForPickup,
@@ -1770,6 +1788,26 @@ const fetchOrder = async () => {
     router.push("/app/admin/orders");
   } finally {
     loading.value = false;
+  }
+};
+
+// Payment-location options + inline save (edit where a paid order was paid).
+const paidLocations = ['NU', 'HSBC', 'Stripe'];
+const savingPaidLocation = ref(false);
+const savePaidLocation = async (event) => {
+  const value = event.target.value;
+  savingPaidLocation.value = true;
+  try {
+    await $customFetch(`/admin/orders/${order.value.id}`, {
+      method: 'PUT',
+      body: { paid_location: value },
+    });
+    order.value.paid_location = value;
+    $toast.success(t.value.paidLocationSaved);
+  } catch (error) {
+    $toast.error(error.data?.message || 'Error');
+  } finally {
+    savingPaidLocation.value = false;
   }
 };
 

@@ -40,6 +40,27 @@
               </div>
             </div>
 
+            <!-- Where was it paid? -->
+            <div class="mb-6">
+              <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{{ t.paidLocationLabel }}</label>
+              <div class="grid grid-cols-3 gap-2">
+                <button
+                  v-for="loc in paidLocations"
+                  :key="loc"
+                  type="button"
+                  @click="paidLocation = loc"
+                  :class="[
+                    'px-3 py-2 rounded-lg text-sm font-medium border transition-colors',
+                    paidLocation === loc
+                      ? 'bg-green-600 text-white border-green-600'
+                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                  ]"
+                >
+                  {{ loc }}
+                </button>
+              </div>
+            </div>
+
             <!-- Warning -->
             <div class="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-6">
               <div class="flex items-start gap-2">
@@ -59,8 +80,8 @@
               </button>
               <button
                 @click="confirm"
-                :disabled="processing"
-                class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-2 transition-colors"
+                :disabled="processing || !paidLocation"
+                class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
               >
                 <svg v-if="processing" class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
                   <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -86,6 +107,10 @@ const { $customFetch, $toast } = useNuxtApp()
 const { t: createTranslations } = useLanguage()
 
 const processing = ref(false)
+
+// Where the payment was received. Required before confirming.
+const paidLocations = ['NU', 'HSBC', 'Stripe']
+const paidLocation = ref('')
 
 const isCrossing = computed(() => props.order?.order_type === 'crossing')
 
@@ -121,6 +146,7 @@ const translations = {
   paymentType: { es: 'Tipo de Pago', en: 'Payment Type' },
   fullPayment: { es: 'Pago Completo (100%)', en: 'Full Payment (100%)' },
   amount: { es: 'Monto a Cobrar', en: 'Amount Due' },
+  paidLocationLabel: { es: '¿Dónde se pagó?', en: 'Where was it paid?' },
   warning: { es: 'Se le enviara un correo al usuario confirmando su pago', en: 'The user will receive an email notifying them that the payment was received.' },
   cancel: { es: 'Cancelar', en: 'Cancel' },
   confirmBtn: { es: 'Confirmar Pagado', en: 'Confirm Paid' },
@@ -134,7 +160,8 @@ const confirm = async () => {
   processing.value = true
   try {
     await $customFetch(`/admin/orders/${props.order.id}/mark-consolidation-paid`, {
-      method: 'POST'
+      method: 'POST',
+      body: { paid_location: paidLocation.value }
     })
     $toast.success(t.value.success)
     emit('success')

@@ -118,42 +118,22 @@
             </div>
           </div>
 
-          <!-- Step 6: Shipped -->
+          <!-- Step 6: Paid (Final) — paid is our last tracked step -->
           <div class="flex items-start gap-4">
             <div class="relative flex-shrink-0">
-              <div :class="['w-8 h-8 rounded-full flex items-center justify-center', shippedDone ? 'bg-indigo-600' : 'bg-gray-200']">
-                <svg v-if="shippedDone" class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                </svg>
-                <div v-else-if="shippingActive" class="w-3 h-3 rounded-full bg-amber-400 animate-pulse"></div>
-                <div v-else class="w-3 h-3 rounded-full bg-white"></div>
-              </div>
-            </div>
-            <div class="flex-1 min-w-0">
-              <p :class="['text-sm font-medium', shippedDone || shippingActive ? 'text-gray-900' : 'text-gray-500']">{{ t.shippedLabel }}</p>
-              <p v-if="order.shipped_at" class="text-xs text-gray-600 mt-0.5">{{ formatDate(order.shipped_at) }}</p>
-              <p v-else :class="['text-xs mt-0.5', shippingActive ? 'text-amber-600' : 'text-gray-400']">
-                {{ shippingActive ? t.preparingShipment : t.pendingShipment }}
-              </p>
-            </div>
-          </div>
-
-          <!-- Step 7: Delivered (Final) -->
-          <div class="flex items-start gap-4">
-            <div class="relative flex-shrink-0">
-              <div :class="['w-8 h-8 rounded-full flex items-center justify-center', deliveredDone ? 'bg-green-600' : 'bg-gray-200']">
-                <svg v-if="deliveredDone" class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div :class="['w-8 h-8 rounded-full flex items-center justify-center', paidDone ? 'bg-green-600' : 'bg-gray-200']">
+                <svg v-if="paidDone" class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                 </svg>
-                <div v-else-if="deliveryActive" class="w-3 h-3 rounded-full bg-green-400 animate-pulse"></div>
+                <div v-else-if="paidActive" class="w-3 h-3 rounded-full bg-amber-400 animate-pulse"></div>
                 <div v-else class="w-3 h-3 rounded-full bg-white"></div>
               </div>
             </div>
             <div class="flex-1 min-w-0">
-              <p :class="['text-sm font-medium', deliveredDone ? 'text-gray-900' : 'text-gray-500']">{{ t.delivered }}</p>
-              <p v-if="order.delivered_at" class="text-xs text-green-600 mt-0.5">{{ t.orderCompleteDesc }} - {{ formatDate(order.delivered_at) }}</p>
-              <p v-else :class="['text-xs mt-0.5', deliveryActive ? 'text-green-600' : 'text-gray-400']">
-                {{ deliveryActive ? t.inTransit : t.pendingDelivery }}
+              <p :class="['text-sm font-medium', paidDone || paidActive ? 'text-gray-900' : 'text-gray-500']">{{ t.paidStep }}</p>
+              <p v-if="order.paid_at" class="text-xs text-green-600 mt-0.5">{{ t.orderCompleteDesc }} - {{ formatDate(order.paid_at) }}</p>
+              <p v-else :class="['text-xs mt-0.5', paidActive ? 'text-amber-600' : 'text-gray-400']">
+                {{ paidActive ? t.paidPendingActive : t.pending }}
               </p>
             </div>
           </div>
@@ -238,41 +218,22 @@
             </div>
           </div>
 
-          <!-- Step 5: Full Payment (100%) -->
+          <!-- Step 5: Full Payment (100%) — Final. Paid is our last tracked step -->
           <div class="flex items-start gap-4">
             <div class="relative flex-shrink-0">
-              <div :class="['w-8 h-8 rounded-full flex items-center justify-center', order.deposit_paid_at || isStatusReached('paid') ? 'bg-green-600' : 'bg-gray-200']">
-                <svg v-if="order.deposit_paid_at || isStatusReached('paid')" class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div :class="['w-8 h-8 rounded-full flex items-center justify-center', crossingPaidDone ? 'bg-green-600' : 'bg-gray-200']">
+                <svg v-if="crossingPaidDone" class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                 </svg>
-                <div v-else-if="order.status === 'shipped' && !order.deposit_paid_at" class="w-3 h-3 rounded-full bg-orange-400 animate-pulse"></div>
+                <div v-else-if="order.status === 'shipped' && !crossingPaidDone" class="w-3 h-3 rounded-full bg-orange-400 animate-pulse"></div>
                 <div v-else class="w-3 h-3 rounded-full bg-white"></div>
               </div>
             </div>
             <div class="flex-1 min-w-0">
-              <p :class="['text-sm font-medium', order.deposit_paid_at || isStatusReached('paid') ? 'text-gray-900' : 'text-gray-500']">{{ t.fullPaymentStatus }}</p>
-              <p v-if="order.deposit_paid_at" class="text-xs text-green-600 mt-0.5">{{ t.paymentConfirmed }} ({{ formatDate(order.deposit_paid_at) }})</p>
+              <p :class="['text-sm font-medium', crossingPaidDone ? 'text-gray-900' : 'text-gray-500']">{{ t.fullPaymentStatus }}</p>
+              <p v-if="crossingPaidDone" class="text-xs text-green-600 mt-0.5">{{ t.paymentConfirmed }}{{ crossingPaidDate ? ` (${formatDate(crossingPaidDate)})` : '' }}</p>
               <p v-else-if="order.status === 'shipped'" class="text-xs text-orange-600 font-medium mt-0.5">{{ t.paymentRequired }}</p>
               <p v-else class="text-xs text-gray-400 mt-0.5">{{ t.pendingPayment }}</p>
-            </div>
-          </div>
-
-          <!-- Step 6: Picked Up -->
-          <div class="flex items-start gap-4">
-            <div class="relative flex-shrink-0">
-              <div :class="['w-8 h-8 rounded-full flex items-center justify-center', isStatusReached('delivered') ? 'bg-green-600' : 'bg-gray-200']">
-                <svg v-if="isStatusReached('delivered')" class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                </svg>
-                <div v-else-if="order.deposit_paid_at && !isStatusReached('delivered')" class="w-3 h-3 rounded-full bg-green-400 animate-pulse"></div>
-                <div v-else class="w-3 h-3 rounded-full bg-white"></div>
-              </div>
-            </div>
-            <div class="flex-1 min-w-0">
-              <p :class="['text-sm font-medium', isStatusReached('delivered') ? 'text-gray-900' : 'text-gray-500']">{{ t.pickedUp }}</p>
-              <p v-if="order.delivered_at" class="text-xs text-green-600 mt-0.5">{{ t.orderCompleteDesc }} - {{ formatDate(order.delivered_at) }}</p>
-              <p v-else-if="order.deposit_paid_at" class="text-xs text-green-600 mt-0.5">{{ t.readyToCollect }}</p>
-              <p v-else class="text-xs text-gray-400 mt-0.5">{{ t.pendingPickup }}</p>
             </div>
           </div>
 
@@ -340,10 +301,13 @@ const transferActive = computed(() => props.order.status === 'packages_complete'
 const receivedDone = computed(() => isStatusReached('awaiting_payment'))     // Step 4 (received in Mexico)
 const quoteDone = computed(() => isStatusReached('processing'))              // Step 5 (quote done once paid/processing)
 const quoteActive = computed(() => props.order.status === 'awaiting_payment')
-const shippedDone = computed(() => isStatusReached('shipped'))              // Step 6
-const shippingActive = computed(() => ['processing', 'paid'].includes(props.order.status))
-const deliveredDone = computed(() => isStatusReached('delivered'))          // Step 7
-const deliveryActive = computed(() => props.order.status === 'shipped')
+// Step 6 (final): Paid — our last tracked step. Green once paid, amber while payment is pending.
+const paidDone = computed(() => !!props.order.paid_at || isStatusReached('paid'))
+const paidActive = computed(() => props.order.status === 'awaiting_payment' && !props.order.paid_at)
+
+// Crossing final step: payment. New crossing orders use paid_at; legacy used deposit_paid_at.
+const crossingPaidDone = computed(() => !!props.order.paid_at || !!props.order.deposit_paid_at || isStatusReached('paid'))
+const crossingPaidDate = computed(() => props.order.paid_at || props.order.deposit_paid_at)
 
 const formatDate = (date) => {
   if (!date) return "";
@@ -387,6 +351,8 @@ const translations = {
   quoteReady: { es: "💳 Cotización lista", en: "💳 Quote Ready" },
   quoteReadyDesc: { es: "Cotización generada", en: "Quote generated" },
   quotePreparingDesc: { es: "Preparando cotización", en: "Preparing quote" },
+  paidStep: { es: "✅ Pagado", en: "✅ Paid" },
+  paidPendingActive: { es: "Esperando tu pago", en: "Awaiting your payment" },
   shippedLabel: { es: "✈️ Enviado", en: "✈️ Shipped" },
   paymentConfirmed: { es: "Pago Confirmado", en: "Payment Confirmed" },
   paymentRequired: { es: "Pago Requerido", en: "Payment Required" },

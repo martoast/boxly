@@ -1,43 +1,43 @@
-# Switch LLM provider to Gemini Flash-Lite (cost reduction)
+# Order: make "paid" final + add payment-location field
 
-Goal: cut model cost ~10x by moving off Claude Haiku to Gemini Flash-Lite, behind a
-reversible provider switch (flip back with one env var). Main chat = Gemini 3.1
-Flash-Lite; aux calls = Gemini 2.5 Flash-Lite (cheapest).
+Decisions (confirmed with Alex): paid-final on **admin + customer**; payment location editable in **both** the mark-paid modal and inline in order details. Non-destructive: keep shipped/delivered enum values + labels so legacy orders still render.
 
-## Plan
-- [x] Add `@ai-sdk/google` dependency
-- [x] Add `GEMINI_API_KEY` to app/.env (gitignored)
-- [ ] New `server/utils/aiProvider.ts` — single source of truth for which provider/model
-      to use, picked by env. Defaults to Anthropic unless `GEMINI_API_KEY` is set (so
-      pushing code never flips prod until env vars are added on Netlify). `AI_PROVIDER`
-      forces a choice. Disables Gemini "thinking" (thinkingBudget:0) for cost/speed.
-- [ ] Migrate aux calls to the helper (no web_search, lowest risk):
-      curate.ts, intent.post.ts, intent-map.post.ts, search.post.ts, title.post.ts, ask.post.ts
-- [ ] Migrate main chat (assistant.post.ts): use chatModel(); on Gemini drop the
-      Anthropic-only cacheControl and replace the native web_search tool with a
-      function tool (Gemini's built-in google_search can't mix with custom tools).
-- [ ] API: add `/products/web-search` (SerpAPI engine=google organic) to back the
-      Gemini web_search function tool.
-- [ ] Test on localhost (free tier), verify tool-calling + gallery still work.
+## API (api repo)
+- [ ] Migration: add `paid_location` (nullable string) to `orders`, after `paid_at`
+- [ ] `Order.php`: add `paid_location` to `$fillable`; add `PAID_LOCATIONS` const (`NU`, `HSBC`, `Stripe`)
+- [ ] `AdminOrderController::markConsolidationPaid`: validate + store `paid_location`
+- [ ] `AdminOrderController::updateStatus`: store `paid_location` when moving to paid (optional)
+- [ ] `AdminOrderManagementController::updateOrder`: add `paid_location` validation rule (powers inline edit)
+
+## Frontend (app repo) — make paid final
+- [ ] `useOrderStatus.js`: trim `statusOrder` to end at `paid` (+`cancelled`); keep label/color maps for legacy; map `SHIPPING_MAP.paid` → "Pagado" complete badge
+- [ ] `OrderProgressTimeline.vue`: shipping timeline ends at a final **Paid** step (drop Shipped/Delivered steps); crossing timeline ends at the payment step (drop Picked Up)
+- [ ] `OrderStatusCard.vue`: map `paid` to a terminal "Payment received" stage (keep legacy `processing` → preparing)
+- [ ] Admin `[id]/index.vue`: next-action no longer offers Ship for `paid` (keep legacy `processing`)
+
+## Frontend (app repo) — payment location
+- [ ] `AdminOrderModalMarkPaid.vue`: required NU/HSBC/Stripe dropdown; send `paid_location` in POST body
+- [ ] Admin `[id]/index.vue`: inline location select next to the paid date; saves via `PUT /admin/orders/{id}`
 
 ## Review
-Done & verified on localhost (Gemini 3.1 Flash-Lite):
-- New `server/utils/aiProvider.ts` is the single switch. Provider chosen by env:
-  defaults to Anthropic; uses Google when `GEMINI_API_KEY` is set; `AI_PROVIDER`
-  forces either way. chatModel()=gemini-3.1-flash-lite-preview, auxModel()=
-  gemini-2.5-flash-lite (both env-overridable). Gemini thinking disabled.
-- Migrated to the helper: curate.ts, intent, intent-map, search, title, ask, assistant.
-- Main chat (assistant.post.ts): on Gemini we drop the Anthropic-only cacheControl
-  and swap the native web_search for a function tool backed by the new API route.
-- API: added `POST /products/web-search` (SerpAPI google organic, US-pinned, 30-min
-  cache) + route. CORS already covers it via `products/*`.
-- Test: `busca owala 24oz rosa de target` → 200 in 8.4s, search_products +
-  suggest_followups called, 17 products, Target floated to top, correct ES copy.
+Done — non-destructive (kept legacy enum values + labels so old shipped/delivered orders still render).
 
-To go live on PROD (currently still Claude — code change alone does NOT flip it):
-1. Deploy the API (so /products/web-search exists; until then the Gemini web_search
-   fallback 404s gracefully and the model just uses search_products).
-2. On Netlify set `GEMINI_API_KEY` (+ optionally `AI_PROVIDER=google`).
-3. Revert anytime with `AI_PROVIDER=anthropic`.
-Note: dev points API_URL at the prod API, so web_search fallback won't work locally
-until the API is deployed; search_products (the default path) works now.
+**API (boxly-api):**
+- New migration `2026_07_04_000000_add_paid_location_to_orders_table` — nullable `paid_location` string(20) after `paid_at`. Runs on next API deploy.
+- `Order.php`: added `paid_location` to `$fillable`; added `PAID_LOCATIONS = ['NU','HSBC','Stripe']` const.
+- `markConsolidationPaid`: validates + stores `paid_location` (nullable|in).
+- `updateStatus`: stores `paid_location` on the paid transition when provided; `AdminUpdateOrderStatusRequest` now allows it.
+- `updateOrder` (PUT /admin/orders/{id}): added `paid_location` rule → powers inline edit.
+
+**Frontend (boxly app) — paid = final:**
+- `useOrderStatus.js`: `statusOrder` ends at `paid` (+cancelled); `SHIPPING_MAP.paid` now shows a green "Pagado" badge instead of "Preparing shipment".
+- `OrderProgressTimeline.vue`: shipping ends at a final green **Paid** step (dropped Shipped/Delivered); crossing ends at the payment step (dropped Picked Up); swapped computeds accordingly.
+- `OrderStatusCard.vue`: `paid` → terminal "¡Pago recibido!" stage (green, no "next update"); legacy `processing` still maps to preparing.
+- Admin `[id]/index.vue` next-action: no longer offers Ship for `paid` (legacy `processing` still can ship).
+- `UserOrderStatusBanner.vue`: already showed "Order Complete" for paid — unchanged.
+
+**Frontend — payment location:**
+- `AdminOrderModalMarkPaid.vue`: required NU/HSBC/Stripe segmented picker; confirm disabled until chosen; sends `paid_location`.
+- Admin `[id]/index.vue`: inline "Pagado en" select in Financials (shows once paid); saves via `PUT /admin/orders/{id}` and updates in place.
+
+Note: the `paid_location` column needs the migration to run (API deploy). Until then the field saves are no-ops server-side; UI is safe (nullable).

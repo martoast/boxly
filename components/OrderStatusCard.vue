@@ -52,8 +52,8 @@ const stage = computed(() => {
     case 'awaiting_packages': return 'awaiting_sd'
     case 'packages_complete': return 'transfer'
     case 'awaiting_payment': return 'quote'
-    case 'processing':
-    case 'paid': return 'preparing'
+    case 'paid': return 'paid'
+    case 'processing': return 'preparing'
     case 'shipped': return 'shipped'
     case 'delivered': return 'delivered'
     case 'cancelled': return 'cancelled'
@@ -77,6 +77,10 @@ const COPY = {
     en: { label: 'Quote ready', desc: 'Your quote is ready. Pay so we can prepare and ship your package.', next: 'When we confirm your payment.' },
     payNow: true,
   },
+  paid: {
+    es: { label: '¡Pago recibido!', desc: 'Recibimos tu pago. ¡Gracias por comprar con Boxly! Estamos preparando el envío de tu paquete.', next: null },
+    en: { label: 'Payment received!', desc: 'We received your payment. Thanks for shopping with Boxly! We are getting your package ready to ship.', next: null },
+  },
   preparing: {
     es: { label: 'Preparando tu envío', desc: 'Recibimos tu pago. Estamos preparando tu paquete para enviarlo.', next: 'Cuando tu paquete sea enviado.' },
     en: { label: 'Preparing your shipment', desc: 'We received your payment. We are getting your package ready to ship.', next: 'When your package ships.' },
@@ -99,6 +103,7 @@ const STYLE = {
   awaiting_sd: { cardClass: 'border-blue-200 bg-blue-50/60', labelClass: 'text-blue-600', dotClass: 'bg-blue-500 animate-pulse', borderClass: 'border-blue-200', accentText: 'text-blue-500' },
   transfer:  { cardClass: 'border-blue-200 bg-blue-50/60', labelClass: 'text-blue-600', dotClass: 'bg-blue-500 animate-pulse', borderClass: 'border-blue-200', accentText: 'text-blue-500' },
   quote:     { cardClass: 'border-amber-200 bg-amber-50/70', labelClass: 'text-amber-600', dotClass: 'bg-amber-500 animate-pulse', borderClass: 'border-amber-200', accentText: 'text-amber-500' },
+  paid:      { cardClass: 'border-green-200 bg-green-50/60', labelClass: 'text-green-600', dotClass: 'bg-green-500', borderClass: 'border-green-200', accentText: 'text-green-500' },
   preparing: { cardClass: 'border-indigo-200 bg-indigo-50/60', labelClass: 'text-indigo-600', dotClass: 'bg-indigo-500 animate-pulse', borderClass: 'border-indigo-200', accentText: 'text-indigo-500' },
   shipped:   { cardClass: 'border-indigo-200 bg-indigo-50/60', labelClass: 'text-indigo-600', dotClass: 'bg-indigo-500 animate-pulse', borderClass: 'border-indigo-200', accentText: 'text-indigo-500' },
   delivered: { cardClass: 'border-green-200 bg-green-50/60', labelClass: 'text-green-600', dotClass: 'bg-green-500', borderClass: 'border-green-200', accentText: 'text-green-500' },
