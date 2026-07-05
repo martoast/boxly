@@ -377,11 +377,8 @@
   // Predefined subcategories
   const subcategoryDefinitions = {
     shipping: [
-      { value: 'dhl', label: { es: 'DHL', en: 'DHL' } },
-      { value: 'fedex', label: { es: 'FedEx', en: 'FedEx' } },
-      { value: 'ups', label: { es: 'UPS', en: 'UPS' } },
-      { value: 'usps', label: { es: 'USPS', en: 'USPS' } },
-      { value: 'estafeta', label: { es: 'Estafeta', en: 'Estafeta' } },
+      { value: 'jesus', label: { es: 'Jesús', en: 'Jesús' } },
+      { value: 'paco', label: { es: 'Paco', en: 'Paco' } },
       { value: 'other_carrier', label: { es: 'Otra Paquetería', en: 'Other Carrier' } }
     ],
     ads: [

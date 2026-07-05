@@ -222,8 +222,8 @@ const maxDate = computed(() => {
 // Predefined subcategories for each category
 const subcategoryOptions = {
   shipping: [
-    { value: 'dhl', label: { es: 'DHL', en: 'DHL' } },
-    { value: 'estafeta', label: { es: 'Estafeta', en: 'Estafeta' } },
+    { value: 'jesus', label: { es: 'Jesús', en: 'Jesús' } },
+    { value: 'paco', label: { es: 'Paco', en: 'Paco' } },
     { value: 'other_carrier', label: { es: 'Otra Paquetería', en: 'Other Carrier' } }
   ],
   ads: [
