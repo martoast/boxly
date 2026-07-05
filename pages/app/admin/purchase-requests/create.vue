@@ -273,7 +273,7 @@
   const t = {
       createAdminRequest: 'Crear Solicitud (Admin)',
       customer: 'Cliente',
-      searchCustomer: 'Buscar cliente por nombre o email...',
+      searchCustomer: 'Buscar cliente por nombre, teléfono o email...',
       items: 'Artículos',
       estTotal: 'Total Est.',
       addItem: 'Agregar Artículo',
