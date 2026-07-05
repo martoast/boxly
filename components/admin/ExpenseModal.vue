@@ -151,6 +151,36 @@
                 >
               </div>
 
+              <!-- Payment method (War Chest account it was paid from) -->
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">{{ t.paymentMethod }}</label>
+                <div class="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    @click="form.payment_method = ''"
+                    :class="[
+                      'px-4 py-2 rounded-xl text-sm font-medium border transition-colors',
+                      !form.payment_method ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                    ]"
+                  >
+                    {{ t.paymentNone }}
+                  </button>
+                  <button
+                    v-for="pm in paymentMethods"
+                    :key="pm"
+                    type="button"
+                    @click="form.payment_method = pm"
+                    :class="[
+                      'px-4 py-2 rounded-xl text-sm font-medium border transition-colors',
+                      form.payment_method === pm ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                    ]"
+                  >
+                    {{ pm }}
+                  </button>
+                </div>
+                <p class="text-xs text-gray-500 mt-1.5">{{ t.paymentMethodHint }}</p>
+              </div>
+
               <!-- Description -->
               <div>
                 <label for="description" class="block text-sm font-medium text-gray-700 mb-2">
@@ -226,12 +256,16 @@ const { categoryOptionsForScope } = useExpenseCategories()
 const saving = ref(false)
 const errorMessage = ref('')
 
+// War Chest accounts an expense can be paid from (debits that balance).
+const paymentMethods = ['NU', 'HSBC', 'Stripe']
+
 // Form data
 const form = ref({
   scope: props.scope || 'business',
   category: '',
   subcategory: '',
   amount: '',
+  payment_method: '',
   expense_date: new Date().toISOString().split('T')[0],
   description: '',
   reference_number: ''
@@ -310,6 +344,9 @@ const translations = {
   scopeLabel: { es: 'Tipo de gasto', en: 'Expense type' },
   scopeBusiness: { es: 'Negocio', en: 'Business' },
   scopePersonal: { es: 'Personal', en: 'Personal' },
+  paymentMethod: { es: '¿De qué cuenta se pagó?', en: 'Paid from which account?' },
+  paymentNone: { es: 'Ninguna', en: 'None' },
+  paymentMethodHint: { es: 'Se resta del saldo de esa cuenta en el War Chest.', en: 'Subtracted from that account\'s War Chest balance.' },
   category: { es: 'Categoría', en: 'Category' },
   selectCategory: { es: 'Selecciona una categoría', en: 'Select a category' },
   subcategory: { es: 'Subcategoría', en: 'Subcategory' },
@@ -398,6 +435,7 @@ onMounted(() => {
       category: props.expense.category,
       subcategory: props.expense.subcategory || '',
       amount: props.expense.amount,
+      payment_method: props.expense.payment_method || '',
       expense_date: expenseDate,
       description: props.expense.description || '',
       reference_number: props.expense.reference_number || ''

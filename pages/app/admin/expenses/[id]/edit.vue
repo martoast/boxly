@@ -100,6 +100,21 @@
                 </select>
               </div>
   
+              <!-- Payment method (War Chest account) -->
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">{{ t.paymentMethod }}</label>
+                <div class="flex flex-wrap gap-2">
+                  <button
+                    type="button" @click="form.payment_method = ''"
+                    :class="['px-4 py-2 rounded-xl text-sm font-medium border transition-colors', !form.payment_method ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50']"
+                  >{{ t.paymentNone }}</button>
+                  <button
+                    v-for="pm in paymentMethods" :key="pm" type="button" @click="form.payment_method = pm"
+                    :class="['px-4 py-2 rounded-xl text-sm font-medium border transition-colors', form.payment_method === pm ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50']"
+                  >{{ pm }}</button>
+                </div>
+              </div>
+
               <!-- Amount -->
               <div>
                 <label for="amount" class="block text-sm font-medium text-gray-700 mb-2">
@@ -206,6 +221,7 @@
   const { $customFetch, $toast } = useNuxtApp()
   const { t: createTranslations } = useLanguage()
   const { categoryOptionsForScope } = useExpenseCategories()
+  const paymentMethods = ['NU', 'HSBC', 'Stripe']
 
   // State
   const loading = ref(true)
@@ -234,6 +250,8 @@
     scopeLabel: { es: 'Tipo de gasto', en: 'Expense type' },
     scopeBusiness: { es: 'Negocio', en: 'Business' },
     scopePersonal: { es: 'Personal', en: 'Personal' },
+    paymentMethod: { es: '¿De qué cuenta se pagó?', en: 'Paid from which account?' },
+    paymentNone: { es: 'Ninguna', en: 'None' },
     category: { es: 'Categoría', en: 'Category' },
     selectCategory: { es: 'Selecciona una categoría', en: 'Select a category' },
     amount: { es: 'Monto', en: 'Amount' },
@@ -265,6 +283,7 @@
         scope: response.data.scope || 'business',
         category: response.data.category,
         amount: response.data.amount,
+        payment_method: response.data.payment_method || '',
         expense_date: response.data.expense_date,
         description: response.data.description || '',
         reference_number: response.data.reference_number || ''

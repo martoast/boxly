@@ -263,6 +263,7 @@ import {
   BookOpenIcon,
   RectangleStackIcon,
   GlobeAmericasIcon,
+  ShieldCheckIcon,
 } from '@heroicons/vue/24/outline';
 
 const { $customFetch } = useNuxtApp();
@@ -288,6 +289,7 @@ const translations = {
   packages: { es: 'Paquetes', en: 'Packages' },
   customers: { es: 'Clientes', en: 'Customers' },
   expenses: { es: 'Gastos', en: 'Expenses' },
+  warChest: { es: 'War Chest', en: 'War Chest' },
   affiliates: { es: 'Afiliados', en: 'Affiliates' },
   campaigns: { es: 'Campañas', en: 'Campaigns' },
   storeBrands: { es: 'Tiendas (presencial)', en: 'Stores (in-person)' },
@@ -318,6 +320,7 @@ const navItems = computed(() => [
   { route: '/app/admin/stores', icon: BuildingStorefrontIcon, label: t.value.storeBrands },
   { route: '/app/admin/categories', icon: TagIcon, label: t.value.storeCategories },
   { route: '/app/admin/expenses', icon: BanknotesIcon, label: t.value.expenses },
+  { route: '/app/admin/war-chest', icon: ShieldCheckIcon, label: t.value.warChest },
   { route: '/app/admin/affiliates', icon: UserGroupIcon, label: t.value.affiliates },
   { route: '/app/admin/campaigns', icon: MegaphoneIcon, label: t.value.campaigns },
 ]);
