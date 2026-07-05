@@ -58,6 +58,13 @@
 
             <!-- Nav items -->
             <nav class="flex-1 overflow-y-auto py-2">
+              <button
+                @click="openSearch(true)"
+                class="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-500 hover:bg-gray-50 border-l-4 border-transparent"
+              >
+                <svg class="h-5 w-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                {{ t.search }}
+              </button>
               <a
                 v-for="item in navItems"
                 :key="item.route"
@@ -135,6 +142,20 @@
 
     <!-- Nav items -->
     <nav class="flex-1 overflow-y-auto py-2">
+      <!-- Quick search (⌘K) -->
+      <div class="group relative">
+        <button
+          @click="openSearch(false)"
+          :class="[collapsed ? 'justify-center px-2' : 'px-4', 'w-full flex items-center gap-3 py-2.5 text-sm font-medium text-gray-500 hover:bg-gray-50 border-l-4 border-transparent']"
+        >
+          <svg class="h-5 w-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+          <span v-if="!collapsed" class="whitespace-nowrap flex-1 text-left">{{ t.search }}</span>
+          <kbd v-if="!collapsed" class="text-[10px] font-semibold text-gray-400 border border-gray-200 rounded px-1 py-0.5">⌘K</kbd>
+        </button>
+        <div v-if="collapsed" class="absolute left-full top-1/2 -translate-y-1/2 ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded-md whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 z-50">
+          {{ t.search }} (⌘K)
+        </div>
+      </div>
       <div v-for="item in navItems" :key="item.route" class="group relative">
         <a
           :href="item.route"
@@ -288,6 +309,7 @@ const translations = {
   shoppingTrips: { es: 'Visitas en Persona', en: 'In-Person Trips' },
   packages: { es: 'Paquetes', en: 'Packages' },
   customers: { es: 'Clientes', en: 'Customers' },
+  search: { es: 'Buscar', en: 'Search' },
   expenses: { es: 'Gastos', en: 'Expenses' },
   warChest: { es: 'War Chest', en: 'War Chest' },
   affiliates: { es: 'Afiliados', en: 'Affiliates' },
@@ -398,6 +420,12 @@ const handleNavigation = async (path) => {
 const handleMobileNav = async (path) => {
   mobileOpen.value = false;
   await handleNavigation(path);
+};
+
+// Open the global command palette (mounted in layouts/admin.vue).
+const openSearch = (fromMobile = false) => {
+  if (fromMobile) mobileOpen.value = false;
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event('open-command-palette'));
 };
 
 const handleLogout = async () => {

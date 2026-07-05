@@ -5,8 +5,10 @@
       <slot />
     </main>
     <Toast />
+    <CommandPalette />
   </div>
 </template>
 
 <script setup>
+import CommandPalette from '~/components/admin/CommandPalette.vue'
 </script>
