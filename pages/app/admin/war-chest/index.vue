@@ -47,12 +47,13 @@
             class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 sm:p-6"
           >
             <div class="flex items-start justify-between gap-3 mb-4">
-              <div class="flex items-center gap-2 min-w-0">
-                <h3 class="text-lg font-bold text-gray-900 truncate">{{ account.name }}</h3>
+              <NuxtLink :to="`/app/admin/war-chest/${account.id}`" class="flex items-center gap-2 min-w-0 group">
+                <h3 class="text-lg font-bold text-gray-900 truncate group-hover:text-primary-600 transition-colors">{{ account.name }}</h3>
                 <span v-if="account.payment_method" class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary-50 text-primary-700 flex-shrink-0">
                   {{ account.payment_method }}
                 </span>
-              </div>
+                <svg class="w-4 h-4 text-gray-300 group-hover:text-primary-500 transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+              </NuxtLink>
               <div class="flex items-center gap-1 flex-shrink-0">
                 <button @click="openEdit(account)" class="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors" :title="t.edit">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
