@@ -577,13 +577,15 @@ const submitRequest = async () => {
         }
     });
 
-    await $customFetch('/purchase-requests', {
+    const res = await $customFetch('/purchase-requests', {
       method: 'POST',
       body: formData
     });
-    
+
     $toast.success(t.value.successMsg);
-    router.push(backTo.value);
+    // Take them straight to the new request's detail page (with its timeline).
+    const newId = res?.data?.id;
+    router.push(newId ? `/app/purchase-requests/${newId}` : backTo.value);
   } catch (error) {
     console.error(error);
     $toast.error(t.value.errorMsg);
