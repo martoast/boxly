@@ -638,6 +638,25 @@
             >
               {{ formatPercentage(profitMargin) }}% {{ t.margin }}
             </p>
+
+            <!-- Retained business capital: profit minus the founders' draw
+                 (personal expenses). What's actually kept in the business. -->
+            <div
+              v-if="foundersDistribution > 0"
+              class="mt-3 pt-3 border-t text-xs space-y-1"
+              :class="isFinancialManual ? 'border-emerald-200/60' : 'border-primary-200/60'"
+            >
+              <div class="flex justify-between">
+                <span :class="isFinancialManual ? 'text-emerald-800' : 'text-primary-800'">{{ t.foundersDistribution }}:</span>
+                <span class="font-semibold text-rose-600">−${{ formatMoney(foundersDistribution) }}</span>
+              </div>
+              <div class="flex justify-between font-bold">
+                <span :class="isFinancialManual ? 'text-emerald-900' : 'text-primary-900'">{{ t.retainedCapital }}:</span>
+                <span :class="retainedCapital >= 0 ? (isFinancialManual ? 'text-emerald-900' : 'text-primary-900') : 'text-red-600'">
+                  {{ retainedCapital < 0 ? '-' : '' }}${{ formatMoney(Math.abs(retainedCapital)) }}
+                </span>
+              </div>
+            </div>
           </div>
 
           <!-- Accounts Receivable Card -->
@@ -1356,6 +1375,12 @@ const personalExpenses = computed(() => {
   return exp;
 });
 
+// Founders' distribution = personal expenses (money the owners drew for their
+// own use). Retained business capital = business profit minus that draw — the
+// money actually kept in the business.
+const foundersDistribution = computed(() => personalTotal.value);
+const retainedCapital = computed(() => profit.value - foundersDistribution.value);
+
 // Computed - Box distribution
 const boxDistribution = computed(() => {
   if (!dashboardData.value?.box_distribution) return {};
@@ -1396,6 +1421,8 @@ const translations = {
   manageExpenses: { es: "Gestionar Gastos", en: "Manage Expenses" },
   totalRevenue: { es: "Ingresos Totales", en: "Total Revenue" },
   totalExpenses: { es: "Gastos Totales", en: "Total Expenses" },
+  foundersDistribution: { es: "Distribución a socios", en: "Founders' distribution" },
+  retainedCapital: { es: "Capital retenido", en: "Retained capital" },
   netProfit: { es: "Ganancia Neta", en: "Net Profit" },
   margin: { es: "margen", en: "margin" },
   conversations: { es: "Leads", en: "Leads" },
