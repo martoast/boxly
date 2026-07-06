@@ -225,7 +225,10 @@
                 </div>
                 
                 <div class="flex items-center justify-between text-sm">
-                  <span class="text-gray-500">{{ formatDate(expense.expense_date) }}</span>
+                  <div class="flex items-center gap-2">
+                    <span class="text-gray-500">{{ formatDate(expense.expense_date) }}</span>
+                    <span v-if="expense.payment_method" class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-50 text-indigo-700">{{ expense.payment_method }}</span>
+                  </div>
                   <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                   </svg>
@@ -246,6 +249,9 @@
                     </th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       {{ t.description }}
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      {{ t.account }}
                     </th>
                     <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                       {{ t.amount }}
@@ -276,6 +282,10 @@
                     </td>
                     <td class="px-6 py-4 text-sm text-gray-900">
                       <p class="max-w-md truncate">{{ expense.description || t.noDescription }}</p>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                      <span v-if="expense.payment_method" class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700">{{ expense.payment_method }}</span>
+                      <span v-else class="text-gray-400">—</span>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-semibold text-red-600">
                       ${{ formatMoney(expense.amount) }}
@@ -560,6 +570,7 @@
     date: { es: 'Fecha', en: 'Date' },
     category: { es: 'Categoría', en: 'Category' },
     description: { es: 'Descripción', en: 'Description' },
+    account: { es: 'Cuenta', en: 'Account' },
     amount: { es: 'Monto', en: 'Amount' },
     actions: { es: 'Acciones', en: 'Actions' },
     edit: { es: 'Editar', en: 'Edit' },

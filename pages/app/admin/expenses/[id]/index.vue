@@ -62,7 +62,14 @@
                   <p class="text-sm font-medium text-gray-600 mb-2">{{ t.date }}</p>
                   <p class="text-base text-gray-900">{{ formatDate(expense.expense_date) }}</p>
                 </div>
-  
+
+                <!-- Payment account (War Chest) -->
+                <div>
+                  <p class="text-sm font-medium text-gray-600 mb-2">{{ t.paidFrom }}</p>
+                  <span v-if="expense.payment_method" class="inline-flex items-center px-2.5 py-1 rounded-full text-sm font-semibold bg-indigo-50 text-indigo-700">{{ expense.payment_method }}</span>
+                  <span v-else class="text-base text-gray-400">{{ t.noAccount }}</span>
+                </div>
+
                 <!-- Description -->
                 <div class="sm:col-span-2" v-if="expense.description">
                   <p class="text-sm font-medium text-gray-600 mb-2">{{ t.description }}</p>
@@ -193,6 +200,8 @@
     deleteConfirm: { es: 'Sí, Eliminar', en: 'Yes, Delete' },
     cancel: { es: 'Cancelar', en: 'Cancel' },
     personalBadge: { es: 'Personal', en: 'Personal' },
+    paidFrom: { es: 'Pagado de (cuenta)', en: 'Paid from (account)' },
+    noAccount: { es: 'Sin cuenta', en: 'No account' },
     // Categories
     shipping: { es: 'Envíos', en: 'Shipping' },
     ads: { es: 'Publicidad', en: 'Advertising' },
