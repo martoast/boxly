@@ -284,7 +284,8 @@
         category: response.data.category,
         amount: response.data.amount,
         payment_method: response.data.payment_method || '',
-        expense_date: response.data.expense_date,
+        // <input type="date"> needs YYYY-MM-DD; API returns a full ISO datetime.
+        expense_date: (response.data.expense_date || '').slice(0, 10),
         description: response.data.description || '',
         reference_number: response.data.reference_number || ''
       }
