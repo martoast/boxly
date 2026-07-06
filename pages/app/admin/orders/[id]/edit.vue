@@ -778,6 +778,36 @@
                 </div>
               </div>
 
+              <!-- Payment location — which account the payment goes to (War Chest) -->
+              <div class="mt-4 sm:mt-6">
+                <label class="block text-sm font-semibold text-gray-900 mb-2">{{ t.paidLocationLabel }}</label>
+                <div class="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    @click="form.paid_location = ''"
+                    :class="[
+                      'px-4 py-2.5 rounded-lg sm:rounded-xl text-sm font-medium border transition-colors',
+                      !form.paid_location ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                    ]"
+                  >
+                    {{ t.paidLocationNone }}
+                  </button>
+                  <button
+                    v-for="pm in paymentMethods"
+                    :key="pm"
+                    type="button"
+                    @click="form.paid_location = pm"
+                    :class="[
+                      'px-4 py-2.5 rounded-lg sm:rounded-xl text-sm font-medium border transition-colors',
+                      form.paid_location === pm ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                    ]"
+                  >
+                    {{ pm }}
+                  </button>
+                </div>
+                <p class="text-xs text-gray-500 mt-1.5">{{ t.paidLocationHint }}</p>
+              </div>
+
               <!-- Payment Summary -->
               <div
                 v-if="calculatedTotalBoxPrice > 0"
@@ -1527,6 +1557,9 @@ const newBox = ref({ stripe_price_id: "", guia_number: "", gia_file: null, lengt
 const useSimpleAddress = ref(false);
 const isInitialLoad = ref(true);
 
+// War Chest accounts an order's payment can be credited to (on mark-paid).
+const paymentMethods = ['NU', 'HSBC', 'Stripe'];
+
 // Form data
 const form = ref({
   order_type: 'shipping',
@@ -1535,6 +1568,7 @@ const form = ref({
   box_price: null,
   deposit_amount: null,
   amount_paid: null,
+  paid_location: "",
   declared_value: null,
   is_rural: false,
   rural_surcharge: null,
@@ -1717,6 +1751,9 @@ const translations = {
   selectBoxSize: { es: "Seleccionar tamaño", en: "Select size" },
   paymentSummary: { es: "Resumen de Pagos", en: "Payment Summary" },
   totalPaid: { es: "Total Pagado", en: "Total Paid" },
+  paidLocationLabel: { es: "¿A qué cuenta se paga? (War Chest)", en: "Which account is it paid to? (War Chest)" },
+  paidLocationNone: { es: "Ninguna", en: "None" },
+  paidLocationHint: { es: "Al marcar la orden como pagada, el monto se abona a esta cuenta del War Chest.", en: "When the order is marked paid, the amount is credited to this War Chest account." },
 };
 
 const t = createTranslations(translations);
@@ -2076,6 +2113,7 @@ const fetchOrder = async () => {
       handling_fee: parseFloat(order.value.handling_fee) || null,
       insurance_fee: parseFloat(order.value.insurance_fee) || null,
       amount_paid: parseFloat(order.value.amount_paid) || null,
+      paid_location: order.value.paid_location || "",
       currency: order.value.currency?.toLowerCase() || "mxn",
       notes: order.value.notes || "",
       paid_at: formatDateTimeForInput(order.value.paid_at),
@@ -2151,6 +2189,9 @@ const handleSubmit = async () => {
     }
     if (form.value.amount_paid !== originalData.value.amount_paid) {
       formData.append('amount_paid', form.value.amount_paid ?? '');
+    }
+    if (form.value.paid_location !== originalData.value.paid_location) {
+      formData.append('paid_location', form.value.paid_location ?? '');
     }
     if (form.value.notes !== originalData.value.notes) {
       formData.append('notes', form.value.notes ?? '');
