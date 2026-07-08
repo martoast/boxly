@@ -319,7 +319,7 @@
               >
                 <p class="text-xs sm:text-sm text-gray-500 mb-1">{{ t.deliveryAddress }}</p>
                 <p class="text-sm font-medium text-gray-900 break-words">
-                  {{ formatAddress(order.delivery_address) }}
+                  {{ addressText(order.delivery_address) }}
                 </p>
                 <div class="flex flex-wrap gap-2 mt-2">
                   <!-- Exact pin the customer shared — most accurate -->
@@ -337,7 +337,7 @@
                     Ubicación exacta (Google Maps)
                   </a>
                   <NuxtLink
-                    v-if="order.delivery_address"
+                    v-if="hasWrittenAddress(order.delivery_address)"
                     :to="`https://maps.google.com/?q=${encodeURIComponent(formatAddress(order.delivery_address))}`"
                     target="_blank"
                     external
@@ -351,7 +351,7 @@
                   </NuxtLink>
                   <button
                     v-if="order.delivery_address"
-                    @click="copyToClipboard(formatAddress(order.delivery_address))"
+                    @click="copyToClipboard(hasWrittenAddress(order.delivery_address) ? formatAddress(order.delivery_address) : order.delivery_address.google_maps_link)"
                     class="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-primary-600 transition-colors"
                   >
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1436,6 +1436,7 @@ const translations = {
   name: { es: "Nombre", en: "Name" },
   email: { es: "Email", en: "Email" },
   deliveryAddress: { es: "Dirección de Entrega", en: "Delivery Address" },
+  gmapsLocationLabel: { es: "Ubicación por Google Maps", en: "Google Maps location" },
   pickupLocation: { es: "Ubicación de Recolección", en: "Pickup Location" },
   warehouseName: { es: "Colectivo Las Ferias La Cacho", en: "Colectivo Las Ferias La Cacho" },
   warehouseAddress: { es: "Av. Jalisco 2850-local 3, Col. Madero (Cacho), 22040 Tijuana, B.C.", en: "Av. Jalisco 2850-local 3, Col. Madero (Cacho), 22040 Tijuana, B.C." },
@@ -2008,10 +2009,22 @@ const formatBoxSizeLabelFull = (size) => {
   return labels[size] || size || "";
 };
 
+const hasWrittenAddress = (address) =>
+  !!(address && (address.full_address || address.street || address.colonia || address.municipio || address.estado || address.postal_code));
+
 const formatAddress = (address) => {
   if (!address) return "-";
   if (address.full_address) return address.full_address;
   return [address.street, address.exterior_number, address.colonia, address.municipio, address.estado, address.postal_code].filter(Boolean).join(", ") || "-";
+};
+
+// Text shown for the address line: the written address, or a Maps-location label
+// when the customer only shared a Google Maps link.
+const addressText = (address) => {
+  if (!address) return "-";
+  if (hasWrittenAddress(address)) return formatAddress(address);
+  if (address.google_maps_link) return t.value.gmapsLocationLabel;
+  return "-";
 };
 
 // Tracking helper functions
