@@ -520,15 +520,17 @@ import { DefaultChatTransport } from 'ai'
 // result. Server tools (search_products/browse_store/…) are fully resolved
 // server-side; auto-sending after them re-runs the model and duplicates the
 // reply (the "message sent twice" bug).
+const CLIENT_TOOLS = new Set(['tool-create_account', 'tool-create_self_order', 'tool-cancel_order'])
 function continueAfterAccount({ messages }) {
   const last = messages?.[messages.length - 1]
   if (!last || last.role !== 'assistant') return false
-  // Resume the model once a CLIENT-executed tool (account creation or a
-  // self-purchase order) has produced its result, so it can confirm to the user.
-  const done = (last.parts || []).find(
-    (p) => (p.type === 'tool-create_account' || p.type === 'tool-create_self_order' || p.type === 'tool-cancel_order') && p.state === 'output-available',
-  )
-  return !!done
+  // Resume the model exactly ONCE, right after a CLIENT-executed tool (account
+  // creation or a self-purchase order) produced its result and the model hasn't
+  // replied yet — i.e. that result is the LAST part. The continuation text gets
+  // appended to this same message, so checking "any part" (instead of the last)
+  // kept matching and auto-sent forever: stuck typing dots + runaway API calls.
+  const lastPart = (last.parts || [])[(last.parts || []).length - 1]
+  return !!lastPart && CLIENT_TOOLS.has(lastPart.type) && lastPart.state === 'output-available'
 }
 
 const props = defineProps({
