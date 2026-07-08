@@ -322,6 +322,20 @@
                   {{ formatAddress(order.delivery_address) }}
                 </p>
                 <div class="flex flex-wrap gap-2 mt-2">
+                  <!-- Exact pin the customer shared — most accurate -->
+                  <a
+                    v-if="order.delivery_address?.google_maps_link"
+                    :href="order.delivery_address.google_maps_link"
+                    target="_blank"
+                    rel="noopener"
+                    class="inline-flex items-center gap-1 text-xs font-semibold text-primary-600 hover:text-primary-700 transition-colors"
+                  >
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    Ubicación exacta (Google Maps)
+                  </a>
                   <NuxtLink
                     v-if="order.delivery_address"
                     :to="`https://maps.google.com/?q=${encodeURIComponent(formatAddress(order.delivery_address))}`"

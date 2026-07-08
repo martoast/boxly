@@ -49,6 +49,22 @@
               {{ t.dashboard }}
             </button>
 
+            <!-- AI search — the flagship shopping assistant (its own page now) -->
+            <button
+              @click="handleNavigation('/app/search')"
+              :class="[
+                isActiveRoute('/app/search')
+                  ? 'border-primary-500 text-primary-700'
+                  : 'border-transparent text-primary-600 hover:border-primary-300 hover:text-primary-700',
+                'inline-flex items-center border-b-2 px-1 pt-1 text-sm font-semibold transition-colors duration-200',
+              ]"
+            >
+              <svg class="w-4 h-4 mr-1.5" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2l1.7 5.6L19 9l-5.3 1.4L12 16l-1.7-5.6L5 9l5.3-1.4z"/>
+              </svg>
+              {{ t.aiSearch }}
+            </button>
+
             <!-- Pricing -->
             <button
               @click="handleNavigation('/app/pricing')"
@@ -360,6 +376,25 @@
           </div>
         </DisclosureButton>
 
+        <!-- AI search -->
+        <DisclosureButton
+          as="button"
+          @click="handleNavigation('/app/search')"
+          :class="[
+            isActiveRoute('/app/search')
+              ? 'bg-primary-50 border-primary-500 text-primary-700'
+              : 'border-transparent text-primary-600 hover:bg-primary-50 hover:border-primary-300',
+            'block border-l-4 py-2 pl-3 pr-4 text-base font-semibold sm:pl-5 sm:pr-6 w-full text-left',
+          ]"
+        >
+          <div class="flex items-center">
+            <svg class="w-5 h-5 mr-3" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2l1.7 5.6L19 9l-5.3 1.4L12 16l-1.7-5.6L5 9l5.3-1.4z"/>
+            </svg>
+            {{ t.aiSearch }}
+          </div>
+        </DisclosureButton>
+
         <!-- Pricing -->
         <DisclosureButton
           as="button"
@@ -538,6 +573,7 @@ const { t: createTranslations } = useLanguage();
 const translations = {
   appName: { es: 'Tu Casillero USA', en: 'Your USA Address' },
   dashboard: { es: 'Panel Principal', en: 'Dashboard' },
+  aiSearch: { es: 'Buscar con IA', en: 'Search with AI' },
   pricing: { es: 'Precios', en: 'Pricing' },
   assistant: { es: 'Asistente IA', en: 'AI Assistant' },
   orders: { es: 'Mis Envios', en: 'My Orders' },

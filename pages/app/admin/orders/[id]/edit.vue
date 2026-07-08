@@ -875,6 +875,19 @@
                 </label>
               </div>
 
+              <!-- Google Maps link — most accurate -->
+              <div class="mb-4">
+                <label for="gmaps_link" class="block text-sm font-semibold text-gray-900 mb-2">Link de Google Maps</label>
+                <input
+                  id="gmaps_link"
+                  type="url"
+                  v-model="form.delivery_address.google_maps_link"
+                  placeholder="https://maps.app.goo.gl/..."
+                  class="w-full px-4 py-3 rounded-xl border border-gray-200 text-base focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
+                />
+                <a v-if="form.delivery_address.google_maps_link" :href="form.delivery_address.google_maps_link" target="_blank" rel="noopener" class="inline-flex items-center gap-1 mt-1.5 text-xs font-medium text-primary-600 hover:text-primary-700">Abrir ubicación →</a>
+              </div>
+
               <!-- Simple Address Mode -->
               <div v-if="useSimpleAddress" class="space-y-4">
                 <div>
@@ -1582,6 +1595,7 @@ const form = ref({
     estado: "",
     postal_code: "",
     referencias: "",
+    google_maps_link: "",
   },
   total_weight: null,
   shipping_cost: null,
@@ -1945,6 +1959,7 @@ watch(() => form.value.order_type, (newType, oldType) => {
       estado: "",
       postal_code: "",
       referencias: "",
+      google_maps_link: "",
     };
     form.value.is_rural = false;
     form.value.rural_surcharge = null;
@@ -2107,6 +2122,7 @@ const fetchOrder = async () => {
         estado: order.value.delivery_address?.estado || "",
         postal_code: order.value.delivery_address?.postal_code || "",
         referencias: order.value.delivery_address?.referencias || "",
+        google_maps_link: order.value.delivery_address?.google_maps_link || "",
       },
       total_weight: parseFloat(order.value.total_weight) || null,
       shipping_cost: parseFloat(order.value.shipping_cost) || null,
@@ -2243,6 +2259,8 @@ const handleSubmit = async () => {
         formData.append('delivery_address[postal_code]', form.value.delivery_address.postal_code ?? '');
         formData.append('delivery_address[referencias]', form.value.delivery_address.referencias ?? '');
       }
+      // Google Maps link — most accurate; kept in either mode
+      formData.append('delivery_address[google_maps_link]', form.value.delivery_address.google_maps_link ?? '');
     }
 
     // Check if boxes changed (including dimensions)

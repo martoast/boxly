@@ -1,20 +1,6 @@
 <!-- components/checkout/DeliveryAddressStep.vue -->
 <template>
   <div class="animate-fadeIn">
-    <!-- Autocomplete Section -->
-    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-6">
-      <div class="px-6 py-4 border-b border-gray-100">
-        <h3 class="text-lg font-bold text-gray-900">{{ t.quickAddressSearchTitle }}</h3>
-        <p class="text-sm text-gray-600 mt-1">{{ t.quickAddressSearchDescription }}</p>
-      </div>
-      <div class="p-6">
-        <CustomPlacesAutoComplete 
-          @updateAddress="handleAutocompleteSelect"
-          :placeholder="t.searchPlaceholder"
-        />
-      </div>
-    </div>
-
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sm:p-8">
       <!-- Success Message for Autocomplete -->
       <Transition

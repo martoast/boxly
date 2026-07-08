@@ -12,6 +12,10 @@
       <ServiceLanes />
     </section>
 
+    <!-- 3. Box pricing — right under the three services, so the offer + its
+            prices sit together. -->
+    <BoxPricing />
+
     <!-- AI search — supplementary optional pipeline, promoted here and in the
          navbar; hands off to /search. The hero stays the proven funnel. -->
     <AiSearchPromo />
@@ -19,11 +23,8 @@
     <!-- Wedge CTA — "send us the link": the unlimited-access promise. -->
     <WedgeCTA />
 
-    <!-- 8. Concierge spotlight — premium in-person section -->
+    <!-- Concierge spotlight — premium in-person section, last before the footer. -->
     <ConciergeSpotlight />
-
-    <!-- 9. Casillero / box pricing — utility info for forwarding users -->
-    <BoxPricing />
 
     <FooterSection />
   </div>

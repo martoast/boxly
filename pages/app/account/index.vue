@@ -117,10 +117,18 @@
                   <p class="text-gray-900">{{ profileData.address.colonia }}</p>
                   <p class="text-gray-900">{{ profileData.address.municipio }}, {{ profileData.address.estado }}</p>
                   <p class="text-gray-900">C.P. {{ profileData.address.postal_code }}</p>
+                  <a v-if="profileData.address?.google_maps_link" :href="profileData.address.google_maps_link" target="_blank" rel="noopener" class="inline-flex items-center gap-1 mt-1 text-sm font-medium text-primary-600 hover:text-primary-700">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0zM15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                    Ver en Google Maps
+                  </a>
                 </div>
                 <!-- Full address string -->
                 <div v-else-if="profileData?.full_address" class="space-y-2">
                   <p class="text-gray-900 whitespace-pre-line">{{ profileData.full_address }}</p>
+                  <a v-if="profileData.address?.google_maps_link" :href="profileData.address.google_maps_link" target="_blank" rel="noopener" class="inline-flex items-center gap-1 mt-1 text-sm font-medium text-primary-600 hover:text-primary-700">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0zM15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                    Ver en Google Maps
+                  </a>
                 </div>
                 <div v-else class="text-center py-8">
                   <div class="inline-flex items-center justify-center w-12 h-12 bg-gray-100 rounded-full mb-3">

@@ -1,138 +1,119 @@
 <template>
-  <section class="min-h-screen bg-gradient-to-br from-gray-50 via-white to-primary-50/20">
-    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+  <section class="min-h-screen bg-gray-50">
+    <div class="max-w-6xl mx-auto px-5 sm:px-6 lg:px-8 pt-8 pb-14 sm:pb-20">
+
+      <!-- Back to wherever the user came from (?from=…), default the dashboard -->
+      <NuxtLink :to="backTo" class="inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors mb-8">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        {{ backLabel }}
+      </NuxtLink>
 
       <!-- Hero -->
-      <div class="text-center">
-        <h1 class="text-3xl sm:text-4xl font-extrabold text-gray-900 tracking-tight">Cajas y Tarifas</h1>
-        <p class="mt-2 text-lg text-gray-500">Elige la caja ideal para tu compra.</p>
-      </div>
-
-      <!-- Trust strip — why Boxly, in three seconds -->
-      <div class="mt-7 rounded-2xl border border-gray-100 bg-white/70 backdrop-blur px-4 py-3.5 flex flex-wrap items-center justify-center gap-x-7 gap-y-2.5 shadow-sm">
-        <span v-for="tr in TRUST" :key="tr.label" class="inline-flex items-center gap-1.5 text-[13px] font-semibold text-gray-700">
-          <svg :class="['w-4 h-4 shrink-0', tr.icon === 'plane' ? 'text-primary-500' : 'text-emerald-500']" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :stroke-width="tr.icon === 'plane' ? 1.8 : 2.5" :d="tr.icon === 'plane' ? ICONS.plane : ICONS.check" /></svg>
-          {{ tr.label }}
-        </span>
-      </div>
-
-      <!-- Timeline — Así funciona Boxly -->
-      <div class="mt-8 rounded-2xl border border-gray-100 bg-white shadow-sm p-6 sm:p-8">
-        <p class="text-center text-[13px] font-bold text-gray-500 uppercase tracking-widest mb-8">Así funciona Boxly</p>
-        <div class="relative">
-          <!-- flowing progress line behind the nodes (desktop) -->
-          <div class="hidden md:block absolute top-6 left-[9%] right-[9%] h-[3px] rounded-full bg-primary-100 overflow-hidden">
-            <div class="h-full w-1/4 rounded-full bg-gradient-to-r from-transparent via-primary-500 to-transparent flow-line"></div>
-          </div>
-          <div class="relative flex flex-col md:flex-row md:justify-between">
-            <template v-for="(s, i) in STEPS" :key="s.title">
-              <div class="timeline-step group flex md:flex-col md:items-center md:text-center gap-3.5 md:gap-0 md:flex-1" :style="{ animationDelay: (i * 0.08) + 's' }">
-                <span :class="['relative grid place-items-center w-12 h-12 rounded-2xl shrink-0 transition-transform duration-200 group-hover:scale-110', s.trust ? 'bg-emerald-500 text-white ring-4 ring-emerald-100 scale-105' : 'bg-white text-primary-600 ring-2 ring-primary-100 shadow-sm']">
-                  <span v-if="s.trust" class="absolute inset-0 rounded-2xl bg-emerald-400/40 animate-ping"></span>
-                  <svg class="relative w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" :d="ICONS[s.icon]" /></svg>
-                </span>
-                <div class="md:mt-3.5 md:px-1">
-                  <p :class="['text-[13.5px] font-bold leading-tight', s.trust ? 'text-emerald-700' : 'text-gray-900']">{{ s.title }}</p>
-                  <p v-if="s.sub" class="text-[11.5px] text-gray-400 mt-0.5 leading-snug">{{ s.sub }}</p>
-                </div>
-              </div>
-              <!-- mobile connector -->
-              <div v-if="i < STEPS.length - 1" class="md:hidden ml-6 my-1 h-5 border-l-2 border-primary-100"></div>
-            </template>
-          </div>
+      <div class="text-center max-w-2xl mx-auto">
+        <h1 class="text-4xl sm:text-5xl font-semibold tracking-tight text-gray-900">Cajas y tarifas</h1>
+        <p class="mt-3 text-lg sm:text-xl text-gray-500">Una caja. Un envío. Pagas cuando está lista.</p>
+        <div class="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-1.5 text-[13px] text-gray-500">
+          <span v-for="tr in TRUST" :key="tr.label" class="inline-flex items-center gap-1.5">
+            <svg :class="['w-3.5 h-3.5 shrink-0 text-gray-400']" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :stroke-width="tr.icon === 'plane' ? 1.8 : 2.5" :d="tr.icon === 'plane' ? ICONS.plane : ICONS.check" /></svg>
+            {{ tr.label }}
+          </span>
         </div>
       </div>
 
-      <!-- Value banner — slim, two inline points -->
-      <div class="mt-5 rounded-xl border border-emerald-100 bg-emerald-50/70 px-4 py-2.5 flex flex-col sm:flex-row sm:items-center sm:justify-center gap-2 sm:gap-5 text-center sm:text-left">
-        <span class="inline-flex items-center justify-center gap-2 text-[13.5px] font-semibold text-emerald-900">
-          <svg class="w-[18px] h-[18px] text-emerald-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.9" d="M9.66 17h4.68M12 3a6 6 0 00-4 10.47V16a1 1 0 001 1h6a1 1 0 001-1v-2.53A6 6 0 0012 3z" /></svg>
-          Entre más juntes en una caja, <span class="text-emerald-600">menos pagas por artículo</span>
-        </span>
-        <span class="hidden sm:block w-px h-4 bg-emerald-200"></span>
-        <span class="inline-flex items-center justify-center gap-1.5 text-[13px] font-medium text-emerald-800">
-          <svg class="w-4 h-4 text-emerald-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.9" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-          Consolida hasta 60 días
-        </span>
-      </div>
-
-      <!-- how the box limit works + estimate disclaimer -->
-      <p class="mt-5 text-center text-[12.5px] text-gray-500">
-        El límite de cada caja es por <span class="font-semibold text-gray-700">volumen o peso</span> — lo que se alcance primero.
-        <span class="block mt-0.5 text-[12px] text-gray-400">Los precios son <span class="font-semibold text-gray-500">estimados</span>; el costo final se confirma al pesar y medir tu caja.</span>
-      </p>
-
-      <!-- Pricing cards -->
-      <div id="cajas" class="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <!-- Pricing cards — lead with the offer -->
+      <div id="cajas" class="mt-12 sm:mt-16 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <div
           v-for="b in BOXES"
           :key="b.key"
-          :class="['relative flex flex-col rounded-2xl border bg-white p-5 transition-all hover:shadow-lg hover:-translate-y-0.5', b.popular ? 'border-primary-300 ring-1 ring-primary-200 shadow-md' : b.bestValue ? 'border-emerald-300 ring-1 ring-emerald-200' : 'border-gray-200 shadow-sm']"
+          :class="['relative flex flex-col rounded-3xl bg-white p-6 transition-shadow duration-200', b.popular ? 'ring-1 ring-gray-900/10 shadow-md' : 'ring-1 ring-gray-900/5 shadow-sm hover:shadow-md']"
         >
-          <span v-if="b.tag" :class="['absolute -top-2.5 left-1/2 -translate-x-1/2 text-[10px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full shadow-sm whitespace-nowrap', b.popular ? 'bg-primary-500 text-white' : 'bg-emerald-500 text-white']">{{ b.tag }}</span>
+          <div class="flex items-center justify-between h-5">
+            <p class="text-[17px] font-semibold text-gray-900">{{ b.name }}</p>
+            <span v-if="b.tag" :class="['text-[10.5px] font-semibold uppercase tracking-wide', b.popular ? 'text-primary-600' : 'text-emerald-600']">{{ b.tag }}</span>
+          </div>
 
-          <p class="text-lg font-extrabold text-gray-900">{{ b.name }}</p>
-          <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mt-2">Capacidad aproximada</p>
+          <!-- price — FIXED per box size -->
+          <div class="mt-5">
+            <p class="text-[11.5px] text-gray-400">Precio de la caja</p>
+            <p class="mt-1 text-[30px] font-semibold tracking-tight text-gray-900 leading-none">${{ b.price.toLocaleString('en-US') }}<span class="text-[13px] font-medium text-gray-400 ml-1">MXN</span></p>
+            <p class="mt-1.5 text-[12.5px] text-gray-500">≈ ${{ b.perItem }} por artículo</p>
+          </div>
 
-          <ul class="mt-2 space-y-1.5 text-[13px] text-gray-700">
-            <li class="flex items-center gap-2"><span class="w-4 text-center">👕</span> Hasta {{ b.garments }} prendas*</li>
-            <li class="flex items-center gap-2"><span class="w-4 text-center">👟</span> Hasta {{ b.pairs }} pares (sin caja)</li>
-            <li class="flex items-center gap-2 pt-1 mt-1 border-t border-gray-100"><span class="w-4 text-center">⚖️</span> Máx. {{ b.maxKg }} kg de peso</li>
-          </ul>
+          <!-- capacity — APPROXIMATE examples of what fits (this is what varies) -->
+          <div class="mt-5 border-t border-gray-100 pt-4">
+            <p class="text-[11px] text-gray-400 mb-2.5">Cuánto le cabe (aprox.)</p>
+            <ul class="space-y-2.5 text-[13.5px]">
+              <li class="flex items-center justify-between"><span class="text-gray-500">Prendas</span><span class="font-medium text-gray-900">~{{ b.garments }}</span></li>
+              <li class="flex items-center justify-between"><span class="text-gray-500">Pares de tenis</span><span class="font-medium text-gray-900">~{{ b.pairs }}</span></li>
+              <li class="flex items-center justify-between"><span class="text-gray-500">Peso máximo</span><span class="font-medium text-gray-900">{{ b.maxKg }} kg</span></li>
+            </ul>
+          </div>
 
-          <div class="mt-auto pt-4">
-            <!-- what you actually pay: the consolidated box price (ESTIMATE) -->
-            <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Precio estimado</p>
-            <p class="text-2xl font-extrabold text-gray-900 leading-none">~${{ b.price.toLocaleString('en-US') }} <span class="text-[13px] font-semibold text-gray-400 align-top">MXN</span></p>
-            <p class="text-[11px] text-gray-400 mt-0.5">Caja consolidada · todo en un envío</p>
-            <!-- value-add: estimated cost per item (greener = better value) -->
-            <p class="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-gray-50 border border-gray-100 px-2 py-1 text-[12px] font-bold" :class="perItemColor(b)">
-              <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M7 7h.01M7 3h5a2 2 0 011.414.586l7 7a2 2 0 010 2.828l-5 5a2 2 0 01-2.828 0l-7-7A2 2 0 013 10V5a2 2 0 012-2z" /></svg>
-              ≈ ${{ b.perItem }} por artículo
-            </p>
-
-            <NuxtLink to="/app/orders/create" class="mt-3.5 w-full inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all active:scale-[.98]" :class="b.popular ? 'bg-primary-500 hover:bg-primary-600 text-white shadow-sm shadow-primary-500/20' : 'border border-gray-200 text-gray-700 hover:border-primary-300 hover:text-primary-700'">
-              Elegir esta caja
+          <div class="mt-auto pt-6">
+            <NuxtLink to="/app/orders/create" class="w-full inline-flex items-center justify-center px-4 py-2.5 rounded-full text-[14px] font-semibold transition-colors active:scale-[.98]" :class="b.popular ? 'bg-primary-600 hover:bg-primary-700 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-900'">
+              Elegir
             </NuxtLink>
-
-            <!-- specs tucked away — most people compare value, not centimeters -->
-            <button @click="specsOpen[b.key] = !specsOpen[b.key]" class="mt-2 w-full text-[11.5px] text-gray-400 hover:text-gray-600 transition-colors">
-              {{ specsOpen[b.key] ? 'Ocultar' : 'Ver especificaciones' }}
+            <button @click="specsOpen[b.key] = !specsOpen[b.key]" class="mt-3 w-full text-[12px] text-gray-400 hover:text-gray-600 transition-colors">
+              {{ specsOpen[b.key] ? b.dims : 'Ver medidas' }}
             </button>
-            <div v-if="specsOpen[b.key]" class="mt-1 text-[11.5px] text-gray-500 text-center leading-relaxed">
-              <p>Medidas: {{ b.dims }}</p>
-            </div>
           </div>
         </div>
       </div>
 
-      <!-- one subtle AI CTA -->
-      <div class="mt-7 text-center">
-        <NuxtLink to="/app?q=Ay%C3%BAdame%20a%20elegir%20la%20caja%20correcta%20para%20lo%20que%20quiero%20comprar" class="inline-flex flex-col items-center gap-0.5 group">
-          <span class="text-[14px] font-semibold text-gray-700 group-hover:text-primary-700 transition-colors">¿No sabes cuál caja elegir?</span>
-          <span class="inline-flex items-center gap-1.5 text-[13px] font-bold text-primary-600 group-hover:text-primary-700 transition-colors">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.9" d="M8 12h.01M12 12h.01M16 12h.01M21 12a9 9 0 01-9 9 8.96 8.96 0 01-4.28-1.09L3 21l1.09-4.72A8.96 8.96 0 013 12a9 9 0 019-9 9 9 0 019 9z" /></svg>
-            Pregúntale a Boxly
-          </span>
+      <!-- consolidation note, quiet -->
+      <p class="mt-5 text-center text-[12.5px] text-gray-400 max-w-xl mx-auto">
+        El límite de cada caja es por <span class="text-gray-500">volumen o peso</span> — lo que se alcance primero. Las cantidades son aproximadas.
+      </p>
+
+      <!-- AI CTA -->
+      <div class="mt-8 text-center">
+        <NuxtLink to="/app?q=Ay%C3%BAdame%20a%20elegir%20la%20caja%20correcta%20para%20lo%20que%20quiero%20comprar" class="inline-flex items-center gap-2 text-[14px] font-medium text-primary-600 hover:text-primary-700 transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.9" d="M8 12h.01M12 12h.01M16 12h.01M21 12a9 9 0 01-9 9 8.96 8.96 0 01-4.28-1.09L3 21l1.09-4.72A8.96 8.96 0 013 12a9 9 0 019-9 9 9 0 019 9z" /></svg>
+          ¿No sabes cuál elegir? Pregúntale a Boxly
         </NuxtLink>
       </div>
 
-      <!-- footnote -->
-      <p class="mt-6 text-[11px] text-gray-400 text-center max-w-2xl mx-auto">
-        Precios y capacidades <span class="font-semibold text-gray-500">estimados</span>, para orientarte. El costo final del envío se confirma cuando recibimos, pesamos y medimos tu caja. Los pares de tenis se consideran sin caja; la capacidad varía según el tamaño y volumen de cada producto.
-      </p>
+      <!-- Footer — how it works + one concise disclaimer, scrunched into a footer -->
+      <div class="mt-14 sm:mt-16 pt-9 border-t border-gray-100 max-w-4xl mx-auto">
+        <p class="text-center text-[12px] font-semibold text-gray-400 uppercase tracking-[0.2em] mb-8">Cómo funciona</p>
+        <div class="relative flex flex-col md:flex-row md:justify-between gap-6 md:gap-0">
+          <div class="hidden md:block absolute top-5 left-[8%] right-[8%] h-px bg-gray-200"></div>
+          <template v-for="(s, i) in STEPS" :key="s.title">
+            <div class="relative flex md:flex-col md:items-center md:text-center gap-3.5 md:gap-0 md:flex-1">
+              <span :class="['grid place-items-center w-10 h-10 rounded-full shrink-0 bg-white ring-1', s.trust ? 'ring-primary-300 text-primary-600' : 'ring-gray-200 text-gray-400']">
+                <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" :d="ICONS[s.icon]" /></svg>
+              </span>
+              <div class="md:mt-3 md:px-1">
+                <p class="text-[13px] font-medium text-gray-900 leading-tight">{{ s.title }}</p>
+                <p v-if="s.sub" class="text-[11.5px] text-gray-400 mt-0.5 leading-snug">{{ s.sub }}</p>
+              </div>
+            </div>
+            <div v-if="i < STEPS.length - 1" class="md:hidden ml-5 my-0.5 h-4 border-l border-gray-200"></div>
+          </template>
+        </div>
+        <p class="mt-9 text-[11.5px] text-gray-400 text-center">Precio fijo por caja · Consolida hasta 60 días · Los pares de tenis se consideran sin caja.</p>
+      </div>
     </div>
   </section>
 </template>
 
 <script setup>
-import { reactive } from 'vue'
+import { reactive, computed } from 'vue'
 
 definePageMeta({
   layout: 'app',
   middleware: ['auth', 'customer'],
 })
 useHead({ title: 'Cajas y Tarifas — Boxly' })
+
+// Return to whoever linked here (?from=…), else the dashboard. Only accept safe
+// in-app paths so the param can't be used to bounce the user off-site.
+const route = useRoute()
+const backTo = computed(() => {
+  const from = typeof route.query.from === 'string' ? route.query.from : ''
+  return from.startsWith('/app') ? from : '/app'
+})
+const backLabel = computed(() => (backTo.value.startsWith('/app/purchase-requests') ? 'Volver a mi solicitud' : 'Volver al panel'))
 
 // Trust strip — the four reasons Boxly is different, no paragraphs.
 const TRUST = [
@@ -172,23 +153,4 @@ const BOXES = [
   { key: 'XL', name: 'Caja XL', price: 6250, perItem: 55,  garments: 100, pairs: 30, bags: 20, tag: 'Mejor Valor', bestValue: true, dims: '52 × 62 × 53 cm', maxKg: 50 },
 ]
 const specsOpen = reactive({})
-
-function perItemColor(b) {
-  return { XS: 'text-gray-400', S: 'text-gray-500', M: 'text-emerald-600', L: 'text-emerald-600', XL: 'text-emerald-700' }[b.key] || 'text-gray-500'
-}
 </script>
-
-<style scoped>
-/* A highlight that flows along the timeline — suggests movement, subtly. */
-.flow-line { animation: flow 2.6s linear infinite; }
-@keyframes flow { 0% { transform: translateX(-120%); } 100% { transform: translateX(500%); } }
-
-/* Nodes ease in one-by-one on load. */
-.timeline-step { opacity: 0; animation: step-in .5s ease forwards; }
-@keyframes step-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-
-@media (prefers-reduced-motion: reduce) {
-  .flow-line { animation: none; opacity: .6; }
-  .timeline-step { opacity: 1; animation: none; }
-}
-</style>

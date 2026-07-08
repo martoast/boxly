@@ -119,6 +119,19 @@
             </div>
           </div>
 
+          <!-- Google Maps link — most accurate -->
+          <div class="mb-4">
+            <label for="gmaps_link" class="block text-sm font-semibold text-gray-900 mb-1">Link de Google Maps</label>
+            <p class="text-xs text-gray-500 mb-2">Pega el link de tu ubicación en Google Maps — es lo más preciso.</p>
+            <input
+              id="gmaps_link"
+              type="url"
+              v-model="form.delivery_address.google_maps_link"
+              placeholder="https://maps.app.goo.gl/..."
+              class="w-full px-4 py-3 rounded-xl border border-gray-200 text-base focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
+            />
+          </div>
+
           <!-- Full Address Mode -->
           <div v-if="useFullAddress" class="space-y-4">
             <div>
@@ -355,7 +368,8 @@ const form = ref({
     estado: '',
     postal_code: '',
     referencias: '',
-    full_address: ''
+    full_address: '',
+    google_maps_link: ''
   },
   is_rural: false
 })
@@ -593,7 +607,8 @@ const fetchOrder = async () => {
         estado: addr.estado || '',
         postal_code: addr.postal_code || '',
         referencias: addr.referencias || '',
-        full_address: addr.full_address || ''
+        full_address: addr.full_address || '',
+        google_maps_link: addr.google_maps_link || ''
       },
       is_rural: order.value.is_rural
     }
@@ -644,6 +659,9 @@ const handleSubmit = async () => {
         referencias: form.value.delivery_address.referencias
       }
     }
+    // Google Maps link — most accurate; applies in either mode
+    const gmaps = (form.value.delivery_address.google_maps_link || '').trim()
+    if (gmaps) payload.delivery_address.google_maps_link = gmaps
 
     const response = await $customFetch(`/orders/${orderId}`, {
       method: 'PUT',

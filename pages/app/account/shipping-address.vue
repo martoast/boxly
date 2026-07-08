@@ -135,6 +135,18 @@
                   </div>
                 </div>
               </Transition>
+              <!-- Google Maps link — most accurate -->
+              <div>
+                <label for="gmaps_link" class="block text-sm font-medium text-gray-700 mb-1">Link de Google Maps</label>
+                <input
+                  v-model="form.google_maps_link"
+                  type="url"
+                  id="gmaps_link"
+                  placeholder="https://maps.app.goo.gl/..."
+                  class="w-full px-4 py-3 rounded-xl border border-gray-200 text-base focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
+                />
+                <p class="text-xs text-gray-500 mt-1">Pega el link de tu ubicación en Google Maps — es lo más preciso para entregarte.</p>
+              </div>
               <!-- Street -->
               <div>
                 <label for="street" class="block text-sm font-medium text-gray-700 mb-1">
@@ -366,7 +378,8 @@ const form = ref({
   municipio: '',
   estado: '',
   postal_code: '',
-  reference: ''
+  reference: '',
+  google_maps_link: ''
 })
 
 const isInitialLoading = ref(true)
@@ -562,7 +575,8 @@ const fetchAddress = async () => {
         municipio: data.address.municipio || '',
         estado: data.address.estado || '',
         postal_code: data.address.postal_code || '',
-        reference: data.address.reference || ''
+        reference: data.address.reference || '',
+        google_maps_link: data.address.google_maps_link || ''
       }
     }
   } catch (error) {

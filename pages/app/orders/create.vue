@@ -477,6 +477,28 @@
                 </div>
               </div>
 
+              <!-- Google Maps link — the most accurate + seamless option -->
+              <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6 animate-fadeIn">
+                <label for="gmaps_link" class="block text-sm font-semibold text-gray-900">{{ t.gmapsLinkLabel }}</label>
+                <p class="text-sm text-gray-500 mt-1 mb-3">{{ t.gmapsLinkDescription }}</p>
+                <div class="relative">
+                  <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0zM15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                  </span>
+                  <input
+                    id="gmaps_link"
+                    type="url"
+                    v-model="form.delivery_address.google_maps_link"
+                    :placeholder="t.gmapsLinkPlaceholder"
+                    class="w-full pl-11 pr-4 py-3 rounded-xl border border-gray-200 text-base focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
+                  />
+                </div>
+                <a href="https://maps.google.com" target="_blank" rel="noopener" class="inline-flex items-center gap-1 mt-2.5 text-xs font-medium text-primary-600 hover:text-primary-700">
+                  {{ t.gmapsLinkHelp }}
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                </a>
+              </div>
+
               <!-- Full Address Mode -->
               <div v-if="useFullAddress" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6 animate-fadeIn">
                 <div class="space-y-4">
@@ -629,6 +651,7 @@ const form = ref({
     postal_code: "",
     referencias: "",
     full_address: "",
+    google_maps_link: "",
   },
   is_rural: false,
   save_address: false,
@@ -747,14 +770,31 @@ const translations = {
     es: "Cargando tu dirección guardada...",
     en: "Loading your saved address...",
   },
+  // Google Maps link — the most accurate way to pin the delivery address
+  gmapsLinkLabel: {
+    es: "Link de Google Maps (recomendado)",
+    en: "Google Maps link (recommended)",
+  },
+  gmapsLinkDescription: {
+    es: "Pega el link de tu ubicación en Google Maps — es lo más preciso para entregarte.",
+    en: "Paste your Google Maps location link — it's the most accurate way for us to deliver.",
+  },
+  gmapsLinkPlaceholder: {
+    es: "https://maps.app.goo.gl/...",
+    en: "https://maps.app.goo.gl/...",
+  },
+  gmapsLinkHelp: {
+    es: "¿Cómo copio mi link? Abrir Google Maps",
+    en: "How do I copy my link? Open Google Maps",
+  },
   // Address form translations
   quickAddressSearchTitle: {
     es: "Búsqueda Rápida de Dirección",
     en: "Quick Address Search",
   },
   quickAddressSearchDescription: {
-    es: "Busca tu dirección para completar los campos automáticamente",
-    en: "Search for your address to automatically fill the fields",
+    es: "Pega tu link de Google Maps o llena los campos de tu dirección",
+    en: "Paste your Google Maps link or fill in your address fields",
   },
   searchPlaceholder: {
     es: "Buscar dirección, ciudad o código postal",
@@ -930,6 +970,9 @@ const handleCreateOrder = async () => {
             estado: form.value.delivery_address.estado,
             postal_code: form.value.delivery_address.postal_code,
           };
+      // Save the Google Maps link to the profile too (most accurate)
+      const gmapsForProfile = (form.value.delivery_address.google_maps_link || "").trim();
+      if (gmapsForProfile) profileBody.google_maps_link = gmapsForProfile;
       await $customFetch("/profile", {
         method: "PUT",
         body: profileBody,
@@ -965,6 +1008,9 @@ const handleCreateOrder = async () => {
         };
         body.is_rural = form.value.is_rural;
       }
+      // Google Maps link — attach if provided (most accurate; works in either mode)
+      const gmaps = (form.value.delivery_address.google_maps_link || "").trim();
+      if (gmaps) body.delivery_address.google_maps_link = gmaps;
     }
 
     const response = await $customFetch("/orders", {

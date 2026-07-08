@@ -18,13 +18,13 @@ export default defineNuxtConfig({
     // previews + search crawlers get the server-rendered <head> meta and a
     // crawlable hero; the heavy interactive chat is wrapped in <ClientOnly>
     // in the page, so only the lightweight shell renders on the server.
-    // Old entry points (incl. the previous authed /app/search) redirect here.
-    '/app/search':    { redirect: '/search' },
-    '/app/search/**': { redirect: '/search' },
-    '/assistant':     { redirect: '/search' },
-    '/app/assistant': { redirect: '/search' },
-    '/buscar':        { redirect: '/search' },
-    '/buscar/**':     { redirect: '/search' },
+    // /app/search is the authed in-app AI shopping assistant (reached from the
+    // dashboard "Buscar y cotizar con IA" card); it's client-rendered under
+    // /app/** above. /search stays public (guest-friendly landing funnel).
+    '/assistant':     { redirect: '/app/search' },
+    '/app/assistant': { redirect: '/app/search' },
+    '/buscar':        { redirect: '/app/search' },
+    '/buscar/**':     { redirect: '/app/search' },
     // The product page is auth-gated (token-expensive) — client-rendered so the
     // auth middleware resolves the user reliably.
     '/producto':          { ssr: false },

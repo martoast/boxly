@@ -302,7 +302,19 @@
                 </label>
               </div>
             </div>
-            
+
+            <!-- Google Maps link — most accurate -->
+            <div class="mb-4">
+              <label for="gmaps_link" class="block text-sm font-medium text-gray-700 mb-1.5">Link de Google Maps</label>
+              <input
+                id="gmaps_link"
+                type="url"
+                v-model="form.delivery_address.google_maps_link"
+                placeholder="https://maps.app.goo.gl/..."
+                class="w-full px-4 py-3 rounded-xl border border-gray-200 text-base focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
+              />
+            </div>
+
             <!-- Simple Address Mode -->
             <div v-if="useSimpleAddress" class="space-y-3 sm:space-y-4">
               <div>
@@ -607,7 +619,8 @@ const form = ref({
     municipio: '',
     estado: '',
     postal_code: '',
-    referencias: ''
+    referencias: '',
+    google_maps_link: ''
   },
   is_rural: false
 })
@@ -851,6 +864,8 @@ const handleSubmit = async () => {
           referencias: form.value.delivery_address.referencias
         }
       }
+      const gmaps = (form.value.delivery_address.google_maps_link || '').trim()
+      if (gmaps) body.delivery_address.google_maps_link = gmaps
       body.is_rural = form.value.is_rural
     }
 

@@ -1,281 +1,85 @@
 <template>
-  <section
-    class="py-12 md:py-16 lg:py-20 bg-gradient-to-b from-white to-gray-50"
-    id="box-pricing"
-  >
-    <div class="container mx-auto px-4 md:px-8 lg:px-12">
+  <section class="py-16 md:py-24 bg-gray-50" id="box-pricing">
+    <div class="max-w-6xl mx-auto px-5 sm:px-6 lg:px-8">
       <!-- Header -->
-      <div class="text-center max-w-3xl mx-auto mb-12">
-        <span
-          class="text-primary-600 uppercase font-bold text-sm tracking-wider"
+      <div class="text-center max-w-2xl mx-auto">
+        <h2 class="text-4xl sm:text-5xl font-semibold tracking-tight text-gray-900">{{ t.pricingTitle }}</h2>
+        <p class="mt-3 text-lg sm:text-xl text-gray-500">{{ t.pricingSubtitle }}</p>
+        <div class="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-1.5 text-[13px] text-gray-500">
+          <span v-for="tr in TRUST" :key="tr.key" class="inline-flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5 shrink-0 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :stroke-width="tr.key === 'plane' ? 1.8 : 2.5" :d="tr.key === 'plane' ? ICON_PLANE : ICON_CHECK" /></svg>
+            {{ t[tr.key] }}
+          </span>
+        </div>
+      </div>
+
+      <!-- Pricing cards -->
+      <div class="mt-12 sm:mt-16 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div
+          v-for="box in boxes"
+          :key="box.size"
+          :class="['relative flex flex-col rounded-3xl bg-white p-6 transition-shadow duration-200', box.popular ? 'ring-1 ring-gray-900/10 shadow-md' : 'ring-1 ring-gray-900/5 shadow-sm hover:shadow-md']"
         >
-          {{ t.pricingTag }}
+          <div class="flex items-center justify-between h-5">
+            <p class="text-[17px] font-semibold text-gray-900">{{ t.boxLabel }} {{ box.size }}</p>
+            <span v-if="box.popular" class="text-[10.5px] font-semibold uppercase tracking-wide text-primary-600">{{ t.popularBadge }}</span>
+            <span v-else-if="box.bestValue" class="text-[10.5px] font-semibold uppercase tracking-wide text-emerald-600">{{ t.bestValueBadge }}</span>
+          </div>
+
+          <!-- price — FIXED per box size -->
+          <div class="mt-5">
+            <p class="text-[11.5px] text-gray-400">{{ t.boxPrice }}</p>
+            <p class="mt-1 text-[30px] font-semibold tracking-tight text-gray-900 leading-none">${{ box.price.toLocaleString('en-US') }}<span class="text-[13px] font-medium text-gray-400 ml-1">MXN</span></p>
+            <p class="mt-1.5 text-[12.5px] text-gray-500">≈ ${{ box.perItem }} {{ t.perItem }}</p>
+          </div>
+
+          <!-- capacity — approximate examples of what fits -->
+          <div class="mt-5 border-t border-gray-100 pt-4">
+            <p class="text-[11px] text-gray-400 mb-2.5">{{ t.fits }}</p>
+            <ul class="space-y-2.5 text-[13.5px]">
+              <li class="flex items-center justify-between"><span class="text-gray-500">{{ t.garments }}</span><span class="font-medium text-gray-900">~{{ box.garments }}</span></li>
+              <li class="flex items-center justify-between"><span class="text-gray-500">{{ t.pairs }}</span><span class="font-medium text-gray-900">~{{ box.pairs }}</span></li>
+              <li class="flex items-center justify-between"><span class="text-gray-500">{{ t.maxWeight }}</span><span class="font-medium text-gray-900">{{ box.weightLimit }} kg</span></li>
+            </ul>
+          </div>
+
+          <div class="mt-auto pt-6">
+            <NuxtLink :to="ctaLink" class="w-full inline-flex items-center justify-center px-4 py-2.5 rounded-full text-[14px] font-semibold transition-colors active:scale-[.98]" :class="box.popular ? 'bg-primary-600 hover:bg-primary-700 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-900'">
+              {{ t.choose }}
+            </NuxtLink>
+            <button @click="specsOpen[box.size] = !specsOpen[box.size]" class="mt-3 w-full text-[12px] text-gray-400 hover:text-gray-600 transition-colors">
+              {{ specsOpen[box.size] ? box.dimensions[language] : t.seeDimensions }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Consolidated key facts — clean value points + one clarity line -->
+      <div class="mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[13px] font-medium text-gray-700">
+        <span v-for="f in FACTS" :key="f" class="inline-flex items-center gap-1.5">
+          <svg class="w-4 h-4 text-emerald-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" /></svg>
+          {{ t[f] }}
         </span>
-        <h2
-          class="text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 mt-2 mb-4"
-        >
-          {{ t.pricingTitle }}
-        </h2>
-        <p class="text-lg md:text-xl text-gray-600">
-          {{ t.pricingSubtitle }}
-        </p>
-        
-        <!-- Small deposit notice -->
-        <p class="text-sm text-gray-500 mt-4">
-          {{ t.depositNotice }}
-        </p>
       </div>
+      <p class="mt-3 text-center text-[12px] text-gray-400 max-w-lg mx-auto">{{ t.approxNote }}</p>
 
-      <!-- Pricing Table -->
-      <div class="max-w-6xl mx-auto">
-        <div
-          class="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden"
+      <!-- Main CTA -->
+      <div class="mt-8 text-center">
+        <NuxtLink
+          :to="ctaLink"
+          class="inline-flex items-center gap-2 px-7 py-3.5 rounded-full bg-primary-600 hover:bg-primary-700 text-white text-[15px] font-semibold transition-colors active:scale-[.98]"
         >
-          <!-- Desktop Table -->
-          <div class="hidden md:block overflow-x-auto">
-            <table class="w-full">
-              <thead>
-                <tr
-                  class="bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-200"
-                >
-                  <th class="px-6 py-4 text-left">
-                    <span
-                      class="text-sm font-bold text-gray-700 uppercase tracking-wider"
-                      >{{ t.tableSize }}</span
-                    >
-                  </th>
-                  <th class="px-6 py-4 text-left">
-                    <span
-                      class="text-sm font-bold text-gray-700 uppercase tracking-wider"
-                      >{{ t.tableDimensions }}</span
-                    >
-                  </th>
-                  <th class="px-6 py-4 text-center">
-                    <span
-                      class="text-sm font-bold text-gray-700 uppercase tracking-wider"
-                      >{{ t.tableWeight }}</span
-                    >
-                  </th>
-                  <th class="px-6 py-4 text-right">
-                    <span
-                      class="text-sm font-bold text-gray-700 uppercase tracking-wider"
-                      >{{ t.tablePrice }}</span
-                    >
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr
-                  v-for="box in boxes"
-                  :key="box.size"
-                  :class="[
-                    'border-b border-gray-100 transition-all hover:bg-gray-50',
-                    box.popular ? 'bg-primary-50/30' : '',
-                  ]"
-                >
-                  <td class="px-6 py-5">
-                    <div class="flex items-center gap-3">
-                      <img src="/box.svg" :alt="box.size" width="40" height="40" loading="lazy" decoding="async" class="w-8 h-8" />
-                      <div class="flex items-center gap-2">
-                        <span class="text-2xl font-extrabold text-gray-900">{{
-                          box.size
-                        }}</span>
-                        <span
-                          v-if="box.popular"
-                          class="bg-primary-500 text-white text-xs font-bold px-2 py-1 rounded-full"
-                        >
-                          {{ t.popularBadge }}
-                        </span>
-                      </div>
-                    </div>
-                  </td>
-                  <td class="px-6 py-5 text-left">
-                    <span class="text-gray-700 font-medium">{{
-                      box.dimensions[language]
-                    }}</span>
-                  </td>
-                  <td class="px-6 py-5 text-center">
-                    <div
-                      class="inline-flex items-center gap-2 bg-gray-100 px-3 py-1.5 rounded-lg"
-                    >
-                      <svg
-                        class="w-4 h-4 text-gray-600"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          stroke-width="2"
-                          d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"
-                        />
-                      </svg>
-                      <span class="font-bold text-gray-900"
-                        >{{ box.weightLimit }} kg</span
-                      >
-                    </div>
-                  </td>
-                  <td class="px-6 py-5 text-right">
-                    <div class="flex items-baseline justify-end gap-1">
-                      <span class="text-3xl font-extrabold text-gray-900"
-                        >${{ box.price.toLocaleString() }}</span
-                      >
-                      <span class="text-gray-600 font-semibold">MXN</span>
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <!-- Mobile Cards -->
-          <div class="md:hidden divide-y divide-gray-200">
-            <div
-              v-for="box in boxes"
-              :key="box.size"
-              :class="[
-                'p-6 transition-all hover:bg-gray-50',
-                box.popular ? 'bg-primary-50/30' : '',
-              ]"
-            >
-              <div class="flex items-center justify-between mb-4">
-                <div class="flex items-center gap-3">
-                  <img src="/box.svg" :alt="box.size" width="40" height="40" loading="lazy" decoding="async" class="w-10 h-10" />
-                  <span class="text-3xl font-extrabold text-gray-900">{{
-                    box.size
-                  }}</span>
-                </div>
-                <span
-                  v-if="box.popular"
-                  class="bg-primary-500 text-white text-xs font-bold px-3 py-1 rounded-full"
-                >
-                  {{ t.popularBadge }}
-                </span>
-              </div>
-
-              <div class="space-y-3">
-                <div class="flex justify-between items-center">
-                  <span class="text-sm font-medium text-gray-600">{{
-                    t.tableDimensions
-                  }}</span>
-                  <span class="text-gray-900 font-semibold">{{
-                    box.dimensions[language]
-                  }}</span>
-                </div>
-                <div class="flex justify-between items-center">
-                  <span class="text-sm font-medium text-gray-600">{{
-                    t.tableWeight
-                  }}</span>
-                  <div
-                    class="inline-flex items-center gap-2 bg-gray-100 px-3 py-1.5 rounded-lg"
-                  >
-                    <svg
-                      class="w-4 h-4 text-gray-600"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"
-                      />
-                    </svg>
-                    <span class="font-bold text-gray-900"
-                      >{{ box.weightLimit }} kg</span
-                    >
-                  </div>
-                </div>
-                <div
-                  class="flex justify-between items-center pt-3 border-t border-gray-200"
-                >
-                  <span class="text-sm font-medium text-gray-600">{{
-                    t.tablePrice
-                  }}</span>
-                  <div>
-                    <span class="text-3xl font-extrabold text-gray-900"
-                      >${{ box.price.toLocaleString() }}</span
-                    >
-                    <span class="text-gray-600 font-semibold ml-1">MXN</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- CTA Button Below Table -->
-        <div class="text-center mt-8">
-          <NuxtLink
-            :to="ctaLink"
-            class="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-primary-500 to-primary-600 text-white text-lg font-bold rounded-xl shadow-lg hover:shadow-xl hover:from-primary-600 hover:to-primary-700 transition-all transform hover:scale-105"
-          >
-            {{ t.ctaButton }}
-            <svg
-              class="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M13 7l5 5m0 0l-5 5m5-5H6"
-              />
-            </svg>
-          </NuxtLink>
-        </div>
+          {{ t.ctaButton }}
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
+        </NuxtLink>
       </div>
-
-      <!-- Bottom Info -->
-      <div class="mt-12 max-w-2xl mx-auto">
-        <div
-          class="bg-gradient-to-br from-blue-50 to-blue-100/50 rounded-2xl p-6 border border-blue-200 shadow-sm"
-        >
-          <div class="flex items-start gap-4">
-            <div class="flex-shrink-0">
-              <div
-                class="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center"
-              >
-                <svg
-                  class="w-6 h-6 text-white"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-              </div>
-            </div>
-            <div class="flex-1">
-              <h4 class="font-bold text-gray-900 mb-1 text-lg">
-                {{ t.infoTitle }}
-              </h4>
-              <p class="text-sm text-gray-700 leading-relaxed">
-                {{ t.infoDescription }}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      
     </div>
   </section>
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { reactive } from "vue";
 
-// Props
 const props = defineProps({
   ctaLink: {
     type: String,
@@ -283,147 +87,65 @@ const props = defineProps({
   },
 });
 
-// Use the language composable
 const { t: createTranslations, language } = useLanguage();
 
-// Box pricing data
-const boxes = [
-  {
-    size: "XS",
-    price: 1200,
-    dimensions: {
-      es: "32×24×13 cm",
-      en: "32×24×13 cm",
-    },
-    weightLimit: 8,
-    popular: false,
-  },
-  {
-    size: "S",
-    price: 2200,
-    dimensions: {
-      es: "42×27×32 cm",
-      en: "42×27×32 cm",
-    },
-    weightLimit: 15,
-    popular: false,
-  },
-  {
-    size: "M",
-    price: 4000,
-    dimensions: {
-      es: "42×52×40 cm",
-      en: "42×52×40 cm",
-    },
-    weightLimit: 25,
-    popular: true,
-  },
-  {
-    size: "L",
-    price: 5100,
-    dimensions: {
-      es: "52×42×40 cm",
-      en: "52×42×40 cm",
-    },
-    weightLimit: 35,
-    popular: false,
-  },
-  {
-    size: "XL",
-    price: 6250,
-    dimensions: {
-      es: "52×62×53 cm",
-      en: "52×62×53 cm",
-    },
-    weightLimit: 50,
-    popular: false,
-  },
+const ICON_CHECK = "M5 13l4 4L19 7";
+const ICON_PLANE = "M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z";
+
+const TRUST = [
+  { key: "trustNoVpn" },
+  { key: "trustNoCard" },
+  { key: "trustPayWhenReady" },
+  { key: "plane" },
 ];
+
+// The three things that matter, as clean value points (replaces the disclaimer paragraphs).
+const FACTS = ["factPrice", "factShipping", "factConsolidate"];
+
+// Box pricing data — fixed price per size; capacity numbers are approximate examples.
+const boxes = [
+  { size: "XS", price: 1200, perItem: 240, garments: 5,   pairs: 2,  weightLimit: 8,  dimensions: { es: "32 × 24 × 13 cm", en: "32 × 24 × 13 cm" } },
+  { size: "S",  price: 2200, perItem: 110, garments: 20,  pairs: 5,  weightLimit: 15, dimensions: { es: "42 × 27 × 32 cm", en: "42 × 27 × 32 cm" } },
+  { size: "M",  price: 4000, perItem: 100, garments: 40,  pairs: 10, weightLimit: 25, dimensions: { es: "42 × 52 × 40 cm", en: "42 × 52 × 40 cm" }, popular: true },
+  { size: "L",  price: 5100, perItem: 85,  garments: 60,  pairs: 20, weightLimit: 35, dimensions: { es: "52 × 42 × 40 cm", en: "52 × 42 × 40 cm" } },
+  { size: "XL", price: 6250, perItem: 55,  garments: 100, pairs: 30, weightLimit: 50, dimensions: { es: "52 × 62 × 53 cm", en: "52 × 62 × 53 cm" }, bestValue: true },
+];
+const specsOpen = reactive({});
 
 // Translations
 const translations = {
-  pricingTag: {
-    es: "PRECIOS DE ENVÍO",
-    en: "SHIPPING PRICES",
-  },
   pricingTitle: {
-    es: "Tarifas de envío USA → México",
-    en: "USA → Mexico shipping rates",
+    es: "Cajas y tarifas",
+    en: "Boxes & pricing",
   },
   pricingSubtitle: {
-    es: "Precio fijo según el tamaño de tu caja. Incluye consolidación de paquetes y envío aéreo completo a toda la República Mexicana.",
-    en: "Fixed price based on your box size. Includes package consolidation and complete air shipping throughout Mexico.",
+    es: "Una caja. Un envío. Precio fijo por tamaño, sin costos ocultos.",
+    en: "One box. One shipment. Flat price by size, no hidden fees.",
   },
-  depositNotice: {
-    es: "*Pago 100% por adelantado antes de enviar.",
-    en: "*100% payment upfront before shipping.",
+  trustNoVpn: { es: "Sin VPN", en: "No VPN" },
+  trustNoCard: { es: "Sin tarjeta americana", en: "No US card" },
+  trustPayWhenReady: { es: "Pagas cuando tu caja está lista", en: "Pay when your box is ready" },
+  plane: { es: "Envíos rápidos por avión", en: "Fast air shipping" },
+  boxLabel: { es: "Caja", en: "Box" },
+  boxPrice: { es: "Precio de la caja", en: "Box price" },
+  perItem: { es: "por artículo", en: "per item" },
+  fits: { es: "Cuánto le cabe (aprox.)", en: "About what fits" },
+  garments: { es: "Prendas", en: "Garments" },
+  pairs: { es: "Pares de tenis", en: "Sneaker pairs" },
+  maxWeight: { es: "Peso máximo", en: "Max weight" },
+  choose: { es: "Elegir", en: "Choose" },
+  seeDimensions: { es: "Ver medidas", en: "See dimensions" },
+  popularBadge: { es: "Más popular", en: "Most popular" },
+  bestValueBadge: { es: "Mejor valor", en: "Best value" },
+  factPrice: { es: "Precio fijo, sin costos ocultos", en: "Flat price, no hidden fees" },
+  factShipping: { es: "Envío aéreo a todo México incluido", en: "Air shipping across Mexico included" },
+  factConsolidate: { es: "Consolida hasta 60 días", en: "Consolidate for up to 60 days" },
+  approxNote: {
+    es: "Las cantidades son aproximadas — el límite de cada caja es por volumen o peso, lo que se alcance primero.",
+    en: "Quantities are approximate — each box's limit is by volume or weight, whichever fills first.",
   },
-  consolidationTitle: {
-    es: "💡 Ahorra consolidando tus compras",
-    en: "💡 Save by consolidating your purchases",
-  },
-  consolidationDescription: {
-    es: "Compra en diferentes tiendas de EE. UU. y nosotros consolidamos todo en una sola caja. Pagas una sola vez el envío a México en lugar de múltiples envíos. ¡Es la forma más inteligente de ahorrar!",
-    en: "Shop from different US stores and we consolidate everything into one box. You pay once for shipping to Mexico instead of multiple shipments. It's the smartest way to save!",
-  },
-  popularBadge: {
-    es: "MÁS POPULAR",
-    en: "MOST POPULAR",
-  },
-  tableSize: {
-    es: "Tamaño",
-    en: "Size",
-  },
-  tableDimensions: {
-    es: "Dimensiones",
-    en: "Dimensions",
-  },
-  tableWeight: {
-    es: "Peso Máximo",
-    en: "Max Weight",
-  },
-  tablePrice: {
-    es: "Precio Total",
-    en: "Total Price",
-  },
-  feature1: {
-    es: "Envío directo a México",
-    en: "Direct shipping to Mexico",
-  },
-  feature1Desc: {
-    es: "Entregamos en toda la República",
-    en: "We deliver throughout Mexico",
-  },
-  feature2: {
-    es: "Consolidación gratuita",
-    en: "Free consolidation",
-  },
-  feature2Desc: {
-    es: "Juntamos todos tus paquetes en una sola caja sin costo extra",
-    en: "We combine all your packages into one box at no extra cost",
-  },
-  feature3: {
-    es: "Seguro incluido",
-    en: "Insurance included",
-  },
-  feature3Desc: {
-    es: "Tu envío está protegido siempre",
-    en: "Your shipment is always protected",
-  },
-  ctaButton: {
-    es: "Empezar ahora",
-    en: "Start now",
-  },
-  infoTitle: {
-    es: "¿Qué incluye el precio?",
-    en: "What's included in the price?",
-  },
-  infoDescription: {
-    es: "El precio incluye TODO: consolidación de paquetes en nuestro almacén de San Diego y envío aéreo completo vía Estafeta/DHL a cualquier parte de México. Sin costos ocultos.",
-    en: "The price includes EVERYTHING: package consolidation at our San Diego warehouse and complete air shipping via Estafeta/DHL anywhere in Mexico. No hidden costs.",
-  },
+  ctaButton: { es: "Empezar ahora", en: "Start now" },
 };
 
-// Get reactive translations
 const t = createTranslations(translations);
 </script>
