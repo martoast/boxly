@@ -704,6 +704,9 @@ watch(pendingAccount, (v) => { if (v) softGate.value = false })
 // delivery address (prefilled from their saved address) and upload the proof.
 const pendingSelfOrder = ref(null) // { toolCallId, items: [{title,url,image,price,quantity,notes}] }
 const selfOrder = reactive({ address: '', file: null })
+// The most recent file the user attached in the composer — reused as the proof of
+// purchase when a chat turn becomes a self-import order (set in onComposerSend).
+const lastComposerFile = ref(null)
 const selfOrderLoading = ref(false)
 const selfOrderError = ref('')
 
@@ -736,7 +739,9 @@ function openSelfOrder(toolCall) {
       notes: it.notes || null,
     }
   }).filter((it) => it.title || it.url)
-  selfOrder.file = null
+  // Reuse the file the customer already dropped in chat (e.g. the receipt PDF the AI
+  // just read) as the proof — no re-upload. They can still replace it in the form.
+  selfOrder.file = lastComposerFile.value || null
   selfOrderError.value = ''
   pendingSelfOrder.value = { toolCallId: toolCall.toolCallId, items }
   // Prefill the delivery address from their saved profile (best-effort).
@@ -783,6 +788,7 @@ async function submitSelfOrder() {
     const toolCallId = pendingSelfOrder.value.toolCallId
     pendingSelfOrder.value = null
     selfOrder.file = null
+    lastComposerFile.value = null // consumed as this order's proof
     await chat.addToolResult({ tool: 'create_self_order', toolCallId, output: { success: true, order_number: orderNumber } })
     loadConversations().catch(() => {})
   } catch (e) {
@@ -824,11 +830,6 @@ async function onReceiptFile(file) {
   if (!file) return
   receiptError.value = ''
   receiptSuccess.value = null
-  // PDFs can't be sent to the vision model as an image — ask for a photo/screenshot.
-  if (file.type === 'application/pdf') {
-    pendingReceipt.value = { items: [{ name: '', quantity: 1, price: 0 }], store: '', file }
-    return
-  }
   receiptBusy.value = true
   try {
     const dataUrl = await fileToDataUrl(file)
@@ -1236,6 +1237,11 @@ async function onComposerSend({ files } = {}) {
   if (isBusy.value) return
   if (!text && !(files && files.length)) return
   input.value = ''
+  // Remember the attached file (receipt/photo): if the AI turns this into a
+  // self-import order, we reuse it as the proof of purchase so the customer never
+  // re-uploads what they already dropped in chat. Persists across follow-up turns
+  // (attach receipt → "what did I buy?" → "register it") until an order is created.
+  if (files && files.length) lastComposerFile.value = files[0]
   await ensureChatToken() // authed tools need the token ready on the FIRST send
   await ensureConversation(text) // await so the conversation id rides on turn 1 (analytics linking)
   chat.sendMessage({ text: text || undefined, files: files || undefined })
@@ -1731,7 +1737,7 @@ function cleanParts(parts) {
     // the next request to the model when this history is replayed.
     .filter((p) => !(typeof p?.type === 'string' && p.type.startsWith('tool-') && p.state !== 'output-available' && p.state !== 'output-error'))
     .map((p) => {
-      if (p?.type === 'file') return { type: 'text', text: '📎 (imagen)' }
+      if (p?.type === 'file') return { type: 'text', text: p?.mediaType === 'application/pdf' ? '📎 (PDF)' : '📎 (imagen)' }
       // Strip heavy base64 thumbnails (Google Shopping) from persisted tool
       // outputs so history rows stay small; the live gallery already rendered.
       const prods = p?.output?.products

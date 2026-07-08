@@ -1,9 +1,19 @@
 <template>
   <div>
-    <!-- attached image thumbnails -->
+    <!-- attached file thumbnails (images) + PDF chips -->
     <div v-if="previews.length" class="flex flex-wrap gap-2 mb-2 px-1">
-      <div v-for="(p, i) in previews" :key="p.url" class="relative group">
-        <img :src="p.url" class="w-16 h-16 rounded-xl object-cover border border-gray-200" />
+      <div v-for="(p, i) in previews" :key="p.key" class="relative group">
+        <img v-if="!p.isPdf" :src="p.url" class="w-16 h-16 rounded-xl object-cover border border-gray-200" />
+        <!-- PDF: a compact file card with its name -->
+        <div v-else class="w-40 h-16 rounded-xl border border-gray-200 bg-gray-50 flex items-center gap-2 px-2.5">
+          <span class="shrink-0 grid place-items-center w-9 h-9 rounded-lg bg-red-50 text-red-500">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M7 3h7l5 5v13a1 1 0 01-1 1H7a1 1 0 01-1-1V4a1 1 0 011-1z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M14 3v5h5"/></svg>
+          </span>
+          <span class="min-w-0">
+            <span class="block text-[11px] font-semibold text-gray-700 truncate">{{ p.name }}</span>
+            <span class="block text-[10px] font-medium uppercase tracking-wide text-gray-400">PDF</span>
+          </span>
+        </div>
         <button type="button" @click="removeAt(i)" class="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-gray-900/80 text-white grid place-items-center text-xs hover:bg-gray-900" aria-label="Quitar">
           <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
@@ -21,11 +31,11 @@
       <button v-if="!micRecording && !micTranscribing" type="button" @click="shoot" class="shrink-0 grid place-items-center w-9 h-9 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 active:scale-90 transition-all" aria-label="Tomar foto">
         <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
       </button>
-      <!-- attach image from library (hidden while recording/transcribing) -->
-      <button v-if="!micRecording && !micTranscribing" type="button" @click="pick" class="shrink-0 grid place-items-center w-9 h-9 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 active:scale-90 transition-all" aria-label="Subir foto">
+      <!-- attach image or PDF from library (hidden while recording/transcribing) -->
+      <button v-if="!micRecording && !micTranscribing" type="button" @click="pick" class="shrink-0 grid place-items-center w-9 h-9 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 active:scale-90 transition-all" aria-label="Subir foto o PDF">
         <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
       </button>
-      <input ref="fileInput" type="file" accept="image/*" multiple class="hidden" @change="onFiles" />
+      <input ref="fileInput" type="file" accept="image/*,application/pdf" multiple class="hidden" @change="onFiles" />
       <!-- capture="environment" opens the rear camera directly on mobile -->
       <input ref="cameraInput" type="file" accept="image/*" capture="environment" class="hidden" @change="onFiles" />
 
@@ -105,7 +115,11 @@ const cameraInput = ref(null)
 const attachments = ref([]) // File[]
 const dragOver = ref(false)
 
-const previews = computed(() => attachments.value.map((f) => ({ url: URL.createObjectURL(f) })))
+// Images render as thumbnails; PDFs render as a named file chip (no object URL).
+const previews = computed(() => attachments.value.map((f, i) => {
+  const isPdf = f.type === 'application/pdf'
+  return { key: `${i}-${f.name}`, isPdf, name: f.name, url: isPdf ? null : URL.createObjectURL(f) }
+}))
 
 const canSend = computed(() => !props.busy && (props.text.trim().length > 0 || attachments.value.length > 0))
 
@@ -117,18 +131,20 @@ const micBtnClass = computed(() => [
 function pick() { fileInput.value?.click() }
 function shoot() { cameraInput.value?.click() }
 
-function addImages(files) {
+// Accept images AND PDFs (e.g. a receipt/invoice the customer got from the store).
+function isAllowed(f) { return !!f && (f.type.startsWith('image/') || f.type === 'application/pdf') }
+function addFiles(files) {
   for (const f of files) {
-    if (f && f.type.startsWith('image/')) attachments.value.push(f)
+    if (isAllowed(f)) attachments.value.push(f)
   }
 }
-function onFiles(e) { addImages(e.target.files || []); e.target.value = '' }
-function onDrop(e) { dragOver.value = false; addImages(e.dataTransfer?.files || []) }
+function onFiles(e) { addFiles(e.target.files || []); e.target.value = '' }
+function onDrop(e) { dragOver.value = false; addFiles(e.dataTransfer?.files || []) }
 function onPaste(e) {
   const items = e.clipboardData?.items || []
-  const imgs = []
-  for (const it of items) { if (it.type?.startsWith('image/')) { const f = it.getAsFile(); if (f) imgs.push(f) } }
-  if (imgs.length) { e.preventDefault(); addImages(imgs) }
+  const files = []
+  for (const it of items) { if (it.type?.startsWith('image/') || it.type === 'application/pdf') { const f = it.getAsFile(); if (f) files.push(f) } }
+  if (files.length) { e.preventDefault(); addFiles(files) }
 }
 function removeAt(i) { attachments.value.splice(i, 1) }
 

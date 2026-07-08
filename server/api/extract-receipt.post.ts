@@ -8,7 +8,8 @@ import { auxModel, providerOptions, hasModelKey } from '../utils/aiProvider'
  * they ALREADY made; vision turns it into an editable order preview so they only
  * tweak + confirm instead of typing everything.
  *
- * Body: { image: dataURL }
+ * Body: { image: dataURL }  — the dataURL may be an image (photo/screenshot) OR a PDF
+ *                             (a receipt/invoice PDF from the store).
  * Returns: { items: [{ name, quantity, price }], store, currency }
  */
 const schema = z.object({
@@ -33,6 +34,12 @@ export default defineEventHandler(async (event) => {
     return { error: 'no_image' }
   }
 
+  // A PDF receipt must go to the model as a `file` part, not an `image` part.
+  const isPdf = /^data:application\/pdf/i.test(image)
+  const filePart = isPdf
+    ? { type: 'file' as const, data: image, mediaType: 'application/pdf' }
+    : { type: 'image' as const, image }
+
   try {
     const { object } = await generateObject({
       model: auxModel(),
@@ -43,7 +50,7 @@ export default defineEventHandler(async (event) => {
       messages: [{
         role: 'user',
         content: [
-          { type: 'image', image },
+          filePart,
           { type: 'text', text: 'Extract the purchased items from this receipt/confirmation.' },
         ],
       }],
