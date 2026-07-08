@@ -12,7 +12,7 @@
 
     <!-- composer pill -->
     <div
-      :class="['flex items-center gap-1 bg-white border rounded-[1.6rem] pl-2 pr-2 py-2 shadow-sm transition-all', dragOver ? 'border-primary-500 ring-2 ring-primary-200' : 'border-gray-200 focus-within:border-primary-400 focus-within:shadow-md']"
+      :class="['flex items-center gap-1 bg-white border rounded-[1.7rem] shadow-sm transition-all', large ? 'pl-2.5 pr-2.5 py-3' : 'pl-2 pr-2 py-2', dragOver ? 'border-primary-500 ring-2 ring-primary-200' : 'border-gray-200 focus-within:border-primary-400 focus-within:shadow-md']"
       @dragover.prevent="dragOver = true"
       @dragleave.prevent="dragOver = false"
       @drop.prevent="onDrop"
@@ -55,7 +55,7 @@
         rows="1"
         :placeholder="placeholder"
         style="field-sizing:content"
-        class="flex-1 resize-none border-0 bg-transparent px-1 py-1 text-[16px] leading-6 text-gray-900 placeholder:text-gray-400 placeholder:whitespace-nowrap placeholder:overflow-hidden placeholder:text-ellipsis focus:outline-none focus:ring-0 max-h-40"
+        :class="['flex-1 resize-none border-0 bg-transparent px-1.5 py-1 text-gray-900 placeholder:text-gray-400 placeholder:whitespace-nowrap placeholder:overflow-hidden placeholder:text-ellipsis focus:outline-none focus:ring-0 max-h-40', large ? 'text-[18px] leading-8' : 'text-[16px] leading-6']"
       ></textarea>
 
       <!-- mic / stop -->
@@ -86,6 +86,7 @@ const props = defineProps({
   micError: { type: String, default: null },
   busy: { type: Boolean, default: false },
   placeholder: { type: String, default: 'Describe lo que buscas o pega un link…' },
+  large: { type: Boolean, default: false },
 })
 const emit = defineEmits(['update:text', 'send', 'mic'])
 

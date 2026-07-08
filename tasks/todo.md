@@ -1,43 +1,80 @@
-# Order: make "paid" final + add payment-location field
+# AI Search → User + Conversation linking (admin visibility)
 
-Decisions (confirmed with Alex): paid-final on **admin + customer**; payment location editable in **both** the mark-paid modal and inline in order details. Non-destructive: keep shipped/delivered enum values + labels so legacy orders still render.
+Goal: In the admin AI-search view, every search/question is attributed to a **user**
+and to a **chat (conversation id)**. Clicking a recent search/question opens the
+**full conversation thread** the user had with the AI.
 
-## API (api repo)
-- [ ] Migration: add `paid_location` (nullable string) to `orders`, after `paid_at`
-- [ ] `Order.php`: add `paid_location` to `$fillable`; add `PAID_LOCATIONS` const (`NU`, `HSBC`, `Stripe`)
-- [ ] `AdminOrderController::markConsolidationPaid`: validate + store `paid_location`
-- [ ] `AdminOrderController::updateStatus`: store `paid_location` when moving to paid (optional)
-- [ ] `AdminOrderManagementController::updateOrder`: add `paid_location` validation rule (powers inline edit)
+## Part A — Attribution (DONE)
+- [x] `ProductExtractController::search` sets `user_id` on the search SearchEvent.
+- [x] `search_products` tool forwards the user's bearer token to `/products/search`.
+- [x] `SearchEvent` model: `user()` relation.
+- [x] Admin stats: recent searches + questions include `user {name,email}` + `guest`.
+- [x] CSV export: `user_name`, `user_email` columns.
 
-## Frontend (app repo) — make paid final
-- [ ] `useOrderStatus.js`: trim `statusOrder` to end at `paid` (+`cancelled`); keep label/color maps for legacy; map `SHIPPING_MAP.paid` → "Pagado" complete badge
-- [ ] `OrderProgressTimeline.vue`: shipping timeline ends at a final **Paid** step (drop Shipped/Delivered steps); crossing timeline ends at the payment step (drop Picked Up)
-- [ ] `OrderStatusCard.vue`: map `paid` to a terminal "Payment received" stage (keep legacy `processing` → preparing)
-- [ ] Admin `[id]/index.vue`: next-action no longer offers Ship for `paid` (keep legacy `processing`)
+## Part B — Link search events to the conversation (chat id)
+- [ ] Migration: add `conversation_id` (nullable, FK→conversations nullOnDelete, index) to `search_events`.
+- [ ] `SearchEvent`: add `conversation_id` to fillable + `conversation()` relation.
+- [ ] `ProductExtractController::search`: accept `conversation_id` from body → store on event.
+- [ ] `SearchEventController::store`: validate + persist `conversation_id` (questions).
+- [ ] `assistant.post.ts`: read `conversationId` from body; forward to `logQuestion` (→ /search-events)
+      and into the `/products/search` body.
+- [ ] `ShoppingAssistant.vue`: send `conversationId: activeId.value` in the transport body;
+      `await ensureConversation(text)` in `onComposerSend` + `pickSuggestion` (only true turn-1 paths).
 
-## Frontend (app repo) — payment location
-- [ ] `AdminOrderModalMarkPaid.vue`: required NU/HSBC/Stripe dropdown; send `paid_location` in POST body
-- [ ] Admin `[id]/index.vue`: inline location select next to the paid date; saves via `PUT /admin/orders/{id}`
+## Part C — Admin: click a search → see the whole thread
+- [ ] Admin endpoint `GET /admin/ai-search/thread/{conversation}` → messages (asc) + user + title.
+- [ ] Stats recent feeds include `conversation_id`.
+- [ ] Admin Vue: rows with a conversation_id are clickable → slide-over drawer renders the
+      full thread (user + assistant bubbles), header shows user name/email + chat id.
+
+## Verify (local, docker + gstack)
+- [ ] Run migration in api container.
+- [ ] Do a search as María → row shows her name + is clickable → drawer shows her thread.
+- [ ] CSV includes user + conversation columns.
 
 ## Review
-Done — non-destructive (kept legacy enum values + labels so old shipped/delivered orders still render).
+All parts DONE and verified end-to-end locally (docker + gstack).
 
-**API (boxly-api):**
-- New migration `2026_07_04_000000_add_paid_location_to_orders_table` — nullable `paid_location` string(20) after `paid_at`. Runs on next API deploy.
-- `Order.php`: added `paid_location` to `$fillable`; added `PAID_LOCATIONS = ['NU','HSBC','Stripe']` const.
-- `markConsolidationPaid`: validates + stores `paid_location` (nullable|in).
-- `updateStatus`: stores `paid_location` on the paid transition when provided; `AdminUpdateOrderStatusRequest` now allows it.
-- `updateOrder` (PUT /admin/orders/{id}): added `paid_location` rule → powers inline edit.
+**What changed**
+- Searches now attributed: `ProductExtractController::search` stores `user_id` + `conversation_id`;
+  `search_products` tool forwards the user's bearer token + `conversationId`.
+- Questions: `logQuestion` (assistant.post.ts) forwards `conversation_id`; store() persists it.
+- New `search_events.conversation_id` column (migration ran) + `SearchEvent::conversation()` relation.
+- Admin stats feeds now include `user {name,email}`, `guest`, `conversation_id`.
+- CSV export adds `user_name`, `user_email`.
+- New admin endpoint `GET /admin/ai-search/thread/{conversation}` → full thread + user.
+- Admin AI-search page: rows show who searched, are clickable → slide-over drawer renders the
+  whole conversation (user/assistant bubbles + tool chips like "🔍 Buscó …").
+- Frontend: transport sends `conversationId: activeId`; `onComposerSend`/`pickSuggestion`
+  await `ensureConversation` so the id rides on turn 1. Guests unaffected (no conversation).
 
-**Frontend (boxly app) — paid = final:**
-- `useOrderStatus.js`: `statusOrder` ends at `paid` (+cancelled); `SHIPPING_MAP.paid` now shows a green "Pagado" badge instead of "Preparing shipment".
-- `OrderProgressTimeline.vue`: shipping ends at a final green **Paid** step (dropped Shipped/Delivered); crossing ends at the payment step (dropped Picked Up); swapped computeds accordingly.
-- `OrderStatusCard.vue`: `paid` → terminal "¡Pago recibido!" stage (green, no "next update"); legacy `processing` still maps to preparing.
-- Admin `[id]/index.vue` next-action: no longer offers Ship for `paid` (legacy `processing` still can ship).
-- `UserOrderStatusBanner.vue`: already showed "Order Complete" for paid — unchanged.
+**Verified:** SearchEvent rows show user=3 conv=28 for both a real /products/search and a question;
+admin thread endpoint returned María's 2 messages + identity; stats feeds showed her email + conv=28;
+UI drawer opened and rendered the thread.
 
-**Frontend — payment location:**
-- `AdminOrderModalMarkPaid.vue`: required NU/HSBC/Stripe segmented picker; confirm disabled until chosen; sends `paid_location`.
-- Admin `[id]/index.vue`: inline "Pagado en" select in Financials (shows once paid); saves via `PUT /admin/orders/{id}` and updates in place.
+## End-to-end run (gstack, as María → admin) — PASSED
+Customer (María, maria.test@gmail.com):
+- ✅ Product search — Nike running gallery (conv #29).
+- ✅ Order status list — `show_orders` rendered all her orders w/ statuses (conv #30).
+- ✅ Order detail timeline — 26X3NDID "Pagado" timeline card.
+- ✅ Order CREATION — created real order **26CVD51K** (Nike Pegasus 41, $124.97) via the
+  self-import form; verified in DB (user=3, status collecting, item URL+price stored).
+- ✅ Business question — shipping cost → box-pricing card.
 
-Note: the `paid_location` column needs the migration to run (API deploy). Until then the field saves are no-ops server-side; UI is safe (nullable).
+Admin (alexmartos96@gmail.com → /app/admin/ai-search):
+- ✅ Recent activity attributes every row to "María González · maria.test@gmail.com · ver chat →".
+- ✅ Click → thread drawer shows the FULL conversation (Chat #29 and #30), user/assistant
+  bubbles + tool chips (🔍 Buscó, 📦 Mostró pedidos, 🔗 Extrajo producto, ⚙️ show_box_guide).
+
+Notes:
+- gstack (headless Sanctum) drops the session after a few minutes → one mid-test "you're not
+  logged in" AI reply; recovered by re-login. NOT a product bug (real browsers persist the session).
+- Minor real finding: the self-order **submit** requires a valid product URL. If the AI captures a
+  non-URL (e.g. "Nike.com"), submit 422s "product url must be a valid URL" and the form has no URL
+  field to fix it. With a real URL the order created fine. Follow-up: make URL optional OR editable
+  OR have the tool always pass a valid/blank URL.
+
+**Local-only test artifacts (not prod, flag to Alex):**
+- Set `password123` on the admin user (alexmartos96@gmail.com) in the LOCAL db to log in via gstack.
+- Created test conversation #28 + a few test search_events for María.
+- Everything LOCAL — nothing committed or pushed.

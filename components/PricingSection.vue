@@ -39,7 +39,10 @@
                 <div class="flex items-center gap-3">
                   <img src="/logo.svg" alt="Box" class="w-10 h-10 sm:w-12 sm:h-12 flex-shrink-0">
                   <div>
-                    <h3 class="font-bold text-gray-900 text-base sm:text-lg">{{ getBoxTranslations(box).name }}</h3>
+                    <h3 class="font-bold text-gray-900 text-base sm:text-lg flex items-center gap-2">
+                      {{ getBoxTranslations(box).name }}
+                      <span v-if="box.popular" class="text-[9px] font-bold uppercase tracking-wide text-primary-700 bg-primary-100 rounded-full px-1.5 py-0.5">{{ t.mostPopular }}</span>
+                    </h3>
                   </div>
                 </div>
               </div>
@@ -130,7 +133,10 @@
                   <div class="col-span-4 flex items-center gap-4">
                     <img src="/logo.svg" alt="Box" class="w-12 h-12 flex-shrink-0">
                     <div>
-                      <h4 class="text-lg font-semibold text-gray-900">{{ getBoxTranslations(box).name }}</h4>
+                      <h4 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                        {{ getBoxTranslations(box).name }}
+                        <span v-if="box.popular" class="text-[10px] font-bold uppercase tracking-wide text-primary-700 bg-primary-100 rounded-full px-2 py-0.5">{{ t.mostPopular }}</span>
+                      </h4>
                       <p class="text-sm text-gray-600 max-w-md">{{ getBoxTranslations(box).description }}</p>
                     </div>
                   </div>
@@ -496,12 +502,27 @@ const getBoxTranslations = (box) => {
   }
 }
 
+// Canonical box metadata — the /products API returns dimensions + max_weight as
+// null, so we fill them from the official Boxly box table. This also fixes the row
+// order and drops non-box catalog junk (e.g. Stripe CLI test products).
+const BOX_META = {
+  'Extra Small Box': { order: 0, dimensions: '32 × 24 × 13', max_weight: 8 },
+  'Small Box':       { order: 1, dimensions: '42 × 27 × 32', max_weight: 15 },
+  'Medium Box':      { order: 2, dimensions: '42 × 52 × 40', max_weight: 25, popular: true },
+  'Large Box':       { order: 3, dimensions: '52 × 42 × 40', max_weight: 35 },
+  'Extra Large Box': { order: 4, dimensions: '52 × 62 × 53', max_weight: 50 },
+}
 const fetchProducts = async () => {
   try {
     loadingProducts.value = true
     const response = await $customFetch('/products')
-    
-    availableBoxes.value = response.data
+    const seen = new Set()
+    // Keep only the real consolidated shipping boxes (MXN), one per size, in order.
+    availableBoxes.value = (response.data || [])
+      .filter((p) => p.currency === 'MXN' && p.consolidated === 'true' && p.shipping === 'true' && BOX_META[p.name])
+      .filter((p) => (seen.has(p.name) ? false : (seen.add(p.name), true)))
+      .map((p) => ({ ...p, ...BOX_META[p.name] }))
+      .sort((a, b) => a.order - b.order)
   } catch (error) {
     console.error('Error fetching products:', error)
   } finally {

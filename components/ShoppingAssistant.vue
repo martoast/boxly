@@ -6,13 +6,13 @@
     </Transition>
     <Transition name="drawer">
       <aside v-if="showSidebar && drawerOpen" class="md:hidden absolute inset-y-0 left-0 z-50 w-72 bg-white border-r border-gray-200 flex flex-col shadow-2xl">
-        <ConversationsList :conversations="conversations" :active-id="activeId" :user="user" :show-profile="standalone" @new="newChat" @open="openChat" @delete="deleteConversation" @memory="showMemory = true" @logout="logout" />
+        <ConversationsList :conversations="conversations" :active-id="activeId" :user="user" :show-profile="standalone" :hub="hub" @new="newChat" @open="openChat" @delete="deleteConversation" @memory="showMemory = true" @logout="logout" />
       </aside>
     </Transition>
 
     <!-- ===== Desktop sidebar (collapsible icon rail, ChatGPT-style) ===== -->
     <aside v-if="showSidebar" class="hidden md:flex md:flex-col shrink-0 border-r border-gray-200 bg-white transition-[width] duration-200 ease-out" :class="sidebarCollapsed ? 'w-16' : 'w-72'">
-      <ConversationsList :conversations="conversations" :active-id="activeId" :collapsed="sidebarCollapsed" :user="user" :show-profile="standalone" @new="newChat" @open="openChat" @delete="deleteConversation" @memory="showMemory = true" @toggle="toggleSidebar" @logout="logout" />
+      <ConversationsList :conversations="conversations" :active-id="activeId" :collapsed="sidebarCollapsed" :user="user" :show-profile="standalone" :hub="hub" @new="newChat" @open="openChat" @delete="deleteConversation" @memory="showMemory = true" @toggle="toggleSidebar" @logout="logout" />
     </aside>
 
     <!-- ===== Chat area ===== -->
@@ -44,10 +44,188 @@
         </div>
       </div>
 
+      <!-- ===== HUB EMPTY STATE (logged-in dashboard) — welcome + the four pipeline
+                 action cards. Tapping a card primes that workflow (placeholder +
+                 routing hint); the AI runs once the user provides input. ===== -->
+      <Transition name="fade-fast">
+        <div v-if="hub && !loadingChat && !chat.messages.length && !activeId" class="flex-1 overflow-y-auto px-4 md:px-5 pt-6 pb-6">
+          <div class="max-w-2xl mx-auto">
+            <h1 class="text-[30px] md:text-4xl font-extrabold text-gray-900 tracking-tight leading-none">Compra en Estados Unidos 🇺🇸</h1>
+            <p class="text-gray-600 mt-2.5 mb-5 text-[16px] md:text-lg font-medium">Ve algo. Pégalo aquí. Nosotros hacemos el resto.</p>
+
+            <!-- input — the largest interactive element; glows on hover/focus (alive) -->
+            <div class="mb-2.5 rounded-[1.7rem] transition-shadow duration-300 hover:shadow-lg hover:shadow-primary-500/10 focus-within:shadow-xl focus-within:shadow-primary-500/10">
+              <AssistantComposer ref="composerRef" large v-model:text="input" :mic-recording="micRecording" :mic-transcribing="micTranscribing" :mic-levels="micLevels" :mic-error="micError" :busy="isBusy" :placeholder="composerPlaceholder" @send="onComposerSend" @mic="toggleMic" />
+            </div>
+
+            <!-- clickable pills (Perplexity-style) — each primes an action instantly -->
+            <div v-if="!activePipeline" class="flex flex-wrap gap-2 mb-5 px-1">
+              <button
+                v-for="(p, i) in QUICK_PILLS"
+                :key="p.label"
+                @click="p.run()"
+                @mouseenter="hoverText = p.hover"
+                @mouseleave="hoverText = null"
+                class="chip-in group inline-flex items-center gap-1.5 text-[12.5px] font-medium text-gray-600 bg-white border border-gray-200 hover:border-primary-300 hover:text-primary-700 rounded-full pl-2.5 pr-3 py-1.5 transition-colors active:scale-95"
+                :style="{ animationDelay: (0.75 + i * 0.08) + 's' }"
+              >
+                <svg class="w-3.5 h-3.5 text-gray-400 group-hover:text-primary-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.9" :d="ICONS[p.icon]" /></svg>
+                {{ p.label }}
+              </button>
+            </div>
+
+            <!-- active-pipeline context chip: the composer "changes" to that workflow -->
+            <Transition name="fade-fast">
+              <div v-if="activePipelineMeta" class="mb-4 flex items-center gap-2 text-[13px]">
+                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary-50 text-primary-700 border border-primary-200 font-semibold">{{ activePipelineMeta.title }}</span>
+                <span class="text-gray-400">{{ activePipelineMeta.sub }}</span>
+                <button @click="clearPipeline" class="ml-auto text-gray-400 hover:text-gray-600 text-xs font-medium">Cambiar</button>
+              </div>
+            </Transition>
+
+            <!-- REGISTER pipeline: the concierge greets, then receipt upload → preview → order -->
+            <div v-if="activePipeline === 'register'">
+              <p v-if="!pendingReceipt && !receiptSuccess" class="text-[14.5px] text-gray-700 font-medium mb-3">Perfecto. Cuéntame qué compraste o sube tu comprobante.</p>
+              <div v-if="receiptSuccess" class="rounded-2xl bg-green-50 border border-green-200 p-4 max-w-md">
+                <p class="text-[14px] font-bold text-green-800 flex items-center gap-1.5"><svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 011.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z" clip-rule="evenodd"/></svg> Pedido registrado</p>
+                <p class="text-[12px] text-green-700 mt-1">Tu pedido <span class="font-semibold">{{ receiptSuccess.order_number }}</span> quedó creado. Lo recibimos en EE. UU., lo consolidamos y te avisamos. Sin comisión — solo pagas la caja.</p>
+                <div class="flex items-center gap-2 mt-3">
+                  <NuxtLink to="/app/orders" class="text-[12px] font-semibold text-green-800 underline active:scale-95 transition">Ver mis pedidos →</NuxtLink>
+                  <button @click="receiptSuccess = null" class="text-[12px] font-semibold text-gray-500 hover:text-gray-700">Registrar otro</button>
+                </div>
+              </div>
+              <ReceiptPreviewCard
+                v-else-if="pendingReceipt"
+                :items="pendingReceipt.items"
+                :store="pendingReceipt.store"
+                :address="receiptAddress"
+                :loading="receiptLoading"
+                :error="receiptError"
+                @confirm="submitReceipt"
+                @cancel="cancelReceipt"
+              />
+              <UploadDropzone v-else :busy="receiptBusy" @file="onReceiptFile" />
+              <p v-if="!pendingReceipt && !receiptSuccess" class="text-[12px] text-gray-400 text-center mt-3">…o escribe arriba qué compraste y lo registro contigo.</p>
+            </div>
+
+            <!-- The lobby: hero shopping card + two cards + current shipment. Nothing else. -->
+            <div v-else>
+              <!-- HERO card — the moat. Clicking it STARTS the concierge. -->
+              <button
+                @click="heroStart()"
+                @mouseenter="hoverCardKey = heroCard.key"
+                @mouseleave="hoverCardKey = null"
+                :class="['group relative w-full text-left rounded-[1.6rem] border p-5 md:p-6 overflow-hidden bg-gradient-to-br from-white via-white to-primary-50/60 transition-all duration-300 active:scale-[.99]', activePipeline === heroCard.key ? 'border-primary-400 ring-1 ring-primary-200' : 'border-primary-100 hover:border-primary-300 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-primary-500/10']"
+              >
+                <!-- decorative glow (personality) -->
+                <span class="absolute -top-10 -right-8 w-40 h-40 rounded-full bg-primary-200/30 blur-3xl pointer-events-none group-hover:bg-primary-300/40 transition-colors duration-500"></span>
+                <!-- arrow reveals on hover -->
+                <span class="absolute top-6 right-6 text-primary-400 opacity-0 -translate-x-1.5 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+                </span>
+                <div class="relative flex items-start gap-4">
+                  <span class="relative grid place-items-center w-12 h-12 rounded-2xl bg-gradient-to-br from-primary-500 to-primary-600 text-white shadow-md shadow-primary-500/30 group-hover:scale-105 group-hover:shadow-primary-500/40 transition-all duration-300 shrink-0">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" :d="ICONS[heroCard.icon]" /></svg>
+                    <!-- sparkle = possibility -->
+                    <svg class="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 text-amber-300 drop-shadow group-hover:scale-110 transition-transform" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.7 5.6L19 9l-5.3 1.4L12 16l-1.7-5.6L5 9l5.3-1.4z" /></svg>
+                  </span>
+                  <div class="min-w-0 pt-0.5 pr-6">
+                    <span class="block text-xl md:text-2xl font-extrabold text-gray-900 leading-tight">{{ heroCard.title }}</span>
+                    <span class="block text-[13.5px] text-gray-500 mt-1">{{ heroCard.sub }}</span>
+                  </div>
+                </div>
+                <div class="relative flex flex-wrap gap-2 mt-5">
+                  <span v-for="pill in heroCard.pills" :key="pill" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-gray-200 shadow-sm text-[12px] font-semibold text-gray-700">
+                    <svg class="w-3 h-3 text-primary-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" /></svg>
+                    {{ pill }}
+                  </span>
+                </div>
+              </button>
+
+              <!-- endless store carousel — "if it's sold in the U.S., Boxly can get it" -->
+              <div class="relative mt-4 overflow-hidden select-none" aria-hidden="true">
+                <div class="flex w-max gap-9 whitespace-nowrap marquee-track">
+                  <span v-for="(b, i) in marqueeStores" :key="i" class="text-[13px] font-bold tracking-tight text-gray-400/80">{{ b }}</span>
+                </div>
+                <div class="pointer-events-none absolute inset-y-0 left-0 w-14 bg-gradient-to-r from-gray-50 to-transparent"></div>
+                <div class="pointer-events-none absolute inset-y-0 right-0 w-14 bg-gradient-to-l from-gray-50 to-transparent"></div>
+              </div>
+
+              <!-- two cards — Crear mi envío + Mi envío -->
+              <div class="grid grid-cols-2 gap-3 mt-3">
+                <button
+                  v-for="p in subCards"
+                  :key="p.key"
+                  @click="selectCard(p)"
+                  @mouseenter="hoverCardKey = p.key"
+                  @mouseleave="hoverCardKey = null"
+                  :class="['group flex flex-col text-left rounded-2xl border p-5 transition-all duration-200 active:scale-[.98]', activePipeline === p.key ? 'border-primary-400 bg-primary-50/40 ring-1 ring-primary-200' : 'border-gray-200 bg-white hover:border-gray-300 hover:-translate-y-0.5 hover:shadow-md']"
+                >
+                  <span class="relative grid place-items-center w-11 h-11 rounded-xl bg-gray-100 text-gray-700 group-hover:bg-primary-100 group-hover:text-primary-600 transition-colors mb-3.5">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" :d="ICONS[p.icon]" /></svg>
+                    <span v-if="p.accent === 'plus'" class="absolute -top-1 -right-1 grid place-items-center w-4 h-4 rounded-full bg-primary-500 text-white shadow-sm">
+                      <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3.2" d="M12 5v14M5 12h14" /></svg>
+                    </span>
+                  </span>
+                  <span class="block text-[16px] font-bold text-gray-900 leading-tight">{{ p.title }}</span>
+                  <span class="block text-[12.5px] text-gray-400 mt-1">{{ p.sub }}</span>
+                  <span class="mt-auto pt-3.5 flex items-center gap-1.5 text-[12px] font-semibold text-primary-600">
+                    <span v-if="p.live" class="relative flex w-2 h-2 shrink-0">
+                      <span class="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 animate-ping"></span>
+                      <span class="relative inline-flex rounded-full w-2 h-2 bg-emerald-500"></span>
+                    </span>
+                    <svg v-else class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="ICONS[p.vicon]" /></svg>
+                    <span :class="p.live ? 'text-emerald-600' : ''">{{ p.value }}</span>
+                  </span>
+                </button>
+              </div>
+
+              <!-- pricing is discoverable, never competing for attention -->
+              <div class="mt-3 px-1">
+                <NuxtLink to="/app/pricing" class="inline-flex items-center gap-1.5 text-[12.5px] text-gray-400 hover:text-primary-600 transition-colors">
+                  <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" :d="ICONS.box" /></svg>
+                  ¿Qué caja necesito?
+                  <svg class="w-3.5 h-3.5 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                </NuxtLink>
+              </div>
+
+              <!-- Tu envío actual — collapsed by default; auto-expands when leaving soon -->
+              <div v-if="currentShipment" class="mt-4 rounded-2xl border border-primary-200 bg-gradient-to-b from-primary-50/60 to-white overflow-hidden">
+                <button @click="shipmentExpanded = !shipmentExpanded" class="w-full flex items-center justify-between gap-2 px-5 py-3.5 text-left">
+                  <span class="flex items-center gap-2 min-w-0">
+                    <svg class="w-[18px] h-[18px] text-primary-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" :d="ICONS.box" /></svg>
+                    <span class="text-[14px] font-bold text-gray-900">Tu envío</span>
+                    <span class="text-[13px] font-semibold text-primary-600">({{ currentShipment.count }})</span>
+                    <span v-if="currentShipment.soon && currentShipment.ship" class="text-[12.5px] text-gray-400 truncate">· sale {{ currentShipment.ship }}</span>
+                  </span>
+                  <svg class="w-4 h-4 text-gray-400 shrink-0 transition-transform duration-300" :class="shipmentExpanded ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M19 9l-7 7-7-7" /></svg>
+                </button>
+                <Transition name="expand">
+                  <div v-if="shipmentExpanded" class="px-5 pb-5">
+                    <div class="h-2.5 rounded-full bg-gray-100 overflow-hidden">
+                      <div class="h-full rounded-full bg-primary-500 transition-all duration-700" :style="{ width: currentShipment.fill + '%' }"></div>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-x-4 gap-y-0.5 mt-2.5 text-[13px]">
+                      <span class="font-semibold text-gray-900">{{ currentShipment.count }} {{ currentShipment.count === 1 ? 'producto' : 'productos' }}</span>
+                      <span v-if="currentShipment.ship" class="text-gray-500">Sale {{ currentShipment.ship }}</span>
+                      <span class="text-primary-600 font-medium">Aprovecha el espacio antes del próximo envío</span>
+                    </div>
+                    <button @click="pickSuggestion('Quiero agregar más productos a mi envío actual')" class="mt-4 w-full inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-primary-500 hover:bg-primary-600 active:scale-[.98] text-white text-[13px] font-bold transition-all shadow-sm shadow-primary-500/20">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 4v16m8-8H4" /></svg>
+                      Agregar más productos
+                    </button>
+                  </div>
+                </Transition>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Transition>
+
       <!-- ===== EMPTY STATE — ChatGPT-style: title, subtitle, the input box, then
                  the picture cards. Tapping a card sends its prompt. ===== -->
       <Transition name="fade-fast">
-        <div v-if="!loadingChat && !chat.messages.length && !activeId" class="flex-1 overflow-y-auto px-4 md:px-5 pt-5 pb-6">
+        <div v-if="!hub && !loadingChat && !chat.messages.length && !activeId" class="flex-1 overflow-y-auto px-4 md:px-5 pt-5 pb-6">
           <div class="max-w-2xl mx-auto">
             <h1 class="text-[26px] md:text-3xl font-extrabold text-gray-900 tracking-tight">Compra en Estados Unidos</h1>
             <p class="text-gray-500 mt-1 mb-4 text-[14px] md:text-[15px]">Escribe lo que buscas o toca una idea — Boxly lo consigue, lo importa y te lo entrega en México.</p>
@@ -139,6 +317,26 @@
                       <svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
                       Buscando información…
                     </div>
+
+                    <!-- Order tracking (hub): a single order's status timeline OR a tappable list. -->
+                    <template v-else-if="part.type === 'tool-show_orders' && part.state === 'output-available'">
+                      <OrderStatusTimeline v-if="part.output?.order" :order="part.output.order" />
+                      <OrderList v-else-if="part.output?.orders" :orders="part.output.orders" @track="trackOrder" />
+                    </template>
+                    <div v-else-if="part.type === 'tool-show_orders' && part.state !== 'output-available'" class="flex items-center gap-2 text-xs text-gray-400 pl-1">
+                      <svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
+                      Buscando tus pedidos…
+                    </div>
+
+                    <!-- In-person planner (Las Americas) → create PR + deposit checkout. -->
+                    <template v-else-if="part.type === 'tool-plan_in_person' && part.state === 'output-available'">
+                      <DepositCheckoutCard v-if="inPersonResult" :checkout-url="inPersonResult.checkoutUrl" :deposit="inPersonResult.deposit" :request-number="inPersonResult.requestNumber" />
+                      <InPersonPlanner v-else :plan="part.output" :loading="inPersonLoading" :error="inPersonError" @confirm="submitInPerson" />
+                    </template>
+                    <div v-else-if="part.type === 'tool-plan_in_person' && part.state !== 'output-available'" class="flex items-center gap-2 text-xs text-gray-400 pl-1">
+                      <svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
+                      Preparando el planificador…
+                    </div>
                   </template>
 
                   <!-- 2) The AI's reply, UNDERNEATH the gallery -->
@@ -147,6 +345,8 @@
                   <!-- 3) Action widgets + follow-ups after the reply -->
                   <template v-for="(part, i) in m.parts" :key="'w' + i">
                     <ShipmentCard v-if="part.type === 'tool-show_shipment' && part.state === 'output-available'" :shipment="part.output" @order="onFinalizeShipment" @add="onAddMore" />
+
+                    <AssistedPurchaseCard v-else-if="part.type === 'tool-show_assisted_summary' && part.state === 'output-available'" :summary="part.output" @confirm="confirmAssisted" @edit="editAssisted" />
 
                     <BoxGuide v-else-if="part.type === 'tool-show_box_guide' && part.state === 'output-available'" :boxes="part.output?.boxes || []" />
 
@@ -211,6 +411,23 @@
             </div>
           </Transition>
 
+          <!-- Cancel-order confirmation gate (client-executed cancel_order tool) -->
+          <Transition name="pop">
+            <div v-if="pendingCancel" class="max-w-sm mx-auto mt-5">
+              <ConfirmDialog
+                title="¿Cancelar este pedido?"
+                :message="`Vas a cancelar el pedido ${pendingCancel.order_number}. Esta acción no se puede deshacer.`"
+                confirm-label="Sí, cancelar"
+                cancel-label="No, conservar"
+                danger
+                :loading="cancelLoading"
+                :error="cancelErrorMsg"
+                @confirm="submitCancel"
+                @cancel="dismissCancel"
+              />
+            </div>
+          </Transition>
+
           <!-- "Ya lo compré yo" → confirm address + upload proof → shipping order -->
           <Transition name="pop">
             <div v-if="pendingSelfOrder" class="max-w-sm mx-auto mt-5 bg-white border border-primary-200 rounded-2xl p-4 shadow-lg ring-1 ring-primary-100">
@@ -245,7 +462,7 @@
 
         <div class="bg-gradient-to-t from-gray-50 via-gray-50 to-transparent px-3 md:px-4 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           <div class="max-w-2xl mx-auto">
-            <AssistantComposer v-model:text="input" :mic-recording="micRecording" :mic-transcribing="micTranscribing" :mic-levels="micLevels" :mic-error="micError" :busy="isBusy" placeholder="Escribe o pega un link…" @send="onComposerSend" @mic="toggleMic" />
+            <AssistantComposer v-model:text="input" :mic-recording="micRecording" :mic-transcribing="micTranscribing" :mic-levels="micLevels" :mic-error="micError" :busy="isBusy" :placeholder="composerPlaceholder" @send="onComposerSend" @mic="toggleMic" />
           </div>
         </div>
       </template>
@@ -293,7 +510,7 @@ function continueAfterAccount({ messages }) {
   // Resume the model once a CLIENT-executed tool (account creation or a
   // self-purchase order) has produced its result, so it can confirm to the user.
   const done = (last.parts || []).find(
-    (p) => (p.type === 'tool-create_account' || p.type === 'tool-create_self_order') && p.state === 'output-available',
+    (p) => (p.type === 'tool-create_account' || p.type === 'tool-create_self_order' || p.type === 'tool-cancel_order') && p.state === 'output-available',
   )
   return !!done
 }
@@ -306,11 +523,17 @@ const props = defineProps({
   // full viewport height, show the sidebar even for guests, and put the profile
   // (login/logout) in the sidebar's bottom-left (ChatGPT-style).
   standalone: { type: Boolean, default: false },
+  // When true (logged-in dashboard /app), the assistant is the OS for ALL Boxly
+  // pipelines: the empty state shows the four pipeline action cards (not shopping
+  // starter cards) and the server gets surface:'hub' so it loads the OS router.
+  hub: { type: Boolean, default: false },
 })
-const { fullscreenMobile, standalone } = toRefs(props)
+const { fullscreenMobile, standalone, hub } = toRefs(props)
 
 const { $customFetch } = useNuxtApp()
 const user = useState('user')
+// First name for the hub welcome header (falls back gracefully for guests).
+const userName = computed(() => (user.value?.name || '').trim().split(/\s+/)[0] || '')
 
 // On the standalone page the sidebar shows for everyone (guests get an empty
 // history + the login entry at the bottom); in-app it's authed-only.
@@ -366,6 +589,9 @@ const conversations = ref([])
 const activeId = ref(null)
 const savedCount = ref(0)
 const input = ref('')
+// Hub OS: which pipeline the user is in (set by tapping an action card). Drives the
+// composer placeholder and rides to the server as a one-turn routing hint. null = none.
+const activePipeline = ref(null)
 const scroller = ref(null)
 const drawerOpen = ref(false)
 // Desktop conversations sidebar — collapsed (icon rail) by default, ChatGPT-style.
@@ -386,6 +612,8 @@ const showMemory = ref(false)
 // the assistant's personalization (system prompt + starter suggestions).
 function closeMemory() { showMemory.value = false; loadProfile() }
 let openSeq = 0
+let hubPhraseTimer = null
+onBeforeUnmount(() => { if (hubPhraseTimer) clearInterval(hubPhraseTimer) })
 // In-memory cache of opened conversations (id -> { messages, oldestId, hasMore,
 // products }) for instant re-open. Pagination state for the ACTIVE thread:
 const msgCache = new Map()
@@ -532,7 +760,8 @@ async function submitSelfOrder() {
       method: 'POST',
       body: { order_type: 'shipping', delivery_address: { full_address: selfOrder.address.trim() } },
     })
-    const order = ores?.data || ores
+    // The create endpoint returns { data: { order: {...} } }.
+    const order = ores?.data?.order || ores?.data || ores
     const orderId = order.id
     const orderNumber = order.order_number || null
 
@@ -569,6 +798,180 @@ function cancelSelfOrder() {
   pendingSelfOrder.value = null
   selfOrder.file = null
   chat.addToolResult({ tool: 'create_self_order', toolCallId, output: { success: false, cancelled: true } })
+}
+
+// ── Phase 2: "Registrar compra" (casillero) receipt magic. The user uploads a
+// receipt/confirmation → /api/extract-receipt reads it into line items → an EDITABLE
+// preview card → confirm creates a shipping order with the receipt as proof. Fully
+// client-driven (no chat round-trip for the extraction). ──────────────────────────
+const receiptBusy = ref(false)        // extraction in flight
+const receiptError = ref('')
+const pendingReceipt = ref(null)      // { items, store, file }
+const receiptLoading = ref(false)     // order creation in flight
+const receiptSuccess = ref(null)      // { order_number }
+const receiptAddress = ref('')        // delivery address (prefilled from profile)
+
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader()
+    r.onload = () => resolve(r.result)
+    r.onerror = reject
+    r.readAsDataURL(file)
+  })
+}
+
+async function onReceiptFile(file) {
+  if (!file) return
+  receiptError.value = ''
+  receiptSuccess.value = null
+  // PDFs can't be sent to the vision model as an image — ask for a photo/screenshot.
+  if (file.type === 'application/pdf') {
+    pendingReceipt.value = { items: [{ name: '', quantity: 1, price: 0 }], store: '', file }
+    return
+  }
+  receiptBusy.value = true
+  try {
+    const dataUrl = await fileToDataUrl(file)
+    const r = await $fetch('/api/extract-receipt', { method: 'POST', body: { image: dataUrl } })
+    const items = Array.isArray(r?.items) && r.items.length ? r.items : [{ name: '', quantity: 1, price: 0 }]
+    pendingReceipt.value = { items, store: r?.store || '', file }
+    // Prefill the delivery address from the saved profile (best-effort).
+    if (!receiptAddress.value) {
+      $customFetch('/profile').then((res) => { receiptAddress.value = composeAddress(res?.data?.address) }).catch(() => {})
+    }
+  } catch (e) {
+    console.error('receipt extract failed', e)
+    // Still let them register manually with an empty editable card.
+    pendingReceipt.value = { items: [{ name: '', quantity: 1, price: 0 }], store: '', file }
+  } finally {
+    receiptBusy.value = false
+  }
+}
+
+function cancelReceipt() { pendingReceipt.value = null; receiptError.value = '' }
+
+// ── Phase 3: cancel an order (client-executed tool → hard confirm gate). ──────────
+const pendingCancel = ref(null)   // { toolCallId, order_id, order_number }
+const cancelLoading = ref(false)
+const cancelErrorMsg = ref('')
+function openCancel(toolCall) {
+  cancelErrorMsg.value = ''
+  pendingCancel.value = {
+    toolCallId: toolCall.toolCallId,
+    order_id: toolCall.input?.order_id,
+    order_number: toolCall.input?.order_number || toolCall.input?.order_id,
+  }
+}
+async function submitCancel() {
+  if (!pendingCancel.value) return
+  cancelErrorMsg.value = ''
+  cancelLoading.value = true
+  const { toolCallId, order_id } = pendingCancel.value
+  try {
+    // The model usually passes the order_number ("26CSYRTR"), not the numeric id.
+    // Resolve it to the real id first (a bare order_number would coerce to the
+    // wrong numeric id server-side and 403). Route the DELETE by numeric id only.
+    let id = order_id
+    if (!/^\d+$/.test(String(order_id))) {
+      const res = await $customFetch('/orders')
+      const arr = res?.data?.data || res?.data || []
+      const match = (Array.isArray(arr) ? arr : []).find((o) => String(o.order_number).toLowerCase() === String(order_id).toLowerCase())
+      if (!match?.id) throw { data: { message: 'No encontré ese pedido.' } }
+      id = match.id
+    }
+    await $customFetch(`/orders/${id}`, { method: 'DELETE' })
+    pendingCancel.value = null
+    await chat.addToolResult({ tool: 'cancel_order', toolCallId, output: { success: true } })
+    loadConversations().catch(() => {})
+  } catch (e) {
+    cancelErrorMsg.value = e?.data?.message || 'No se pudo cancelar el pedido.'
+  } finally {
+    cancelLoading.value = false
+  }
+}
+function dismissCancel() {
+  if (!pendingCancel.value) return
+  const toolCallId = pendingCancel.value.toolCallId
+  pendingCancel.value = null
+  chat.addToolResult({ tool: 'cancel_order', toolCallId, output: { success: false, cancelled: true } })
+}
+
+// ── Phase 4: in-person (Las Americas) planner → create PR + deposit checkout. ─────
+const inPersonLoading = ref(false)
+const inPersonError = ref('')
+const inPersonResult = ref(null)   // { checkoutUrl, requestNumber, deposit }
+async function submitInPerson(sel) {
+  inPersonError.value = ''
+  inPersonLoading.value = true
+  try {
+    const res = await $customFetch('/purchase-requests/in-person', { method: 'POST', body: sel })
+    const data = res?.data || res
+    const pr = data?.purchase_request || data
+    inPersonResult.value = {
+      checkoutUrl: data?.checkout_url || res?.checkout_url || pr?.payment_link || '',
+      requestNumber: pr?.request_number || '',
+      deposit: pr?.deposit_amount_usd ?? data?.deposit_amount_usd ?? null,
+    }
+    loadConversations().catch(() => {})
+    scrollDown()
+  } catch (e) {
+    inPersonError.value = e?.data?.message || 'No se pudo crear la solicitud. Intenta de nuevo.'
+  } finally {
+    inPersonLoading.value = false
+  }
+}
+
+// Create a shipping (casillero) order from arbitrary items + the receipt as proof.
+// Items are created WITHOUT the proof file (the item-store endpoint wraps the item
+// insert + proof upload in one DB transaction, so a storage hiccup would roll back
+// the item). We attach the receipt to the first item best-effort AFTERWARDS, so the
+// order + items always persist even if the proof upload fails.
+async function createShippingOrder(items, address, proofFile) {
+  const ores = await $customFetch('/orders', {
+    method: 'POST',
+    body: { order_type: 'shipping', delivery_address: { full_address: address } },
+  })
+  // The create endpoint returns { data: { order: {...} } }.
+  const order = ores?.data?.order || ores?.data || ores
+  const orderId = order.id
+  let firstItemId = null
+  for (let i = 0; i < items.length; i++) {
+    const it = items[i]
+    const fd = new FormData()
+    fd.append('product_name', it.name)
+    fd.append('quantity', String(it.quantity || 1))
+    if (it.price && it.price > 0) fd.append('declared_value', String(it.price))
+    const res = await $customFetch(`/orders/${orderId}/items`, { method: 'POST', body: fd })
+    const item = res?.data?.item || res?.data || res
+    if (i === 0) firstItemId = item?.id
+  }
+  // Best-effort: attach the receipt as proof to the first item (never fails the order).
+  if (proofFile && firstItemId) {
+    try {
+      const fd = new FormData()
+      fd.append('_method', 'PUT')
+      fd.append('proof_of_purchase', proofFile)
+      await $customFetch(`/orders/${orderId}/items/${firstItemId}`, { method: 'POST', body: fd })
+    } catch (e) { console.warn('proof attach skipped', e) }
+  }
+  return order.order_number || null
+}
+
+async function submitReceipt({ items, address }) {
+  receiptError.value = ''
+  if (!items.length) { receiptError.value = 'Agrega al menos un producto.'; return }
+  if (!address || !address.trim()) { receiptError.value = 'Confirma tu dirección de entrega en México.'; return }
+  receiptLoading.value = true
+  try {
+    const orderNumber = await createShippingOrder(items, address.trim(), pendingReceipt.value?.file)
+    receiptSuccess.value = { order_number: orderNumber }
+    pendingReceipt.value = null
+    loadConversations().catch(() => {})
+  } catch (e) {
+    receiptError.value = e?.data?.message || 'No se pudo crear el pedido. Intenta de nuevo.'
+  } finally {
+    receiptLoading.value = false
+  }
 }
 
 // ChatGPT-style picture cards — ENTIRELY admin-managed. Whatever active starter
@@ -681,7 +1084,18 @@ const chat = new Chat({
   transport: new DefaultChatTransport({
     api: '/api/assistant',
     prepareSendMessagesRequest({ messages }) {
-      return { body: { messages, token: token.value, shoppingProfile: shoppingProfile.value, savedProducts: savedProducts.value } }
+      return { body: {
+        messages,
+        token: token.value,
+        // Links each search/question logged this turn to THIS chat, so admins can
+        // open the full thread from the AI-search view. Set before send on turn 1.
+        conversationId: activeId.value || undefined,
+        shoppingProfile: shoppingProfile.value,
+        savedProducts: savedProducts.value,
+        // Hub surface → server loads the OS router (all pipelines). `pipeline` is the
+        // action card the user last tapped, a routing hint consumed for one turn.
+        ...(hub.value ? { surface: 'hub', pipeline: activePipeline.value || undefined } : {}),
+      } }
     },
   }),
   sendAutomaticallyWhen: continueAfterAccount,
@@ -693,6 +1107,8 @@ const chat = new Chat({
       pendingAccount.value = { toolCallId: toolCall.toolCallId }
     } else if (toolCall.toolName === 'create_self_order') {
       openSelfOrder(toolCall)
+    } else if (toolCall.toolName === 'cancel_order') {
+      openCancel(toolCall)
     }
   },
 })
@@ -728,6 +1144,19 @@ onMounted(() => {
   // image prefetch in case a lookup is slow/unreachable.
   prepareStarterCards()
   setTimeout(() => { cardsReady.value = true }, 6000)
+  // Hub: rotate the inviting placeholder + detect an in-progress shipment.
+  if (hub.value) {
+    if (user.value) loadOpenOrder()
+    else watch(user, (u) => { if (u) loadOpenOrder() })
+    // Let the page breathe (~1.2s) before the placeholder starts rotating — calm,
+    // "ready when you are", never demanding.
+    const reduce = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    if (!reduce) setTimeout(() => {
+      hubPhraseTimer = setInterval(() => {
+        if (!input.value && !activePipeline.value && !hoverCardKey.value) hubPhraseIdx.value = (hubPhraseIdx.value + 1) % HUB_PHRASES.length
+      }, 3200)
+    }, 1200)
+  }
   // After the first reveal, keep filling images if the personalized set changes.
   watch(suggestions, (list) => { if (cardsReady.value) ensureCardImages(list) })
   // Restore the saved sidebar collapsed/expanded preference (default collapsed).
@@ -802,24 +1231,158 @@ async function loadConversations() {
   try { conversations.value = (await $customFetch('/conversations')).data } catch {}
 }
 
-function onComposerSend({ files } = {}) {
+async function onComposerSend({ files } = {}) {
   const text = input.value.trim()
   if (isBusy.value) return
   if (!text && !(files && files.length)) return
   input.value = ''
-  ensureChatToken()
-  ensureConversation(text)
+  await ensureChatToken() // authed tools need the token ready on the FIRST send
+  await ensureConversation(text) // await so the conversation id rides on turn 1 (analytics linking)
   chat.sendMessage({ text: text || undefined, files: files || undefined })
+  clearPipeline() // the routing hint was for this turn only
   scrollDown()
 }
+// ── Hub OS pipelines — the four action cards on the logged-in dashboard. Tapping a
+// card is a CONVERSATION STARTER: it sets the active pipeline (routing hint + composer
+// placeholder) and, where there's an instant entry widget (upload/orders), renders it
+// client-side; the AI is only called once the user provides input. ───────────────────
+// The lobby: three cards = the three reasons a customer walks in. "Comprar" is the
+// hero (dominant). Each primes its workflow (placeholder + routing hint) and hovering
+// previews the AI's next question; the AI powers it all.
+const PIPELINES = [
+  { key: 'search',   hero: true, title: 'Todo EE.UU. Ahora en México.', sub: 'Pega un link o busca cualquier producto.', icon: 'bag', accent: 'sparkle', pills: ['Sin VPN', 'Sin tarjeta USA', 'Entrega en México'], placeholder: 'Busca un producto o pega un link…', hoverPlaceholder: '¿Qué producto estás buscando?' },
+  { key: 'register', title: 'Agregar a mi envío', sub: 'Cuéntale a Boxly qué compraste', icon: 'box', accent: 'plus', value: 'Listo en segundos', vicon: 'bolt', placeholder: 'Cuéntame qué compraste (o sube tu recibo)…', hoverPlaceholder: 'Cuéntame qué compraste…' },
+  { key: 'status',   title: 'Mi envío', sub: 'Consulta tu envío en tiempo real', icon: 'plane', value: 'En vivo', live: true, act: 'track', hoverPlaceholder: '¿Dónde está tu envío?' },
+]
+const heroCard = computed(() => PIPELINES[0])
+const subCards = computed(() => PIPELINES.slice(1))
+// The stores customers already know — an endless, slow carousel that subconsciously
+// says "if it's sold in the U.S., Boxly can get it." Ordered by RECOGNITION (not
+// alphabetized) so the first names instantly communicate scale. Typography only.
+const STORE_LIST = ['Amazon', 'Costco', 'Target', 'Walmart', 'Nike', 'Apple', 'Home Depot', 'Best Buy', 'Sephora', 'Ross', 'TJ Maxx', 'Burlington', "Macy's", 'Coach', 'Michael Kors', "Levi's", 'Gap', 'Old Navy', 'Columbia', 'New Balance', 'Crocs', 'LEGO', 'Pokémon Center', 'Bath & Body Works', "Victoria's Secret", "Dick's Sporting Goods", 'y miles más']
+// Duplicated so the CSS marquee loops seamlessly (translateX -50%).
+const marqueeStores = [...STORE_LIST, ...STORE_LIST]
+// Clickable pills under the input (Perplexity-style) — each immediately primes an
+// action; hovering previews the AI's next question. Icons = Boxly's language.
+const QUICK_PILLS = [
+  { icon: 'search', label: 'Buscar producto', hover: '¿Qué producto estás buscando?', run: () => pickPipeline('search') },
+  { icon: 'link', label: 'Pegar link', hover: 'Pega un link de Amazon.', run: () => pickPipeline('search') },
+  { icon: 'box', label: 'Crear envío', hover: 'Cuéntame qué compraste…', run: () => pickPipeline('register') },
+  { icon: 'plane', label: 'Mi envío', hover: '¿Dónde está tu envío?', run: () => pickSuggestion('¿Dónde está mi envío? Muéstrame mis pedidos') },
+]
+// Single-path outline icons (heroicons-style).
+const ICONS = {
+  receipt: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
+  bag: 'M16 11V7a4 4 0 00-8 0v4M5 9h14l1.2 11a1 1 0 01-1 1.1H4.8a1 1 0 01-1-1.1L5 9z',
+  chat: 'M8 12h.01M12 12h.01M16 12h.01M21 12a9 9 0 01-9 9 8.96 8.96 0 01-4.28-1.09L3 21l1.09-4.72A8.96 8.96 0 013 12a9 9 0 019-9 9 9 0 019 9z',
+  search: 'M10 17a7 7 0 100-14 7 7 0 000 14zM21 21l-4.3-4.3',
+  link: 'M13.828 10.172a4 4 0 010 5.656l-3 3a4 4 0 11-5.656-5.656l1.5-1.5M10.172 13.828a4 4 0 010-5.656l3-3a4 4 0 115.656 5.656l-1.5 1.5',
+  truck: 'M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 011-1h2.586a1 1 0 00.707-.293l3.414-3.414a1 1 0 00.293-.707V13a1 1 0 00-1-1h-6m-2 4h6m-6 0a2 2 0 11-4 0 2 2 0 014 0zm13 0a2 2 0 11-4 0 2 2 0 014 0z',
+  // value-line icons
+  bolt: 'M13 10V3L4 14h7v7l9-11h-7z',
+  globe: 'M12 3a9 9 0 100 18 9 9 0 000-18zM3 12h18M12 3c2.5 2.6 2.5 15.4 0 18M12 3c-2.5 2.6-2.5 15.4 0 18',
+  card: 'M3 10h18M5 6h14a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2z',
+  pin: 'M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0zM15 11a3 3 0 11-6 0 3 3 0 016 0z',
+  // discovery-journey icons
+  flame: 'M12 3c0 4-4 5-4 9a4 4 0 108 0c0-2-1-3-1-3 2 1 3 3 3 5a6 6 0 11-12 0c0-5 6-7 6-11z',
+  store: 'M3 9l1-5h16l1 5M4 9v10a1 1 0 001 1h14a1 1 0 001-1V9M4 9h16M9 20v-6h6v6',
+  heart: 'M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z',
+  drop: 'M13 17h8m0 0v-8m0 8l-8-8-4 4-6-6',
+  target: 'M12 3a9 9 0 100 18 9 9 0 000-18zm0 6a3 3 0 100 6 3 3 0 000-6z',
+  cart: 'M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-1.5 3h11m-8 3a1 1 0 11-2 0 1 1 0 012 0zm9 0a1 1 0 11-2 0 1 1 0 012 0z',
+  plane: 'M6 12L3.27 3.13A59.77 59.77 0 0121.49 12 59.77 59.77 0 013.27 20.87L6 12zm0 0h7.5',
+  box: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4',
+}
+const activePipelineMeta = computed(() => PIPELINES.find((p) => p.key === activePipeline.value) || null)
+// The AI cursor invites action — the placeholder rotates through real examples,
+// teaching the whole product without explaining it.
+const HUB_PHRASES = [
+  'Dile a Boxly qué necesitas.',
+  '¿Qué producto estás buscando?',
+  'Pega un link de Amazon.',
+  'Vi esto en TikTok 👀',
+  'Quiero crear mi envío.',
+  'Necesito que Boxly compre esto.',
+  '¿Dónde está mi envío?',
+]
+const hubPhraseIdx = ref(0)
+// WOW: hovering a card or chip previews the AI's next question in the input.
+const hoverCardKey = ref(null)
+const hoverText = ref(null) // set by chip hover
+// The composer placeholder: active pipeline > hovered chip/card preview > rotating phrase.
+const composerPlaceholder = computed(() => {
+  if (activePipelineMeta.value) return activePipelineMeta.value.placeholder
+  if (hoverText.value) return hoverText.value
+  const hovered = PIPELINES.find((p) => p.key === hoverCardKey.value)
+  if (hovered) return hovered.hoverPlaceholder || hovered.placeholder
+  if (hub.value) return HUB_PHRASES[hubPhraseIdx.value]
+  return 'Escribe o pega un link…'
+})
+// Tapping an action card: set the pipeline, prime the composer, focus it. Entry
+// widgets for register/status are rendered by later phases; here we prime + focus.
+function pickPipeline(key) {
+  activePipeline.value = key
+  nextTick(() => composerRef.value?.focus())
+}
+// Clear the active pipeline once the user actually sends (it was a one-turn hint).
+function clearPipeline() { activePipeline.value = null }
+
+// ── "Para ti" — intent cards that answer "why open Boxly today?". Each STARTS A
+// CONVERSATION (not a static product), mixing live signals (an open shipment, your
+// last chat, your favorite stores) with evergreen shopping hooks. ─────────────────
+const openOrder = ref(null) // an in-progress shipment WITH items → "Tu envío actual"
+async function loadOpenOrder() {
+  try {
+    const res = await $customFetch('/orders')
+    const arr = res?.data?.data || res?.data || []
+    // Only surface a shipment that actually has products in it (an empty order
+    // isn't a "current shipment" worth showing).
+    openOrder.value = (Array.isArray(arr) ? arr : [])
+      .find((o) => ['collecting', 'awaiting_packages'].includes(o.status) && (Array.isArray(o.items) ? o.items.length : 0) > 0) || null
+  } catch { /* ignore */ }
+}
+// The live shipment summary — the page's biggest retention hook (a reason to come
+// back and keep adding before it ships).
+const currentShipment = computed(() => {
+  const o = openOrder.value
+  if (!o) return null
+  const items = Array.isArray(o.items) ? o.items : []
+  const count = items.reduce((s, it) => s + (Number(it.quantity) || 1), 0)
+  let ship = null
+  if (o.planned_ship_date) { try { ship = new Intl.DateTimeFormat('es-MX', { weekday: 'long' }).format(new Date(String(o.planned_ship_date).slice(0, 10) + 'T12:00:00')) } catch { /* ignore */ } }
+  // Rough visual fill — a typical consolidated box holds ~15 items; keep room visible.
+  const fill = Math.max(8, Math.min(92, Math.round((count / 15) * 100)))
+  // "Leaving soon" (≤3 days) → auto-expand the widget so it gets attention.
+  let soon = false
+  if (o.planned_ship_date) {
+    try { const d = new Date(String(o.planned_ship_date).slice(0, 10) + 'T12:00:00'); soon = (d.getTime() - Date.now()) / 86400000 <= 3 } catch { /* ignore */ }
+  }
+  return { id: o.id, order_number: o.order_number, count, ship, fill, soon }
+})
+// Shipment widget is collapsed by default; auto-expands only when it's leaving soon.
+const shipmentExpanded = ref(false)
+watch(currentShipment, (s, prev) => { if (s && !prev) shipmentExpanded.value = !!s.soon }, { immediate: true })
+// Card click: "Mi envío" answers instantly (the concierge already knows the
+// shipment); the others prime their workflow in the composer.
+function selectCard(p) {
+  if (p.act === 'track') return pickSuggestion('¿Dónde está mi envío? Muéstrame mis pedidos')
+  pickPipeline(p.key)
+}
+// Clicking the hero card STARTS the concierge — it greets and asks what you want.
+function heroStart() {
+  activePipeline.value = 'search'
+  pickSuggestion('Quiero comprar algo de Estados Unidos')
+}
+
 // Tapping a suggestion card sends the prompt right away (no edit step).
 const composerRef = ref(null)
-function pickSuggestion(text) {
+async function pickSuggestion(text) {
   if (isBusy.value || !text) return
   input.value = ''
-  ensureChatToken()
-  ensureConversation(text)
+  await ensureChatToken() // ensure the authed tools (orders, PRs) have a token on the FIRST send
+  await ensureConversation(text) // await so the conversation id rides on turn 1 (analytics linking)
   chat.sendMessage({ text })
+  clearPipeline()
   scrollDown()
 }
 // Tapping a follow-up chip (cross-sell) sends it as the next shopper message.
@@ -896,6 +1459,28 @@ function onAddMore() {
   chat.sendMessage({ text })
   scrollDown()
 }
+
+// Tapping an order row in the list → ask the assistant to open that order's
+// status timeline (keeps the AI in the loop; it calls show_orders(order_id)).
+function trackOrder(ord) {
+  if (isBusy.value || !ord) return
+  const text = `Muéstrame el estado de mi pedido ${ord.order_number || ord.id}`
+  ensureConversation(text)
+  chat.sendMessage({ text })
+  scrollDown()
+}
+
+// Assisted-purchase summary card → Continue creates the request (AI has the items
+// in context). Edit just returns focus to the composer to tweak.
+function confirmAssisted() {
+  if (isBusy.value) return
+  const text = 'Sí, crea mi solicitud de compra asistida con eso.'
+  ensureChatToken()
+  ensureConversation(text)
+  chat.sendMessage({ text })
+  scrollDown()
+}
+function editAssisted() { composerRef.value?.focus() }
 
 function openProduct(p) { selectedProduct.value = p }
 function onModalAssisted(p) { selectedProduct.value = null; onAssistedProduct(p) }
@@ -1199,6 +1784,18 @@ function scrollDown() {
 .backdrop-enter-from, .backdrop-leave-to { opacity: 0; }
 .backdrop-enter-active, .backdrop-leave-active { transition: opacity .25s ease; }
 
+/* Quick pills breathe in after the page settles ("ready when you are"). */
+.chip-in { opacity: 0; animation: chip-in .45s ease forwards; }
+@keyframes chip-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Endless store carousel — very slow, very subtle, always moving. */
+.marquee-track { animation: marquee 70s linear infinite; }
+@keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+/* Shipment widget expand/collapse. */
+.expand-enter-from, .expand-leave-to { opacity: 0; }
+.expand-enter-active, .expand-leave-active { transition: opacity .2s ease; }
+
 .typing { display: inline-flex; gap: 4px; align-items: center; }
 .typing i { width: 6px; height: 6px; border-radius: 9999px; background: #9ca3af; display: inline-block; animation: typing-blink 1.3s infinite both; }
 .typing i:nth-child(2) { animation-delay: .18s; }
@@ -1208,5 +1805,7 @@ function scrollDown() {
 @media (prefers-reduced-motion: reduce) {
   .msg-enter-active, .chip-enter-active, .fade-fast-enter-active, .pop-enter-active, .drawer-enter-active, .drawer-leave-active, .backdrop-enter-active, .backdrop-leave-active { transition: none; }
   .typing i { animation: none; }
+  .marquee-track { animation: none; }
+  .chip-in { opacity: 1; animation: none; }
 }
 </style>

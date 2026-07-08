@@ -59,14 +59,27 @@
             <h2 class="text-lg font-bold text-gray-900 mb-1">Actividad reciente</h2>
             <p class="text-xs text-gray-400 mb-3">Búsquedas y preguntas, tal como entraron</p>
             <div v-if="recentFeed.length" class="divide-y divide-gray-100">
-              <div v-for="(r, i) in recentFeed" :key="i" class="py-2.5">
+              <div v-for="(r, i) in recentFeed" :key="i"
+                   :class="['py-2.5 -mx-2 px-2 rounded-lg transition', r.conversation_id ? 'cursor-pointer hover:bg-primary-50/60' : '']"
+                   @click="openThread(r)">
                 <div class="flex items-start justify-between gap-3">
                   <span class="flex items-start gap-2 min-w-0">
                     <span class="shrink-0 mt-0.5 text-[11px] font-bold px-1.5 py-0.5 rounded" :class="r.kind === 'question' ? 'bg-emerald-50 text-emerald-600' : 'bg-indigo-50 text-indigo-600'">{{ r.kind === 'question' ? 'PREGUNTA' : 'BÚSQUEDA' }}</span>
                     <span class="font-semibold text-gray-900 min-w-0 truncate">“{{ r.query }}”</span>
                   </span>
-                  <span class="shrink-0 text-xs font-bold text-gray-400">{{ r.kind === 'search' ? (r.results + ' result.') : '' }}</span>
+                  <span class="shrink-0 flex items-center gap-2">
+                    <span class="text-xs font-bold text-gray-400">{{ r.kind === 'search' ? (r.results + ' result.') : '' }}</span>
+                    <svg v-if="r.conversation_id" class="w-3.5 h-3.5 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" title="Ver conversación"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12a9 9 0 11-3.6-7.2L21 3v6h-6"/></svg>
+                  </span>
                 </div>
+                <!-- who + when -->
+                <p class="text-[11px] mt-0.5 ml-[4.5rem] flex items-center gap-1.5 flex-wrap">
+                  <span v-if="r.user" class="font-semibold text-gray-600">{{ r.user.name }}</span>
+                  <span v-if="r.user" class="text-gray-400">· {{ r.user.email }}</span>
+                  <span v-else class="text-amber-600 font-semibold">Invitado</span>
+                  <span class="text-gray-300">· {{ fmtDateTime(r.created_at) }}</span>
+                  <span v-if="r.conversation_id" class="text-primary-500 font-semibold">· ver chat →</span>
+                </p>
                 <p v-if="r.kind === 'search' && (r.stores || []).length" class="text-xs text-gray-500 mt-0.5 ml-[4.5rem] truncate">{{ (r.stores || []).join(' · ') }}</p>
                 <p v-else-if="r.kind === 'question' && r.answer" class="text-xs text-gray-500 mt-0.5 ml-[4.5rem] line-clamp-2">{{ r.answer }}</p>
               </div>
@@ -88,6 +101,51 @@
         </div>
       </template>
     </div>
+
+    <!-- Conversation thread drawer -->
+    <Teleport to="body">
+      <Transition name="fade-fast">
+        <div v-if="threadOpen" class="fixed inset-0 z-50 bg-gray-900/40" @click="closeThread"></div>
+      </Transition>
+      <Transition name="slide-over">
+        <aside v-if="threadOpen" class="fixed inset-y-0 right-0 z-50 w-full max-w-lg bg-white shadow-2xl flex flex-col">
+          <!-- header -->
+          <div class="shrink-0 border-b border-gray-100 px-5 py-4 flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">Conversación</p>
+              <h3 class="text-base font-bold text-gray-900 truncate">{{ thread?.title || 'Chat' }}</h3>
+              <p v-if="thread?.user" class="text-xs mt-0.5">
+                <span class="font-semibold text-gray-700">{{ thread.user.name }}</span>
+                <span class="text-gray-400"> · {{ thread.user.email }}</span>
+              </p>
+              <p v-else-if="thread && !threadLoading" class="text-xs mt-0.5 text-amber-600 font-semibold">Invitado</p>
+              <p v-if="thread?.id" class="text-[11px] text-gray-300 mt-0.5">Chat #{{ thread.id }}</p>
+            </div>
+            <button @click="closeThread" class="shrink-0 p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          </div>
+          <!-- body -->
+          <div class="flex-1 overflow-y-auto px-5 py-4 space-y-4 bg-gray-50">
+            <div v-if="threadLoading" class="py-24 text-center text-gray-400">
+              <svg class="inline-block w-8 h-8 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+            </div>
+            <p v-else-if="thread?.error" class="py-24 text-center text-sm text-gray-400">No se pudo cargar la conversación.</p>
+            <p v-else-if="!(thread?.messages || []).length" class="py-24 text-center text-sm text-gray-400">Sin mensajes en este chat.</p>
+            <template v-else>
+              <div v-for="m in thread.messages" :key="m.id" :class="['flex', m.role === 'user' ? 'justify-end' : 'justify-start']">
+                <div :class="['max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm', m.role === 'user' ? 'bg-primary-600 text-white' : 'bg-white border border-gray-100 text-gray-800']">
+                  <template v-for="(b, bi) in messageBits(m)" :key="bi">
+                    <p v-if="b.t === 'text'" class="whitespace-pre-wrap leading-relaxed">{{ b.text }}</p>
+                    <span v-else :class="['inline-block mt-1 mr-1 text-[11px] font-semibold px-2 py-0.5 rounded-full', m.role === 'user' ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600']">{{ b.label }}</span>
+                  </template>
+                </div>
+              </div>
+            </template>
+          </div>
+        </aside>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
@@ -140,12 +198,74 @@ const cards = computed(() => {
 // One chronological stream of everything (searches + questions).
 const recentFeed = computed(() => {
   const s = stats.value || {}
-  const searches = (s.recent_searches || []).map((r) => ({ kind: 'search', query: r.query, results: r.results, stores: r.stores, created_at: r.created_at }))
-  const questions = (s.recent_questions || []).map((r) => ({ kind: 'question', query: r.query, answer: r.answer, guest: r.guest, created_at: r.created_at }))
+  const searches = (s.recent_searches || []).map((r) => ({ kind: 'search', query: r.query, results: r.results, stores: r.stores, guest: r.guest, user: r.user, conversation_id: r.conversation_id, created_at: r.created_at }))
+  const questions = (s.recent_questions || []).map((r) => ({ kind: 'question', query: r.query, answer: r.answer, guest: r.guest, user: r.user, conversation_id: r.conversation_id, created_at: r.created_at }))
   return [...searches, ...questions]
     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
     .slice(0, 40)
 })
+
+// ── Thread drawer: click a search/question → the full chat behind it ──────────
+const threadOpen = ref(false)
+const threadLoading = ref(false)
+const thread = ref(null)
+
+async function openThread(r) {
+  if (!r?.conversation_id) return
+  threadOpen.value = true
+  threadLoading.value = true
+  thread.value = null
+  try {
+    thread.value = (await $customFetch(`/admin/ai-search/thread/${r.conversation_id}`)).data
+  } catch (e) {
+    console.error(e)
+    thread.value = { error: true }
+  } finally {
+    threadLoading.value = false
+  }
+}
+function closeThread() { threadOpen.value = false }
+
+// Flatten a stored message ({ parts: [...] }) into renderable bits: text blocks
+// and compact chips for tool calls (search, gallery, order, etc.).
+function messageBits(m) {
+  const parts = (m?.content?.parts) || (Array.isArray(m?.content) ? m.content : [])
+  const bits = []
+  for (const p of parts) {
+    if (!p || typeof p !== 'object') continue
+    if (p.type === 'text' && p.text) { bits.push({ t: 'text', text: p.text }); continue }
+    if (typeof p.type === 'string' && p.type.startsWith('tool-')) {
+      const name = p.type.slice(5)
+      const q = p.input?.query || p.input?.store || p.input?.store_url
+      const n = Array.isArray(p.output?.products) ? p.output.products.length : null
+      bits.push({ t: 'tool', name, label: toolLabel(name, q, n) })
+    }
+  }
+  return bits
+}
+function toolLabel(name, q, n) {
+  const map = {
+    search_products: `🔍 Buscó${q ? ` “${q}”` : ''}${n != null ? ` · ${n} result.` : ''}`,
+    browse_store: `🛍 Exploró tienda${q ? ` (${q})` : ''}`,
+    browse_stores: `🛍 Exploró varias tiendas`,
+    show_products: `🖼 Mostró productos`,
+    show_saved_products: `🖼 Re-mostró productos`,
+    show_orders: `📦 Mostró pedidos`,
+    show_assisted_summary: `🧾 Resumen de compra asistida`,
+    cancel_order: `✖️ Cancelar pedido`,
+    plan_in_person: `📍 Compra en persona`,
+    create_self_order: `➕ Creó envío`,
+    create_purchase_request: `🛒 Creó solicitud`,
+    web_search: `🌐 Búsqueda web${q ? ` “${q}”` : ''}`,
+    extract_product: `🔗 Extrajo producto`,
+    suggest_followups: `💬 Sugerencias`,
+  }
+  return map[name] || `⚙️ ${name}`
+}
+function fmtDateTime(d) {
+  if (!d) return ''
+  try { return new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(d)) } catch { return '' }
+}
 
 function fmt(n) { return new Intl.NumberFormat('es-MX').format(Number(n) || 0) }
 
@@ -175,3 +295,10 @@ async function load() {
 }
 onMounted(load)
 </script>
+
+<style scoped>
+.fade-fast-enter-active, .fade-fast-leave-active { transition: opacity .2s ease; }
+.fade-fast-enter-from, .fade-fast-leave-to { opacity: 0; }
+.slide-over-enter-active, .slide-over-leave-active { transition: transform .28s cubic-bezier(.2,.8,.2,1); }
+.slide-over-enter-from, .slide-over-leave-to { transform: translateX(100%); }
+</style>

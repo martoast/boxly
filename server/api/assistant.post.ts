@@ -88,8 +88,8 @@ const GALLERY_TOOLS = ['search_products', 'browse_store', 'browse_stores', 'show
 // follow-ups, build the shipment, take the order) — i.e. all tools minus GALLERY_TOOLS.
 const NON_GALLERY_TOOLS = [
   'web_search', 'extract_product', 'show_shipment', 'show_box_guide', 'suggest_followups',
-  'create_purchase_request', 'get_profile', 'list_orders', 'update_shopping_profile',
-  'create_self_order', 'create_account',
+  'create_purchase_request', 'show_assisted_summary', 'get_profile', 'list_orders', 'show_orders',
+  'update_shopping_profile', 'create_self_order', 'cancel_order', 'plan_in_person', 'create_account',
 ]
 
 // Token efficiency: a gallery tool returns rich product objects, but most of each
@@ -120,7 +120,7 @@ function galleryModelOutput({ output }: { output: any }) {
 // Analytics: a turn that used a product tool is a SEARCH (already logged server-side
 // by /products/search); a turn with no product tool is a business QUESTION. Log the
 // latter to /search-events, forwarding the user's identity so it's attributed.
-function logQuestion(question: string, answer: string, auth: { cookie?: string; origin?: string; token?: string }) {
+function logQuestion(question: string, answer: string, auth: { cookie?: string; origin?: string; token?: string }, conversationId?: number) {
   if (!question?.trim()) return
   const headers: Record<string, string> = { Accept: 'application/json', 'Content-Type': 'application/json' }
   if (auth.cookie) headers.Cookie = auth.cookie
@@ -129,7 +129,7 @@ function logQuestion(question: string, answer: string, auth: { cookie?: string; 
   fetch(`${API_BASE}/search-events`, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ type: 'question', query: question, answer }),
+    body: JSON.stringify({ type: 'question', query: question, answer, conversation_id: conversationId }),
     signal: AbortSignal.timeout(8000),
   }).catch(() => {})
 }
@@ -168,6 +168,31 @@ function stripIncompleteToolCalls(messages: any[]) {
     )
     return { ...m, parts }
   })
+}
+
+// Short human date (es-MX) for order cards. Server-side (Node Intl); null-safe.
+function fmtDate(d: any): string | null {
+  if (!d) return null
+  try {
+    const dt = new Date(d)
+    if (isNaN(dt.getTime())) return null
+    return new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }).format(dt)
+  } catch { return null }
+}
+// Trim a full order row to just what the tracking card + model need.
+function compactOrder(raw: any) {
+  if (!raw || typeof raw !== 'object') return raw
+  const items = Array.isArray(raw.items) ? raw.items : []
+  return {
+    id: raw.id,
+    order_number: raw.order_number || '—',
+    status: raw.status || 'collecting',
+    order_type: raw.order_type || 'shipping',
+    tracking_number: raw.tracking_number || null,
+    item_count: items.length || (raw.items_count ?? 0),
+    created: fmtDate(raw.created_at),
+    eta: fmtDate(raw.estimated_delivery_date),
+  }
 }
 
 // Round-robin merge so a multi-store gallery alternates brands instead of
@@ -315,7 +340,7 @@ CRITICAL — search_products / browse_store / browse_stores ALREADY render their
 You are a SHOPPING COMPANION and DEAL FINDER. Deals are your HEADLINE, not a filter: every search already puts on-sale items first (flagged on_sale with a was price), so a normal search shows the full selection WITH the deals on top. Call out the deals, but always show a rich set of options — never reduce results to just the discounted ones (a one-item result is a bad experience). Only filter to sale-ONLY (sale:true) if the user explicitly says "solo ofertas / only what's on sale", and if that comes back sparse, show the full catalog instead. Show options from DIFFERENT stores side by side, point out the deals, then dive deeper. Conversational — suggest, compare, narrow, pivot.
 
 Your tools, and when to use them:
-- search_products(query, store?) — YOUR DEFAULT for finding products from any store NOT in the directory (Hollister, Gymshark, Nike, Lululemon, Zara…) AND for open/cross-store discovery. It's FAST (~2-5s) and reliable. One call returns a rich gallery (often 12-16 items) with images, prices, and the store each is from. Pass the brand as store for a specific shop (e.g. {query:"tank tops women", store:"Hollister"}). If it ever returns NO products, fall back to web_search + show_products.
+- search_products(query, store?) — YOUR DEFAULT for finding products from any store NOT in the directory (Hollister, Gymshark, Nike, Adidas, Lululemon, Zara…) AND for open/cross-store discovery. It's UNIVERSAL — it covers EVERY US brand and store, so NEVER tell the customer you don't have a way to search a specific store (e.g. Adidas); you always do — just call search_products with that brand as store. It's FAST and reliable, returning a rich gallery (often 12-16 items) with images, prices, and the store each is from. ALWAYS put the brand in store (e.g. {query:"men clothing", store:"Adidas"}), and keep the query SHORT (2-3 core words) — long phrases like "adidas men clothing hoodie tracksuit" can return nothing. If a call returns NO products, RETRY ONCE with a shorter/broader query (just the brand + one word, e.g. {query:"clothing", store:"Adidas"} or {query:"adidas"}) BEFORE ever using web_search. Only use web_search + show_products as a last resort, and never present a store homepage as a product.
 - REFINING / FILTERING (CRITICAL): whenever the user narrows what they want, run a NEW search_products call carrying ALL active filters (keep the ones from before and add the new one). Map each kind of filter correctly:
   • color, size, gender (men/women/kids), fit/style ("wide-leg", "oversized", "slim"), material, category → put them in the QUERY text (e.g. {query:"black wide-leg jeans women size 30", store:"American Eagle"}). Google matches these from text; there are no separate params for them.
   • budget / price ("menos de $50", "between $20 and $40", "barato") → use max_price / min_price (e.g. max_price:50).
@@ -363,6 +388,40 @@ ${loggedIn
 - Be concise, friendly, and in the user's language (default Spanish, es-MX).`
 }
 
+// ── HUB (OS) preamble ─────────────────────────────────────────────────────────
+// On the logged-in dashboard the assistant is the SINGLE interface for everything
+// Boxly does. This block turns the shopping concierge into a full logistics OS that
+// ROUTES the customer into the right pipeline and DRIVES it end-to-end in chat. It's
+// prepended to the shopping system prompt (which still governs product discovery).
+const PIPELINE_HINT: Record<string, string> = {
+  search: 'The customer tapped **Comprar en EE.UU.** — the shopping flow. Help them FIND products (PRODUCT DISCOVERY) or take a pasted product link, then drive the COMPRA ASISTIDA (Boxly buys it for them, +10%) when they settle on something.',
+  register: 'The customer tapped **Registrar compra** — they ALREADY BOUGHT something themselves and want Boxly to receive/import it (CASILLERO, no 10%). Ask them to upload the receipt/confirmation OR tell you what they bought, then use create_self_order.',
+  assisted: 'The customer tapped **Compra asistida** — they want Boxly to BUY a product for them (+10%). Ask for the product link or what they want, then drive toward create_purchase_request.',
+  status: 'The customer tapped **Estado de envío** — they want to track their orders/shipments. Show their orders and their status.',
+  in_person: 'The customer tapped **Compras presenciales** — they want Boxly to shop in person at San Diego outlets. Help them schedule a trip and pick stores.',
+}
+function hubPreamble(loggedIn: boolean, pipeline?: string): string {
+  const hint = pipeline && PIPELINE_HINT[pipeline] ? `\n\nACTIVE PIPELINE THIS TURN: ${PIPELINE_HINT[pipeline]}` : ''
+  return `=== BOXLY OS MODE (logged-in dashboard) ===
+You are the customer's SINGLE interface to everything Boxly. You are not just a product search box — you are their personal shopping + logistics assistant, and the conversation is how they run their whole Boxly account. Route them into the RIGHT pipeline and drive it to completion, all in chat. Answer with your interactive tools/components, never long paragraphs.
+
+THE FOUR THINGS A CUSTOMER CAN DO (route to the one that fits their message):
+1) BUSCAR PRODUCTOS 🛍️ — find/buy products from US stores (PRODUCT DISCOVERY, your search tools).
+2) COMPRA ASISTIDA 💳 — Boxly BUYS a product for them (they paste a link / describe it). Once they've settled on the item(s), call show_assisted_summary to show the price + 10% breakdown card; when they tap Continuar / confirm, call create_purchase_request. Use when they don't have a US card or just want us to buy it.
+3) REGISTRAR COMPRA (CASILLERO) 📦 — they ALREADY bought it themselves and want Boxly to receive + import it. Ends in create_self_order. NO 10% commission — never mention it here.
+5) COMPRAS PRESENCIALES 🏬 — Boxly shops IN PERSON at San Diego / Las Americas outlets for them (boutiques, wholesale, multi-store). When they want this ('vayan por mí', 'compras presenciales', 'en persona'), call plan_in_person to render the date/store/interest planner; they pick and pay a small deposit.
+4) ESTADO / MIS PEDIDOS 🚚 — track and MANAGE existing orders. ALWAYS use show_orders (NOT plain text): no args → a tappable list of their orders; with order_id/order_number → that order's visual status timeline. Answer "¿dónde está mi envío/pedido?", "mis pedidos", "estado de mi orden" by calling show_orders, then add ONE short line. To CANCEL an order they ask to cancel, call cancel_order (it opens a confirm dialog — never cancel without it).
+
+ROUTING: infer intent from what they say. A link or "cómprenlo por mí" → asistida. "Ya lo compré / aquí está mi recibo" → registrar (casillero). "¿dónde está mi caja / mi pedido?" → estado. Otherwise, if they're looking for something to buy → búsqueda. When it's genuinely ambiguous, ask ONE short question. Switch pipelines fluidly as their need changes within the same conversation.
+
+ALWAYS SUGGEST THE NEXT STEP (Boxly's signature — never a dead end). End EVERY turn by gently moving them one step deeper: after registering a purchase → "¿Quieres agregar algo más a este envío?"; after showing a shipment with room left → "Todavía tienes espacio, ¿buscamos algo más?"; after a search → offer a complementary item or to order one; after tracking → offer to keep shopping. One short, natural nudge — helpful, never pushy.
+
+This customer is ${loggedIn ? 'SIGNED IN — you can create orders/requests and read their orders directly.' : 'a GUEST — gate any order behind create_account first.'}${hint}
+=== END BOXLY OS MODE ===
+
+`
+}
+
 export default defineEventHandler(async (event) => {
   if (!hasModelKey()) {
     setResponseStatus(event, 503)
@@ -373,8 +432,17 @@ export default defineEventHandler(async (event) => {
   const body = await readBody(event)
   const messages = body?.messages ?? []
   const token: string | undefined = body?.token || undefined
+  // The chat thread this turn belongs to — logged onto each search/question event
+  // so admins can open the full conversation from the AI-search view. Null for guests.
+  const conversationId: number | undefined = Number(body?.conversationId) > 0 ? Number(body.conversationId) : undefined
   const shoppingProfile = body?.shoppingProfile ?? null
   const savedProducts: any[] = Array.isArray(body?.savedProducts) ? body.savedProducts : []
+  // Surface tells us WHERE the chat runs: 'hub' = the logged-in dashboard where the
+  // assistant is the OS for ALL pipelines (casillero, assisted, in-person, tracking);
+  // 'search' (default) = the public concierge funnel (shopping-only). `pipeline` is the
+  // action card the user tapped (search|register|assisted|status|in_person), a routing hint.
+  const surface: string = body?.surface === 'hub' ? 'hub' : 'search'
+  const pipeline: string | undefined = typeof body?.pipeline === 'string' ? body.pipeline : undefined
 
   const knowledge = await getKnowledge()
 
@@ -403,6 +471,10 @@ export default defineEventHandler(async (event) => {
   // product registry change mid-conversation, so they ride in a SEPARATE,
   // uncached system block after it — keeping the cached prefix byte-identical.
   const ctx = shopperContext(!!token, shoppingProfile, savedProducts)
+  // On the hub surface the assistant becomes the OS for all pipelines. The router is
+  // kept in a SEPARATE, uncached system block (it varies with the tapped pipeline)
+  // so the big static shopping prompt above stays byte-identical and stays cached.
+  const hubBlock = surface === 'hub' ? hubPreamble(!!token, pipeline) : ''
   const modelMessages: any[] = [
     {
       role: 'system',
@@ -411,6 +483,7 @@ export default defineEventHandler(async (event) => {
       // implicit caching automatically, so we just omit the breakpoint there.
       ...(useGoogle ? {} : { providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' } } } }),
     },
+    ...(hubBlock ? [{ role: 'system', content: hubBlock }] : []),
     ...(ctx ? [{ role: 'system', content: ctx }] : []),
     ...await convertToModelMessages(stripIncompleteToolCalls(messages)),
   ]
@@ -448,7 +521,7 @@ export default defineEventHandler(async (event) => {
       // A turn that used a product tool is a SEARCH (logged server-side by
       // /products/search). A turn with no product tool is a business QUESTION.
       const usedProductTool = (steps || []).some((s: any) => (s.toolCalls || []).some((c: any) => PRODUCT_TOOLS.has(c.toolName)))
-      if (!usedProductTool) logQuestion(question, text || '', auth)
+      if (!usedProductTool) logQuestion(question, text || '', auth, conversationId)
     },
     tools: {
       web_search: webSearchTool,
@@ -508,7 +581,18 @@ export default defineEventHandler(async (event) => {
           sale: z.boolean().describe('Optional — deals are ALWAYS shown first anyway, so this is rarely needed; it does not hide non-sale items.').optional(),
         }),
         execute: async ({ query, store, min_price, max_price, sale }) => {
-          const r: any = await callApi('/products/search', { method: 'POST', body: { query, store: store || undefined, min_price, max_price, sale: sale || undefined, limit: 16 }, timeoutMs: 50000 })
+          let r: any = await callApi('/products/search', { method: 'POST', body: { query, store: store || undefined, min_price, max_price, sale: sale || undefined, limit: 16, conversation_id: conversationId }, token, timeoutMs: 50000 })
+          // Google Shopping returns 0 for some multi-word phrasings ("adidas clothing
+          // men") even though the brand alone ("adidas") returns plenty. If the
+          // specific query is empty, broaden ONCE to the store (or the first word) so
+          // the customer sees options instead of a dead-end fallback.
+          if (!r || !Array.isArray(r.products) || r.products.length === 0) {
+            const broad = (store || query.trim().split(/\s+/)[0] || '').trim()
+            if (broad && broad.toLowerCase() !== query.trim().toLowerCase()) {
+              const r2: any = await callApi('/products/search', { method: 'POST', body: { query: broad, store: store || undefined, min_price, max_price, limit: 16, conversation_id: conversationId }, token, timeoutMs: 50000 })
+              if (r2 && Array.isArray(r2.products) && r2.products.length) r = r2
+            }
+          }
           // One smart pass: relevance + color/attribute match + trust ranking,
           // then deterministically float the requested store (the explicit param wins).
           if (r && Array.isArray(r.products)) r.products = await curateProducts(query, r.products, { store })
@@ -552,7 +636,10 @@ export default defineEventHandler(async (event) => {
               if (ex && ex.image) image = ex.image
               if (price == null && ex?.price != null) price = ex.price
               if (!store && ex?.store) store = ex.store
-              ok = !!(image || price != null) // a real product page yields at least one
+              // Require a real IMAGE — a store homepage (or a category page) yields a
+              // price but no product image, and a card with no image is a broken,
+              // blank tile. Only render items that extracted an actual product photo.
+              ok = !!image
             } catch { /* best-effort */ }
             return { title: p.title, url: p.product_url, image, price, store, note: p.reason ?? null, ok }
           }))
@@ -589,6 +676,20 @@ export default defineEventHandler(async (event) => {
           suggestions: z.array(z.string()).min(1).max(3).describe('1–3 ready-to-send first-person follow-up messages, complementary to what was just shown.'),
         }),
         execute: async ({ suggestions }) => ({ suggestions: (suggestions || []).map((s) => String(s).trim()).filter(Boolean).slice(0, 3) }),
+      }),
+
+      show_assisted_summary: tool({
+        description: "Show a rich COMPRA ASISTIDA summary card BEFORE creating the purchase request — the item(s), the reference product subtotal, Boxly's 10% commission, and a note that the box ships separately. Call this the moment the user has settled on what they want Boxly to BUY for them (assisted purchase), so they see the price breakdown and tap 'Continuar' to confirm. After they continue, call create_purchase_request. Display only — it does NOT place the order.",
+        inputSchema: z.object({
+          items: z.array(z.object({
+            name: z.string().describe('Product name.'),
+            store: z.string().describe('Store/brand.').optional(),
+            price: z.number().describe('Reference USD price the customer saw (use the sale price if on sale); 0 if unknown.').optional(),
+            quantity: z.number().int().min(1).default(1),
+            image: z.string().describe('Product image URL if known.').optional(),
+          })).min(1),
+        }),
+        execute: async ({ items }) => ({ items: (items || []).map((it) => ({ ...it, quantity: it.quantity || 1 })) }),
       }),
 
       create_purchase_request: tool({
@@ -637,6 +738,56 @@ export default defineEventHandler(async (event) => {
         execute: async () => (token ? callApi('/orders', { token }) : authedNote),
       }),
 
+      // Rich tracking card (hub). Renders a visual shipment status timeline for one
+      // order, or a tappable list of all the user's orders. PREFER this over
+      // list_orders on the dashboard — it draws the UI instead of listing text.
+      // In-person (Las Americas) planner: loads open trip dates + in-person stores +
+      // categories so the customer picks a date, stores and interests right in chat.
+      plan_in_person: tool({
+        description: "Show the IN-PERSON shopping planner (Boxly shops for the customer at San Diego / Las Americas outlets). Call this when they want in-person / presencial shopping ('vayan por mí a Las Americas', 'compras presenciales', 'shop for me at the outlets'). It renders a card to pick a trip DATE, choose STORES and interests, and set a minimum budget; then they pay a small deposit. Requires the user to be signed in.",
+        inputSchema: z.object({}),
+        execute: async () => {
+          if (!token) return authedNote
+          const [avail, storesRes, cats]: any = await Promise.all([
+            callApi('/shopping-trips/availability', { token }),
+            callApi('/shopping-trips/in-person-stores', { token }),
+            callApi('/shopping-trips/categories', { token }),
+          ])
+          return {
+            trips: Array.isArray(avail) ? avail : [],
+            stores: storesRes?.stores || [],
+            categories: Array.isArray(cats) ? cats : [],
+            per_store_fee_usd: storesRes?.per_store_fee_usd ?? 10,
+          }
+        },
+      }),
+
+      show_orders: tool({
+        description: "Show the customer's orders/shipments as an INTERACTIVE card (not text). Call with no args to render a tappable LIST of all their orders; call with order_id (or order_number) to render that order's visual STATUS TIMELINE (Recibido → Cotización → Pagado, etc.) with its tracking number and ETA. Use this whenever they ask '¿dónde está mi envío/pedido?', 'mis pedidos', 'estado de mi orden', or tap a shipment. Requires the user to be signed in.",
+        inputSchema: z.object({
+          order_id: z.union([z.number(), z.string()]).describe('A specific order id or order_number to show the status timeline for. Omit to list all their orders.').optional(),
+        }),
+        execute: async ({ order_id }) => {
+          if (!token) return authedNote
+          if (order_id != null && String(order_id).trim() !== '') {
+            // Accept either a numeric id or an order_number (resolve the latter).
+            let id: any = order_id
+            if (!/^\d+$/.test(String(order_id))) {
+              const listed: any = await callApi('/orders', { token })
+              const arr = Array.isArray(listed?.data) ? listed.data : (Array.isArray(listed) ? listed : [])
+              const match = arr.find((o: any) => String(o.order_number).toLowerCase() === String(order_id).toLowerCase())
+              id = match?.id ?? order_id
+            }
+            const r: any = await callApi(`/orders/${id}`, { token })
+            if (!r || r.ok === false) return { error: 'not_found', message: 'No encontré ese pedido.' }
+            return { order: compactOrder(r) }
+          }
+          const r: any = await callApi('/orders', { token })
+          const arr = Array.isArray(r?.data) ? r.data : (Array.isArray(r) ? r : [])
+          return { orders: arr.map(compactOrder) }
+        },
+      }),
+
       update_shopping_profile: tool({
         description: "Save durable facts about THIS shopper to their long-term memory (persists across all chats). Call it proactively the moment you learn something — a size, a favorite/disliked brand, a category they shop, gender, budget, style — not just at checkout. Additive deep-merge: send ONLY the keys you learned (lists union, keys overwrite).",
         inputSchema: z.object({ profile: z.record(z.string(), z.any()).describe('Partial profile to merge. Canonical shape: {gender, sizes:{shoe:["9 US","10 US"],…}, favorite_brands:[], disliked_brands:[], categories:[], budget:{typical,max}, interests:[], style_notes}. Sizes are LISTS. Do NOT store why the customer buys. E.g. {sizes:{shoe:["9.5 US","10 US"]}, favorite_brands:["Nike"]}.') }),
@@ -659,6 +810,17 @@ export default defineEventHandler(async (event) => {
             quantity: z.number().int().min(1).default(1),
             notes: z.string().describe('Size/color/variant notes.').optional(),
           })).min(1),
+        }),
+      }),
+
+      // CLIENT-executed (no execute): the browser shows a ConfirmDialog, and on
+      // confirm cancels the order via the API. Kept client-side so the user has an
+      // explicit confirm gate before a destructive write (never cancel silently).
+      cancel_order: tool({
+        description: "Cancel one of the customer's orders. Use when they clearly ask to cancel/remove an order (e.g. 'cancela mi pedido 26AB', 'ya no quiero ese envío'). Pass the order_id or order_number. This opens a confirmation dialog — the customer must confirm before anything is cancelled. Only works while the order is still collecting/awaiting packages; the app will say if it can't be cancelled.",
+        inputSchema: z.object({
+          order_id: z.union([z.number(), z.string()]).describe('The order id or order_number to cancel.'),
+          order_number: z.string().describe('The order number for display, if known.').optional(),
         }),
       }),
 

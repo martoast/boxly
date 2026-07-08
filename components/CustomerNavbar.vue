@@ -49,21 +49,6 @@
               {{ t.dashboard }}
             </button>
 
-            <!-- AI Assistant -->
-            <button
-              type="button"
-              @click="handleNavigation('/search')"
-              class="inline-flex items-center gap-2 px-1 pt-1 border-b-2 text-sm font-medium transition-colors duration-200"
-              :class="[
-                isActiveRoute('/search')
-                  ? 'border-primary-500 text-gray-900'
-                  : 'border-transparent text-gray-600 hover:border-gray-300 hover:text-gray-900',
-              ]"
-            >
-              <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-4.714 2.143L14 21l-2.286-6.857L7 12l4.714-2.143L14 5z"/></svg>
-              <span class="whitespace-nowrap">{{ t.assistant }}</span>
-            </button>
-
             <!-- Orders Dropdown -->
             <div
               class="relative inline-flex h-full group"
@@ -356,23 +341,6 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
             </svg>
             {{ t.dashboard }}
-          </div>
-        </DisclosureButton>
-
-        <!-- AI Assistant -->
-        <DisclosureButton
-          as="button"
-          @click="handleNavigation('/search')"
-          :class="[
-            isActiveRoute('/search')
-              ? 'bg-primary-50 border-primary-500 text-primary-600'
-              : 'border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900',
-            'block border-l-4 py-2 pl-3 pr-4 text-base font-medium sm:pl-5 sm:pr-6 w-full text-left',
-          ]"
-        >
-          <div class="flex items-center">
-            <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-4.714 2.143L14 21l-2.286-6.857L7 12l4.714-2.143L14 5z"/></svg>
-            {{ t.assistant }}
           </div>
         </DisclosureButton>
 
