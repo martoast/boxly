@@ -122,6 +122,8 @@ const caption = computed(() =>
 // the city's estado centroid nudged by a city-seeded offset so different cities
 // in the same state form their own clusters instead of stacking on one point.
 const resolveCenter = (c) => {
+  // Exact coordinates from the backend (e.g. parsed from a Google Maps link) win.
+  if (Number.isFinite(c.lng) && Number.isFinite(c.lat)) return [c.lng, c.lat];
   const exact = COORDS[norm(c.city)];
   if (exact) return exact;
   const est = STATE_COORDS[norm(c.estado)];
