@@ -1,5 +1,14 @@
 <template>
   <div class="flex bg-gray-50 overflow-hidden relative" :class="standalone ? 'h-[100dvh]' : (fullscreenMobile ? 'h-[100dvh] md:h-[calc(100dvh-4rem)]' : 'h-[calc(100dvh-4rem)]')">
+    <!-- Error toast (e.g. a failed send) — otherwise a failure looks like silence -->
+    <Transition name="pop">
+      <div v-if="chatError" class="absolute bottom-24 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-2 rounded-xl bg-red-600 text-white text-sm font-semibold px-4 py-2.5 shadow-lg">
+        <span>{{ chatError }}</span>
+        <button type="button" @click="chatError = ''" class="ml-1 opacity-80 hover:opacity-100" aria-label="Cerrar">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+    </Transition>
     <!-- ===== Mobile history drawer ===== -->
     <Transition name="backdrop">
       <div v-if="showSidebar && drawerOpen" class="md:hidden absolute inset-0 z-40 bg-black/30 backdrop-blur-sm" @click="drawerOpen = false" />
@@ -292,6 +301,13 @@
                   <div v-if="msgText(m)" class="whitespace-pre-wrap text-[15px] leading-relaxed">{{ msgText(m) }}</div>
                   <template v-for="(part, i) in m.parts" :key="'uf' + i">
                     <img v-if="part.type === 'file' && String(part.mediaType).startsWith('image/')" :src="part.url" class="rounded-2xl max-h-56 w-auto border border-gray-200 shadow-sm ml-auto" />
+                    <!-- PDF (or other non-image file): a compact chip so it's clearly attached -->
+                    <a v-else-if="part.type === 'file'" :href="part.url" target="_blank" rel="noopener" class="mt-1 ml-auto flex items-center gap-2 w-fit max-w-[240px] rounded-xl bg-white/15 px-2.5 py-1.5 hover:bg-white/25 transition">
+                      <span class="shrink-0 grid place-items-center w-7 h-7 rounded-lg bg-white/20">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M7 3h7l5 5v13a1 1 0 01-1 1H7a1 1 0 01-1-1V4a1 1 0 011-1z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M14 3v5h5"/></svg>
+                      </span>
+                      <span class="min-w-0 truncate text-[13px] font-semibold">{{ part.filename || (String(part.mediaType).includes('pdf') ? 'Documento PDF' : 'Archivo') }}</span>
+                    </a>
                   </template>
                 </template>
 
@@ -1112,7 +1128,14 @@ const chat = new Chat({
       openCancel(toolCall)
     }
   },
+  // Surface failures instead of a silent dead-end (e.g. a model that rejects an
+  // attachment). Without this the user just sees nothing come back.
+  onError(err) {
+    console.error('assistant chat error', err)
+    chatError.value = 'Algo salió mal al enviar tu mensaje. Intenta de nuevo.'
+  },
 })
+const chatError = ref('')
 
 // INSTANT first paint for the landing-hero hand-off: a GUEST arriving with ?q=...
 // fires it synchronously HERE in setup (not onMounted), so the very first render
@@ -1237,6 +1260,7 @@ async function onComposerSend({ files } = {}) {
   if (isBusy.value) return
   if (!text && !(files && files.length)) return
   input.value = ''
+  chatError.value = ''
   // Remember the attached file (receipt/photo): if the AI turns this into a
   // self-import order, we reuse it as the proof of purchase so the customer never
   // re-uploads what they already dropped in chat. Persists across follow-up turns

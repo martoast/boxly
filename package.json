@@ -33,6 +33,7 @@
     "nuxt-meta-pixel": "^2.0.2",
     "pdf-lib": "^1.17.1",
     "pinia": "^3.0.3",
+    "unpdf": "^1.6.2",
     "vue": "^3.5.17",
     "vue-router": "^4.5.1",
     "vue3-apexcharts": "^1.11.1",

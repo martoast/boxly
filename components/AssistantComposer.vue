@@ -31,9 +31,9 @@
       <button v-if="!micRecording && !micTranscribing" type="button" @click="shoot" class="shrink-0 grid place-items-center w-9 h-9 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 active:scale-90 transition-all" aria-label="Tomar foto">
         <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
       </button>
-      <!-- attach image or PDF from library (hidden while recording/transcribing) -->
-      <button v-if="!micRecording && !micTranscribing" type="button" @click="pick" class="shrink-0 grid place-items-center w-9 h-9 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 active:scale-90 transition-all" aria-label="Subir foto o PDF">
-        <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+      <!-- attach any file (image or PDF) — paperclip reflects all attachment types -->
+      <button v-if="!micRecording && !micTranscribing" type="button" @click="pick" class="shrink-0 grid place-items-center w-9 h-9 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 active:scale-90 transition-all" aria-label="Adjuntar archivo (imagen o PDF)">
+        <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
       </button>
       <input ref="fileInput" type="file" accept="image/*,application/pdf" multiple class="hidden" @change="onFiles" />
       <!-- capture="environment" opens the rear camera directly on mobile -->

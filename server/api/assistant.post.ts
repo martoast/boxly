@@ -1,5 +1,6 @@
 import { streamText, tool, convertToModelMessages, stepCountIs } from 'ai'
 import { createAnthropic } from '@ai-sdk/anthropic'
+import { extractText, getDocumentProxy } from 'unpdf'
 import { z } from 'zod'
 import { FALLBACK_KNOWLEDGE } from '../utils/boxlyKnowledge'
 import { curateProducts } from '../utils/curate'
@@ -152,6 +153,41 @@ async function callApi(path: string, opts: { method?: string; body?: any; token?
   try { data = JSON.parse(text) } catch { data = { raw: text } }
   if (!res.ok) return { ok: false, status: res.status, ...(data || {}) }
   return data?.data ?? data
+}
+
+// Replace attached PDF file parts with their extracted TEXT before the model sees
+// them. WHY: not every chat model accepts a PDF document part (older Claude/Gemini
+// variants reject it, which fails the whole turn — the "I sent a PDF and got no
+// response" bug). Extracting text server-side makes PDFs work on ANY provider/model,
+// and gives the model cleaner input than page images. Falls back to the original
+// file part when a PDF has no text layer (e.g. a scan) so a vision model can still try.
+async function pdfPartsToText(messages: any[]): Promise<any[]> {
+  const out: any[] = []
+  for (const m of messages || []) {
+    if (!Array.isArray(m?.parts)) { out.push(m); continue }
+    const parts: any[] = []
+    for (const p of m.parts) {
+      const isPdf = p?.type === 'file' && String(p?.mediaType || '').includes('pdf') && typeof p?.url === 'string'
+      if (!isPdf) { parts.push(p); continue }
+      try {
+        const b64 = p.url.includes(',') ? p.url.slice(p.url.indexOf(',') + 1) : p.url
+        const bytes = new Uint8Array(Buffer.from(b64, 'base64'))
+        const pdf = await getDocumentProxy(bytes)
+        const res: any = await extractText(pdf, { mergePages: true })
+        const clean = (Array.isArray(res?.text) ? res.text.join('\n') : String(res?.text || '')).trim()
+        if (clean.length >= 20) {
+          const name = p.filename ? ` "${p.filename}"` : ''
+          parts.push({ type: 'text', text: `[Documento PDF adjunto por el cliente${name} — contenido extraído:\n${clean.slice(0, 12000)}\n]` })
+        } else {
+          parts.push(p) // no extractable text (scanned) → let a vision model try the file
+        }
+      } catch {
+        parts.push(p) // extraction failed → fall back to the raw file part
+      }
+    }
+    out.push({ ...m, parts })
+  }
+  return out
 }
 
 // Drop tool-call parts that never reached a terminal state (no output) before
@@ -485,7 +521,7 @@ export default defineEventHandler(async (event) => {
     },
     ...(hubBlock ? [{ role: 'system', content: hubBlock }] : []),
     ...(ctx ? [{ role: 'system', content: ctx }] : []),
-    ...await convertToModelMessages(stripIncompleteToolCalls(messages)),
+    ...await convertToModelMessages(stripIncompleteToolCalls(await pdfPartsToText(messages))),
   ]
 
   // "One gallery per reply" guard (see GALLERY_TOOLS): a gallery tool flips this
