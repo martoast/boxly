@@ -11,20 +11,16 @@
     @after-enter="handleAfterEnter"
   >
     <div class="relative">
-      <!-- Dynamic background color based on status -->
-      <div :class="[
-        'relative rounded-xl sm:rounded-2xl shadow-lg overflow-hidden',
-        getBannerColor()
-      ]">
+      <div class="relative rounded-2xl bg-white ring-1 ring-gray-900/5 shadow-lg overflow-hidden">
+        <!-- soft gradient wash -->
+        <div class="pointer-events-none absolute -top-16 -right-10 w-56 h-56 rounded-full blur-3xl opacity-70" :class="tone.wash"></div>
+
         <!-- Content -->
-        <div class="relative p-4 sm:p-6">
+        <div class="relative p-5 sm:p-6">
           <!-- Close button -->
           <button
             @click="$emit('dismiss')"
-            class="absolute top-3 right-3 sm:top-4 sm:right-4
-                   w-8 h-8 flex items-center justify-center
-                   text-white/60 hover:text-white
-                   rounded-lg transition-colors duration-200"
+            class="absolute top-3 right-3 sm:top-4 sm:right-4 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 rounded-lg transition-colors duration-200"
             :aria-label="t.close"
           >
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -34,57 +30,53 @@
 
           <!-- Main Content -->
           <div class="flex flex-col sm:flex-row sm:items-start sm:gap-4">
-            <!-- Icon -->
+            <!-- Gradient icon tile -->
             <div class="flex justify-center sm:justify-start mb-3 sm:mb-0">
-              <div class="p-3 bg-white/20 rounded-xl">
+              <div class="w-12 h-12 rounded-2xl grid place-items-center text-white shadow-md bg-gradient-to-br" :class="tone.tile">
                 <StatusIcon />
               </div>
             </div>
 
             <!-- Text -->
             <div class="flex-1 text-center sm:text-left pr-0 sm:pr-8">
-              <h3 class="text-xl sm:text-2xl font-bold text-white mb-2">
+              <h3 class="text-xl sm:text-2xl font-bold text-gray-900 mb-1.5">
                 {{ getTitle() }}
               </h3>
-              <p class="text-sm sm:text-base text-white/90 leading-relaxed">
+              <p class="text-sm sm:text-base text-gray-500 leading-relaxed">
                 {{ getMessage() }}
               </p>
 
               <!-- Estimated Delivery Date for Shipped Orders (SHIPPING only) -->
-              <div v-if="props.order?.status === 'shipped' && !isCrossing && props.order?.estimated_delivery_date" 
-                   class="mt-4 bg-white/10 rounded-lg p-3 sm:p-4">
+              <div v-if="props.order?.status === 'shipped' && !isCrossing && props.order?.estimated_delivery_date"
+                   class="mt-4 bg-gray-50 rounded-xl p-3 sm:p-4">
                 <div class="flex items-center gap-2 mb-1">
-                  <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                  <svg class="w-5 h-5" :class="tone.accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                           d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                   </svg>
-                  <p class="text-sm font-medium text-white">
-                    {{ t.estimatedDelivery }}
-                  </p>
+                  <p class="text-sm font-medium text-gray-500">{{ t.estimatedDelivery }}</p>
                 </div>
-                <p class="text-base sm:text-lg font-semibold text-white">
+                <p class="text-base sm:text-lg font-semibold text-gray-900">
                   {{ formatDate(props.order.estimated_delivery_date) }}
                 </p>
               </div>
 
               <!-- Pickup Location for Ready Orders (CROSSING only) -->
-              <div v-if="props.order?.status === 'shipped' && isCrossing" 
-                   class="mt-4 bg-white/10 rounded-lg p-3 sm:p-4">
+              <div v-if="props.order?.status === 'shipped' && isCrossing"
+                   class="mt-4 bg-gray-50 rounded-xl p-3 sm:p-4">
                 <div class="flex items-center gap-2 mb-2">
-                  <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg class="w-5 h-5" :class="tone.accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z"/>
                   </svg>
-                  <p class="text-sm font-medium text-white">
-                    {{ t.pickupLocation }}
-                  </p>
+                  <p class="text-sm font-medium text-gray-500">{{ t.pickupLocation }}</p>
                 </div>
-                <p class="text-base font-semibold text-white">Bodega Boxly - Tijuana</p>
-                <p class="text-sm text-white/80 mt-1">Av. Jalisco 2850, Local 5, Col. Madero (Cacho)</p>
+                <p class="text-base font-semibold text-gray-900">Bodega Boxly - Tijuana</p>
+                <p class="text-sm text-gray-500 mt-1">Av. Jalisco 2850, Local 5, Col. Madero (Cacho)</p>
                 <a
                   href="https://maps.app.goo.gl/4SsEVjy2D4noFM9n8"
                   target="_blank"
                   rel="noopener noreferrer"
-                  class="inline-flex items-center gap-1.5 mt-3 px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium text-white transition-colors"
+                  class="inline-flex items-center gap-1.5 mt-3 px-3 py-1.5 bg-gray-900 hover:bg-black rounded-lg text-sm font-medium text-white transition-colors"
                 >
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
@@ -95,11 +87,11 @@
               </div>
 
               <!-- Info Box -->
-              <div v-if="getNextSteps()" class="mt-4 bg-white/10 rounded-lg p-3 sm:p-4">
-                <p class="text-sm font-medium text-white mb-1">
+              <div v-if="getNextSteps()" class="mt-4 bg-gray-50 rounded-xl p-3 sm:p-4">
+                <p class="text-sm font-semibold text-gray-900 mb-1">
                   {{ getNextSteps().title }}
                 </p>
-                <p class="text-xs sm:text-sm text-white/80 leading-relaxed">
+                <p class="text-xs sm:text-sm text-gray-500 leading-relaxed">
                   {{ getNextSteps().message }}
                 </p>
               </div>
@@ -188,16 +180,16 @@ const translations = {
     en: 'Order Created! 🎉'
   },
   awaitingMessage: {
-    es: 'Perfecto! Ya registraste todos tus productos. Cuando lleguen a nuestro almacén en USA, los procesaremos y te enviaremos una cotización para el envío a tu dirección en México.',
-    en: 'Perfect! You\'ve added all your items. When they arrive at our US warehouse, we will process them and send you a quote for shipping to your delivery address in Mexico.',
+    es: '¡Listo! Registraste todos tus productos. Cuando lleguen a nuestra bodega en San Diego, los cruzamos a México (~2–3 días hábiles), te enviamos fotos y armamos tu caja consolidada.',
+    en: 'All set! You added all your products. Once they reach our San Diego warehouse, we cross them into Mexico (~2–3 business days), send you photos, and build your consolidated box.',
   },
   awaitingNextTitle: {
-    es: '¿Qué sigue?',
-    en: 'What happens next?'
+    es: '¿Cuándo pago?',
+    en: 'When do I pay?'
   },
   awaitingNextMessage: {
-    es: 'Usa los números de rastreo para seguir tus paquetes. Te enviaremos un correo de confirmación cada vez que llegue uno, y cuando todos hayan llegado, tu pedido pasará a la siguiente etapa.',
-    en: 'Use the tracking numbers to track your packages. We will email you a confirmation each time one arrives, and once all have arrived, your order will move to the next stage.',
+    es: 'Solo pagas cuando todo llegó y tu caja está lista para volar por avión a tu dirección en México.',
+    en: 'You only pay once everything has arrived and your box is ready to fly to your address in Mexico.',
   },
 
   // Packages complete status
@@ -280,16 +272,16 @@ const translations = {
     en: 'Crossing Order Created! 🎉'
   },
   crossingAwaitingMessage: {
-    es: 'Perfecto! Ya registraste todos tus productos. Cuando lleguen a nuestro almacén en USA, los cruzaremos a nuestra bodega en Tijuana para que los recojas.',
-    en: 'Perfect! You\'ve added all your items. When they arrive at our US warehouse, we\'ll cross them to our Tijuana warehouse for you to pick up.',
+    es: '¡Listo! Registraste todos tus productos. Cuando lleguen a nuestra bodega en San Diego, los cruzamos a Tijuana (~2–3 días hábiles) y te avisamos cuando estén listos para recoger.',
+    en: 'All set! You added all your products. Once they reach our San Diego warehouse, we cross them to Tijuana (~2–3 business days) and let you know when they\'re ready for pickup.',
   },
   crossingAwaitingNextTitle: {
-    es: '¿Qué sigue?',
-    en: 'What happens next?'
+    es: '¿Cuándo pago?',
+    en: 'When do I pay?'
   },
   crossingAwaitingNextMessage: {
-    es: 'Usa los números de rastreo para seguir tus paquetes. Te enviaremos un correo de confirmación cada vez que llegue uno a nuestro almacén.',
-    en: 'Use the tracking numbers to track your packages. We\'ll email you a confirmation each time one arrives at our warehouse.',
+    es: 'Solo pagas cuando todo llegó y está listo para recoger en nuestra bodega de Tijuana.',
+    en: 'You only pay once everything has arrived and is ready for pickup at our Tijuana warehouse.',
   },
 
   // Packages complete status (CROSSING)
@@ -366,40 +358,28 @@ const getStatusConfig = (status, orderType) => {
   const isCrossingOrder = orderType === 'crossing'
   
   const configs = {
-    collecting: {
-      color: 'bg-primary-500',
-      icon: 'DocumentPlusIcon',
-      confetti: false
-    },
-    awaiting_packages: {
-      color: 'bg-green-500',
-      icon: 'CheckCircleIcon',
-      confetti: true
-    },
-    packages_complete: {
-      color: 'bg-primary-500',
-      icon: 'CubeIcon',
-      confetti: true
-    },
+    collecting: { tone: 'primary', icon: 'DocumentPlusIcon', confetti: false },
+    awaiting_packages: { tone: 'success', icon: 'CheckBadgeIcon', confetti: true },
+    packages_complete: { tone: 'primary', icon: 'CubeIcon', confetti: true },
     shipped: {
-      color: isCrossingOrder ? 'bg-amber-500' : 'bg-primary-600',
-      icon: isCrossingOrder ? 'WarehouseIcon' : 'TruckIcon',
-      confetti: isCrossingOrder // Confetti for crossing when ready for pickup
+      tone: isCrossingOrder ? 'amber' : 'ship',
+      icon: isCrossingOrder ? 'WarehouseIcon' : 'PlaneIcon',
+      confetti: isCrossingOrder
     },
-    delivered: {
-      color: 'bg-green-500',
-      icon: 'CheckBadgeIcon',
-      confetti: false
-    }
+    delivered: { tone: 'success', icon: 'CheckBadgeIcon', confetti: false }
   }
-  
-  return configs[status] || { color: 'bg-gray-600', icon: 'CheckCircleIcon', confetti: false }
+
+  return configs[status] || { tone: 'primary', icon: 'CheckCircleIcon', confetti: false }
 }
 
-// Get banner color based on status
-const getBannerColor = () => {
-  return getStatusConfig(props.order?.status, props.order?.order_type)?.color || 'bg-gray-600'
+// Premium tone system (gradient tile + soft wash + accent), matching the rest of the app.
+const TONES = {
+  primary: { tile: 'from-primary-500 to-indigo-600', wash: 'bg-primary-400/25', accent: 'text-primary-600' },
+  success: { tile: 'from-emerald-500 to-green-600', wash: 'bg-emerald-400/25', accent: 'text-emerald-600' },
+  ship:    { tile: 'from-primary-500 to-indigo-600', wash: 'bg-indigo-400/25', accent: 'text-indigo-600' },
+  amber:   { tile: 'from-amber-400 to-amber-500', wash: 'bg-amber-400/25', accent: 'text-amber-600' },
 }
+const tone = computed(() => TONES[getStatusConfig(props.order?.status, props.order?.order_type).tone] || TONES.primary)
 
 // Get appropriate title
 const getTitle = () => {
@@ -533,9 +513,14 @@ const StatusIcon = computed(() => {
     fill: 'none',
     stroke: 'currentColor',
     viewBox: '0 0 24 24',
-    class: 'w-8 h-8 text-white'
+    class: 'w-6 h-6 text-white'
   }, [
-    iconName === 'DocumentPlusIcon' ? h('path', {
+    iconName === 'PlaneIcon' ? h('path', {
+      'stroke-linecap': 'round',
+      'stroke-linejoin': 'round',
+      'stroke-width': '2',
+      d: 'M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5'
+    }) : iconName === 'DocumentPlusIcon' ? h('path', {
       'stroke-linecap': 'round',
       'stroke-linejoin': 'round',
       'stroke-width': '2',

@@ -69,11 +69,19 @@
         </div>
 
         <!-- Desktop Add/Edit Form -->
-        <div v-if="canEdit" id="desktop-form" class="hidden sm:block bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8 transition-all duration-200">
+        <div v-if="canEdit" id="desktop-form" class="hidden sm:block bg-white rounded-2xl ring-1 ring-gray-900/5 shadow-sm p-6 mb-8 transition-all duration-300 ease-out hover:shadow-md">
           <div class="flex items-center justify-between mb-6">
-            <h2 class="text-xl font-bold text-gray-900">
-              {{ editingItemId ? t.editProduct : (hasItems ? t.addAnotherProduct : t.addProduct) }}
-            </h2>
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl grid place-items-center text-white shadow-sm bg-gradient-to-br from-primary-500 to-indigo-600">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+              </div>
+              <div>
+                <h2 class="text-lg font-bold text-gray-900">
+                  {{ editingItemId ? t.editProduct : (hasItems ? t.addAnotherProduct : t.addProduct) }}
+                </h2>
+                <p class="text-sm text-gray-500">{{ t.addProductSub }}</p>
+              </div>
+            </div>
             <button v-if="editingItemId" @click="cancelEdit" class="text-sm text-red-600 hover:text-red-700 font-medium px-3 py-1 hover:bg-red-50 rounded-lg transition-colors">
               {{ t.cancelEdit }}
             </button>
@@ -141,7 +149,18 @@
                 </div>
             </div>
 
-            <button type="submit" :disabled="submitting || !itemForm.product_name.trim()" class="w-full py-3.5 bg-gray-900 text-white font-bold text-lg rounded-xl hover:bg-black disabled:opacity-50 disabled:cursor-not-allowed transition-all transform active:scale-[0.99] shadow-lg shadow-gray-200">
+            <button
+              type="submit"
+              :disabled="submitting || !itemForm.product_name.trim()"
+              :class="[
+                'w-full py-3.5 rounded-xl font-bold text-lg transition-all duration-200 active:scale-[0.99] flex items-center justify-center gap-2',
+                (submitting || !itemForm.product_name.trim())
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : 'bg-gray-900 text-white hover:bg-black shadow-lg shadow-gray-900/10 hover:-translate-y-0.5'
+              ]"
+            >
+              <svg v-if="!submitting" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+              <svg v-else class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
               {{ submitting ? t.processing : (editingItemId ? t.updateProductButton : t.addProductButton) }}
             </button>
           </form>
@@ -259,10 +278,19 @@
           </div>
         </div>
 
-        <div v-else class="text-center py-16 bg-white rounded-xl border border-dashed border-gray-300 mt-6">
-          <div class="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4"><svg class="w-10 h-10 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg></div>
-          <p class="text-gray-900 font-medium text-lg mb-1">{{ t.noProducts }}</p>
-          <p class="text-sm text-gray-500">{{ t.startByAdding }}</p>
+        <div v-else class="relative overflow-hidden text-center py-16 px-6 bg-white rounded-2xl ring-1 ring-gray-900/5 mt-6">
+          <div class="pointer-events-none absolute -top-16 left-1/2 -translate-x-1/2 w-56 h-56 rounded-full bg-primary-400/10 blur-3xl"></div>
+          <div class="relative">
+            <div class="w-20 h-20 rounded-2xl grid place-items-center mx-auto mb-5 text-white shadow-lg shadow-primary-500/20 bg-gradient-to-br from-primary-500 to-indigo-600 empty-float">
+              <svg class="w-10 h-10" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+            </div>
+            <p class="text-gray-900 font-bold text-lg mb-1">{{ t.noProducts }}</p>
+            <p class="text-sm text-gray-500 max-w-xs mx-auto">{{ t.startByAdding }}</p>
+            <div class="mt-5 inline-flex items-center gap-1.5 text-xs font-semibold text-primary-600">
+              <svg class="w-4 h-4 animate-bounce" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7" /></svg>
+              {{ t.emptyHint }}
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -442,6 +470,8 @@ const translations = {
   confirmMessage: { es: "¿Has agregado todos los productos?", en: "Have you added all your products?" },
   confirming: { es: "Confirmando...", en: "Confirming..." },
   addProduct: { es: "Agregar producto", en: "Add product" },
+  addProductSub: { es: "Dinos qué compraste. Toma segundos.", en: "Tell us what you bought. Takes seconds." },
+  emptyHint: { es: "Agrega tu primer producto arriba", en: "Add your first product above" },
   editProduct: { es: "Editar producto", en: "Edit product" },
   addAnotherProduct: { es: "Agregar otro producto", en: "Add another product" },
   tapToStart: { es: "Toca para comenzar", en: "Tap to add item" },
@@ -677,4 +707,12 @@ onMounted(() => { fetchOrder(false); });
 .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
 .list-enter-active, .list-leave-active { transition: all 0.3s ease; }
 .list-enter-from, .list-leave-to { opacity: 0; transform: translateX(-10px); }
+
+/* gentle float on the empty-state icon */
+.empty-float { animation: emptyFloat 3.5s ease-in-out infinite; }
+@keyframes emptyFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+@media (prefers-reduced-motion: reduce) { .empty-float { animation: none; } }
 </style>

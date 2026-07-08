@@ -21,18 +21,7 @@
         <svg class="w-4 h-4 mt-0.5 shrink-0 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
         <p class="text-sm font-semibold text-amber-700">{{ locale === 'es' ? 'Tu cotización está lista — paga para continuar.' : 'Your quote is ready — pay to continue.' }}</p>
       </div>
-      <p v-else-if="view.payLater" class="text-xs text-gray-500 mt-3">💳 {{ locale === 'es' ? 'Solo pagas cuando tu paquete ya está en México.' : 'You only pay once your package is in Mexico.' }}</p>
-    </div>
 
-    <!-- Qué pasa ahora (transfer stage) -->
-    <div v-if="view.showFlow" class="rounded-2xl border border-gray-200 bg-white p-5">
-      <p class="text-sm font-bold text-gray-900 mb-3">{{ locale === 'es' ? '¿Qué pasa ahora?' : 'What happens now?' }}</p>
-      <ol class="space-y-2.5">
-        <li v-for="(step, i) in flowSteps" :key="i" class="flex items-start gap-3">
-          <span class="shrink-0 w-5 h-5 rounded-full bg-gray-100 text-gray-600 text-[11px] font-bold grid place-items-center mt-0.5">{{ i + 1 }}</span>
-          <span class="text-sm text-gray-600 leading-snug">{{ step }}</span>
-        </li>
-      </ol>
     </div>
   </div>
 </template>
@@ -63,14 +52,12 @@ const stage = computed(() => {
 
 const COPY = {
   awaiting_sd: {
-    es: { label: 'Orden registrada', desc: 'Tu pedido fue registrado correctamente. Ahora esperamos que la tienda entregue tu paquete en nuestra dirección de San Diego. En cuanto llegue, lo trasladamos a México.', next: 'Tu paquete será recibido en México en aproximadamente 2–3 días hábiles después de llegar a San Diego.' },
-    en: { label: 'Order registered', desc: 'Your order was registered. We are now waiting for the store to deliver your package to our San Diego address. Once it arrives, we move it to Mexico.', next: 'Your package will be received in Mexico about 2–3 business days after it arrives in San Diego.' },
-    showFlow: true, payLater: true,
+    es: { label: 'Orden registrada', desc: 'Estamos trabajando en recibir tus productos y cruzarlos a México.', next: null },
+    en: { label: 'Order registered', desc: 'We\'re working on receiving your products and crossing them into Mexico.', next: null },
   },
   transfer: {
-    es: { label: 'Recibido en San Diego', desc: 'Tu paquete ya llegó a nuestra dirección de San Diego. BOXLY lo está trasladando a México.', next: 'Tu paquete será recibido en México en aproximadamente 2–3 días hábiles.' },
-    en: { label: 'Received in San Diego', desc: 'Your package arrived at our San Diego address. BOXLY is now moving it to Mexico.', next: 'Your package will be received in Mexico in about 2–3 business days.' },
-    showFlow: true, payLater: true,
+    es: { label: 'Recibido en San Diego', desc: 'Tus productos ya están en San Diego; los estamos cruzando a México.', next: null },
+    en: { label: 'Received in San Diego', desc: 'Your products are in San Diego; we\'re crossing them into Mexico.', next: null },
   },
   quote: {
     es: { label: 'Cotización lista', desc: 'Tu cotización ya está lista. Realiza el pago para que preparemos y enviemos tu paquete.', next: 'Cuando confirmemos tu pago.' },
@@ -113,26 +100,6 @@ const STYLE = {
 const view = computed(() => {
   const s = stage.value
   const c = COPY[s][locale.value]
-  return { ...c, ...STYLE[s], showFlow: !!COPY[s].showFlow, payLater: !!COPY[s].payLater, payNow: !!COPY[s].payNow }
+  return { ...c, ...STYLE[s], payNow: !!COPY[s].payNow }
 })
-
-const flowSteps = computed(() => locale.value === 'es'
-  ? [
-      'La tienda entrega tu paquete en nuestra dirección de San Diego.',
-      'BOXLY recoge los paquetes normalmente al día siguiente.',
-      'Trasladamos tu paquete a México.',
-      'El traslado y la recepción en México toman normalmente 2–3 días hábiles.',
-      'Al llegar a México generamos tu cotización.',
-      'Solo pagas cuando tu paquete ya está en México.',
-      'Enviamos tu paquete a tu domicilio.',
-    ]
-  : [
-      'The store delivers your package to our San Diego address.',
-      'BOXLY picks up packages, usually the next day.',
-      'We move your package to Mexico.',
-      'Transfer and reception in Mexico usually take 2–3 business days.',
-      'Once it arrives in Mexico, we generate your quote.',
-      'You only pay once your package is in Mexico.',
-      'We ship your package to your address.',
-    ])
 </script>

@@ -21,7 +21,7 @@
     <!-- Main Content -->
     <div
       v-else-if="order"
-      class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6"
+      class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6"
     >
       <!-- Success/Confetti Banner -->
       <SuccessBanner
@@ -122,11 +122,10 @@
         </div>
       </div>
 
-      <!-- Main Grid Layout -->
-      <div class="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- Single-column layout (details + help live in the footer below) -->
+      <div class="mt-6 space-y-6">
 
-        <!-- Left Column (2/3) -->
-        <div class="lg:col-span-2 space-y-6">
+        <div class="space-y-6">
 
           <!-- Shipping Boxes Section - Shows boxes with tracking & GIA -->
           <div
@@ -219,13 +218,13 @@
           <!-- Pickup Location - Only for crossing orders -->
           <div
             v-if="order.order_type === 'crossing'"
-            class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden"
+            class="bg-white rounded-2xl ring-1 ring-gray-900/5 shadow-sm overflow-hidden transition-all duration-300 ease-out hover:shadow-md"
           >
             <div class="px-5 py-4 border-b border-gray-100">
               <div class="flex items-center gap-3">
-                <div class="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center">
-                  <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z"/>
+                <div class="w-10 h-10 rounded-xl grid place-items-center text-white shadow-sm bg-gradient-to-br from-amber-400 to-amber-500">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z"/>
                   </svg>
                 </div>
                 <div>
@@ -235,25 +234,26 @@
               </div>
             </div>
             <div class="p-5">
-              <div class="flex items-start gap-4 mb-4">
-                <div class="flex-1">
-                  <h3 class="font-semibold text-gray-900">{{ t.warehouseName }}</h3>
-                  <p class="text-sm text-gray-600 mt-1">{{ t.warehouseAddress }}</p>
-                  <p class="text-sm text-gray-500">Tijuana, Baja California, México</p>
-                </div>
+              <div class="rounded-xl bg-gray-50 p-4 mb-4">
+                <h3 class="font-semibold text-gray-900">{{ t.warehouseName }}</h3>
+                <p class="text-sm text-gray-600 mt-1">{{ t.warehouseAddress }}</p>
+                <p class="text-sm text-gray-400">Tijuana, Baja California, México</p>
+                <p class="text-xs text-gray-400 mt-3 flex items-center gap-1.5">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                  {{ t.pickupHours }}
+                </p>
               </div>
               <a
                 href="https://www.google.com/maps/search/?api=1&query=Av.+Jalisco+2850-local+3%2C+Col.+Madero+%28Cacho%29%2C+22040+Tijuana%2C+B.C."
                 target="_blank"
                 rel="noopener noreferrer"
-                class="flex items-center justify-center gap-2 w-full px-5 py-3 bg-amber-600 text-white font-semibold rounded-xl hover:bg-amber-700 transition-colors"
+                class="flex items-center justify-center gap-2 w-full px-5 py-3 bg-gray-900 hover:bg-black text-white font-semibold rounded-xl transition-colors active:scale-[0.99]"
               >
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
                 </svg>
                 {{ t.getDirections }}
               </a>
-              <p class="text-xs text-gray-500 text-center mt-3">{{ t.pickupHours }}</p>
             </div>
           </div>
 
@@ -285,141 +285,66 @@
           <!-- Customer status card (where is my package / what's next / when do I pay) -->
           <OrderStatusCard v-if="!isCrossing" :order="order" />
 
-          <!-- Progress Timeline -->
-          <OrderProgressTimeline :order="order" />
+          <!-- Progress Timeline (hidden for cancelled orders — no live tracker) -->
+          <OrderProgressTimeline v-if="order.status !== 'cancelled'" :order="order" />
         </div>
 
-        <!-- Right Column (1/3) - Summary & Payment -->
-        <div class="space-y-6">
-
-          <!-- Order Summary Card -->
-          <div class="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-            <div class="px-4 py-3 border-b border-gray-100 bg-gray-50">
-              <h3 class="font-semibold text-gray-900">{{ t.orderSummary }}</h3>
-            </div>
-            <div class="p-4 space-y-3">
-              <!-- Order Number -->
-              <div class="flex justify-between items-center">
-                <span class="text-sm text-gray-500">{{ t.orderNumber }}</span>
-                <span class="text-sm font-bold text-gray-900">#{{ order.order_number }}</span>
+        <!-- ===== FOOTER: collapsible details + help/WhatsApp ===== -->
+        <div class="space-y-3 pt-2">
+          <!-- Order details (collapsed by default — the customer rarely needs the IDs) -->
+          <div class="bg-white rounded-2xl ring-1 ring-gray-900/5 overflow-hidden">
+            <button type="button" @click="showOrderDetails = !showOrderDetails" class="w-full flex items-center justify-between gap-3 px-5 py-4 hover:bg-gray-50/60 transition-colors">
+              <span class="flex items-center gap-2.5 text-sm font-semibold text-gray-900">
+                <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                {{ t.orderDetails }}
+              </span>
+              <svg class="w-5 h-5 text-gray-400 transition-transform duration-300" :class="showOrderDetails ? 'rotate-180' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+            <Transition
+              enter-active-class="transition ease-out duration-300" enter-from-class="opacity-0 max-h-0" enter-to-class="opacity-100 max-h-[600px]"
+              leave-active-class="transition ease-in duration-200" leave-from-class="opacity-100 max-h-[600px]" leave-to-class="opacity-0 max-h-0"
+            >
+              <div v-show="showOrderDetails" class="px-5 pb-4 border-t border-gray-100 overflow-hidden">
+                <dl class="divide-y divide-gray-50 text-sm">
+                  <div class="flex justify-between py-2.5"><dt class="text-gray-500">{{ t.orderNumber }}</dt><dd class="font-semibold text-gray-900">#{{ order.order_number }}</dd></div>
+                  <div class="flex justify-between items-center py-2.5">
+                    <dt class="text-gray-500">{{ t.orderType }}</dt>
+                    <dd><span :class="['px-2 py-0.5 rounded text-xs font-semibold', isCrossing ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700']">{{ isCrossing ? t.crossingOnly : t.homeDelivery }}</span></dd>
+                  </div>
+                  <div class="flex justify-between py-2.5"><dt class="text-gray-500">{{ t.totalWeight }}</dt><dd class="font-medium text-gray-900">{{ order.total_box_weight || 0 }} kg</dd></div>
+                  <div class="flex justify-between py-2.5"><dt class="text-gray-500">{{ t.itemsCount }}</dt><dd class="font-medium text-gray-900">{{ order.items?.length || 0 }}</dd></div>
+                  <div class="flex justify-between py-2.5"><dt class="text-gray-500">{{ t.createdDate }}</dt><dd class="text-gray-700">{{ formatDate(order.created_at) }}</dd></div>
+                  <template v-if="totalBoxPrice > 0">
+                    <div class="flex justify-between py-2.5"><dt class="font-semibold text-gray-700">{{ t.total }}</dt><dd class="font-bold text-gray-900">${{ formatPrice(grandTotal) }} {{ currency }}</dd></div>
+                    <div v-if="amountDue > 0" class="flex justify-between py-2.5"><dt class="font-semibold text-orange-600">{{ t.amountDue }}</dt><dd class="font-bold text-orange-600">${{ formatPrice(amountDue) }} {{ currency }}</dd></div>
+                    <div v-else-if="amountPaid > 0" class="flex justify-between py-2.5"><dt class="font-semibold text-emerald-600">{{ t.fullyPaid }}</dt><dd class="font-bold text-emerald-600">${{ formatPrice(amountPaid) }} {{ currency }}</dd></div>
+                  </template>
+                </dl>
               </div>
-              <!-- Order Type -->
-              <div class="flex justify-between items-center">
-                <span class="text-sm text-gray-500">{{ t.orderType }}</span>
-                <span
-                  :class="[
-                    'px-2 py-0.5 rounded text-xs font-medium',
-                    isCrossing ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'
-                  ]"
-                >
-                  {{ isCrossing ? t.crossingOnly : t.homeDelivery }}
-                </span>
-              </div>
-              <!-- Total Weight -->
-              <div class="flex justify-between items-center">
-                <span class="text-sm text-gray-500">{{ t.totalWeight }}</span>
-                <span class="text-sm font-medium text-gray-900">{{ order.total_box_weight || 0 }} kg</span>
-              </div>
-              <!-- Items Count -->
-              <div class="flex justify-between items-center">
-                <span class="text-sm text-gray-500">{{ t.itemsCount }}</span>
-                <span class="text-sm font-medium text-gray-900">{{ order.items?.length || 0 }}</span>
-              </div>
-              <!-- Created Date -->
-              <div class="flex justify-between items-center">
-                <span class="text-sm text-gray-500">{{ t.createdDate }}</span>
-                <span class="text-sm text-gray-700">{{ formatDate(order.created_at) }}</span>
-              </div>
-            </div>
+            </Transition>
           </div>
 
-          <!-- Payment Summary Card - Only show when there's a box total -->
-          <div v-if="totalBoxPrice > 0" class="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-            <div class="px-4 py-3 border-b border-gray-100 bg-gray-50">
-              <h3 class="font-semibold text-gray-900">{{ t.paymentSummary }}</h3>
-            </div>
-            <div class="p-4 space-y-3">
-              <!-- IVA -->
-              <div v-if="order.iva_amount" class="flex justify-between items-center">
-                <span class="text-sm text-gray-500">IVA</span>
-                <span class="text-sm font-medium text-gray-900">${{ formatPrice(order.iva_amount) }} {{ currency }}</span>
-              </div>
-
-              <!-- Shipping Cost (if quoted) -->
-              <div v-if="order.shipping_cost" class="flex justify-between items-center">
-                <span class="text-sm text-gray-500">{{ t.shippingCost }}</span>
-                <span class="text-sm font-medium text-gray-900">${{ formatPrice(order.shipping_cost) }} {{ currency }}</span>
-              </div>
-
-              <hr class="border-gray-100">
-
-              <!-- Grand Total -->
-              <div class="flex justify-between items-center">
-                <span class="text-sm font-semibold text-gray-700">{{ t.total }}</span>
-                <span class="text-lg font-bold text-gray-900">${{ formatPrice(grandTotal) }} {{ currency }}</span>
-              </div>
-
-              <!-- Amount Paid -->
-              <div v-if="amountPaid > 0" class="flex justify-between items-center">
-                <span class="text-sm text-green-600">{{ t.paid }}</span>
-                <span class="text-sm font-medium text-green-600">-${{ formatPrice(amountPaid) }} {{ currency }}</span>
-              </div>
-
-              <!-- Amount Due -->
-              <div v-if="amountDue > 0" class="flex justify-between items-center pt-2 border-t border-gray-100">
-                <span class="text-sm font-bold text-orange-600">{{ t.amountDue }}</span>
-                <span class="text-lg font-bold text-orange-600">${{ formatPrice(amountDue) }} {{ currency }}</span>
-              </div>
-
-              <!-- Fully Paid Badge -->
-              <div v-else-if="amountPaid > 0" class="flex items-center justify-center gap-2 py-2 bg-green-50 rounded-lg">
-                <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                </svg>
-                <span class="text-sm font-semibold text-green-700">{{ t.fullyPaid }}</span>
-              </div>
-            </div>
-
-            <!-- Payment CTA -->
-            <div v-if="paymentLink && amountDue > 0" class="p-4 bg-orange-50 border-t border-orange-100">
-              <a
-                :href="paymentLink"
-                target="_blank"
-                class="flex items-center justify-center gap-2 w-full px-4 py-3 bg-orange-600 text-white font-semibold rounded-xl hover:bg-orange-700 transition-colors shadow-sm"
-              >
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
-                </svg>
-                {{ t.payNow }}
-              </a>
-            </div>
-          </div>
-
-          <!-- Need Help Card -->
-          <div class="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border border-gray-200 p-4">
-            <div class="flex items-start gap-3">
-              <div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow-sm flex-shrink-0">
-                <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                </svg>
-              </div>
-              <div>
-                <h4 class="text-sm font-semibold text-gray-900">{{ t.needHelp }}</h4>
-                <p class="text-xs text-gray-600 mt-1">{{ t.needHelpDesc }}</p>
-                <a
-                  href="https://wa.me/16195591910"
-                  target="_blank"
-                  class="inline-flex items-center gap-1.5 text-xs font-medium text-primary-600 hover:text-primary-700 mt-2"
-                >
-                  <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-                  </svg>
-                  {{ t.contactUs }}
-                </a>
-              </div>
-            </div>
-          </div>
-
+          <!-- Help + WhatsApp -->
+          <a
+            href="https://wa.me/16195591910"
+            target="_blank"
+            rel="noopener"
+            class="flex items-center justify-between gap-3 bg-white rounded-2xl ring-1 ring-gray-900/5 px-5 py-4 transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 group"
+          >
+            <span class="flex items-center gap-3 min-w-0">
+              <span class="w-10 h-10 rounded-xl grid place-items-center text-white bg-[#25D366] flex-shrink-0 shadow-sm">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+              </span>
+              <span class="min-w-0">
+                <span class="block text-sm font-semibold text-gray-900">{{ t.needHelp }}</span>
+                <span class="block text-xs text-gray-500 truncate">{{ t.needHelpDesc }}</span>
+              </span>
+            </span>
+            <span class="inline-flex items-center gap-1 text-sm font-semibold text-[#25D366] flex-shrink-0">
+              {{ t.contactUs }}
+              <svg class="w-4 h-4 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            </span>
+          </a>
         </div>
       </div>
     </div>
@@ -497,6 +422,7 @@ const { t: createTranslations, currentLanguage } = useLanguage();
 const order = ref(null);
 const loading = ref(true);
 const showArrivalImageModal = ref(false);
+const showOrderDetails = ref(false); // footer "detalles del pedido" dropdown
 
 // Modal States
 const showCompleteOrderModal = ref(false);
@@ -570,6 +496,7 @@ const translations = {
   homeDelivery: { es: "Envío a Domicilio", en: "Home Delivery" },
   // Order Summary
   orderSummary: { es: "Resumen de Orden", en: "Order Summary" },
+  orderDetails: { es: "Detalles del pedido", en: "Order details" },
   orderNumber: { es: "Número de Orden", en: "Order Number" },
   orderType: { es: "Tipo de Orden", en: "Order Type" },
   totalWeight: { es: "Peso Cajas", en: "Box Weight" },

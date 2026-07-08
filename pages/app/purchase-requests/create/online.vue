@@ -483,7 +483,7 @@ const mainImage = computed(() => draft.images[mainImageIndex.value] || draft.ima
 // ── Computed ─────────────────────────────────────────────────────────────────
 const hasItems = computed(() => form.value.items.length > 0);
 const totalItems = computed(() => form.value.items.reduce((s, i) => s + i.quantity, 0));
-const canCommit = computed(() => !!(draft.title || '').trim() && draft.price != null && draft.price > 0);
+const canCommit = computed(() => !!(draft.title || '').trim() && draft.price != null && draft.price > 0 && Number(draft.quantity) >= 1);
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const fixUrl = (url) => {
@@ -591,7 +591,7 @@ const commitDraft = () => {
     product_url: fixUrl(draft.product_url),
     product_name: draft.title.trim(),
     price: draft.price,
-    quantity: draft.quantity,
+    quantity: Number(draft.quantity) >= 1 ? Number(draft.quantity) : 1,
     notes,
     options,
     _options: draft.options,               // keep the scraped option lists for re-edit

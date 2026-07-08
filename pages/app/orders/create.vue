@@ -122,7 +122,7 @@
                 type="button"
                 @click="form.order_type = 'shipping'"
                 :class="[
-                  'relative p-5 rounded-xl border-2 transition-all duration-200 text-left group',
+                  'relative p-5 rounded-xl border-2 transition-all duration-300 ease-out text-left group hover:-translate-y-1 hover:shadow-lg',
                   form.order_type === 'shipping'
                     ? 'border-primary-500 bg-primary-50 ring-2 ring-primary-200'
                     : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50',
@@ -196,7 +196,7 @@
                 type="button"
                 @click="form.order_type = 'crossing'"
                 :class="[
-                  'relative p-5 rounded-xl border-2 transition-all duration-200 text-left group',
+                  'relative p-5 rounded-xl border-2 transition-all duration-300 ease-out text-left group hover:-translate-y-1 hover:shadow-lg',
                   form.order_type === 'crossing'
                     ? 'border-amber-500 bg-amber-50 ring-2 ring-amber-200'
                     : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50',
@@ -277,163 +277,149 @@
             >
               <div
                 v-if="form.order_type === 'crossing'"
-                class="mt-6 space-y-4 overflow-hidden"
+                class="mt-6 bg-white rounded-2xl shadow-sm border border-gray-100 p-6 overflow-hidden"
               >
-                <!-- Step 1: Contact via WhatsApp -->
-                <div class="bg-green-50 border border-green-200 rounded-xl p-5">
-                  <div class="flex items-start gap-4">
-                    <div class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
-                      <span class="text-green-700 font-bold text-sm">1</span>
-                    </div>
-                    <div class="flex-1">
-                      <h4 class="font-semibold text-green-900 mb-1">
-                        {{ t.crossingStep1Title }}
-                      </h4>
-                      <p class="text-sm text-green-700 mb-4">
-                        {{ t.crossingStep1Desc }}
-                      </p>
-                      
-                      <!-- WhatsApp Button -->
-                      <a
-                        :href="whatsappLink"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        class="inline-flex items-center gap-2 px-5 py-2.5 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-xl transition-all duration-200 shadow-sm hover:shadow-md"
+                <p class="text-[12px] font-semibold text-gray-400 uppercase tracking-[0.18em] mb-6">{{ t.crossHowTitle }}</p>
+
+                <!-- Animated 3-step timeline (amber accent, truck payoff) -->
+                <div class="how-timeline amber relative flex flex-col sm:flex-row sm:justify-between gap-1 sm:gap-0 pt-1">
+                  <div class="hidden sm:block how-line absolute top-5 left-[16%] right-[16%] h-0.5 rounded-full"></div>
+                  <template v-for="(s, i) in crossSteps" :key="i">
+                    <div class="how-step relative flex sm:flex-col sm:items-center sm:text-center items-center gap-3 sm:gap-0 sm:flex-1" :style="{ '--i': i }">
+                      <span
+                        class="how-dot grid place-items-center w-10 h-10 rounded-full shrink-0 ring-1"
+                        :class="s.premium ? 'bg-gradient-to-br from-amber-400 to-amber-500 ring-0 text-white shadow-md shadow-amber-500/30' : 'bg-white ring-gray-200 text-gray-400'"
                       >
-                        <!-- WhatsApp Icon -->
-                        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-                        </svg>
-                        {{ t.contactWhatsApp }}
-                      </a>
+                        <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="s.icon"/></svg>
+                      </span>
+                      <p class="sm:mt-2.5 text-[13px] font-medium text-gray-800 leading-tight sm:px-1">{{ s.title }}</p>
                     </div>
-                  </div>
+                    <div v-if="i < crossSteps.length - 1" class="sm:hidden ml-5 h-3 border-l border-gray-200"></div>
+                  </template>
                 </div>
 
-                <!-- Step 2: Drop-off Location -->
-                <div class="bg-amber-50 border border-amber-200 rounded-xl p-5">
-                  <div class="flex items-start gap-4">
-                    <div class="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
-                      <span class="text-amber-700 font-bold text-sm">2</span>
-                    </div>
-                    <div class="flex-1">
-                      <h4 class="font-semibold text-amber-900 mb-1">
-                        {{ t.crossingStep2Title }}
-                      </h4>
-                      <p class="text-sm text-amber-700 mb-4">
-                        {{ t.crossingStep2Desc }}
-                      </p>
-                      
-                      <!-- Drop-off Address Card -->
-                      <div class="bg-white rounded-xl p-4 border border-amber-200 shadow-sm">
-                        <div class="flex items-start gap-3">
-                          <div class="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                            <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                            </svg>
-                          </div>
-                          <div class="flex-1 min-w-0">
-                            <p class="font-semibold text-gray-900 text-sm">
-                              {{ t.dropoffLocationLabel }}
-                            </p>
-                            <p class="text-gray-700 text-sm mt-1">
-                              482 W San Ysidro Blvd
-                            </p>
-                            <p class="text-gray-500 text-sm">
-                              San Ysidro, CA 92173, USA
-                            </p>
-                            
-                            <!-- Google Maps Link -->
-                            <a
-                              href="https://maps.app.goo.gl/WdAQUazcDSTdV9WV8"
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              class="inline-flex items-center gap-1.5 mt-3 text-sm font-medium text-amber-600 hover:text-amber-700 transition-colors"
-                            >
-                              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
-                              </svg>
-                              {{ t.openInGoogleMaps }}
-                            </a>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Step 3: Pickup in Tijuana -->
-                <div class="bg-blue-50 border border-blue-200 rounded-xl p-5">
-                  <div class="flex items-start gap-4">
-                    <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                      <span class="text-blue-700 font-bold text-sm">3</span>
-                    </div>
-                    <div class="flex-1">
-                      <h4 class="font-semibold text-blue-900 mb-1">
-                        {{ t.crossingStep3Title }}
-                      </h4>
-                      <p class="text-sm text-blue-700 mb-4">
-                        {{ t.crossingStep3Desc }}
-                      </p>
-                      
-                      <!-- Pickup Address Card -->
-                      <div class="bg-white rounded-xl p-4 border border-blue-200 shadow-sm">
-                        <div class="flex items-start gap-3">
-                          <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                            <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z"/>
-                            </svg>
-                          </div>
-                          <div class="flex-1 min-w-0">
-                            <p class="font-semibold text-gray-900 text-sm">
-                              {{ t.pickupLocationLabel }}
-                            </p>
-                            <p class="text-gray-700 text-sm mt-1">
-                              Av. Jalisco 2850, Local 5
-                            </p>
-                            <p class="text-gray-500 text-sm">
-                              Col. Madero (Cacho), Tijuana, BC 22040
-                            </p>
-                            
-                            <!-- Google Maps Link -->
-                            <a
-                              href="https://maps.app.goo.gl/4SsEVjy2D4noFM9n8"
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              class="inline-flex items-center gap-1.5 mt-3 text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
-                            >
-                              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
-                              </svg>
-                              {{ t.openInGoogleMaps }}
-                            </a>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Important Note -->
-                <div class="bg-gray-50 border border-gray-200 rounded-xl p-4 flex items-start gap-3">
-                  <svg
-                    class="w-5 h-5 text-gray-500 flex-shrink-0 mt-0.5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
+                <!-- WhatsApp CTA -->
+                <a
+                  :href="whatsappLink"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="mt-6 flex sm:inline-flex w-full sm:w-auto items-center justify-center gap-2 px-5 py-3 bg-[#25D366] hover:bg-[#20bd5a] text-white font-semibold rounded-xl transition-colors shadow-sm hover:shadow active:scale-[0.99]"
+                >
+                  <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
                   </svg>
-                  <p class="text-sm text-gray-600">
-                    {{ t.crossingImportantNote }}
-                  </p>
+                  {{ t.contactWhatsApp }}
+                </a>
+
+                <!-- Warehouse addresses (drop-off + pickup) -->
+                <div class="mt-5 grid gap-3 sm:grid-cols-2">
+                  <div class="rounded-xl border border-gray-200 p-4">
+                    <p class="text-[11px] font-semibold text-amber-600 uppercase tracking-wide">{{ t.crossDropoffCaption }}</p>
+                    <p class="font-semibold text-gray-900 text-sm mt-1.5">Bodega San Diego</p>
+                    <p class="text-gray-600 text-sm">482 W San Ysidro Blvd</p>
+                    <p class="text-gray-400 text-sm">San Ysidro, CA 92173, USA</p>
+                    <a href="https://maps.app.goo.gl/WdAQUazcDSTdV9WV8" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 mt-2.5 text-sm font-semibold text-amber-600 hover:text-amber-700 transition-colors">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0zM15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                      {{ t.openInGoogleMaps }}
+                    </a>
+                  </div>
+                  <div class="rounded-xl border border-gray-200 p-4">
+                    <p class="text-[11px] font-semibold text-amber-600 uppercase tracking-wide">{{ t.crossPickupCaption }}</p>
+                    <p class="font-semibold text-gray-900 text-sm mt-1.5">Bodega Tijuana</p>
+                    <p class="text-gray-600 text-sm">Av. Jalisco 2850, Local 5</p>
+                    <p class="text-gray-400 text-sm">Col. Madero (Cacho), Tijuana, BC 22040</p>
+                    <a href="https://maps.app.goo.gl/4SsEVjy2D4noFM9n8" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 mt-2.5 text-sm font-semibold text-amber-600 hover:text-amber-700 transition-colors">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0zM15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                      {{ t.openInGoogleMaps }}
+                    </a>
+                  </div>
                 </div>
+
+                <!-- Important note -->
+                <div class="mt-4 flex items-start gap-2 bg-amber-50 rounded-xl p-3 text-xs text-amber-800 leading-snug">
+                  <svg class="w-4 h-4 flex-shrink-0 mt-0.5 text-amber-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                  <span>{{ t.crossingImportantNote }}</span>
+                </div>
+              </div>
+            </Transition>
+          </div>
+
+          <!-- How it works + when do I pay (process education) -->
+          <div
+            v-if="form.order_type === 'shipping'"
+            class="bg-white rounded-2xl shadow-sm border border-gray-100 mb-6 overflow-hidden animate-fadeIn transition-all duration-300 ease-out hover:shadow-md"
+          >
+            <button
+              type="button"
+              @click="showHow = !showHow"
+              class="w-full flex items-center justify-between gap-3 p-5 text-left hover:bg-gray-50/60 transition-colors"
+            >
+              <div class="flex items-center gap-3 min-w-0">
+                <span class="w-10 h-10 rounded-xl bg-primary-50 text-primary-600 grid place-items-center flex-shrink-0">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                </span>
+                <div class="min-w-0">
+                  <h2 class="text-base font-bold text-gray-900">{{ t.howTitle }}</h2>
+                  <p class="text-sm text-gray-500 truncate">{{ t.howSubtitle }}</p>
+                </div>
+              </div>
+              <svg
+                class="w-5 h-5 text-gray-400 flex-shrink-0 transition-transform duration-300"
+                :class="showHow ? 'rotate-180' : ''"
+                fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"
+              ><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+
+            <Transition
+              enter-active-class="transition ease-out duration-300"
+              enter-from-class="opacity-0 max-h-0"
+              enter-to-class="opacity-100 max-h-[900px]"
+              leave-active-class="transition ease-in duration-200"
+              leave-from-class="opacity-100 max-h-[900px]"
+              leave-to-class="opacity-0 max-h-0"
+            >
+              <div v-if="showHow" class="px-5 pb-5 overflow-hidden">
+                <!-- Visual timeline with a highlight that glides from stage to stage -->
+                <div class="how-timeline relative flex flex-col sm:flex-row sm:justify-between gap-1 sm:gap-0 pt-1">
+                  <div class="hidden sm:block how-line absolute top-5 left-[10%] right-[10%] h-0.5 rounded-full"></div>
+                  <template v-for="(s, i) in howSteps" :key="i">
+                    <div class="how-step relative flex sm:flex-col sm:items-center sm:text-center items-center gap-3 sm:gap-0 sm:flex-1" :style="{ '--i': i }">
+                      <span
+                        class="how-dot grid place-items-center w-10 h-10 rounded-full shrink-0 ring-1"
+                        :class="s.trust ? 'bg-white ring-primary-200 text-primary-600 how-dot-trust'
+                          : s.premium ? 'bg-gradient-to-br from-primary-500 to-indigo-600 ring-0 text-white shadow-md shadow-primary-500/30'
+                          : 'bg-white ring-gray-200 text-gray-400'"
+                      >
+                        <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="s.icon"/></svg>
+                      </span>
+                      <p class="sm:mt-2.5 text-[13px] font-medium text-gray-800 leading-tight sm:px-1">{{ s.title }}</p>
+                    </div>
+                    <div v-if="i < howSteps.length - 1" class="sm:hidden ml-5 h-3 border-l border-gray-200"></div>
+                  </template>
+                </div>
+
+                <!-- One concise trust line -->
+                <p class="mt-6 text-center text-xs text-gray-500 leading-relaxed">
+                  <span class="font-semibold text-gray-700">{{ t.howTrustStrong }}</span> {{ t.howTrustRest }}
+                </p>
+
+                <!-- Pricing catalog link (new tab so the form isn't lost) -->
+                <NuxtLink
+                  to="/app/pricing"
+                  target="_blank"
+                  class="mt-4 flex items-center justify-between gap-3 rounded-xl border border-primary-100 bg-primary-50/50 hover:bg-primary-50 p-3.5 transition-colors group"
+                >
+                  <span class="flex items-center gap-2.5 min-w-0">
+                    <span class="w-8 h-8 rounded-lg bg-white border border-primary-100 grid place-items-center text-primary-600 flex-shrink-0">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+                    </span>
+                    <span class="min-w-0">
+                      <span class="block text-sm font-semibold text-gray-900">{{ t.howPricingLink }}</span>
+                      <span class="block text-xs text-gray-500 truncate">{{ t.howPricingBody }}</span>
+                    </span>
+                  </span>
+                  <svg class="w-4 h-4 text-primary-600 flex-shrink-0 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                </NuxtLink>
               </div>
             </Transition>
           </div>
@@ -453,23 +439,23 @@
                 <div class="flex items-center justify-between">
                   <div>
                     <h2 class="text-lg font-bold text-gray-900">{{ t.deliveryAddressTitle }}</h2>
-                    <p class="text-sm text-gray-500 mt-1">{{ useFullAddress ? t.fullAddressDescription : t.quickAddressSearchDescription }}</p>
+                    <p class="text-sm text-gray-500 mt-1">{{ useFullAddress ? t.pasteAddressDescription : t.individualFieldsDescription }}</p>
                   </div>
-                  <!-- Toggle Switch -->
+                  <!-- Toggle: OFF = paste (default), ON = one-by-one campos individuales -->
                   <div class="flex items-center gap-2">
-                    <span class="text-sm text-gray-500">{{ useFullAddress ? t.useFullAddress : t.useIndividualFields }}</span>
+                    <span class="text-sm text-gray-500">{{ t.useIndividualFields }}</span>
                     <button
                       type="button"
                       @click="useFullAddress = !useFullAddress"
                       :class="[
                         'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-                        useFullAddress ? 'bg-primary-500' : 'bg-gray-200'
+                        !useFullAddress ? 'bg-primary-500' : 'bg-gray-200'
                       ]"
                     >
                       <span
                         :class="[
                           'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-                          useFullAddress ? 'translate-x-5' : 'translate-x-0'
+                          !useFullAddress ? 'translate-x-5' : 'translate-x-0'
                         ]"
                       />
                     </button>
@@ -487,7 +473,8 @@
                   </span>
                   <input
                     id="gmaps_link"
-                    type="url"
+                    type="text"
+                    inputmode="url"
                     v-model="form.delivery_address.google_maps_link"
                     :placeholder="t.gmapsLinkPlaceholder"
                     class="w-full pl-11 pr-4 py-3 rounded-xl border border-gray-200 text-base focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
@@ -528,10 +515,23 @@
                       id="full_address"
                       v-model="form.delivery_address.full_address"
                       rows="3"
-                      class="w-full px-4 py-3 rounded-xl border border-gray-200 text-base focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 resize-none"
+                      class="w-full px-4 py-3 rounded-xl border text-base focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200 resize-none"
+                      :class="detectedPostal ? 'border-emerald-300 focus:ring-emerald-400' : 'border-gray-200 focus:ring-primary-500'"
                       :placeholder="t.fullAddressPlaceholder"
-                      required
                     ></textarea>
+
+                    <!-- Live postal-code check — the one thing we must verify -->
+                    <div class="mt-2 min-h-[20px]">
+                      <p v-if="detectedPostal" class="inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-700">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        {{ t.postalDetected }} <span class="font-mono font-bold tracking-wide">{{ detectedPostal }}</span>
+                      </p>
+                      <p v-else-if="(form.delivery_address.full_address || '').trim()" class="inline-flex items-center gap-1.5 text-sm font-medium text-amber-600">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>
+                        {{ t.postalMissing }}
+                      </p>
+                      <p v-else class="text-xs text-gray-400">{{ t.postalHint }}</p>
+                    </div>
                   </div>
 
                   <!-- Save Address Checkbox -->
@@ -645,7 +645,31 @@ const loading = ref(false);
 const loadingProfile = ref(true);
 const errorMessage = ref("");
 const hasLoadedSavedAddress = ref(false);
-const useFullAddress = ref(false);
+// Default to the easy paste mode (Google Maps link or the address as it appears on
+// Maps). The one-by-one "campos individuales" is the opt-in alternative.
+const useFullAddress = ref(true);
+
+// Process-education panel (open by default so customers are informed before they start).
+const showHow = ref(true);
+const howSteps = computed(() => [
+  // 1) shop in the US + send to your Boxly locker — shopping bag
+  { title: t.value.howStep1, icon: "M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" },
+  // 2) create the shipment (free) — document + plus
+  { title: t.value.howStep2, icon: "M9 12h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" },
+  // 3) we receive, consolidate & cross it for you — shield check (we handle it)
+  { title: t.value.howStep3, icon: "M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" },
+  // 4) you pay ONLY once it's crossed & in Mexico, ready to fly — banknotes (the value moment)
+  { title: t.value.howStep4, icon: "M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z", trust: true },
+  // 5) same day it flies by plane to your door — paper airplane (premium payoff)
+  { title: t.value.howStep5, icon: "M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5", premium: true },
+]);
+
+// Crossing-only ("Solo Cruce") process — chat → drop-off → truck pickup (premium).
+const crossSteps = computed(() => [
+  { title: t.value.crossStep1, icon: "M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" },
+  { title: t.value.crossStep2, icon: "M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" },
+  { title: t.value.crossStep3, icon: "M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0zM13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1", premium: true },
+]);
 
 // WhatsApp number and pre-filled message
 const whatsappNumber = "16195591910"; // Your WhatsApp number
@@ -718,6 +742,17 @@ const hasGmapsLink = computed(() =>
   /^https?:\/\//i.test((form.value.delivery_address.google_maps_link || "").trim())
 );
 
+// The free-text address can be written however the customer likes (references,
+// landmarks, etc.) — the ONE thing we require to continue is a valid 5-digit
+// Mexican postal code somewhere in the text, since every address needs it.
+const detectedPostal = computed(() => {
+  // Find digit groups and pick one that's EXACTLY 5 long (a Mexican CP). Using
+  // \d{5,} + a length check avoids regex lookbehind, which older iOS Safari can't
+  // parse — and it ignores 4-digit street numbers and long phone numbers.
+  const groups = (form.value.delivery_address.full_address || "").match(/\d{5,}/g) || [];
+  return groups.find((g) => g.length === 5) || null;
+});
+
 const isFormValid = computed(() => {
   // For crossing orders, no address needed
   if (form.value.order_type === "crossing") {
@@ -734,9 +769,9 @@ const isFormValid = computed(() => {
     return true;
   }
 
-  // Full address mode - just need the full_address string
+  // Full address mode — allow any free text, but require a valid postal code in it.
   if (useFullAddress.value) {
-    return addr.full_address && addr.full_address.trim().length > 0;
+    return !!detectedPostal.value;
   }
 
   // Individual fields mode
@@ -886,21 +921,54 @@ const translations = {
     en: "Individual fields",
   },
   fullAddressLabel: {
-    es: "Dirección Completa",
-    en: "Full Address",
+    es: "O pega tu dirección (como aparece en Google Maps)",
+    en: "Or paste your address (as it appears on Google Maps)",
   },
   fullAddressPlaceholder: {
-    es: "Ej: Calle Principal 123, Col. Centro, Tijuana, BC 22000",
-    en: "E.g.: Main Street 123, Downtown, Tijuana, BC 22000",
+    es: "Ej: Av. Jalisco 3415, Madero Sur, 22046 Tijuana, B.C.",
+    en: "E.g.: Av. Jalisco 3415, Madero Sur, 22046 Tijuana, B.C.",
   },
   fullAddressDescription: {
     es: "Ingresa tu dirección completa en un solo campo",
     en: "Enter your complete address in a single field",
   },
+  postalDetected: { es: "Código postal detectado:", en: "Postal code detected:" },
+  postalMissing: { es: "Incluye tu código postal de 5 dígitos para continuar.", en: "Include your 5-digit postal code to continue." },
+  postalHint: { es: "Escribe tu dirección — incluye tu código postal de 5 dígitos (puedes agregar referencias).", en: "Write your address — include your 5-digit postal code (you can add landmarks)." },
+  pasteAddressDescription: {
+    es: "Pega el link de Google Maps o tu dirección tal como aparece en Google Maps.",
+    en: "Paste your Google Maps link or your address exactly as it appears on Google Maps.",
+  },
+  individualFieldsDescription: {
+    es: "Captura tu dirección campo por campo.",
+    en: "Enter your address field by field.",
+  },
   deliveryAddressTitle: {
     es: "Dirección de Entrega",
     en: "Delivery Address",
   },
+  // Process-education panel
+  howTitle: { es: "¿Cómo funciona y cuándo pago?", en: "How it works & when do I pay?" },
+  howSubtitle: { es: "Y lo mejor: pagas hasta el final.", en: "And best of all: you pay only at the end." },
+  howStep1: { es: "Compra y envía", en: "Shop & send" },
+  howStep2: { es: "Creas tu envío", en: "Create your shipment" },
+  howStep3: { es: "Recibimos y cruzamos", en: "We receive & cross it" },
+  howStep4: { es: "Pagas ya en México", en: "You pay — already in Mexico" },
+  howStep5: { es: "Vuela el mismo día", en: "It flies the same day" },
+  howTrustStrong: { es: "Pagas hasta que tu caja ya cruzó y está lista para volar.", en: "You pay only once your box has crossed and is ready to fly." },
+  howTrustRest: {
+    es: "Sin pagos por adelantado — nosotros nos encargamos de la recepción, la consolidación y el cruce. El mismo día que pagas recibes tu guía y tu caja vuela por avión. ✈️",
+    en: "No upfront payments — we handle receiving, consolidation and the border crossing. The same day you pay you get your guía and your box flies by air. ✈️",
+  },
+  howPricingLink: { es: "Ver catálogo de precios", en: "See pricing catalog" },
+  howPricingBody: { es: "Tamaños de caja, tarifas y cómo funciona.", en: "Box sizes, rates and how it works." },
+  // Crossing-only process
+  crossHowTitle: { es: "Cómo funciona el cruce", en: "How the crossing works" },
+  crossStep1: { es: "Coordina por WhatsApp", en: "Coordinate on WhatsApp" },
+  crossStep2: { es: "Entrega en San Diego", en: "Drop off in San Diego" },
+  crossStep3: { es: "Recoge en Tijuana", en: "Pick up in Tijuana" },
+  crossDropoffCaption: { es: "Entregas aquí", en: "Drop off here" },
+  crossPickupCaption: { es: "Recoges aquí", en: "Pick up here" },
 };
 
 const t = createTranslations(translations);
@@ -1035,6 +1103,8 @@ const handleCreateOrder = async () => {
         body.delivery_address = {
           full_address: form.value.delivery_address.full_address,
         };
+        // Capture the postal code we detected in the free text, structured too.
+        if (detectedPostal.value) body.delivery_address.postal_code = detectedPostal.value;
       } else {
         body.delivery_address = {
           street: form.value.delivery_address.street,
@@ -1103,5 +1173,50 @@ onMounted(() => {
 }
 .animate-fadeIn {
   animation: fadeIn 0.5s ease-out;
+}
+
+/* --- Process timeline: a highlight that glides stage → stage --- */
+/* Theme colour (R,G,B) — blue for shipping, amber for crossing (.amber). */
+.how-timeline { --glow: 37, 99, 235; }
+.how-timeline.amber { --glow: 245, 158, 11; }
+
+.how-line {
+  background: #e5e7eb;
+  overflow: hidden;
+}
+/* a soft coloured band that sweeps along the connector line, looping */
+.how-line::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 32%;
+  background: linear-gradient(90deg, transparent, rgba(var(--glow), 0.55), transparent);
+  animation: howSweep 4.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+@keyframes howSweep {
+  0% { transform: translateX(-120%); }
+  100% { transform: translateX(430%); }
+}
+
+/* each stage lights up as the sweep passes it (staggered by its index) */
+.how-dot {
+  transition: box-shadow 0.3s ease, transform 0.3s ease;
+  animation: howPulse 4.5s ease-in-out infinite;
+  animation-delay: calc(var(--i) * 0.62s);
+}
+.how-dot-trust {
+  box-shadow: 0 0 0 4px rgba(var(--glow), 0.08);
+}
+@keyframes howPulse {
+  0% { box-shadow: 0 0 0 0 rgba(var(--glow), 0); transform: scale(1); }
+  6% { box-shadow: 0 10px 26px -8px rgba(var(--glow), 0.55); transform: scale(1.14); }
+  16%, 100% { box-shadow: 0 0 0 0 rgba(var(--glow), 0); transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .how-line::after,
+  .how-dot {
+    animation: none;
+  }
 }
 </style>

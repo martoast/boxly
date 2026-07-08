@@ -65,9 +65,9 @@
               <span class="absolute -bottom-20 -left-12 w-60 h-60 rounded-full bg-indigo-400/25 blur-3xl pointer-events-none"></span>
               <svg class="absolute top-6 right-7 w-5 h-5 text-amber-300/90 pointer-events-none animate-pulse" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.7 5.6L19 9l-5.3 1.4L12 16l-1.7-5.6L5 9l5.3-1.4z" /></svg>
               <div class="relative">
-                <span class="inline-flex items-center gap-1.5 text-[12px] font-bold tracking-wide text-white/85 bg-white/10 border border-white/15 rounded-full px-3 py-1">🇺🇸 ➜ 🇲🇽 Tu Estados Unidos</span>
+                <span class="inline-flex items-center gap-1.5 text-[12px] font-bold tracking-wide text-white/85 bg-white/10 border border-white/15 rounded-full px-3 py-1">🇺🇸 → 🇲🇽 De EE. UU. a tu casa en México</span>
                 <h1 class="mt-3.5 text-[27px] md:text-[38px] font-extrabold leading-[1.06] tracking-tight">Compra en EE. UU. como<br class="hidden sm:block"> si vivieras allá.</h1>
-                <p class="mt-2.5 text-[14.5px] md:text-[16.5px] text-white/85 max-w-lg leading-snug">Recibe cualquier producto, de cualquier tienda de Estados Unidos, directo a tu casa en México. Sin VPN, sin tarjeta americana.</p>
+                <p class="mt-2.5 text-[14.5px] md:text-[16.5px] text-white/85 max-w-xl leading-snug">Compra en cualquier tienda de Estados Unidos. Si no puedes comprar, nosotros lo hacemos por ti. Si ya compraste, envíalo a tu casillero Boxly. En ambos casos, lo entregamos hasta la puerta de tu casa en México.</p>
                 <NuxtLink to="/app/search" class="mt-5 inline-flex items-center gap-2 px-5 py-3 rounded-full bg-white text-primary-700 text-[14.5px] font-bold shadow-lg shadow-primary-900/20 hover:bg-white/95 active:scale-[.98] transition">
                   <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.7 5.6L19 9l-5.3 1.4L12 16l-1.7-5.6L5 9l5.3-1.4z" /></svg>
                   Buscar y cotizar con IA
@@ -198,34 +198,12 @@
                 <svg class="w-5 h-5 text-gray-300 group-hover:text-primary-500 group-hover:translate-x-0.5 transition-all shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
               </NuxtLink>
 
-              <!-- Tu envío actual — collapsed by default; auto-expands when leaving soon -->
-              <div v-if="currentShipment" class="mt-4 rounded-2xl border border-primary-200 bg-gradient-to-b from-primary-50/60 to-white overflow-hidden">
-                <button @click="shipmentExpanded = !shipmentExpanded" class="w-full flex items-center justify-between gap-2 px-5 py-3.5 text-left">
-                  <span class="flex items-center gap-2 min-w-0">
-                    <svg class="w-[18px] h-[18px] text-primary-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" :d="ICONS.box" /></svg>
-                    <span class="text-[14px] font-bold text-gray-900">Tu envío</span>
-                    <span class="text-[13px] font-semibold text-primary-600">({{ currentShipment.count }})</span>
-                    <span v-if="currentShipment.soon && currentShipment.ship" class="text-[12.5px] text-gray-400 truncate">· sale {{ currentShipment.ship }}</span>
-                  </span>
-                  <svg class="w-4 h-4 text-gray-400 shrink-0 transition-transform duration-300" :class="shipmentExpanded ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M19 9l-7 7-7-7" /></svg>
-                </button>
-                <Transition name="expand">
-                  <div v-if="shipmentExpanded" class="px-5 pb-5">
-                    <div class="h-2.5 rounded-full bg-gray-100 overflow-hidden">
-                      <div class="h-full rounded-full bg-primary-500 transition-all duration-700" :style="{ width: currentShipment.fill + '%' }"></div>
-                    </div>
-                    <div class="flex flex-wrap items-center gap-x-4 gap-y-0.5 mt-2.5 text-[13px]">
-                      <span class="font-semibold text-gray-900">{{ currentShipment.count }} {{ currentShipment.count === 1 ? 'producto' : 'productos' }}</span>
-                      <span v-if="currentShipment.ship" class="text-gray-500">Sale {{ currentShipment.ship }}</span>
-                      <span class="text-primary-600 font-medium">Aprovecha el espacio antes del próximo envío</span>
-                    </div>
-                    <button @click="pickSuggestion('Quiero agregar más productos a mi envío actual')" class="mt-4 w-full inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-primary-500 hover:bg-primary-600 active:scale-[.98] text-white text-[13px] font-bold transition-all shadow-sm shadow-primary-500/20">
-                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 4v16m8-8H4" /></svg>
-                      Agregar más productos
-                    </button>
-                  </div>
-                </Transition>
-              </div>
+              <!-- Shipment history — a quiet link, not a product-like card -->
+              <NuxtLink to="/app/orders" class="mt-4 flex items-center justify-center gap-1.5 text-[13px] font-semibold text-gray-500 hover:text-primary-600 transition-colors group">
+                <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" :d="ICONS.box" /></svg>
+                Ver mis envíos
+                <svg class="w-3.5 h-3.5 opacity-60 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+              </NuxtLink>
             </div>
           </div>
         </div>

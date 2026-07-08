@@ -1,242 +1,49 @@
 <!-- components/OrderProgressTimeline.vue -->
 <template>
-  <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-    <div class="px-4 sm:px-6 py-4 border-b border-gray-200">
-      <div class="flex items-center justify-between">
-        <h2 class="text-lg font-semibold text-gray-900">
-          {{ t.orderProgress }}
-        </h2>
-        <!-- Order Type Badge -->
-
-      </div>
+  <div class="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
+    <div class="flex items-center justify-between mb-6">
+      <h2 class="text-lg font-semibold text-gray-900">{{ t.orderProgress }}</h2>
+      <span class="inline-flex items-center gap-1.5 text-xs font-semibold text-primary-700 bg-primary-50 px-2.5 py-1 rounded-full">
+        <span class="relative flex h-1.5 w-1.5">
+          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary-400 opacity-70"></span>
+          <span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-primary-500"></span>
+        </span>
+        {{ currentLabel }}
+      </span>
     </div>
 
-    <div class="p-4 sm:p-6">
-      <!-- Progress Steps -->
-      <div class="relative">
-        <!-- Vertical line -->
+    <!-- Horizontal stepper — an endless wave of light ripples through each phase -->
+    <div class="px-1 pt-2 pb-1">
+      <div class="flex">
         <div
-          class="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-200"
-          aria-hidden="true"
-        ></div>
+          v-for="(step, i) in steps"
+          :key="i"
+          class="relative flex-1 flex flex-col items-center text-center px-1"
+          :style="{ '--i': i }"
+        >
+          <!-- connector from the previous dot -->
+          <span
+            v-if="i > 0"
+            class="absolute top-5 right-1/2 left-[-50%] h-0.5 rounded-full transition-colors duration-300"
+            :class="steps[i - 1].state === 'done' ? (steps[i - 1].success ? 'bg-emerald-500' : 'bg-primary-500') : 'bg-gray-200'"
+          ></span>
 
-        <!-- SHIPPING ORDER TIMELINE (5 steps mapped to statuses:
-             created → awaiting_packages/packages_complete → awaiting_payment → shipped → delivered) -->
-        <div v-if="!isCrossing" class="space-y-6 relative">
+          <!-- dot -->
+          <span
+            class="pt-dot relative z-10 grid place-items-center w-10 h-10 rounded-full ring-1 transition-all duration-300"
+            :class="[dotClass(step), step.state === 'active' ? 'pt-active' : '']"
+          >
+            <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="step.icon" /></svg>
+            <span v-if="step.state === 'done'" class="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-white grid place-items-center">
+              <span class="w-3.5 h-3.5 rounded-full grid place-items-center" :class="step.success ? 'bg-emerald-500' : 'bg-primary-600'">
+                <svg class="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" stroke-width="3.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+              </span>
+            </span>
+          </span>
 
-          <!-- Step 1: Order Registered -->
-          <div class="flex items-start gap-4">
-            <div class="relative flex-shrink-0">
-              <div :class="['w-8 h-8 rounded-full flex items-center justify-center', order.created_at ? 'bg-primary-600' : 'bg-gray-200']">
-                <svg v-if="order.created_at" class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                </svg>
-                <div v-else class="w-3 h-3 rounded-full bg-white"></div>
-              </div>
-            </div>
-            <div class="flex-1 min-w-0">
-              <p :class="['text-sm font-medium', order.created_at ? 'text-gray-900' : 'text-gray-500']">{{ t.orderRegistered }}</p>
-              <p v-if="order.created_at" class="text-xs text-gray-600 mt-0.5">{{ formatDate(order.created_at) }}</p>
-              <p v-if="order.items?.length" class="text-xs text-gray-500 mt-1">{{ order.items.length }} {{ t.itemsAddedCount }}</p>
-              <p v-if="sdReceivedActive" class="text-xs text-gray-500 mt-1">{{ t.awaitingSdNote }}</p>
-            </div>
-          </div>
-
-          <!-- Step 2: Received in San Diego -->
-          <div class="flex items-start gap-4">
-            <div class="relative flex-shrink-0">
-              <div :class="['w-8 h-8 rounded-full flex items-center justify-center', sdReceivedDone ? 'bg-primary-600' : 'bg-gray-200']">
-                <svg v-if="sdReceivedDone" class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                </svg>
-                <div v-else-if="sdReceivedActive" class="w-3 h-3 rounded-full bg-amber-400 animate-pulse"></div>
-                <div v-else class="w-3 h-3 rounded-full bg-white"></div>
-              </div>
-            </div>
-            <div class="flex-1 min-w-0">
-              <p :class="['text-sm font-medium', sdReceivedDone || sdReceivedActive ? 'text-gray-900' : 'text-gray-500']">{{ t.receivedSd }}</p>
-              <p :class="['text-xs mt-0.5', sdReceivedDone ? 'text-gray-600' : sdReceivedActive ? 'text-amber-600' : 'text-gray-400']">
-                {{ sdReceivedDone ? t.receivedSdDesc : sdReceivedActive ? t.pendingSd : t.pending }}
-              </p>
-            </div>
-          </div>
-
-          <!-- Step 3: In transfer to Mexico -->
-          <div class="flex items-start gap-4">
-            <div class="relative flex-shrink-0">
-              <div :class="['w-8 h-8 rounded-full flex items-center justify-center', transferDone ? 'bg-primary-600' : 'bg-gray-200']">
-                <svg v-if="transferDone" class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                </svg>
-                <div v-else-if="transferActive" class="w-3 h-3 rounded-full bg-amber-400 animate-pulse"></div>
-                <div v-else class="w-3 h-3 rounded-full bg-white"></div>
-              </div>
-            </div>
-            <div class="flex-1 min-w-0">
-              <p :class="['text-sm font-medium', transferDone || transferActive ? 'text-gray-900' : 'text-gray-500']">{{ t.inTransferMx }}</p>
-              <p :class="['text-xs mt-0.5', transferDone ? 'text-gray-600' : transferActive ? 'text-amber-600' : 'text-gray-400']">
-                {{ transferDone ? t.transferDoneDesc : transferActive ? t.transferActiveDesc : t.pending }}
-              </p>
-              <p v-if="transferActive" class="text-xs text-amber-600 font-medium mt-0.5">{{ t.transferEta }}</p>
-            </div>
-          </div>
-
-          <!-- Step 4: Received in Mexico -->
-          <div class="flex items-start gap-4">
-            <div class="relative flex-shrink-0">
-              <div :class="['w-8 h-8 rounded-full flex items-center justify-center', receivedDone ? 'bg-primary-600' : 'bg-gray-200']">
-                <svg v-if="receivedDone" class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                </svg>
-                <div v-else class="w-3 h-3 rounded-full bg-white"></div>
-              </div>
-            </div>
-            <div class="flex-1 min-w-0">
-              <p :class="['text-sm font-medium', receivedDone ? 'text-gray-900' : 'text-gray-500']">{{ t.receivedMx }}</p>
-              <p :class="['text-xs mt-0.5', receivedDone ? 'text-gray-600' : 'text-gray-400']">
-                {{ receivedDone ? t.receivedMxDesc : t.pendingReceived }}
-              </p>
-            </div>
-          </div>
-
-          <!-- Step 5: Quote Ready (awaiting_payment) -->
-          <div class="flex items-start gap-4">
-            <div class="relative flex-shrink-0">
-              <div :class="['w-8 h-8 rounded-full flex items-center justify-center', quoteDone ? 'bg-primary-600' : 'bg-gray-200']">
-                <svg v-if="quoteDone" class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                </svg>
-                <div v-else-if="quoteActive" class="w-3 h-3 rounded-full bg-amber-400 animate-pulse"></div>
-                <div v-else class="w-3 h-3 rounded-full bg-white"></div>
-              </div>
-            </div>
-            <div class="flex-1 min-w-0">
-              <p :class="['text-sm font-medium', quoteDone || quoteActive ? 'text-gray-900' : 'text-gray-500']">{{ t.quoteReady }}</p>
-              <p :class="['text-xs mt-0.5', quoteDone ? 'text-gray-600' : quoteActive ? 'text-amber-600' : 'text-gray-400']">
-                {{ quoteDone ? t.quoteReadyDesc : quoteActive ? t.quotePreparingDesc : t.pending }}
-              </p>
-            </div>
-          </div>
-
-          <!-- Step 6: Paid (Final) — paid is our last tracked step -->
-          <div class="flex items-start gap-4">
-            <div class="relative flex-shrink-0">
-              <div :class="['w-8 h-8 rounded-full flex items-center justify-center', paidDone ? 'bg-green-600' : 'bg-gray-200']">
-                <svg v-if="paidDone" class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                </svg>
-                <div v-else-if="paidActive" class="w-3 h-3 rounded-full bg-amber-400 animate-pulse"></div>
-                <div v-else class="w-3 h-3 rounded-full bg-white"></div>
-              </div>
-            </div>
-            <div class="flex-1 min-w-0">
-              <p :class="['text-sm font-medium', paidDone || paidActive ? 'text-gray-900' : 'text-gray-500']">{{ t.paidStep }}</p>
-              <p v-if="order.paid_at" class="text-xs text-green-600 mt-0.5">{{ t.orderCompleteDesc }} - {{ formatDate(order.paid_at) }}</p>
-              <p v-else :class="['text-xs mt-0.5', paidActive ? 'text-amber-600' : 'text-gray-400']">
-                {{ paidActive ? t.paidPendingActive : t.pending }}
-              </p>
-            </div>
-          </div>
-
-        </div>
-
-        <!-- CROSSING ORDER TIMELINE -->
-        <div v-else class="space-y-6 relative">
-
-          <!-- Step 1: Order Created -->
-          <div class="flex items-start gap-4">
-            <div class="relative flex-shrink-0">
-              <div :class="['w-8 h-8 rounded-full flex items-center justify-center', order.created_at ? 'bg-primary-600' : 'bg-gray-200']">
-                <svg v-if="order.created_at" class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                </svg>
-                <div v-else class="w-3 h-3 rounded-full bg-white"></div>
-              </div>
-            </div>
-            <div class="flex-1 min-w-0">
-              <p :class="['text-sm font-medium', order.created_at ? 'text-gray-900' : 'text-gray-500']">{{ t.orderCreated }}</p>
-              <p v-if="order.created_at" class="text-xs text-gray-600 mt-0.5">{{ formatDate(order.created_at) }}</p>
-              <p v-if="order.items?.length" class="text-xs text-gray-500 mt-1">{{ order.items.length }} {{ t.itemsAddedCount }}</p>
-            </div>
-          </div>
-
-          <!-- Step 2: Packages at Warehouse -->
-          <div class="flex items-start gap-4">
-            <div class="relative flex-shrink-0">
-              <div :class="['w-8 h-8 rounded-full flex items-center justify-center', isStatusReached('packages_complete') ? 'bg-primary-600' : 'bg-gray-200']">
-                <svg v-if="isStatusReached('packages_complete')" class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                </svg>
-                <div v-else-if="order.status === 'awaiting_packages'" class="w-3 h-3 rounded-full bg-amber-400 animate-pulse"></div>
-                <div v-else class="w-3 h-3 rounded-full bg-white"></div>
-              </div>
-            </div>
-            <div class="flex-1 min-w-0">
-              <p :class="['text-sm font-medium', isStatusReached('packages_complete') ? 'text-gray-900' : 'text-gray-500']">{{ t.packagesAtWarehouse }}</p>
-              <p :class="['text-xs mt-0.5', isStatusReached('packages_complete') ? 'text-gray-600' : order.status === 'awaiting_packages' ? 'text-amber-600' : 'text-gray-400']">
-                {{ isStatusReached('packages_complete') ? t.allPackagesReceived : order.status === 'awaiting_packages' ? t.waitingForPackages : t.pendingPackages }}
-              </p>
-            </div>
-          </div>
-
-          <!-- Step 3: Crossing Border -->
-          <div class="flex items-start gap-4">
-            <div class="relative flex-shrink-0">
-              <div :class="['w-8 h-8 rounded-full flex items-center justify-center', isStatusReached('processing') ? 'bg-primary-600' : 'bg-gray-200']">
-                <svg v-if="isStatusReached('processing')" class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                </svg>
-                <div v-else-if="order.status === 'packages_complete'" class="w-3 h-3 rounded-full bg-amber-400 animate-pulse"></div>
-                <div v-else class="w-3 h-3 rounded-full bg-white"></div>
-              </div>
-            </div>
-            <div class="flex-1 min-w-0">
-              <p :class="['text-sm font-medium', isStatusReached('processing') ? 'text-gray-900' : 'text-gray-500']">{{ t.crossingBorder }}</p>
-              <p :class="['text-xs mt-0.5', isStatusReached('processing') ? 'text-gray-600' : order.status === 'packages_complete' ? 'text-amber-600' : 'text-gray-400']">
-                {{ isStatusReached('processing') ? t.crossingToMexico : order.status === 'packages_complete' ? t.readyToCross : t.pendingCrossing }}
-              </p>
-              <p v-if="order.processing_started_at" class="text-xs text-gray-500 mt-1">{{ formatDate(order.processing_started_at) }}</p>
-            </div>
-          </div>
-
-          <!-- Step 4: Ready for Pickup -->
-          <div class="flex items-start gap-4">
-            <div class="relative flex-shrink-0">
-              <div :class="['w-8 h-8 rounded-full flex items-center justify-center', isStatusReached('shipped') ? 'bg-amber-600' : 'bg-gray-200']">
-                <svg v-if="isStatusReached('shipped')" class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                </svg>
-                <div v-else-if="order.status === 'processing'" class="w-3 h-3 rounded-full bg-amber-400 animate-pulse"></div>
-                <div v-else class="w-3 h-3 rounded-full bg-white"></div>
-              </div>
-            </div>
-            <div class="flex-1 min-w-0">
-              <p :class="['text-sm font-medium', isStatusReached('shipped') ? 'text-gray-900' : 'text-gray-500']">{{ t.readyForPickup }}</p>
-              <p :class="['text-xs mt-0.5', isStatusReached('shipped') ? 'text-amber-600' : order.status === 'processing' ? 'text-amber-600' : 'text-gray-400']">
-                {{ isStatusReached('shipped') ? t.readyAtWarehouse : order.status === 'processing' ? t.preparingForPickup : t.pendingReady }}
-              </p>
-            </div>
-          </div>
-
-          <!-- Step 5: Full Payment (100%) — Final. Paid is our last tracked step -->
-          <div class="flex items-start gap-4">
-            <div class="relative flex-shrink-0">
-              <div :class="['w-8 h-8 rounded-full flex items-center justify-center', crossingPaidDone ? 'bg-green-600' : 'bg-gray-200']">
-                <svg v-if="crossingPaidDone" class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                </svg>
-                <div v-else-if="order.status === 'shipped' && !crossingPaidDone" class="w-3 h-3 rounded-full bg-orange-400 animate-pulse"></div>
-                <div v-else class="w-3 h-3 rounded-full bg-white"></div>
-              </div>
-            </div>
-            <div class="flex-1 min-w-0">
-              <p :class="['text-sm font-medium', crossingPaidDone ? 'text-gray-900' : 'text-gray-500']">{{ t.fullPaymentStatus }}</p>
-              <p v-if="crossingPaidDone" class="text-xs text-green-600 mt-0.5">{{ t.paymentConfirmed }}{{ crossingPaidDate ? ` (${formatDate(crossingPaidDate)})` : '' }}</p>
-              <p v-else-if="order.status === 'shipped'" class="text-xs text-orange-600 font-medium mt-0.5">{{ t.paymentRequired }}</p>
-              <p v-else class="text-xs text-gray-400 mt-0.5">{{ t.pendingPayment }}</p>
-            </div>
-          </div>
-
+          <p class="mt-2.5 text-[11px] sm:text-xs font-semibold leading-tight" :class="step.state === 'pending' ? 'text-gray-400' : 'text-gray-800'">{{ step.label }}</p>
+          <span v-if="step.state === 'active'" class="mt-1 inline-block text-[9px] font-bold uppercase tracking-wide text-primary-600 bg-primary-50 px-1.5 py-0.5 rounded">{{ t.now }}</span>
+          <span v-else-if="step.state === 'done' && step.date" class="mt-1 text-[10px] text-gray-400">{{ formatDate(step.date) }}</span>
         </div>
       </div>
     </div>
@@ -247,145 +54,106 @@
 import { computed } from 'vue'
 
 const props = defineProps({
-  order: {
-    type: Object,
-    required: true,
-  },
+  order: { type: Object, required: true },
 });
 
 const user = useUser().value;
 const { t: createTranslations } = useLanguage();
 
-// Check if this is a crossing order
 const isCrossing = computed(() => props.order.order_type === 'crossing')
 
-// Status order for SHIPPING (New Flow)
-// packages_complete → awaiting_payment → processing → shipped → delivered
-const shippingStatusOrder = [
-  "collecting",
-  "awaiting_packages",
-  "packages_complete",
-  "awaiting_payment",
-  "processing",
-  "paid",      // Legacy status - treat same as processing
-  "shipped",
-  "delivered",
-];
+const ICON = {
+  doc: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4",
+  inbox: "M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4",
+  truck: "M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0zM13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1",
+  camera: "M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9zM15 13a3 3 0 11-6 0 3 3 0 016 0z",
+  plane: "M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5",
+  store: "M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z",
+}
 
-// Status order for CROSSING (different flow!)
-const crossingStatusOrder = [
-  "collecting",
-  "awaiting_packages",
-  "packages_complete",
-  "processing",
-  "shipped",  // Ready for pickup
-  "paid",     // Payment received
-  "delivered", // Picked up
-];
+const shippingStatusOrder = ["collecting", "awaiting_packages", "packages_complete", "awaiting_payment", "processing", "paid", "shipped", "delivered"];
+const crossingStatusOrder = ["collecting", "awaiting_packages", "packages_complete", "processing", "shipped", "paid", "delivered"];
 
 const isStatusReached = (targetStatus) => {
   const statusOrder = isCrossing.value ? crossingStatusOrder : shippingStatusOrder;
-  const currentIndex = statusOrder.indexOf(props.order.status);
-  const targetIndex = statusOrder.indexOf(targetStatus);
-  return currentIndex >= targetIndex;
+  return statusOrder.indexOf(props.order.status) >= statusOrder.indexOf(targetStatus);
 };
 
-// ── Shipping timeline (7 steps) — done (✓) states, cumulative via status order ──
-// Key fact: `packages_complete` = received at our SAN DIEGO warehouse (NOT Mexico).
-// The package is then transferred to Mexico; the quote (awaiting_payment) is only
-// generated once it's RECEIVED IN MEXICO — so awaiting_payment ⇒ in Mexico.
-const sdReceivedDone = computed(() => isStatusReached('packages_complete'))  // Step 2 (received in San Diego)
-const sdReceivedActive = computed(() => ['collecting', 'awaiting_packages'].includes(props.order.status))
-const transferDone = computed(() => isStatusReached('awaiting_payment'))     // Step 3 (transfer done once in Mexico)
-const transferActive = computed(() => props.order.status === 'packages_complete')
-const receivedDone = computed(() => isStatusReached('awaiting_payment'))     // Step 4 (received in Mexico)
-const quoteDone = computed(() => isStatusReached('processing'))              // Step 5 (quote done once paid/processing)
-const quoteActive = computed(() => props.order.status === 'awaiting_payment')
-// Step 6 (final): Paid — our last tracked step. Green once paid, amber while payment is pending.
-const paidDone = computed(() => !!props.order.paid_at || isStatusReached('paid'))
-const paidActive = computed(() => props.order.status === 'awaiting_payment' && !props.order.paid_at)
-
-// Crossing final step: payment. New crossing orders use paid_at; legacy used deposit_paid_at.
 const crossingPaidDone = computed(() => !!props.order.paid_at || !!props.order.deposit_paid_at || isStatusReached('paid'))
 const crossingPaidDate = computed(() => props.order.paid_at || props.order.deposit_paid_at)
+
+// Three customer-facing milestones (we don't track the San Diego arrival, so we
+// don't show it): Registrada → En México (crossed/received — where updates begin)
+// → Enviado (plane). Crossing swaps the last stage for pickup-ready.
+const steps = computed(() => {
+  const s = props.order.status
+  if (isCrossing.value) {
+    return [
+      { label: t.value.stepRegistered, icon: ICON.doc, state: 'done', date: props.order.created_at },
+      { label: t.value.stepMexico, icon: ICON.camera, state: isStatusReached('shipped') ? 'done' : ['collecting', 'awaiting_packages', 'packages_complete', 'processing'].includes(s) ? 'active' : 'pending' },
+      { label: t.value.stepReady, icon: ICON.store, success: true, state: s === 'delivered' ? 'done' : ['shipped', 'paid'].includes(s) ? 'active' : 'pending', date: crossingPaidDone.value ? crossingPaidDate.value : null },
+    ]
+  }
+  return [
+    { label: t.value.stepRegistered, icon: ICON.doc, state: 'done', date: props.order.created_at },
+    { label: t.value.stepMexico, icon: ICON.camera, state: isStatusReached('processing') ? 'done' : ['collecting', 'awaiting_packages', 'packages_complete', 'awaiting_payment'].includes(s) ? 'active' : 'pending' },
+    { label: t.value.stepShipped, icon: ICON.plane, success: true, state: isStatusReached('shipped') ? 'done' : ['paid', 'processing'].includes(s) ? 'active' : 'pending' },
+  ]
+})
+
+const dotClass = (step) =>
+  step.state === 'done'
+    ? (step.success ? 'bg-emerald-600 ring-0 text-white shadow-sm shadow-emerald-500/30' : 'bg-primary-600 ring-0 text-white shadow-sm shadow-primary-500/30')
+    : step.state === 'active'
+      ? 'bg-white ring-primary-500 text-primary-600'
+      : 'bg-white ring-gray-200 text-gray-300'
+
+const currentLabel = computed(() => {
+  const active = steps.value.find((s) => s.state === 'active')
+  if (active) return active.label
+  const lastDone = [...steps.value].reverse().find((s) => s.state === 'done')
+  return lastDone ? lastDone.label : ''
+})
 
 const formatDate = (date) => {
   if (!date) return "";
   const d = new Date(date);
   const locale = user?.preferred_language === "es" ? "es-MX" : "en-US";
-  return d.toLocaleDateString(locale, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
+  return d.toLocaleDateString(locale, { month: "short", day: "numeric" });
 };
 
 const translations = {
   orderProgress: { es: "Progreso de la Orden", en: "Order Progress" },
-  shipping: { es: "Envío", en: "Shipping" },
-
-  // Common
-  itemsAddedCount: { es: "artículo(s)", en: "item(s)" },
-  orderCreated: { es: "Orden Creada", en: "Order Created" },
-  packagesAtWarehouse: { es: "Paquetes en Almacén", en: "Packages at Warehouse" },
-  allPackagesReceived: { es: "Todos los paquetes recibidos", en: "All packages received" },
-  waitingForPackages: { es: "Esperando llegada de paquetes", en: "Waiting for packages to arrive" },
-  pendingPackages: { es: "Pendiente de recepción", en: "Pending reception" },
-  pending: { es: "Pendiente", en: "Pending" },
-  orderCompleteDesc: { es: "¡Completado!", en: "Completed!" },
-  pendingPayment: { es: "Pendiente de pago del envío", en: "Pending payment" },
-
-  // Shipping specific (7-step flow)
-  orderRegistered: { es: "✅ Orden Registrada", en: "✅ Order Registered" },
-  awaitingSdNote: { es: "Estamos esperando que la tienda entregue tu paquete en San Diego.", en: "We're waiting for the store to deliver your package to San Diego." },
-  receivedSd: { es: "📦 Recibido en San Diego", en: "📦 Received in San Diego" },
-  receivedSdDesc: { es: "Tu paquete llegó a nuestra dirección de San Diego.", en: "Your package arrived at our San Diego address." },
-  pendingSd: { es: "Esperando que la tienda lo entregue en San Diego", en: "Waiting for the store to deliver it to San Diego" },
-  inTransferMx: { es: "🚚 En transferencia a México", en: "🚚 In transfer to Mexico" },
-  transferDoneDesc: { es: "Trasladado a México", en: "Moved to Mexico" },
-  transferActiveDesc: { es: "BOXLY está trasladando tu paquete a México.", en: "BOXLY is moving your package to Mexico." },
-  transferEta: { es: "Tiempo estimado para recepción en México: 2–3 días hábiles.", en: "Estimated time to be received in Mexico: 2–3 business days." },
-  receivedMx: { es: "🇲🇽 Recibido en México", en: "🇲🇽 Received in Mexico" },
-  receivedMxDesc: { es: "Tu paquete llegó a México", en: "Your package arrived in Mexico" },
-  pendingReceived: { es: "Pendiente de recepción en México", en: "Pending reception in Mexico" },
-  quoteReady: { es: "💳 Cotización lista", en: "💳 Quote Ready" },
-  quoteReadyDesc: { es: "Cotización generada", en: "Quote generated" },
-  quotePreparingDesc: { es: "Preparando cotización", en: "Preparing quote" },
-  paidStep: { es: "✅ Pagado", en: "✅ Paid" },
-  paidPendingActive: { es: "Esperando tu pago", en: "Awaiting your payment" },
-  shippedLabel: { es: "✈️ Enviado", en: "✈️ Shipped" },
-  paymentConfirmed: { es: "Pago Confirmado", en: "Payment Confirmed" },
-  paymentRequired: { es: "Pago Requerido", en: "Payment Required" },
-  preparingShipment: { es: "Preparando envío", en: "Preparing shipment" },
-  pendingShipment: { es: "Pendiente de envío", en: "Pending shipment" },
-  delivered: { es: "🎉 Entregado", en: "🎉 Delivered" },
-  inTransit: { es: "En tránsito", en: "In transit" },
-  pendingDelivery: { es: "Pendiente de entrega", en: "Pending delivery" },
-
-  // Crossing specific
-  crossingBorder: { es: "Cruzando la Frontera", en: "Crossing the Border" },
-  crossingToMexico: { es: "Cruzando a México", en: "Crossing to Mexico" },
-  readyToCross: { es: "Listo para cruzar", en: "Ready to cross" },
-  pendingCrossing: { es: "Pendiente de cruce", en: "Pending crossing" },
-  readyForPickup: { es: "Listo para Recoger", en: "Ready for Pickup" },
-  readyAtWarehouse: { es: "Disponible en bodega de Tijuana", en: "Available at Tijuana warehouse" },
-  preparingForPickup: { es: "Preparando para recolección", en: "Preparing for pickup" },
-  pendingReady: { es: "Pendiente", en: "Pending" },
-  fullPaymentStatus: { es: "Pago Completo (100%)", en: "Full Payment (100%)" },
-  pickedUp: { es: "Recogido", en: "Picked Up" },
-  readyToCollect: { es: "Puedes recoger tu paquete", en: "You can pick up your package" },
-  pendingPickup: { es: "Pendiente de recolección", en: "Pending pickup" },
+  now: { es: "Ahora", en: "Now" },
+  stepRegistered: { es: "Registrada", en: "Registered" },
+  stepMexico: { es: "En México", en: "In Mexico" },
+  stepShipped: { es: "Enviado", en: "Shipped" },
+  stepReady: { es: "Listo", en: "Ready" },
 };
 
 const t = createTranslations(translations);
 </script>
 
 <style scoped>
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+/* Endless "carousel" cadence: a ping ripple travels dot → dot, forever, so the
+   whole journey is always visibly coming into fruition. */
+.pt-dot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  pointer-events: none;
+  animation: ptPing 3.4s ease-out infinite;
+  animation-delay: calc(var(--i) * 0.45s);
 }
-.animate-pulse {
-  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+@keyframes ptPing {
+  0% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.45); }
+  40%, 100% { box-shadow: 0 0 0 10px rgba(37, 99, 235, 0); }
+}
+/* the current phase keeps a persistent ring so "you are here" is always clear */
+.pt-active { box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.14); }
+
+@media (prefers-reduced-motion: reduce) {
+  .pt-dot::after { animation: none; }
 }
 </style>
