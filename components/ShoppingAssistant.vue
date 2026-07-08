@@ -372,6 +372,28 @@
                       <NuxtLink to="/app/purchase-requests" class="inline-block mt-2 text-xs font-semibold text-green-800 underline active:scale-95 transition-transform">Ver mis solicitudes →</NuxtLink>
                     </div>
 
+                    <!-- Self-import order registered → rich confirmation card -->
+                    <div v-else-if="part.type === 'tool-create_self_order' && part.state === 'output-available' && part.output?.success && part.output?.order_number" class="rounded-2xl border border-emerald-200 bg-gradient-to-b from-emerald-50/80 to-white p-4 max-w-md shadow-sm">
+                      <div class="flex items-center gap-2">
+                        <span class="grid place-items-center w-8 h-8 rounded-full bg-emerald-500 text-white shrink-0"><svg class="w-4.5 h-4.5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 011.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z" clip-rule="evenodd"/></svg></span>
+                        <div>
+                          <p class="text-sm font-bold text-gray-900 leading-tight">Pedido registrado</p>
+                          <p class="text-[12px] text-gray-500 leading-tight">Guarda tu número: <span class="font-semibold text-gray-700">{{ part.output.order_number }}</span></p>
+                        </div>
+                      </div>
+                      <ul v-if="(part.output.items || []).length" class="mt-3 space-y-1 border-t border-emerald-100 pt-2.5">
+                        <li v-for="(it, ii) in part.output.items" :key="ii" class="flex items-center justify-between gap-2 text-[13px] text-gray-700">
+                          <span class="truncate">{{ it.quantity > 1 ? it.quantity + '× ' : '' }}{{ it.title }}</span>
+                          <span v-if="it.price" class="shrink-0 font-semibold text-gray-500">${{ it.price }}</span>
+                        </li>
+                      </ul>
+                      <p class="text-[11.5px] text-gray-400 mt-2.5">Lo recibimos en San Diego, lo consolidamos y te avisamos. Pagas la caja al enviar.</p>
+                      <div class="flex flex-wrap items-center gap-2 mt-3">
+                        <NuxtLink to="/app/orders" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[12.5px] font-semibold active:scale-95 transition-all">Ver mi envío →</NuxtLink>
+                        <NuxtLink to="/app/pricing" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-gray-200 text-gray-700 text-[12.5px] font-semibold hover:bg-gray-50 active:scale-95 transition-all">💰 Precios de cajas</NuxtLink>
+                      </div>
+                    </div>
+
                     <!-- Tappable follow-ups (cross-sell / build-the-set) -->
                     <div v-else-if="part.type === 'tool-suggest_followups' && part.state === 'output-available' && part.output?.suggestions?.length" class="flex flex-wrap gap-2 mt-1">
                       <button
@@ -804,10 +826,12 @@ async function submitSelfOrder() {
     }
 
     const toolCallId = pendingSelfOrder.value.toolCallId
+    // Compact item summary for the in-chat confirmation card (and for the model).
+    const summary = items.map((it) => ({ title: it.title, quantity: it.quantity || 1, price: it.price ?? null }))
     pendingSelfOrder.value = null
     selfOrder.file = null
     lastComposerFile.value = null // consumed as this order's proof
-    await chat.addToolResult({ tool: 'create_self_order', toolCallId, output: { success: true, order_number: orderNumber } })
+    await chat.addToolResult({ tool: 'create_self_order', toolCallId, output: { success: true, order_number: orderNumber, items: summary, count: summary.length } })
     loadConversations().catch(() => {})
   } catch (e) {
     selfOrderError.value = e?.data?.message || 'No se pudo crear el pedido. Intenta de nuevo.'

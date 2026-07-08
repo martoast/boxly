@@ -49,6 +49,22 @@
               {{ t.dashboard }}
             </button>
 
+            <!-- Pricing -->
+            <button
+              @click="handleNavigation('/app/pricing')"
+              :class="[
+                isActiveRoute('/app/pricing')
+                  ? 'border-primary-500 text-gray-900'
+                  : 'border-transparent text-gray-600 hover:border-gray-300 hover:text-gray-900',
+                'inline-flex items-center border-b-2 px-1 pt-1 text-sm font-medium transition-colors duration-200',
+              ]"
+            >
+              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
+              </svg>
+              {{ t.pricing }}
+            </button>
+
             <!-- Orders Dropdown -->
             <div
               class="relative inline-flex h-full group"
@@ -344,6 +360,25 @@
           </div>
         </DisclosureButton>
 
+        <!-- Pricing -->
+        <DisclosureButton
+          as="button"
+          @click="handleNavigation('/app/pricing')"
+          :class="[
+            isActiveRoute('/app/pricing')
+              ? 'bg-primary-50 border-primary-500 text-primary-600'
+              : 'border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900',
+            'block border-l-4 py-2 pl-3 pr-4 text-base font-medium sm:pl-5 sm:pr-6 w-full text-left',
+          ]"
+        >
+          <div class="flex items-center">
+            <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
+            </svg>
+            {{ t.pricing }}
+          </div>
+        </DisclosureButton>
+
         <!-- Mobile Orders Section -->
         <div class="pl-4">
           <p class="px-3 pt-2 pb-1 text-xs font-semibold text-gray-500 uppercase tracking-wider">{{ t.orders }}</p>
@@ -503,6 +538,7 @@ const { t: createTranslations } = useLanguage();
 const translations = {
   appName: { es: 'Tu Casillero USA', en: 'Your USA Address' },
   dashboard: { es: 'Panel Principal', en: 'Dashboard' },
+  pricing: { es: 'Precios', en: 'Pricing' },
   assistant: { es: 'Asistente IA', en: 'AI Assistant' },
   orders: { es: 'Mis Envios', en: 'My Orders' },
   allOrders: { es: 'Todos los Envios', en: 'All Orders' },
