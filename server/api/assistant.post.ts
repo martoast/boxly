@@ -190,6 +190,24 @@ async function pdfPartsToText(messages: any[]): Promise<any[]> {
   return out
 }
 
+// No-arg tool calls (show_orders, list_orders, show_shipment…) get persisted with
+// `input` as an empty ARRAY [] instead of {}. Replayed to Gemini, that serializes
+// functionCall.args as a list, which the API hard-rejects ("Unknown name args …
+// Proto field is not repeating, cannot start list") and kills the whole turn with
+// no reply — the real cause of "I sent a message and got nothing back". Coerce any
+// array tool input back to a plain object.
+function sanitizeToolInputs(messages: any[]): any[] {
+  return (messages || []).map((m) => {
+    if (!Array.isArray(m?.parts)) return m
+    const parts = m.parts.map((p: any) =>
+      typeof p?.type === 'string' && p.type.startsWith('tool-') && Array.isArray(p.input)
+        ? { ...p, input: {} }
+        : p
+    )
+    return { ...m, parts }
+  })
+}
+
 // Drop tool-call parts that never reached a terminal state (no output) before
 // replaying history to the model. A tool_use without a matching tool_result is
 // invalid for Anthropic and makes the next turn fail silently — which happens
@@ -521,7 +539,7 @@ export default defineEventHandler(async (event) => {
     },
     ...(hubBlock ? [{ role: 'system', content: hubBlock }] : []),
     ...(ctx ? [{ role: 'system', content: ctx }] : []),
-    ...await convertToModelMessages(stripIncompleteToolCalls(await pdfPartsToText(messages))),
+    ...await convertToModelMessages(sanitizeToolInputs(stripIncompleteToolCalls(await pdfPartsToText(messages)))),
   ]
 
   // "One gallery per reply" guard (see GALLERY_TOOLS): a gallery tool flips this
