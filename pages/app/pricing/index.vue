@@ -43,24 +43,23 @@
         </div>
       </div>
 
-      <!-- Value banner -->
-      <div class="mt-6 rounded-2xl bg-gradient-to-br from-emerald-50 to-white border border-emerald-100 p-5 sm:p-6 flex items-start gap-4 shadow-sm">
-        <span class="grid place-items-center w-11 h-11 rounded-xl bg-emerald-500 text-white shadow-sm shadow-emerald-500/30 shrink-0">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9.66 17h4.68M12 3a6 6 0 00-4 10.47V16a1 1 0 001 1h6a1 1 0 001-1v-2.53A6 6 0 0012 3z" /></svg>
+      <!-- Value banner — slim, two inline points -->
+      <div class="mt-5 rounded-xl border border-emerald-100 bg-emerald-50/70 px-4 py-2.5 flex flex-col sm:flex-row sm:items-center sm:justify-center gap-2 sm:gap-5 text-center sm:text-left">
+        <span class="inline-flex items-center justify-center gap-2 text-[13.5px] font-semibold text-emerald-900">
+          <svg class="w-[18px] h-[18px] text-emerald-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.9" d="M9.66 17h4.68M12 3a6 6 0 00-4 10.47V16a1 1 0 001 1h6a1 1 0 001-1v-2.53A6 6 0 0012 3z" /></svg>
+          Entre más juntes en una caja, <span class="text-emerald-600">menos pagas por artículo</span>
         </span>
-        <div>
-          <p class="text-lg sm:text-xl font-extrabold text-gray-900">Llena tu caja. Aprovecha cada envío.</p>
-          <p class="text-[14px] text-gray-500 mt-0.5">Mientras más productos consolides, menor será el costo aproximado por artículo.</p>
-          <span class="inline-flex items-center gap-1.5 mt-2.5 px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 text-[11.5px] font-bold">
-            <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-            Consolida tus compras hasta por 60 días
-          </span>
-        </div>
+        <span class="hidden sm:block w-px h-4 bg-emerald-200"></span>
+        <span class="inline-flex items-center justify-center gap-1.5 text-[13px] font-medium text-emerald-800">
+          <svg class="w-4 h-4 text-emerald-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.9" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+          Consolida hasta 60 días
+        </span>
       </div>
 
-      <!-- how the box limit works -->
-      <p class="mt-6 text-center text-[12.5px] text-gray-500">
+      <!-- how the box limit works + estimate disclaimer -->
+      <p class="mt-5 text-center text-[12.5px] text-gray-500">
         El límite de cada caja es por <span class="font-semibold text-gray-700">volumen o peso</span> — lo que se alcance primero.
+        <span class="block mt-0.5 text-[12px] text-gray-400">Los precios son <span class="font-semibold text-gray-500">estimados</span>; el costo final se confirma al pesar y medir tu caja.</span>
       </p>
 
       <!-- Pricing cards -->
@@ -82,8 +81,9 @@
           </ul>
 
           <div class="mt-auto pt-4">
-            <!-- what you actually pay: the consolidated box price -->
-            <p class="text-2xl font-extrabold text-gray-900 leading-none">${{ b.price.toLocaleString('en-US') }} <span class="text-[13px] font-semibold text-gray-400 align-top">MXN</span></p>
+            <!-- what you actually pay: the consolidated box price (ESTIMATE) -->
+            <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Precio estimado</p>
+            <p class="text-2xl font-extrabold text-gray-900 leading-none">~${{ b.price.toLocaleString('en-US') }} <span class="text-[13px] font-semibold text-gray-400 align-top">MXN</span></p>
             <p class="text-[11px] text-gray-400 mt-0.5">Caja consolidada · todo en un envío</p>
             <!-- value-add: estimated cost per item (greener = better value) -->
             <p class="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-gray-50 border border-gray-100 px-2 py-1 text-[12px] font-bold" :class="perItemColor(b)">
@@ -119,7 +119,7 @@
 
       <!-- footnote -->
       <p class="mt-6 text-[11px] text-gray-400 text-center max-w-2xl mx-auto">
-        Capacidad aproximada. Los pares de tenis se consideran sin caja. La capacidad puede variar según el tamaño y volumen de cada producto.
+        Precios y capacidades <span class="font-semibold text-gray-500">estimados</span>, para orientarte. El costo final del envío se confirma cuando recibimos, pesamos y medimos tu caja. Los pares de tenis se consideran sin caja; la capacidad varía según el tamaño y volumen de cada producto.
       </p>
     </div>
   </section>
