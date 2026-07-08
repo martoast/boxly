@@ -1087,13 +1087,29 @@ function showNoResults(m, part) {
   const isCurrent = m.id === chat.messages[chat.messages.length - 1]?.id
   return !(isBusy.value && isCurrent)
 }
-// Show the typing dots ONLY while the assistant turn has nothing visible yet — once
-// any text or tool widget/spinner appears, that's the indicator (no double bubble).
+// Tool calls that render their OWN in-place loader (spinner/SearchLoader) while
+// running — for these we don't also show the bottom dots (that'd double up).
+const TOOLS_WITH_LOADER = new Set([
+  'tool-search_products', 'tool-browse_store', 'tool-browse_stores',
+  'tool-web_search', 'tool-show_orders', 'tool-plan_in_person',
+])
+// Keep a loading indicator visible WHENEVER the assistant is working, so the chat
+// never goes blank between steps (the "did my click do anything?" confusion). Hide
+// the dots only when the reply is actively streaming TEXT or a tool is showing its
+// own loader — in every other busy moment (user just sent, between tool steps, a
+// tool without its own loader running) the bottom dots fill the gap.
 const showTyping = computed(() => {
-  if (chat.status !== 'submitted' && chat.status !== 'streaming') return false
+  if (!isBusy.value) return false
   const last = chat.messages[chat.messages.length - 1]
-  if (last?.role !== 'assistant') return true // user just sent; assistant forming
-  return !(last.parts || []).some((p) => (p.type === 'text' && p.text) || String(p.type).startsWith('tool-'))
+  if (last?.role !== 'assistant') return true // user just sent — assistant forming
+  const parts = last.parts || []
+  const lastPart = parts[parts.length - 1]
+  if (lastPart?.type === 'text' && lastPart.text) return false // streaming text is the indicator
+  const loadingWithOwnUi =
+    lastPart && String(lastPart.type).startsWith('tool-') &&
+    lastPart.state !== 'output-available' && lastPart.state !== 'output-error' &&
+    TOOLS_WITH_LOADER.has(lastPart.type)
+  return !loadingWithOwnUi
 })
 const activeTitle = computed(() => conversations.value.find((c) => c.id === activeId.value)?.title || 'Asistente')
 
@@ -1477,7 +1493,7 @@ function onAskProduct(p) {
 function onFinalizeShipment() {
   if (isBusy.value) return
   ensureChatToken()
-  const text = 'Pedir mi envío'
+  const text = 'Confirmar mi envío'
   ensureConversation(text)
   chat.sendMessage({ text })
   scrollDown()

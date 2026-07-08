@@ -31,7 +31,7 @@
 
     <!-- actions -->
     <div class="mt-3 flex items-center gap-2">
-      <button type="button" @click="$emit('order')" class="flex-1 py-2 rounded-xl bg-primary-500 hover:bg-primary-600 active:scale-[.97] text-white text-[12.5px] font-bold shadow-sm shadow-primary-500/20 transition-all">Pedir mi envío</button>
+      <button type="button" @click="$emit('order')" class="flex-1 py-2 rounded-xl bg-primary-500 hover:bg-primary-600 active:scale-[.97] text-white text-[12.5px] font-bold shadow-sm shadow-primary-500/20 transition-all">Confirmar mi envío</button>
       <button type="button" @click="$emit('add')" class="px-3 py-2 rounded-xl border border-primary-200 text-primary-700 text-[12.5px] font-semibold hover:bg-primary-50 active:scale-[.97] transition-all">Agregar más</button>
     </div>
     <p class="mt-2 text-[10px] text-gray-400 leading-tight">Estimado para que veas cómo se llena tu caja. El tamaño y el costo final se confirman en tu cotización.</p>
