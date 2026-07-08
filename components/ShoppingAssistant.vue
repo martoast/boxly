@@ -156,6 +156,11 @@
                       <p class="text-gray-700">San Ysidro, CA 92173</p>
                     </div>
                   </div>
+                  <TutorialVideoButton loom-id="34cef0546fd64ca3bf8f11fa89c156cc" class="hidden sm:inline-flex" />
+                </div>
+                <!-- On mobile the tutorial button gets its own row so it never crowds the address -->
+                <div class="relative mt-3 sm:hidden">
+                  <TutorialVideoButton loom-id="34cef0546fd64ca3bf8f11fa89c156cc" />
                 </div>
                 <NuxtLink to="/app/pricing" class="relative mt-3 inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-gray-600 hover:text-primary-600 transition-colors group">
                   <svg class="w-4 h-4 shrink-0 text-gray-400 group-hover:text-primary-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" :d="ICONS.box" /></svg>

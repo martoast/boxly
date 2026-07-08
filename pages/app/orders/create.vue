@@ -448,8 +448,8 @@
             leave-to-class="opacity-0 -translate-y-4"
           >
             <div v-if="form.order_type === 'shipping'">
-              <!-- Address Mode Toggle -->
-              <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6 animate-fadeIn">
+              <!-- Address Mode Toggle (hidden while a Maps link is provided) -->
+              <div v-if="!hasGmapsLink" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6 animate-fadeIn">
                 <div class="flex items-center justify-between">
                   <div>
                     <h2 class="text-lg font-bold text-gray-900">{{ t.deliveryAddressTitle }}</h2>
@@ -499,6 +499,24 @@
                 </a>
               </div>
 
+              <!-- Maps-link confirmation — the written address is optional once we have a link -->
+              <div v-if="hasGmapsLink" class="bg-green-50 rounded-2xl border border-green-200 p-5 mb-6 flex items-start gap-3 animate-fadeIn">
+                <span class="flex-shrink-0 w-9 h-9 rounded-full bg-green-100 text-green-600 grid place-items-center">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                </span>
+                <div class="min-w-0">
+                  <p class="font-semibold text-gray-900 text-sm">{{ t.gmapsConfirmTitle }}</p>
+                  <p class="text-sm text-gray-600 mt-1">{{ t.gmapsConfirmBody }}</p>
+                  <label class="mt-3 flex items-center gap-2 cursor-pointer">
+                    <input v-model="form.save_address" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-primary-500 focus:ring-primary-500" />
+                    <span class="text-sm text-gray-700">{{ t.saveAddressLabel }}</span>
+                  </label>
+                </div>
+              </div>
+
+              <!-- Manual address entry (removed from the DOM while a Maps link is provided,
+                   so its required fields never block submission) -->
+              <template v-if="!hasGmapsLink">
               <!-- Full Address Mode -->
               <div v-if="useFullAddress" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6 animate-fadeIn">
                 <div class="space-y-4">
@@ -547,6 +565,7 @@
                   @update:save-address="form.save_address = $event"
                 />
               </div>
+              </template>
             </div>
           </Transition>
 
@@ -693,6 +712,12 @@ const mexicanStates = [
   "Zacatecas",
 ];
 
+// A pasted Google Maps link (a real URL) is treated as a complete, accurate
+// address — it makes the written-address fields optional and hides them.
+const hasGmapsLink = computed(() =>
+  /^https?:\/\//i.test((form.value.delivery_address.google_maps_link || "").trim())
+);
+
 const isFormValid = computed(() => {
   // For crossing orders, no address needed
   if (form.value.order_type === "crossing") {
@@ -701,6 +726,13 @@ const isFormValid = computed(() => {
 
   // For shipping orders, validate address
   const addr = form.value.delivery_address;
+
+  // A Google Maps link is a complete, accurate address on its own — the most
+  // seamless option — so it satisfies the address requirement by itself.
+  const gmaps = (addr.google_maps_link || "").trim();
+  if (/^https?:\/\//i.test(gmaps)) {
+    return true;
+  }
 
   // Full address mode - just need the full_address string
   if (useFullAddress.value) {
@@ -786,6 +818,14 @@ const translations = {
   gmapsLinkHelp: {
     es: "¿Cómo copio mi link? Abrir Google Maps",
     en: "How do I copy my link? Open Google Maps",
+  },
+  gmapsConfirmTitle: {
+    es: "Usaremos tu ubicación de Google Maps",
+    en: "We'll use your Google Maps location",
+  },
+  gmapsConfirmBody: {
+    es: "Es la forma más precisa de entregarte, así que no necesitas escribir tu dirección. Si prefieres capturarla a mano, borra el link de arriba.",
+    en: "It's the most accurate way to deliver, so you don't need to type your address. If you'd rather enter it by hand, clear the link above.",
   },
   // Address form translations
   quickAddressSearchTitle: {
