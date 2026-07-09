@@ -76,7 +76,8 @@
                 <p class="text-[11px] mt-0.5 ml-[4.5rem] flex items-center gap-1.5 flex-wrap">
                   <span v-if="r.user" class="font-semibold text-gray-600">{{ r.user.name }}</span>
                   <span v-if="r.user" class="text-gray-400">· {{ r.user.email }}</span>
-                  <span v-else class="text-amber-600 font-semibold">Invitado</span>
+                  <span v-if="r.user && r.user.created_at" class="text-emerald-600 font-medium">· cliente desde {{ fmtDate(r.user.created_at) }}</span>
+                  <span v-else-if="!r.user" class="text-amber-600 font-semibold">Invitado</span>
                   <span class="text-gray-300">· {{ fmtDateTime(r.created_at) }}</span>
                   <span v-if="r.conversation_id" class="text-primary-500 font-semibold">· ver chat →</span>
                 </p>
@@ -117,6 +118,7 @@
               <p v-if="thread?.user" class="text-xs mt-0.5">
                 <span class="font-semibold text-gray-700">{{ thread.user.name }}</span>
                 <span class="text-gray-400"> · {{ thread.user.email }}</span>
+                <span v-if="thread.user.created_at" class="text-emerald-600 font-medium"> · cliente desde {{ fmtDate(thread.user.created_at) }}</span>
               </p>
               <p v-else-if="thread && !threadLoading" class="text-xs mt-0.5 text-amber-600 font-semibold">Invitado</p>
               <p v-if="thread?.id" class="text-[11px] text-gray-300 mt-0.5">Chat #{{ thread.id }}</p>
@@ -267,6 +269,12 @@ function toolLabel(name, q, n) {
 function fmtDateTime(d) {
   if (!d) return ''
   try { return new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(d)) } catch { return '' }
+}
+
+// Account-creation date — day-level (no time), used for "Cliente desde …".
+function fmtDate(d) {
+  if (!d) return ''
+  try { return new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(d)) } catch { return '' }
 }
 
 function fmt(n) { return new Intl.NumberFormat('es-MX').format(Number(n) || 0) }

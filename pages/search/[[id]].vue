@@ -15,16 +15,17 @@
 </template>
 
 <script setup>
-// BOXLY Concierge — fully PUBLIC, standalone page at /search (no app navbar).
-// Guests can search; an account is only required to place an order (gated inside
-// the chat). The signed-in profile + login/logout live in the sidebar's bottom-
-// left (ChatGPT-style), not a top nav — this page is heading toward the landing
-// page. `auth-soft` populates `user` when a session exists but never redirects.
+// BOXLY Concierge — standalone page at /search (no app navbar), AUTHENTICATED ONLY.
+// The AI search is no longer open to the public: a guest hitting /search (e.g. from
+// the landing hero's `?q=...` hand-off) is bounced by `auth` to /login?redirect=…;
+// after logging in or registering they return here and the query auto-fires
+// (ShoppingAssistant.initLoggedIn → sendInitialQuery reads ?q). The signed-in
+// profile + logout live in the sidebar's bottom-left (ChatGPT-style), not a top nav.
 // `empty` layout = no chrome. [[id]] keeps deep-links from remounting the page.
 //
 // SSR is ON for /search (see nuxt.config routeRules) so the meta below is in the
 // server HTML for share previews + SEO. The interactive chat is <ClientOnly>.
-definePageMeta({ layout: 'empty', middleware: ['auth-soft'] })
+definePageMeta({ layout: 'empty', middleware: ['auth'] })
 
 const title = 'Boxly — Compra en tiendas de Estados Unidos y recíbelo en México'
 const description =
