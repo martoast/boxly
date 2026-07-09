@@ -136,7 +136,9 @@
               <div v-for="m in thread.messages" :key="m.id" :class="['flex', m.role === 'user' ? 'justify-end' : 'justify-start']">
                 <div :class="['max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm', m.role === 'user' ? 'bg-primary-600 text-white' : 'bg-white border border-gray-100 text-gray-800']">
                   <template v-for="(b, bi) in messageBits(m)" :key="bi">
-                    <p v-if="b.t === 'text'" class="whitespace-pre-wrap leading-relaxed">{{ b.text }}</p>
+                    <!-- Assistant replies are markdown — render them; user messages stay plain (white on primary). -->
+                    <MarkdownText v-if="b.t === 'text' && m.role !== 'user'" :text="b.text" />
+                    <p v-else-if="b.t === 'text'" class="whitespace-pre-wrap leading-relaxed">{{ b.text }}</p>
                     <span v-else :class="['inline-block mt-1 mr-1 text-[11px] font-semibold px-2 py-0.5 rounded-full', m.role === 'user' ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600']">{{ b.label }}</span>
                   </template>
                 </div>
