@@ -46,6 +46,40 @@
           </div>
 
           <div v-else class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4">
+            <!-- AI author — type an idea, the AI drafts the whole article. -->
+            <div class="rounded-2xl border border-primary-100 bg-gradient-to-br from-primary-50/70 via-white to-white p-4">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="grid place-items-center w-7 h-7 rounded-lg bg-gradient-to-br from-primary-500 to-primary-600 text-white shadow-sm">
+                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.7 5.6L19 9l-5.3 1.4L12 16l-1.7-5.6L5 9l5.3-1.4z"/></svg>
+                </span>
+                <div>
+                  <p class="text-sm font-bold text-gray-900">Escríbelo con IA</p>
+                  <p class="text-[11px] text-gray-500 leading-tight">Describe la idea y la IA redacta el artículo. Tú lo revisas antes de guardar.</p>
+                </div>
+              </div>
+              <textarea
+                v-model="aiIdea"
+                rows="2"
+                :disabled="aiBusy"
+                :placeholder="selected.content ? 'Ej: agrega los tiempos del cruce y que mandamos foto…' : 'Ej: explica cuánto tarda el envío a México y qué pasa en la bodega…'"
+                class="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 resize-y"
+                @keydown.meta.enter.prevent="generateWithAI"
+                @keydown.ctrl.enter.prevent="generateWithAI"
+              ></textarea>
+              <div class="flex items-center justify-between gap-2 mt-2">
+                <p class="text-[11px] text-gray-400">No inventa precios ni datos: si falta uno, lo marca <span class="font-mono text-gray-500">[por confirmar]</span>.</p>
+                <button
+                  @click="generateWithAI"
+                  :disabled="aiBusy || !aiIdea.trim()"
+                  class="shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-700 disabled:opacity-50 text-white text-sm font-semibold shadow-md shadow-primary-600/20 transition active:scale-95"
+                >
+                  <svg v-if="aiBusy" class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
+                  <svg v-else class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.7 5.6L19 9l-5.3 1.4L12 16l-1.7-5.6L5 9l5.3-1.4z"/></svg>
+                  {{ aiBusy ? 'Escribiendo…' : (selected.content ? 'Mejorar con IA' : 'Generar con IA') }}
+                </button>
+              </div>
+            </div>
+
             <div class="grid sm:grid-cols-2 gap-3">
               <div class="sm:col-span-2">
                 <label class="block text-xs font-semibold text-gray-500 mb-1">Título</label>
@@ -107,6 +141,8 @@ const busy = ref(false)
 const search = ref('')
 const selected = ref(null)
 const preview = ref(false)
+const aiIdea = ref('')
+const aiBusy = ref(false)
 
 let searchTimer = null
 watch(search, () => { if (searchTimer) clearTimeout(searchTimer); searchTimer = setTimeout(fetchList, 300) })
@@ -133,10 +169,47 @@ async function fetchList() {
 function selectArticle(a) {
   selected.value = { ...a }
   preview.value = false
+  aiIdea.value = ''
 }
 function newArticle() {
   selected.value = { title: '', section: '', content: '', is_published: true, sort_order: 0 }
   preview.value = false
+  aiIdea.value = ''
+}
+
+// AI author — turn the admin's plain-language idea into a full article, filling
+// the title/section/content fields for review. Never auto-saves. When the editor
+// already has content it REFINES it (the server treats the current content as the
+// article to improve), otherwise it writes a fresh one.
+async function generateWithAI() {
+  if (!selected.value || aiBusy.value || !aiIdea.value.trim()) return
+  aiBusy.value = true
+  try {
+    const draft = await $fetch('/api/knowledge-draft', {
+      method: 'POST',
+      body: {
+        idea: aiIdea.value.trim(),
+        currentTitle: selected.value.title || '',
+        currentContent: selected.value.content || '',
+        sections: sections.value,
+      },
+    })
+    if (draft?.content) {
+      // Keep the admin's title/section if they already set one; otherwise take the AI's.
+      selected.value.title = selected.value.title?.trim() || draft.title || ''
+      selected.value.section = selected.value.section?.trim() || draft.section || ''
+      selected.value.content = draft.content
+      preview.value = true // show them the result immediately
+      aiIdea.value = ''
+    } else {
+      alert(draft?.message || 'La IA no pudo generar el artículo.')
+    }
+  } catch (e) {
+    console.error(e)
+    alert(e?.data?.message || 'La IA no pudo generar el artículo. Intenta de nuevo.')
+  } finally {
+    aiBusy.value = false
+  }
 }
 
 async function save() {
