@@ -24,8 +24,6 @@
       <div class="mt-7">
         <HeroSearch />
       </div>
-
-      <p class="mt-4 text-xs text-white/45">{{ t.note }}</p>
     </div>
   </section>
 </template>
@@ -39,6 +37,5 @@ const t = createTranslations({
   badge:    { es: 'Nuevo · Boxly AI', en: 'New · Boxly AI' },
   title:    { es: 'Busca cualquier producto de USA con IA', en: 'Search any US product with AI' },
   subtitle: { es: 'Dile a Boxly AI qué quieres y te encuentra las mejores opciones de todas las tiendas de Estados Unidos en segundos.', en: 'Tell Boxly AI what you want and it finds the best options across every US store in seconds.' },
-  note:     { es: 'Gratis · sin cuenta para empezar', en: 'Free · no account needed to start' },
 })
 </script>
