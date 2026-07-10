@@ -3,7 +3,7 @@ import { createAnthropic } from '@ai-sdk/anthropic'
 import { extractText, getDocumentProxy } from 'unpdf'
 import { z } from 'zod'
 import { FALLBACK_KNOWLEDGE } from '../utils/boxlyKnowledge'
-import { curateProducts } from '../utils/curate'
+import { curateProducts, floatRequestedStore } from '../utils/curate'
 import { chatModel, isGoogle, providerOptions, hasModelKey } from '../utils/aiProvider'
 
 /**
@@ -77,6 +77,25 @@ function lastUserText(messages: any[]): string {
 }
 
 const PRODUCT_TOOLS = new Set(['search_products', 'browse_store', 'browse_stores', 'show_products', 'show_saved_products', 'extract_product', 'web_search'])
+
+// Is this search a PURE store/brand lookup (e.g. "Rhode", "Gymshark", "productos
+// de Nike") rather than an attribute search ("owala rosa", "black wide-leg jeans")?
+// A store-only search wants that brand's catalog shown INSTANTLY — the deterministic
+// store-float already puts the brand first, so we skip the AI relevance re-rank
+// (which can add up to ~3.5s). We only run curate when the shopper added real
+// descriptive terms to filter by. Signal: the `store` param is set, and stripping
+// the store words + generic filler from the query leaves nothing meaningful.
+const STORE_FILLER = new Set(['de', 'del', 'la', 'el', 'los', 'las', 'from', 'in', 'en', 'the', 'a', 'my', 'mi', 'productos', 'products', 'producto', 'product', 'tienda', 'store', 'marca', 'brand', 'all', 'todo', 'toda', 'todos', 'todas', 'cosas', 'articulos', 'articulo', 'items', 'item'])
+function isPureStoreQuery(query: string, store?: string): boolean {
+  if (!store || !store.trim()) return false
+  // NFD + strip non-alphanumerics: "café" → "cafe", so accents don't split tokens.
+  const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[^a-z0-9]+/g, ' ').trim()
+  const q = norm(query)
+  if (!q) return true
+  const storeTokens = new Set(norm(store).split(' ').filter(Boolean))
+  const remaining = q.split(' ').filter((t) => t && !storeTokens.has(t) && !STORE_FILLER.has(t))
+  return remaining.length === 0
+}
 
 // Tools that RENDER a product gallery on the client. We enforce "ONE gallery per
 // reply" in CODE, not just the prompt: once one of these returns products, a
@@ -647,9 +666,15 @@ export default defineEventHandler(async (event) => {
               if (r2 && Array.isArray(r2.products) && r2.products.length) r = r2
             }
           }
-          // One smart pass: relevance + color/attribute match + trust ranking,
-          // then deterministically float the requested store (the explicit param wins).
-          if (r && Array.isArray(r.products)) r.products = await curateProducts(query, r.products, { store })
+          // Store/brand lookup ("Rhode", "Gymshark") → show the catalog INSTANTLY:
+          // just float the brand's own listings first (deterministic, no model call).
+          // Attribute search ("owala rosa", "black jeans size 30") → run the one smart
+          // pass (relevance + color/attribute + trust) and then float the store.
+          if (r && Array.isArray(r.products)) {
+            r.products = isPureStoreQuery(query, store)
+              ? floatRequestedStore(r.products, store)
+              : await curateProducts(query, r.products, { store })
+          }
           return markGallery(r)
         },
         toModelOutput: galleryModelOutput,
