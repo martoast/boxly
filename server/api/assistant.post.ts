@@ -766,6 +766,8 @@ export default defineEventHandler(async (event) => {
             price: z.number().describe('Reference USD price the customer saw (use the sale price if on sale); 0 if unknown.').optional(),
             quantity: z.number().int().min(1).default(1),
             image: z.string().describe('Product image URL if known.').optional(),
+            url: z.string().describe('Direct product URL so Boxly buys the EXACT item — include it whenever you have it (from the registry / the page the user chose).').optional(),
+            notes: z.string().describe('Size/color/variant notes.').optional(),
           })).min(1),
         }),
         execute: async ({ items }) => ({ items: (items || []).map((it) => ({ ...it, quantity: it.quantity || 1 })) }),

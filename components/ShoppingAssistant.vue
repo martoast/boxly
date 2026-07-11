@@ -346,7 +346,19 @@
                   <template v-for="(part, i) in m.parts" :key="'w' + i">
                     <ShipmentCard v-if="part.type === 'tool-show_shipment' && part.state === 'output-available'" :shipment="part.output" @order="onFinalizeShipment" @add="onAddMore" />
 
-                    <AssistedPurchaseCard v-else-if="part.type === 'tool-show_assisted_summary' && part.state === 'output-available'" :summary="part.output" @confirm="confirmAssisted" @edit="editAssisted" />
+                    <template v-else-if="part.type === 'tool-show_assisted_summary' && part.state === 'output-available'">
+                      <!-- Once the request is actually created (deterministically, on
+                           tap — NOT left to the model), swap the summary for the real
+                           success card so we NEVER imply a request exists before it does.
+                           Keyed by toolCallId so multiple assisted summaries in one chat
+                           stay independent. -->
+                      <div v-if="assistedResults[part.toolCallId]" class="bg-green-50 border border-green-200 rounded-2xl p-4 max-w-sm">
+                        <p class="text-sm font-bold text-green-800 flex items-center gap-1.5"><svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 011.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z" clip-rule="evenodd"/></svg> Listo — nosotros nos encargamos 🎉</p>
+                        <p class="text-xs text-green-700 mt-1">Solicitud <span class="font-semibold">{{ assistedResults[part.toolCallId].request_number }}</span> creada. Te enviamos la cotización (producto + servicio + envío) para que la apruebes — no pagas nada todavía.</p>
+                        <NuxtLink to="/app/purchase-requests" class="inline-block mt-2 text-xs font-semibold text-green-800 underline active:scale-95 transition-transform">Ver mis solicitudes →</NuxtLink>
+                      </div>
+                      <AssistedPurchaseCard v-else :summary="part.output" :loading="assistedCreatingId === part.toolCallId" :error="assistedErrors[part.toolCallId] || ''" @confirm="confirmAssisted(part)" @edit="editAssisted" />
+                    </template>
 
                     <BoxGuide v-else-if="part.type === 'tool-show_box_guide' && part.state === 'output-available'" :boxes="part.output?.boxes || []" />
 
@@ -1539,15 +1551,48 @@ function trackOrder(ord) {
   scrollDown()
 }
 
-// Assisted-purchase summary card → Continue creates the request (AI has the items
-// in context). Edit just returns focus to the composer to tweak.
-function confirmAssisted() {
-  if (isBusy.value) return
-  const text = 'Sí, crea mi solicitud de compra asistida con eso.'
-  ensureChatToken()
-  ensureConversation(text)
-  chat.sendMessage({ text })
-  scrollDown()
+// Assisted-purchase summary card → "Continuar" creates the Purchase Request
+// DETERMINISTICALLY here (same pattern as the in-person flow), instead of sending
+// a "sí" message and hoping the model then calls create_purchase_request. That
+// model round-trip was unreliable — it could narrate "tu solicitud fue creada"
+// without the tool firing, so the customer saw a confirmation but NO request was
+// ever persisted. Now the request is created the moment they tap, and the success
+// card only shows a real request_number returned by the API.
+const assistedCreatingId = ref(null)        // toolCallId currently being created
+const assistedErrors = reactive({})         // toolCallId -> error string
+const assistedResults = reactive({})        // toolCallId -> { request_number } (real creation only)
+async function confirmAssisted(part) {
+  const id = part?.toolCallId
+  if (!id || assistedCreatingId.value || assistedResults[id]) return
+  const items = (part?.output?.items || []).map((it) => ({
+    product_name: it.name || it.product_name || 'Producto',
+    product_url: it.url || it.product_url || '',
+    product_image_url: it.image || it.product_image_url || null,
+    price: Number(it.price) || 0,
+    quantity: Math.max(1, Number(it.quantity) || 1),
+    notes: it.notes || undefined,
+  })).filter((it) => it.product_name)
+  // Safety net: if the summary somehow carried no items, fall back to the model
+  // path so the request can still be placed rather than silently doing nothing.
+  if (!items.length) {
+    const text = 'Sí, crea mi solicitud de compra asistida con eso.'
+    ensureChatToken(); ensureConversation(text); chat.sendMessage({ text }); scrollDown()
+    return
+  }
+  assistedErrors[id] = ''
+  assistedCreatingId.value = id
+  try {
+    const res = await $customFetch('/purchase-requests', { method: 'POST', body: { currency: 'usd', items } })
+    const pr = res?.data || res
+    if (!pr?.request_number) throw new Error('no_request_number')
+    assistedResults[id] = { request_number: pr.request_number }
+    loadConversations().catch(() => {})
+    scrollDown()
+  } catch (e) {
+    assistedErrors[id] = e?.data?.message || 'No se pudo crear la solicitud. Intenta de nuevo.'
+  } finally {
+    assistedCreatingId.value = null
+  }
 }
 function editAssisted() { composerRef.value?.focus() }
 
