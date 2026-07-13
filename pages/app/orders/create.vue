@@ -7,33 +7,37 @@
       class="bg-white/90 backdrop-blur-sm shadow-sm border-b border-gray-100"
     >
       <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
-        <div class="flex items-center gap-4">
-          <NuxtLink
-            to="/app/orders"
-            class="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <svg
-              class="w-5 h-5 text-gray-600"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+        <div class="flex items-start sm:items-center justify-between gap-3">
+          <div class="flex items-center gap-3 min-w-0">
+            <NuxtLink
+              to="/app/orders"
+              class="p-2 hover:bg-gray-100 rounded-lg transition-colors shrink-0"
             >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M10 19l-7-7m0 0l7-7m-7 7h18"
-              />
-            </svg>
-          </NuxtLink>
-          <div>
-            <h1 class="text-2xl sm:text-3xl font-extrabold text-gray-900">
-              {{ t.createOrderTitle }}
-            </h1>
-            <p class="text-sm text-gray-600 mt-1">
-              {{ t.createOrderSubtitle }}
-            </p>
+              <svg
+                class="w-5 h-5 text-gray-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M10 19l-7-7m0 0l7-7m-7 7h18"
+                />
+              </svg>
+            </NuxtLink>
+            <div class="min-w-0">
+              <h1 class="text-2xl sm:text-3xl font-extrabold text-gray-900">
+                {{ t.createOrderTitle }}
+              </h1>
+              <p class="text-sm text-gray-600 mt-1">
+                {{ t.createOrderSubtitle }}
+              </p>
+            </div>
           </div>
+          <!-- Casillero/shipping tutorial (same video as the /app hub). -->
+          <TutorialVideoButton loom-id="46437a61757f41aea84c37842cb3f805" class="shrink-0 mt-1 sm:mt-0" />
         </div>
       </div>
     </div>

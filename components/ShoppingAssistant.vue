@@ -67,7 +67,7 @@
               <div class="relative">
                 <span class="inline-flex items-center gap-1.5 text-[12px] font-bold tracking-wide text-white/85 bg-white/10 border border-white/15 rounded-full px-3 py-1">🇺🇸 → 🇲🇽 De EE. UU. a tu casa en México</span>
                 <h1 class="mt-3.5 text-[27px] md:text-[38px] font-extrabold leading-[1.06] tracking-tight">Compra en EE. UU. como<br class="hidden sm:block"> si vivieras allá.</h1>
-                <p class="mt-2.5 text-[14.5px] md:text-[16.5px] text-white/85 max-w-xl leading-snug">Compra en cualquier tienda de EE. UU.<br>¿No puedes comprar? Lo hacemos por ti. ¿Ya compraste? Envíalo a tu casillero Boxly. Nosotros lo llevamos a tu casa en México.</p>
+                <p class="mt-2.5 text-[14.5px] md:text-[16.5px] text-white/85 max-w-xl leading-snug">Compra en cualquier tienda.<br>¿No puedes comprar? Lo hacemos por ti. ¿Ya compraste? Envíalo a tu casillero Boxly. Nosotros lo llevamos a tu casa en México.</p>
                 <NuxtLink to="/app/search" class="mt-5 inline-flex items-center gap-2 px-5 py-3 rounded-full bg-white text-primary-700 text-[14.5px] font-bold shadow-lg shadow-primary-900/20 hover:bg-white/95 active:scale-[.98] transition">
                   <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.7 5.6L19 9l-5.3 1.4L12 16l-1.7-5.6L5 9l5.3-1.4z" /></svg>
                   Buscar y cotizar con IA
@@ -161,12 +161,12 @@
                        `inline-flex` would otherwise beat a `hidden` passed to it, so it
                        leaked onto mobile and showed twice. -->
                   <span class="hidden sm:inline-flex shrink-0">
-                    <TutorialVideoButton loom-id="34cef0546fd64ca3bf8f11fa89c156cc" />
+                    <TutorialVideoButton loom-id="46437a61757f41aea84c37842cb3f805" />
                   </span>
                 </div>
                 <!-- On mobile the tutorial button gets its own row so it never crowds the address -->
                 <div class="relative mt-3 sm:hidden">
-                  <TutorialVideoButton loom-id="34cef0546fd64ca3bf8f11fa89c156cc" />
+                  <TutorialVideoButton loom-id="46437a61757f41aea84c37842cb3f805" />
                 </div>
                 <NuxtLink to="/app/pricing" class="relative mt-3 inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-gray-600 hover:text-primary-600 transition-colors group">
                   <svg class="w-4 h-4 shrink-0 text-gray-400 group-hover:text-primary-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" :d="ICONS.box" /></svg>
@@ -181,7 +181,7 @@
                   </button>
                   <NuxtLink to="/app/casillero?from=/app" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-gray-200 text-gray-600 text-[13px] font-semibold hover:bg-gray-50 hover:border-gray-300 transition active:scale-95">
                     <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="ICONS.pin"/></svg>
-                    Entrega en persona
+                    Entrega en San Diego
                   </NuxtLink>
                 </div>
               </div>
