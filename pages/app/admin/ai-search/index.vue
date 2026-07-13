@@ -141,6 +141,32 @@
                     <!-- Assistant replies are markdown — render them; user messages stay plain (white on primary). -->
                     <MarkdownText v-if="b.t === 'text' && m.role !== 'user'" :text="b.text" />
                     <p v-else-if="b.t === 'text'" class="whitespace-pre-wrap leading-relaxed">{{ b.text }}</p>
+
+                    <!-- Product gallery the customer was actually shown -->
+                    <div v-else-if="b.t === 'products'" class="mt-1.5">
+                      <div class="text-[11px] font-semibold text-gray-400 mb-1">{{ b.label }}</div>
+                      <div class="grid grid-cols-2 gap-1.5">
+                        <a v-for="(pr, pi) in b.products.slice(0, 8)" :key="pi" :href="pr.url || pr.link || undefined" target="_blank" rel="noopener"
+                           class="flex items-center gap-2 bg-gray-50 border border-gray-100 rounded-lg p-1.5 hover:bg-gray-100 transition">
+                          <img v-if="pr.image" :src="pr.image" referrerpolicy="no-referrer" loading="lazy" class="w-9 h-9 rounded object-cover bg-white border border-gray-100 shrink-0" />
+                          <span v-else class="w-9 h-9 rounded bg-gray-200 grid place-items-center text-gray-400 shrink-0 text-xs">🛍</span>
+                          <span class="min-w-0 leading-tight">
+                            <span class="block text-[11px] font-semibold text-gray-800 truncate">{{ pr.title || pr.name || 'Producto' }}</span>
+                            <span class="block text-[10px] text-gray-400 truncate">{{ [pr.store, pr.price != null ? ('$' + pr.price) : null].filter(Boolean).join(' · ') }}</span>
+                          </span>
+                        </a>
+                      </div>
+                      <div v-if="b.products.length > 8" class="text-[10px] text-gray-400 mt-1">+{{ b.products.length - 8 }} más</div>
+                    </div>
+
+                    <!-- Follow-up suggestions the assistant offered -->
+                    <div v-else-if="b.t === 'suggestions'" class="mt-1.5">
+                      <div class="text-[11px] font-semibold text-gray-400 mb-1">{{ b.label }}</div>
+                      <div class="flex flex-wrap gap-1">
+                        <span v-for="(sg, si) in b.items" :key="si" class="text-[11px] bg-gray-100 text-gray-600 rounded-full px-2 py-0.5">{{ sg }}</span>
+                      </div>
+                    </div>
+
                     <span v-else :class="['inline-block mt-1 mr-1 text-[11px] font-semibold px-2 py-0.5 rounded-full', m.role === 'user' ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600']">{{ b.label }}</span>
                   </template>
                 </div>
@@ -232,6 +258,9 @@ function closeThread() { threadOpen.value = false }
 
 // Flatten a stored message ({ parts: [...] }) into renderable bits: text blocks
 // and compact chips for tool calls (search, gallery, order, etc.).
+// Tool calls whose output is a product GALLERY — we render the actual products the
+// customer saw, not just a "16 result" chip, so an admin can review the real chat.
+const GALLERY_TOOLS = new Set(['search_products', 'browse_store', 'browse_stores', 'show_products', 'show_saved_products', 'show_orders'])
 function messageBits(m) {
   const parts = (m?.content?.parts) || (Array.isArray(m?.content) ? m.content : [])
   const bits = []
@@ -241,8 +270,15 @@ function messageBits(m) {
     if (typeof p.type === 'string' && p.type.startsWith('tool-')) {
       const name = p.type.slice(5)
       const q = p.input?.query || p.input?.store || p.input?.store_url
-      const n = Array.isArray(p.output?.products) ? p.output.products.length : null
-      bits.push({ t: 'tool', name, label: toolLabel(name, q, n) })
+      const products = Array.isArray(p.output?.products) ? p.output.products : null
+      const suggestions = Array.isArray(p.output?.suggestions) ? p.output.suggestions : null
+      if (GALLERY_TOOLS.has(name) && products && products.length) {
+        bits.push({ t: 'products', label: toolLabel(name, q, products.length), products })
+      } else if (name === 'suggest_followups' && suggestions && suggestions.length) {
+        bits.push({ t: 'suggestions', label: toolLabel(name), items: suggestions.map((s) => (typeof s === 'string' ? s : s?.text)).filter(Boolean) })
+      } else {
+        bits.push({ t: 'tool', name, label: toolLabel(name, q, products ? products.length : null) })
+      }
     }
   }
   return bits
