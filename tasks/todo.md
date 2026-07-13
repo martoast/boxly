@@ -1,53 +1,53 @@
-# Gate AI search behind authentication
+# AI Campaign Studio — /app/admin/campaigns
 
-**Decision:** The AI concierge/search is now for authenticated users only. Guests
-searching from the landing hero are sent to login/register, then dropped back into
-the chat (their query auto-fires once authenticated).
+Goal: one-button AI that RESEARCHES current sales + reads the knowledge base + past
+campaigns, proposes grounded campaign ideas, then narrows (pick → expand → variations
+→ refine with comments) to a finished email draft saved into the real campaign system.
 
-## How it already works (no new plumbing needed)
-- `middleware/auth` already redirects guests to `/login?redirect=<fullPath>`.
-- `login.vue` + `register.vue` both honor `?redirect=` (and pass it between each
-  other), landing the user back at the original URL after auth.
-- `ShoppingAssistant` → `initLoggedIn()` → `sendInitialQuery()` reads `?q=` and
-  fires it as the first message for authed users. So returning to `/search?q=foo`
-  after login auto-sends "foo".
+## Grounding (what makes ideas real, not generic)
+- **Today's date** + a MX/US retail calendar (Prime Day, Hot Sale, Buen Fin, BF/CM,
+  back-to-school, Navidad, Día de las Madres…) → knows what's timely.
+- **Live web research** (SerpAPI) for current deals at the stores people shop.
+- **Knowledge base** (`GET /knowledge`) → what Boxly is, policies, stores.
+- **Past campaigns** (`GET /admin/campaigns`, fetched client-side, passed in) → voice
+  + what got opens/clicks.
 
-## Todo
-- [ ] `app/pages/search/[[id]].vue` — change middleware `auth-soft` → `auth`
-      (gates the standalone concierge; guests bounce to login and return with ?q).
-      Update the file's header comment to match.
-- [ ] Admin: surface each searching user's **account-creation date**.
-  - [ ] `api SearchEventController` — include user `created_at` in
-        `recentSearches`, `recentQuestions`, and `thread()` user objects
-        (eager-load `created_at`).
-  - [ ] `app/pages/app/admin/ai-search/index.vue` — show "Cliente desde {date}"
-        next to the user in the recent feed + thread header. Keep old guest rows
-        visible (historical data from when search was public).
+## Style (boxly-campaigns skill)
+Plain text, Mexican Spanish informal "tú", subject ≤50 chars, body 3–5 sentences
+(<~80 words), single CTA (2–4 words + one URL), no fluff/emojis, 2–3 hero items max.
 
-## Out of scope / deliberately skipped
-- Server hard-gate on `/api/assistant`: the page gate already blocks all UI
-  access; a server 401 adds a rare-failure regression risk. Not worth it.
-- `SearchLanding.vue` / `/api/ask` are dead (unused) — left untouched.
-- Guest-only code paths in ShoppingAssistant stay (harmless; never fire when
-  `user` is always present).
+## Build
+- [ ] `server/api/campaigns/ideas.post.ts` — research (SerpAPI) + date/calendar + KB +
+      past campaigns → generateObject → 4–6 grounded ideas + the detected "moment".
+- [ ] `server/api/campaigns/draft.post.ts` — mode: expand (idea→draft) | variations
+      (→3) | refine (draft+comment→draft). Output: {name, subject, body, cta_text,
+      cta_url, audience}. Enforces the style rules.
+- [ ] `pages/app/admin/campaigns/studio.vue` — the Studio: generate → moment banner +
+      idea cards → pick → email-preview draft → variations / comment-refine → audience
+      + size preview → "Guardar como borrador" (POST /admin/campaigns) → open it.
+- [ ] Entry button on `pages/app/admin/campaigns/index.vue` → Studio.
 
-## Review — DONE
-**What changed (3 files):**
-1. `app/pages/search/[[id]].vue` — middleware `auth-soft` → `auth`. The standalone
-   concierge is now authenticated-only. Verified: guest GET `/search?q=nike` → 302
-   `/login?redirect=/search?q=nike`; bare `/search` → 302 `/login?redirect=/search`.
-   After login/register (both honor `?redirect=`) the user returns and
-   `initLoggedIn → sendInitialQuery` auto-fires the `?q` as the first message.
-2. `api SearchEventController.php` — added user `created_at` to `recentSearches`,
-   `recentQuestions`, and `thread()` (eager-loads now select `created_at`).
-   `php -l` clean; verified `created_at` serializes via tinker.
-3. `app/pages/app/admin/ai-search/index.vue` — added `fmtDate()` and shows
-   "· cliente desde {date}" next to the user in the recent feed + thread header.
-   Old guest rows still render as "Invitado" (historical data preserved).
+## Notes
+- Server fetches public `/knowledge` + `/products/web-search` (both public). Client
+  passes past campaigns (admin-authed). Save via `$customFetch('/admin/campaigns')`.
+- Never auto-send. Save as DRAFT; sending stays the deliberate existing step.
 
-**Coverage check:** all 3 pages that mount `ShoppingAssistant` (`/search`,
-`/app/search`, `/app`) now require `auth`. No public entry point into the AI remains.
+## Brian Chesky loop
+Headless screenshot each state → design-critic review → iterate.
 
-**Not done (by design):** no server-side 401 on `/api/assistant` (page gate is
-airtight; a server gate adds rare-failure regression risk). `/api/ask` +
-`SearchLanding.vue` are dead code, untouched.
+## Review — built (uncommitted), backend verified
+- `server/api/campaigns/ideas.post.ts` ✓ — verified live: detected "Post-4 de julio, antesala
+  de Prime Day + back-to-school — 13 jul 2026" and returned 5 grounded ideas across audiences
+  (research = 4 SerpAPI queries + KB + past campaigns + date/calendar).
+- `server/api/campaigns/draft.post.ts` ✓ — expand/variations/refine; verified expand returns
+  clean plain-text es-MX, ≤50 subject, single CTA.
+- `pages/app/admin/campaigns/studio.vue` → thin wrapper over `components/CampaignStudio.vue`
+  (extracted so a dev preview can render it). Studio flow: generate → moment banner + idea
+  cards → pick → email editor + live preview → refine-comment / 3 variaciones → audience+size
+  → "Guardar como borrador" (POST /admin/campaigns). Never auto-sends.
+- Entry buttons added to campaigns index (desktop + mobile).
+- `pages/campaign-studio-preview.vue` — DEV-ONLY public preview (mock data, ?state=ideas|draft)
+  for screenshots. **Do not commit / not for prod.**
+- Screenshots reviewed: ideas + draft states look premium & on-vision. Brian Chesky pass: pending.
+
+Test live (you're admin): /app/admin/campaigns/studio

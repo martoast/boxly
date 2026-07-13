@@ -7,24 +7,37 @@
         <div class="lg:hidden space-y-4">
           <div class="flex items-center justify-between">
             <h1 class="text-2xl font-extrabold text-gray-900">{{ t.campaigns }}</h1>
-            <NuxtLink to="/app/admin/campaigns/create"
-              class="p-2 bg-primary-500 text-white rounded-xl hover:bg-primary-600 transition-all duration-300 shadow-sm">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-              </svg>
-            </NuxtLink>
+            <div class="flex items-center gap-2">
+              <NuxtLink to="/app/admin/campaigns/studio"
+                class="p-2 bg-gray-900 text-white rounded-xl hover:bg-black transition shadow-sm" aria-label="Estudio con IA">
+                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z"/></svg>
+              </NuxtLink>
+              <NuxtLink to="/app/admin/campaigns/create"
+                class="p-2 bg-primary-500 text-white rounded-xl hover:bg-primary-600 transition-all duration-300 shadow-sm" aria-label="Crear campaña">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                </svg>
+              </NuxtLink>
+            </div>
           </div>
         </div>
         <!-- Desktop Layout -->
         <div class="hidden lg:flex lg:items-center lg:justify-between">
           <h1 class="text-3xl font-extrabold text-gray-900">{{ t.campaigns }}</h1>
-          <NuxtLink to="/app/admin/campaigns/create"
-            class="inline-flex items-center px-4 py-2.5 bg-primary-500 text-white font-medium rounded-xl hover:bg-primary-600 transition-all duration-300 shadow-sm gap-2">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-            </svg>
-            {{ t.createCampaign }}
-          </NuxtLink>
+          <div class="flex items-center gap-2">
+            <NuxtLink to="/app/admin/campaigns/studio"
+              class="inline-flex items-center px-4 py-2.5 bg-gray-900 text-white font-semibold rounded-xl hover:bg-black transition shadow-sm gap-2">
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z"/></svg>
+              Estudio con IA
+            </NuxtLink>
+            <NuxtLink to="/app/admin/campaigns/create"
+              class="inline-flex items-center px-4 py-2.5 bg-primary-500 text-white font-medium rounded-xl hover:bg-primary-600 transition-all duration-300 shadow-sm gap-2">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+              </svg>
+              {{ t.createCampaign }}
+            </NuxtLink>
+          </div>
         </div>
       </div>
     </div>
