@@ -63,10 +63,14 @@
             </div>
           </form>
 
-          <p class="mt-3 text-xs text-white/70 flex items-center gap-1.5">
-            <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
-            <span class="truncate">{{ t.shopsLine }}</span>
-          </p>
+          <!-- store proof — endless slow carousel, same as the main dashboard -->
+          <div class="relative mt-5 overflow-hidden select-none -mx-6 sm:-mx-8" aria-hidden="true">
+            <div class="flex w-max gap-8 whitespace-nowrap marquee-track px-6 sm:px-8">
+              <span v-for="(b, i) in marqueeStores" :key="i" class="text-[12.5px] font-bold tracking-tight text-white/60">{{ b }}</span>
+            </div>
+            <div class="pointer-events-none absolute inset-y-0 left-0 w-12 bg-gradient-to-r from-primary-600 to-transparent"></div>
+            <div class="pointer-events-none absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-indigo-700 to-transparent"></div>
+          </div>
         </div>
       </div>
 
@@ -375,14 +379,14 @@ const translations = {
   createRequest: { es: 'Compra Asistida', en: 'Assisted Shopping' },
   stepAddItems: { es: 'Nueva solicitud', en: 'New request' },
   eyebrow: { es: 'Compra Asistida', en: 'Assisted Shopping' },
-  heroTitle: { es: '¿Qué quieres que te compremos?', en: 'What can we buy for you?' },
+  heroTitle: { es: 'Pásanos el enlace. Nosotros hacemos la compra.', en: 'Send us the link. We do the buying.' },
   heroTitleMore: { es: '¿Agregamos algo más?', en: 'Add something else?' },
   heroSubtitle: {
-    es: 'Pega el enlace de cualquier tienda de EE. UU. Traemos el producto listo para que solo confirmes; nosotros lo compramos y lo enviamos a México.',
-    en: 'Paste a link from any US store. We pull the product ready for you to confirm; we buy it and ship it to Mexico.'
+    es: 'Pega el enlace de cualquier producto en Estados Unidos. Te enviamos la cotización completa y, cuando la apruebes, lo compramos por ti y lo entregamos en México.',
+    en: 'Paste the link of any product in the United States. We send you the full quote and, once you approve it, we buy it for you and deliver it to Mexico.'
   },
-  pasteUrlPlaceholder: { es: 'Pega el enlace del producto…', en: 'Paste the product link…' },
-  heroCta: { es: 'Obtener cotización', en: 'Get a quote' },
+  pasteUrlPlaceholder: { es: 'Pega aquí el enlace del producto', en: 'Paste the product link here' },
+  heroCta: { es: 'Cotizar mi compra', en: 'Quote my purchase' },
   shopsLine: { es: 'Amazon, Nike, Shein, Best Buy, Sephora y miles más.', en: 'Amazon, Nike, Shein, Best Buy, Sephora and thousands more.' },
   step1Title: { es: 'Pega el enlace', en: 'Paste the link' },
   step1Desc: { es: 'Traemos fotos, precio y tallas; tú solo confirmas.', en: 'We pull photos, price and sizes; you just confirm.' },
@@ -433,6 +437,11 @@ const translations = {
 };
 
 const t = createTranslations(translations);
+
+// The stores customers already know — an endless, slow carousel (same as the
+// main dashboard hero). Duplicated so the CSS marquee loops seamlessly.
+const STORE_LIST = ['Amazon', 'Costco', 'Target', 'Walmart', 'Nike', 'Apple', 'Home Depot', 'Best Buy', 'Sephora', 'Ross', 'TJ Maxx', 'Burlington', "Macy's", 'Coach', 'Michael Kors', "Levi's", 'Gap', 'Old Navy', 'Columbia', 'New Balance', 'Crocs', 'LEGO', 'Pokémon Center', 'Bath & Body Works', "Victoria's Secret", "Dick's Sporting Goods", 'y miles más'];
+const marqueeStores = [...STORE_LIST, ...STORE_LIST];
 
 const steps = computed(() => [
   { title: t.value.step1Title, desc: t.value.step1Desc, icon: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>' },
@@ -658,5 +667,7 @@ const submitRequest = async () => {
 }
 .breathe { animation: breathe 7s ease-in-out infinite; }
 .breathe-slow { animation: breathe 10s ease-in-out infinite; }
-@media (prefers-reduced-motion: reduce) { .breathe, .breathe-slow { animation: none; } }
+.marquee-track { animation: marquee 70s linear infinite; }
+@keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+@media (prefers-reduced-motion: reduce) { .breathe, .breathe-slow, .marquee-track { animation: none; } }
 </style>

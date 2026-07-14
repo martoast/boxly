@@ -50,26 +50,10 @@
       </div>
 
       <div v-else-if="order">
-        <!-- Mobile "Add Product" Action Button -->
-        <div v-if="canEdit" class="sm:hidden mb-6">
-          <button @click="openAddModal" class="w-full group bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between hover:border-primary-200 transition-all active:scale-[0.99]">
-            <div class="flex items-center gap-4">
-              <div class="w-12 h-12 bg-primary-50 rounded-full flex items-center justify-center group-hover:bg-primary-100 transition-colors">
-                <svg class="w-6 h-6 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
-              </div>
-              <div class="text-left">
-                <span class="block font-bold text-gray-900 text-lg">{{ hasItems ? t.addAnotherProduct : t.addProduct }}</span>
-                <span class="text-sm text-gray-500">{{ t.tapToStart }}</span>
-              </div>
-            </div>
-            <div class="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center">
-                <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
-            </div>
-          </button>
-        </div>
-
-        <!-- Desktop Add/Edit Form -->
-        <div v-if="canEdit" id="desktop-form" class="hidden sm:block bg-white rounded-2xl ring-1 ring-gray-900/5 shadow-sm p-6 mb-8 transition-all duration-300 ease-out hover:shadow-md">
+        <!-- Desktop Add/Edit Form — only once there's a product to add to (or
+             while editing). When empty, the guided "PASO FINAL" hero below is
+             the single centerpiece call-to-action. -->
+        <div v-if="canEdit && (hasItems || editingItemId)" id="desktop-form" class="hidden sm:block bg-white rounded-2xl ring-1 ring-gray-900/5 shadow-sm p-6 mb-8 transition-all duration-300 ease-out hover:shadow-md">
           <div class="flex items-center justify-between mb-6">
             <div class="flex items-center gap-3">
               <div class="w-10 h-10 rounded-xl grid place-items-center text-white shadow-sm bg-gradient-to-br from-primary-500 to-indigo-600">
@@ -212,6 +196,12 @@
             </div>
           </TransitionGroup>
 
+          <!-- Add another (mobile) -->
+          <button v-if="canEdit" @click="openAddModal" class="sm:hidden w-full flex items-center justify-center gap-2 py-3.5 rounded-xl border-2 border-dashed border-gray-300 text-primary-600 font-semibold hover:border-primary-400 hover:bg-primary-50/40 transition-all active:scale-[0.99]">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+            {{ t.addAnother }}
+          </button>
+
           <!-- ORDER PROOF OF PURCHASE — required before confirming. One array
                of files for the whole order so the customer can upload a
                receipt per store in this final step. -->
@@ -227,19 +217,16 @@
               </div>
             </div>
 
-            <!-- Loom walkthrough: how to turn the order-confirmation email into a PDF -->
-            <a
-              v-if="proofGuideUrl"
-              :href="proofGuideUrl"
-              target="_blank"
-              rel="noopener"
-              class="group mt-4 inline-flex items-center gap-2.5 pl-1.5 pr-4 py-1.5 rounded-full bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors shadow-sm"
+            <!-- Help link: opens a small modal explaining how to save the
+                 order-confirmation email as a PDF. -->
+            <button
+              type="button"
+              @click="showPdfHelp = true"
+              class="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-primary-600 hover:text-primary-700 transition-colors"
             >
-              <span class="flex items-center justify-center w-7 h-7 rounded-full bg-white/20 group-hover:bg-white/30 transition-colors">
-                <svg class="w-3.5 h-3.5 ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
-              </span>
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
               {{ t.proofGuide }}
-            </a>
+            </button>
 
             <input ref="proofInput" type="file" multiple accept="application/pdf,.pdf" @change="handleProofSelect" class="hidden" />
 
@@ -269,38 +256,72 @@
             <div class="bg-gradient-to-r from-primary-50 to-white rounded-xl p-6 border border-primary-100 flex items-center justify-between shadow-sm">
                 <div>
                     <h3 class="font-bold text-gray-900 text-lg mb-1">{{ isCollecting ? t.reviewAndConfirm : t.finishedEditing }}</h3>
-                    <p class="text-sm text-gray-600">{{ isCollecting ? t.confirmExplanation : t.returnToOrder }}</p>
+                    <p v-if="isCollecting && !canContinue" class="text-sm text-amber-700 font-medium flex items-center gap-1.5">
+                      <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M5.07 19h13.86a2 2 0 001.74-3L13.74 4a2 2 0 00-3.48 0L3.33 16a2 2 0 001.74 3z" /></svg>
+                      {{ !hasItems ? t.needProductHint : t.needPdfHint }}
+                    </p>
+                    <p v-else class="text-sm text-gray-600">{{ isCollecting ? t.confirmExplanation : t.returnToOrder }}</p>
                 </div>
-                <button @click="handleFooterAction" class="px-8 py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 transition-colors shadow-md hover:shadow-lg transform active:scale-95">
-                    {{ isCollecting ? t.confirmProducts : t.saveAndReturn }}
+                <button
+                  @click="handleFooterAction"
+                  :disabled="isCollecting && !canContinue"
+                  :class="[
+                    'px-8 py-3 font-bold rounded-xl transition-all shadow-md',
+                    (isCollecting && !canContinue)
+                      ? 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none'
+                      : 'bg-green-600 text-white hover:bg-green-700 hover:shadow-lg active:scale-95'
+                  ]"
+                >
+                    {{ isCollecting ? t.continueReview : t.saveAndReturn }}
                 </button>
             </div>
           </div>
         </div>
 
-        <div v-else class="relative overflow-hidden text-center py-16 px-6 bg-white rounded-2xl ring-1 ring-gray-900/5 mt-6">
-          <div class="pointer-events-none absolute -top-16 left-1/2 -translate-x-1/2 w-56 h-56 rounded-full bg-primary-400/10 blur-3xl"></div>
-          <div class="relative">
-            <div class="w-20 h-20 rounded-2xl grid place-items-center mx-auto mb-5 text-white shadow-lg shadow-primary-500/20 bg-gradient-to-br from-primary-500 to-indigo-600 empty-float">
+        <!-- Guided final step — the single, dominant centerpiece when the
+             order has no products yet. -->
+        <div v-else class="relative overflow-hidden text-center py-14 sm:py-20 px-6 bg-white rounded-2xl ring-1 ring-gray-900/5 mt-2">
+          <div class="pointer-events-none absolute -top-16 left-1/2 -translate-x-1/2 w-64 h-64 rounded-full bg-primary-400/10 blur-3xl"></div>
+          <div class="relative max-w-md mx-auto">
+            <span class="inline-block text-[11px] font-extrabold tracking-[0.18em] text-primary-700 bg-primary-50 border border-primary-100 rounded-full px-3 py-1 mb-6">{{ t.finalStep }}</span>
+            <div class="w-20 h-20 rounded-2xl grid place-items-center mx-auto mb-6 text-white shadow-lg shadow-primary-500/20 bg-gradient-to-br from-primary-500 to-indigo-600 empty-float">
               <svg class="w-10 h-10" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
             </div>
-            <p class="text-gray-900 font-bold text-lg mb-1">{{ t.noProducts }}</p>
-            <p class="text-sm text-gray-500 max-w-xs mx-auto">{{ t.startByAdding }}</p>
-            <div class="mt-5 inline-flex items-center gap-1.5 text-xs font-semibold text-primary-600">
-              <svg class="w-4 h-4 animate-bounce" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7" /></svg>
-              {{ t.emptyHint }}
-            </div>
+            <h2 class="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight">{{ t.emptyTitle }}</h2>
+            <p class="text-[15px] sm:text-base text-gray-500 mt-3 leading-relaxed">{{ t.emptyCopy }}</p>
+            <button
+              @click="openAddModal"
+              class="mt-7 w-full sm:w-auto inline-flex items-center justify-center gap-2 px-7 py-4 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-bold text-base shadow-lg shadow-primary-600/25 active:scale-[0.98] transition-all"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+              {{ t.addFirstProduct }}
+            </button>
+            <p class="text-xs text-gray-400 mt-4">{{ t.emptyHelper }}</p>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Mobile Sticky Footer -->
+    <!-- Mobile Sticky Footer — appears once at least one product exists; the
+         "Continue to review" button stays disabled until the PDF is uploaded. -->
     <div v-if="hasItems && order && canEdit" class="sm:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-30 pb-safe">
       <div class="px-4 py-3">
-        <button @click="handleFooterAction" class="w-full py-3.5 bg-gray-900 text-white font-bold rounded-xl hover:bg-black transition-colors shadow-lg relative flex items-center justify-center gap-2">
-            <span>{{ isCollecting ? t.confirmAndContinue : t.saveAndReturn }}</span>
-            <span v-if="isCollecting" class="flex h-3 w-3 relative"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span><span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span></span>
+        <p v-if="isCollecting && !canContinue" class="text-xs text-amber-700 font-medium flex items-center gap-1.5 mb-2">
+          <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M5.07 19h13.86a2 2 0 001.74-3L13.74 4a2 2 0 00-3.48 0L3.33 16a2 2 0 001.74 3z" /></svg>
+          {{ t.needPdfHint }}
+        </p>
+        <button
+          @click="handleFooterAction"
+          :disabled="isCollecting && !canContinue"
+          :class="[
+            'w-full py-3.5 font-bold rounded-xl transition-colors shadow-lg relative flex items-center justify-center gap-2',
+            (isCollecting && !canContinue)
+              ? 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none'
+              : 'bg-gray-900 text-white hover:bg-black'
+          ]"
+        >
+            <span>{{ isCollecting ? t.continueReview : t.saveAndReturn }}</span>
+            <span v-if="isCollecting && canContinue" class="flex h-3 w-3 relative"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span><span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span></span>
         </button>
       </div>
     </div>
@@ -403,6 +424,42 @@
         </div>
       </Dialog>
     </TransitionRoot>
+
+    <!-- PDF help modal — how to save the confirmation email as a PDF -->
+    <TransitionRoot as="template" :show="showPdfHelp">
+      <Dialog class="relative z-50" @close="showPdfHelp = false">
+        <TransitionChild as="template" enter="ease-out duration-300" enter-from="opacity-0" enter-to="opacity-100" leave="ease-in duration-200" leave-from="opacity-100" leave-to="opacity-0"><div class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm" /></TransitionChild>
+        <div class="fixed inset-0 z-10 overflow-y-auto">
+          <div class="flex min-h-full items-center justify-center p-4">
+            <TransitionChild as="template" enter="ease-out duration-300" enter-from="opacity-0 scale-95" enter-to="opacity-100 scale-100" leave="ease-in duration-200" leave-from="opacity-100 scale-100" leave-to="opacity-0 scale-95">
+              <DialogPanel class="w-full max-w-sm bg-white rounded-2xl shadow-2xl p-6">
+                <div class="flex items-start justify-between mb-5">
+                  <DialogTitle class="text-lg font-bold text-gray-900 pr-4">{{ t.pdfHelpTitle }}</DialogTitle>
+                  <button @click="showPdfHelp = false" class="p-1.5 -mr-1.5 -mt-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 rounded-full transition-colors flex-shrink-0"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
+                </div>
+                <ol class="space-y-4">
+                  <li v-for="(step, i) in pdfSteps" :key="i" class="flex items-start gap-3">
+                    <span class="flex-shrink-0 w-7 h-7 rounded-full bg-primary-600 text-white text-sm font-bold grid place-items-center">{{ i + 1 }}</span>
+                    <span class="text-sm text-gray-700 leading-relaxed pt-0.5">{{ step }}</span>
+                  </li>
+                </ol>
+                <a
+                  v-if="proofGuideUrl"
+                  :href="proofGuideUrl"
+                  target="_blank"
+                  rel="noopener"
+                  class="mt-5 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-primary-200 text-primary-700 font-semibold text-sm hover:bg-primary-50 transition-colors"
+                >
+                  <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
+                  {{ t.pdfHelpVideo }}
+                </a>
+                <button @click="showPdfHelp = false" class="mt-3 w-full py-3 bg-gray-900 text-white font-bold rounded-xl hover:bg-black transition-colors">{{ t.gotIt }}</button>
+              </DialogPanel>
+            </TransitionChild>
+          </div>
+        </div>
+      </Dialog>
+    </TransitionRoot>
   </section>
 </template>
 
@@ -424,6 +481,7 @@ const submitting = ref(false);
 const completingOrder = ref(false);
 const showCompleteModal = ref(false);
 const showAddProductModal = ref(false);
+const showPdfHelp = ref(false);
 const selectedProductImage = ref(null);
 const editingItemId = ref(null);
 const showDetails = ref(false);
@@ -451,6 +509,8 @@ const hasItems = computed(() => order.value?.items && order.value.items.length >
 const totalItemQuantity = computed(() => order.value?.items ? order.value.items.reduce((total, item) => total + item.quantity, 0) : 0);
 const isCollecting = computed(() => order.value?.status === 'collecting');
 const canEdit = computed(() => order.value?.can_add_items ?? false);
+// Ready to continue to review: at least one product AND the confirmation PDF.
+const canContinue = computed(() => hasItems.value && orderProofs.value.length > 0);
 
 const translations = {
   addYourProducts: { es: "Agrega tus productos", en: "Add your products" },
@@ -485,9 +545,9 @@ const translations = {
   qty: { es: "Cant", en: "Qty" },
   receipt: { es: "Recibo", en: "Receipt" },
   receiptAttached: { es: "Recibo", en: "Receipt" },
-  proofTitle: { es: "Comprobante de compra", en: "Proof of purchase" },
-  proofHelp: { es: "Sube el PDF de la confirmación de tu pedido (el correo que te manda la tienda). Solo se aceptan archivos PDF. Si compraste en varias tiendas, sube un PDF por tienda. Obligatorio para confirmar.", en: "Upload the PDF of your order confirmation (the email the store sends you). PDF files only. If you bought from several stores, upload one PDF per store. Required to confirm." },
-  proofGuide: { es: "¿Cómo crear el PDF?", en: "How to create the PDF?" },
+  proofTitle: { es: "PDF de confirmación de compra", en: "Purchase confirmation PDF" },
+  proofHelp: { es: "Sube el correo de confirmación de tu compra en PDF. Nos sirve para identificar tu orden y ayudarte con productos faltantes, aclaraciones o problemas con la tienda. Si compraste en varias tiendas, sube un PDF por tienda.", en: "Upload the order confirmation email as a PDF. We use it to identify your order and help with missing items, disputes, or store issues. If you bought from several stores, upload one PDF per store." },
+  proofGuide: { es: "¿Cómo guardo mi correo como PDF?", en: "How do I save my email as a PDF?" },
   proofPdfOnly: { es: "Solo se aceptan archivos PDF.", en: "Only PDF files are accepted." },
   proofUploadHint: { es: "Solo PDF · máx 10 MB", en: "PDF only · max 10 MB" },
   viewFile: { es: "Ver archivo", en: "View file" },
@@ -515,6 +575,22 @@ const translations = {
   yourProducts: { es: "Tus productos", en: "Your Products" },
   noProducts: { es: "Tu lista está vacía", en: "Your list is empty" },
   startByAdding: { es: "Agrega los productos que compraste", en: "Add the items you purchased" },
+  finalStep: { es: "PASO FINAL", en: "FINAL STEP" },
+  emptyTitle: { es: "Agrega los productos de tu orden", en: "Add the products in your order" },
+  emptyCopy: { es: "Registra lo que ya compraste o vas a enviar a nuestra dirección en San Diego.", en: "Register anything you already purchased or will ship to our San Diego address." },
+  addFirstProduct: { es: "Agregar mi primer producto", en: "Add my first product" },
+  emptyHelper: { es: "Puedes registrar productos antes de que lleguen.", en: "You can register products before they arrive." },
+  addAnother: { es: "Agregar otro producto", en: "Add another product" },
+  continueReview: { es: "Continuar a revisar", en: "Continue to review" },
+  needPdfHint: { es: "Sube el PDF de confirmación para continuar.", en: "Upload the confirmation PDF to continue." },
+  needProductHint: { es: "Agrega al menos un producto para continuar.", en: "Add at least one product to continue." },
+  pdfHelpTitle: { es: "¿Cómo guardo mi correo como PDF?", en: "How to save your email as a PDF" },
+  pdfStep1: { es: "Abre el correo de confirmación que te mandó la tienda.", en: "Open the confirmation email the store sent you." },
+  pdfStep2: { es: "Toca Imprimir (en el menú del correo o del navegador).", en: "Tap Print (in the email or browser menu)." },
+  pdfStep3: { es: "En destino elige \"Guardar como PDF\".", en: "Under destination choose \"Save as PDF\"." },
+  pdfStep4: { es: "Sube el PDF aquí en Boxly.", en: "Upload the PDF here on Boxly." },
+  pdfHelpVideo: { es: "Ver video", en: "Watch video" },
+  gotIt: { es: "Entendido", en: "Got it" },
   product: { es: "item", en: "item" },
   products: { es: "items", en: "items" },
   cancel: { es: "Volver", en: "Back" },
@@ -526,6 +602,9 @@ const translations = {
   trackingPlaceholder: { es: "ej: 1Z999...", en: "e.g. 1Z999..." },
 };
 const t = createTranslations(translations);
+
+// Steps shown in the "how to save as PDF" help modal.
+const pdfSteps = computed(() => [t.value.pdfStep1, t.value.pdfStep2, t.value.pdfStep3, t.value.pdfStep4]);
 
 const incrementQuantity = () => { if (itemForm.value.quantity < 999) itemForm.value.quantity++; };
 const decrementQuantity = () => { if (itemForm.value.quantity > 1) itemForm.value.quantity--; };
