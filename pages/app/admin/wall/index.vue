@@ -3,7 +3,6 @@
     <!-- ============ FULL-BLEED MAP ============ -->
     <ClientOnly>
       <CitiesMap
-        :cities="sortedCities"
         :points="clients"
         metric="orders"
         :metric-label="t.orders"
@@ -73,42 +72,6 @@
       </div>
     </header>
 
-    <!-- ============ CITY LEADERBOARD (auto-scroll) ============ -->
-    <!-- Mobile: a short panel docked above the stats. Desktop: a tall right rail. -->
-    <aside class="absolute pointer-events-none inset-x-3 bottom-[168px] top-auto max-h-[30dvh] sm:inset-x-auto sm:right-6 sm:left-auto sm:top-24 sm:bottom-28 sm:w-72 sm:max-h-none">
-      <div class="flex flex-col max-h-[30dvh] sm:max-h-none sm:h-full rounded-2xl bg-white/70 backdrop-blur-xl border border-white/60 shadow-xl overflow-hidden">
-        <div class="px-4 pt-3 sm:pt-4 pb-2.5 sm:pb-3 border-b border-gray-200/60">
-          <p class="text-sm font-bold text-gray-900">{{ t.cities }}</p>
-          <p class="text-[11px] text-gray-400">{{ fmtInt(cities.length) }} {{ t.citiesActive }} · {{ rangeLabel }}</p>
-        </div>
-        <div class="city-scroll relative flex-1 min-h-0 overflow-hidden px-4 py-3">
-          <div
-            :class="enableScroll ? 'city-track' : 'space-y-2.5'"
-            :style="enableScroll ? { animationDuration: scrollDur + 's' } : null"
-          >
-            <div
-              v-for="(s, i) in scrollCities"
-              :key="i + '-' + s.city + s.estado"
-              class="mb-2.5"
-            >
-              <div class="flex items-center justify-between text-sm mb-1">
-                <span class="font-medium text-gray-700 truncate pr-2">
-                  {{ s.city }}<span class="text-gray-400 font-normal"> · {{ s.estado }}</span>
-                </span>
-                <span class="font-bold text-gray-900 tabular-nums shrink-0">{{ fmtInt(s.orders) }}</span>
-              </div>
-              <div class="h-1.5 bg-gray-200/70 rounded-full overflow-hidden">
-                <div
-                  class="h-full rounded-full bg-primary-500"
-                  :style="{ width: ((s.orders || 0) / cityMax * 100) + '%' }"
-                ></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </aside>
-
     <!-- ============ STAT COUNTERS ============ -->
     <footer class="absolute bottom-0 inset-x-0 p-3 sm:p-6 pointer-events-none">
       <div class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3">
@@ -140,15 +103,9 @@ const t = createTranslations({
   customers: { es: "Clientes", en: "Customers" },
   revenue: { es: "Ingresos", en: "Revenue" },
   statesActive: { es: "Estados", en: "States" },
-  cities: { es: "Ciudades", en: "Cities" },
-  citiesActive: { es: "ciudades activas", en: "active cities" },
   loading: { es: "Cargando...", en: "Loading..." },
   fullscreen: { es: "Pantalla completa", en: "Fullscreen" },
   exit: { es: "Salir", en: "Exit" },
-  rl30: { es: "últimos 30 días", en: "last 30 days" },
-  rl90: { es: "últimos 90 días", en: "last 90 days" },
-  rl1y: { es: "últimos 12 meses", en: "last 12 months" },
-  rlAll: { es: "todo el historial", en: "all time" },
 });
 
 // ---- state ----
@@ -173,9 +130,6 @@ const ranges = [
   { value: "1y", label: "1Y" },
   { value: "all", label: "ALL" },
 ];
-const rangeLabel = computed(() => ({
-  "30d": t.value.rl30, "90d": t.value.rl90, "1y": t.value.rl1y, all: t.value.rlAll,
-}[range.value] ?? ""));
 
 // ---- formatting ----
 const fmtInt = (v) => new Intl.NumberFormat("es-MX").format(Math.round(v ?? 0));
@@ -190,15 +144,6 @@ const compact = (v) => {
 
 // ---- clients (one map dot each, sized by their order history) ----
 const clients = computed(() => geo.value?.clients ?? []);
-
-// ---- cities ----
-const cities = computed(() => geo.value?.cities ?? []);
-const sortedCities = computed(() => [...cities.value].sort((a, b) => (b.orders ?? 0) - (a.orders ?? 0)));
-const cityMax = computed(() => Math.max(1, ...sortedCities.value.map((s) => s.orders ?? 0)));
-// scroll the full list only when there are enough cities to overflow
-const enableScroll = computed(() => sortedCities.value.length > 12);
-const scrollCities = computed(() => (enableScroll.value ? [...sortedCities.value, ...sortedCities.value] : sortedCities.value));
-const scrollDur = computed(() => Math.max(24, sortedCities.value.length * 1.7));
 
 // ---- animated stat counters (count-up tween) ----
 const tween = (getTarget) => {
@@ -267,20 +212,3 @@ onBeforeUnmount(() => {
   document.removeEventListener("fullscreenchange", onFsChange);
 });
 </script>
-
-<style scoped>
-/* seamless vertical auto-scroll of the doubled city list */
-.city-track {
-  animation-name: scrollY;
-  animation-timing-function: linear;
-  animation-iteration-count: infinite;
-  will-change: transform;
-}
-.city-scroll:hover .city-track {
-  animation-play-state: paused;
-}
-@keyframes scrollY {
-  from { transform: translateY(0); }
-  to { transform: translateY(-50%); }
-}
-</style>
