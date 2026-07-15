@@ -226,8 +226,25 @@ const buildScatterJson = () => {
   return { type: "FeatureCollection", features };
 };
 
+// Radius can't nest a zoom expression inside coalesce (Mapbox forbids it), so we
+// swap the whole expression by mode: per-feature radius for client points (grows
+// with order count), zoom-scaled radius for the count scatter. Re-applied on every
+// data change so clients arriving AFTER the map loads still size correctly.
+const applyRadiusPaint = () => {
+  if (!map || !map.getLayer("dots")) return;
+  map.setPaintProperty("dots", "circle-radius",
+    isPointMode.value ? ["get", "radius"] : ["interpolate", ["linear"], ["zoom"], 3, 2.2, 6, 3.4, 9, 5]);
+  if (map.getLayer("dots-glow")) {
+    map.setPaintProperty("dots-glow", "circle-radius",
+      isPointMode.value ? ["get", "glowRadius"] : ["interpolate", ["linear"], ["zoom"], 3, 6, 6, 11, 9, 18]);
+  }
+};
+
 const refreshData = () => {
-  if (map && map.getSource("dots")) map.getSource("dots").setData(buildGeoJson());
+  if (map && map.getSource("dots")) {
+    map.getSource("dots").setData(buildGeoJson());
+    applyRadiusPaint();
+  }
 };
 
 onMounted(async () => {
@@ -256,8 +273,7 @@ onMounted(async () => {
         type: "circle",
         source: "dots",
         paint: {
-          // per-feature glowRadius (client mode) else zoom-scaled (scatter mode)
-          "circle-radius": ["coalesce", ["get", "glowRadius"], ["interpolate", ["linear"], ["zoom"], 3, 6, 6, 11, 9, 18]],
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 6, 6, 11, 9, 18],
           "circle-color": props.dotColor,
           "circle-opacity": 0.16,
           "circle-blur": 1,
@@ -269,8 +285,7 @@ onMounted(async () => {
       type: "circle",
       source: "dots",
       paint: {
-        // per-feature radius (client mode, grows with order count) else zoom-scaled (scatter)
-        "circle-radius": ["coalesce", ["get", "radius"], ["interpolate", ["linear"], ["zoom"], 3, 2.2, 6, 3.4, 9, 5]],
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 2.2, 6, 3.4, 9, 5],
         "circle-color": props.dotColor,
         "circle-opacity": 0.55,
         "circle-stroke-width": 0.4,
@@ -291,6 +306,8 @@ onMounted(async () => {
       map.getCanvas().style.cursor = "";
       popup.remove();
     });
+
+    applyRadiusPaint(); // set the radius expression matching the current mode
   });
 });
 
