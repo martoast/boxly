@@ -11,11 +11,12 @@
         :token="mapboxToken"
         height="100dvh"
         :show-caption="false"
+        :show-nav="!isMobile"
         nav-position="bottom-right"
         scroll-zoom
         glow
         :center="[-101.5, 23.2]"
-        :zoom="4.55"
+        :zoom="isMobile ? 3.85 : 4.55"
       />
       <template #fallback>
         <div class="h-full flex items-center justify-center text-gray-300 text-sm">{{ t.loading }}</div>
@@ -23,8 +24,10 @@
     </ClientOnly>
 
     <!-- ============ TOP BAR ============ -->
-    <header class="absolute top-0 inset-x-0 p-4 sm:p-6 flex items-start justify-between gap-4 pointer-events-none">
-      <div class="flex items-center gap-3 rounded-2xl bg-white/70 backdrop-blur-xl border border-white/60 shadow-lg px-4 py-2.5">
+    <!-- Mobile: brand row on top, controls row below (range fills the width).
+         Desktop: brand left, controls right on one line. -->
+    <header class="absolute top-0 inset-x-0 p-3 sm:p-6 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2.5 sm:gap-4 pointer-events-none">
+      <div class="self-start flex items-center gap-3 rounded-2xl bg-white/70 backdrop-blur-xl border border-white/60 shadow-lg px-3.5 sm:px-4 py-2 sm:py-2.5">
         <span class="relative flex h-2.5 w-2.5">
           <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-70"></span>
           <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
@@ -35,15 +38,15 @@
         </div>
       </div>
 
-      <div class="flex items-center gap-2 pointer-events-auto">
-        <!-- range filter -->
-        <div class="flex items-center gap-1 rounded-2xl bg-white/70 backdrop-blur-xl border border-white/60 shadow-lg p-1">
+      <div class="self-stretch sm:self-auto flex items-center gap-2 pointer-events-auto">
+        <!-- range filter (stretches to fill the row on mobile) -->
+        <div class="flex flex-1 sm:flex-none items-center gap-1 rounded-2xl bg-white/70 backdrop-blur-xl border border-white/60 shadow-lg p-1">
           <button
             v-for="r in ranges"
             :key="r.value"
             @click="setRange(r.value)"
             :class="[
-              'px-3 py-1.5 rounded-xl text-xs font-bold transition-colors',
+              'flex-1 sm:flex-none px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition-colors',
               range === r.value ? 'bg-primary-600 text-white shadow' : 'text-gray-500 hover:text-gray-900',
             ]"
           >
@@ -53,7 +56,7 @@
         <!-- fullscreen -->
         <button
           @click="toggleFullscreen"
-          class="h-9 w-9 grid place-items-center rounded-2xl bg-white/70 backdrop-blur-xl border border-white/60 shadow-lg text-gray-600 hover:text-gray-900"
+          class="shrink-0 h-9 w-9 grid place-items-center rounded-2xl bg-white/70 backdrop-blur-xl border border-white/60 shadow-lg text-gray-600 hover:text-gray-900"
           :title="t.fullscreen"
         >
           <ArrowsPointingOutIcon v-if="!isFullscreen" class="h-4 w-4" />
@@ -62,7 +65,7 @@
         <!-- exit -->
         <NuxtLink
           to="/app/admin/dashboard"
-          class="h-9 w-9 grid place-items-center rounded-2xl bg-white/70 backdrop-blur-xl border border-white/60 shadow-lg text-gray-600 hover:text-gray-900"
+          class="shrink-0 h-9 w-9 grid place-items-center rounded-2xl bg-white/70 backdrop-blur-xl border border-white/60 shadow-lg text-gray-600 hover:text-gray-900"
           :title="t.exit"
         >
           <XMarkIcon class="h-4 w-4" />
@@ -71,13 +74,14 @@
     </header>
 
     <!-- ============ CITY LEADERBOARD (auto-scroll) ============ -->
-    <aside class="absolute right-4 sm:right-6 top-24 bottom-28 w-64 sm:w-72 pointer-events-none">
-      <div class="h-full flex flex-col rounded-2xl bg-white/70 backdrop-blur-xl border border-white/60 shadow-xl overflow-hidden">
-        <div class="px-4 pt-4 pb-3 border-b border-gray-200/60">
+    <!-- Mobile: a short panel docked above the stats. Desktop: a tall right rail. -->
+    <aside class="absolute pointer-events-none inset-x-3 bottom-[168px] top-auto max-h-[30dvh] sm:inset-x-auto sm:right-6 sm:left-auto sm:top-24 sm:bottom-28 sm:w-72 sm:max-h-none">
+      <div class="flex flex-col max-h-[30dvh] sm:max-h-none sm:h-full rounded-2xl bg-white/70 backdrop-blur-xl border border-white/60 shadow-xl overflow-hidden">
+        <div class="px-4 pt-3 sm:pt-4 pb-2.5 sm:pb-3 border-b border-gray-200/60">
           <p class="text-sm font-bold text-gray-900">{{ t.cities }}</p>
           <p class="text-[11px] text-gray-400">{{ fmtInt(cities.length) }} {{ t.citiesActive }} · {{ rangeLabel }}</p>
         </div>
-        <div class="city-scroll relative flex-1 overflow-hidden px-4 py-3">
+        <div class="city-scroll relative flex-1 min-h-0 overflow-hidden px-4 py-3">
           <div
             :class="enableScroll ? 'city-track' : 'space-y-2.5'"
             :style="enableScroll ? { animationDuration: scrollDur + 's' } : null"
@@ -106,11 +110,11 @@
     </aside>
 
     <!-- ============ STAT COUNTERS ============ -->
-    <footer class="absolute bottom-0 inset-x-0 p-4 sm:p-6 pointer-events-none">
-      <div class="flex flex-wrap gap-3">
-        <div v-for="m in statCards" :key="m.key" class="flex-1 min-w-[120px] max-w-[220px] rounded-2xl bg-white/70 backdrop-blur-xl border border-white/60 shadow-lg px-4 py-3">
-          <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400">{{ m.label }}</p>
-          <p class="text-2xl sm:text-3xl font-extrabold tracking-tight tabular-nums" :class="m.color">{{ m.display }}</p>
+    <footer class="absolute bottom-0 inset-x-0 p-3 sm:p-6 pointer-events-none">
+      <div class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3">
+        <div v-for="m in statCards" :key="m.key" class="sm:flex-1 sm:min-w-[120px] sm:max-w-[220px] rounded-2xl bg-white/70 backdrop-blur-xl border border-white/60 shadow-lg px-3.5 sm:px-4 py-2.5 sm:py-3">
+          <p class="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wide text-gray-400 truncate">{{ m.label }}</p>
+          <p class="text-xl sm:text-3xl font-extrabold tracking-tight tabular-nums" :class="m.color">{{ m.display }}</p>
         </div>
       </div>
     </footer>
@@ -148,6 +152,17 @@ const t = createTranslations({
 });
 
 // ---- state ----
+// Resolved on the client before the map mounts (it lives in <ClientOnly>), so the
+// map picks its mobile zoom / hides the nav on first render. Kept live for orientation
+// changes; layout itself is pure CSS so it doesn't depend on this.
+const isMobile = ref(import.meta.client ? window.matchMedia("(max-width: 639px)").matches : false);
+if (import.meta.client) {
+  const mq = window.matchMedia("(max-width: 639px)");
+  const onChange = (e) => { isMobile.value = e.matches; };
+  mq.addEventListener("change", onChange);
+  onBeforeUnmount(() => mq.removeEventListener("change", onChange));
+}
+
 const geo = ref(null);
 const overview = ref(null); // headline KPIs — same source as the main dashboard
 const range = ref("all"); // all-time is the default on the wall
