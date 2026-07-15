@@ -14,6 +14,9 @@
 <script setup>
 const props = defineProps({
   cities: { type: Array, default: () => [] },
+  // When non-empty, the map draws ONE dot per row (a client) instead of the
+  // count-based scatter. Each row: { id, name, city, estado, lat, lng, orders, revenue }.
+  points: { type: Array, default: () => [] },
   metric: { type: String, default: "customers" }, // customers | orders | revenue
   metricLabel: { type: String, default: "" },
   format: { type: String, default: "number" },
@@ -112,11 +115,17 @@ const fmt = (v) =>
     ? new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(v ?? 0)
     : new Intl.NumberFormat("es-MX").format(v ?? 0);
 
-const caption = computed(() =>
-  props.format === "currency"
+const isPointMode = computed(() => Array.isArray(props.points) && props.points.length > 0);
+
+const money = (v) =>
+  new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(v ?? 0);
+
+const caption = computed(() => {
+  if (isPointMode.value) return "cada punto = 1 cliente";
+  return props.format === "currency"
     ? `cada punto ≈ ${fmt(dotUnit.value)}`
-    : `cada punto = 1 ${(props.metricLabel || "").toLowerCase().replace(/s$/, "")}`
-);
+    : `cada punto = 1 ${(props.metricLabel || "").toLowerCase().replace(/s$/, "")}`;
+});
 
 // Resolve a plotting centre for a city: exact city coords when known, otherwise
 // the city's estado centroid nudged by a city-seeded offset so different cities
@@ -134,7 +143,52 @@ const resolveCenter = (c) => {
   return [est[0] + ox, est[1] + oy];
 };
 
-const buildGeoJson = () => {
+// Resolve ONE plotting point for a single client. Exact GPS wins; otherwise the
+// city (or its estado centroid) nudged by a CLIENT-seeded offset so different
+// clients in the same city each get their own spot instead of stacking.
+const resolvePointCenter = (p, i) => {
+  if (Number.isFinite(p.lng) && Number.isFinite(p.lat)) return [p.lng, p.lat];
+  const city = COORDS[norm(p.city)];
+  const base = city || STATE_COORDS[norm(p.estado)];
+  if (!base) return null;
+  const seed = hash(String(p.id ?? p.name ?? "") + "#" + i);
+  const spread = city ? 0.09 : 0.55; // tight around a known city, wide across a state centroid
+  return [base[0] + (rand(seed * 1.3) - 0.5) * spread, base[1] + (rand(seed * 2.7) - 0.5) * spread];
+};
+
+// One dot per client, radius growing with their order count, tooltip carrying
+// their name + order history + total spent.
+const buildPointJson = () => {
+  const located = [];
+  props.points.forEach((p, i) => {
+    const c = resolvePointCenter(p, i);
+    if (c) located.push({ p, c });
+  });
+  unlocated.value = props.points.length - located.length;
+  dotUnit.value = 1;
+  const features = located.slice(0, MAX_DOTS).map(({ p, c }) => {
+    const orders = p.orders ?? 0;
+    const r = 3 + Math.min(8, Math.sqrt(Math.max(1, orders)) * 1.6);
+    return {
+      type: "Feature",
+      geometry: { type: "Point", coordinates: c },
+      properties: {
+        name: p.name || "Cliente",
+        city: p.city || "",
+        estado: p.estado || "",
+        orders,
+        revenue: money(p.revenue ?? 0),
+        radius: r,
+        glowRadius: r * 2.2,
+      },
+    };
+  });
+  return { type: "FeatureCollection", features };
+};
+
+const buildGeoJson = () => (isPointMode.value ? buildPointJson() : buildScatterJson());
+
+const buildScatterJson = () => {
   const metric = props.metric;
   const active = props.cities.filter((c) => (c[metric] ?? 0) > 0);
   const located = active
@@ -202,7 +256,8 @@ onMounted(async () => {
         type: "circle",
         source: "dots",
         paint: {
-          "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 6, 6, 11, 9, 18],
+          // per-feature glowRadius (client mode) else zoom-scaled (scatter mode)
+          "circle-radius": ["coalesce", ["get", "glowRadius"], ["interpolate", ["linear"], ["zoom"], 3, 6, 6, 11, 9, 18]],
           "circle-color": props.dotColor,
           "circle-opacity": 0.16,
           "circle-blur": 1,
@@ -214,10 +269,10 @@ onMounted(async () => {
       type: "circle",
       source: "dots",
       paint: {
-        // grow slightly with zoom so clusters read at every level
-        "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 2.2, 6, 3.4, 9, 5],
+        // per-feature radius (client mode, grows with order count) else zoom-scaled (scatter)
+        "circle-radius": ["coalesce", ["get", "radius"], ["interpolate", ["linear"], ["zoom"], 3, 2.2, 6, 3.4, 9, 5]],
         "circle-color": props.dotColor,
-        "circle-opacity": 0.5,
+        "circle-opacity": 0.55,
         "circle-stroke-width": 0.4,
         "circle-stroke-color": props.dotStroke,
       },
@@ -226,10 +281,11 @@ onMounted(async () => {
     map.on("mousemove", "dots", (e) => {
       map.getCanvas().style.cursor = "pointer";
       const p = e.features[0].properties;
-      popup
-        .setLngLat(e.lngLat)
-        .setHTML(`<div style="font-family:inherit"><div style="font-weight:600;color:#111">${p.city}</div><div style="font-size:12px;color:#6b7280">${p.estado}</div><div style="font-size:12px;color:#374151;margin-top:2px">${props.metricLabel}: <b>${p.val}</b></div></div>`)
-        .addTo(map);
+      // Client mode: name + order history + total spent. Scatter mode: city + metric value.
+      const html = p.name !== undefined
+        ? `<div style="font-family:inherit"><div style="font-weight:600;color:#111">${p.name}</div><div style="font-size:12px;color:#6b7280">${p.city}${p.estado ? " · " + p.estado : ""}</div><div style="font-size:12px;color:#374151;margin-top:2px"><b>${p.orders}</b> ${Number(p.orders) === 1 ? "pedido" : "pedidos"} · ${p.revenue}</div></div>`
+        : `<div style="font-family:inherit"><div style="font-weight:600;color:#111">${p.city}</div><div style="font-size:12px;color:#6b7280">${p.estado}</div><div style="font-size:12px;color:#374151;margin-top:2px">${props.metricLabel}: <b>${p.val}</b></div></div>`;
+      popup.setLngLat(e.lngLat).setHTML(html).addTo(map);
     });
     map.on("mouseleave", "dots", () => {
       map.getCanvas().style.cursor = "";
@@ -238,7 +294,7 @@ onMounted(async () => {
   });
 });
 
-watch(() => [props.metric, props.cities], refreshData, { deep: true });
+watch(() => [props.metric, props.cities, props.points], refreshData, { deep: true });
 
 onBeforeUnmount(() => { if (map) map.remove(); });
 </script>

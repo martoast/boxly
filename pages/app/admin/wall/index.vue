@@ -4,6 +4,7 @@
     <ClientOnly>
       <CitiesMap
         :cities="sortedCities"
+        :points="clients"
         metric="orders"
         :metric-label="t.orders"
         format="number"
@@ -171,6 +172,9 @@ const compact = (v) => {
   if (a >= 1e3) return (n / 1e3).toFixed(a < 1e4 ? 1 : 0).replace(/\.0$/, "") + "k";
   return String(Math.round(n));
 };
+
+// ---- clients (one map dot each, sized by their order history) ----
+const clients = computed(() => geo.value?.clients ?? []);
 
 // ---- cities ----
 const cities = computed(() => geo.value?.cities ?? []);
