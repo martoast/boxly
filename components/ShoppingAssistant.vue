@@ -673,12 +673,7 @@ const showMemory = ref(false)
 function closeMemory() { showMemory.value = false; loadProfile() }
 let openSeq = 0
 let hubPhraseTimer = null
-onBeforeUnmount(() => {
-  if (hubPhraseTimer) clearInterval(hubPhraseTimer)
-  flushPersist() // last chance to save an unsent turn before this view goes away
-  if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onHide)
-  if (typeof window !== 'undefined') window.removeEventListener('pagehide', flushPersist)
-})
+onBeforeUnmount(() => { if (hubPhraseTimer) clearInterval(hubPhraseTimer) })
 // In-memory cache of opened conversations (id -> { messages, oldestId, hasMore,
 // products }) for instant re-open. Pagination state for the ACTIVE thread:
 const msgCache = new Map()
@@ -1264,12 +1259,7 @@ onMounted(() => {
   if (!standalone.value) {
     try { const v = localStorage.getItem(SIDEBAR_KEY); if (v !== null) sidebarCollapsed.value = v === '1' } catch { /* ignore */ }
   }
-  // Save any unsaved turn the instant the tab is hidden or torn down.
-  document.addEventListener('visibilitychange', onHide)
-  window.addEventListener('pagehide', flushPersist)
 })
-
-function onHide() { if (document.visibilityState === 'hidden') flushPersist() }
 
 async function initLoggedIn() {
   if (inited) return
@@ -1708,8 +1698,8 @@ watch(() => chat.status, async (s) => {
     assisted ? onAssistedProduct(p) : onPickProduct(p)
     return
   }
-  if (s === 'ready' && user.value && chat.messages.length > savedCount.value) {
-    await persist()
+  if (s === 'ready' && user.value && activeId.value) {
+    syncLocalThread() // refresh the local sidebar/cache; the SERVER persists the turn
     maybeRetitle()
   }
   // First reply with results just finished for a guest → soft conversion nudge.
@@ -1734,58 +1724,16 @@ async function maybeRetitle() {
   } catch (e) { console.error('retitle failed', e) }
 }
 
-// Durable turn persistence. This is the ONLY writer of chat history, so it has to
-// survive: a POST that fails (network blip) must NOT advance savedCount, so the
-// turn retries on the next trigger instead of being silently dropped; a trigger
-// that lands while a POST is in flight is remembered (persistDirty) and re-run so
-// no turn is skipped; and a page teardown flush uses keepalive so the request
-// still completes. Without this the tail of a conversation was routinely lost.
-let persisting = false
-let persistDirty = false
-async function persist({ keepalive = false } = {}) {
-  if (!user.value) return
-  if (persisting) { persistDirty = true; return } // fold into the running pass
-  persisting = true
-  try {
-    do {
-      persistDirty = false
-      const from = savedCount.value
-      const slice = chat.messages.slice(from)
-      if (!slice.length) break
-      const delta = slice.map((m) => ({ role: m.role, content: { parts: cleanParts(m.parts) } }))
-      // Go through the SAME guarded creator (don't POST a second conversation here).
-      if (!activeId.value) {
-        const firstUser = chat.messages.find((m) => m.role === 'user')
-        const title = (firstUser?.parts || []).filter((p) => p.type === 'text').map((p) => p.text).join(' ').trim()
-        await ensureConversation(title)
-      }
-      if (!activeId.value) break // creation failed (e.g. guest) — don't post to a null id
-      const upTo = chat.messages.length
-      try {
-        await $customFetch(`/conversations/${activeId.value}/messages`, { method: 'POST', body: { messages: delta }, keepalive })
-      } catch (e) {
-        // Leave savedCount untouched so this exact delta is retried next time
-        // (next turn's persist, or the page-hide flush) — never dropped.
-        console.error('persist failed', e)
-        break
-      }
-      savedCount.value = upTo
-      // Keep state local — no full list refetch every turn. Cache the thread and
-      // bump it to the top of the sidebar.
-      msgCache.set(activeId.value, { messages: chat.messages, oldestId: oldestLoadedId.value, hasMore: hasMoreOlder.value, products: savedProducts.value })
-      bumpActiveToTop()
-      // A new turn may have completed while we were awaiting — loop to flush it.
-    } while (persistDirty || chat.messages.length > savedCount.value)
-  } finally {
-    persisting = false
-  }
-}
-
-// Flush any unsaved turns when the tab is backgrounded or torn down — the moment
-// (especially on mobile: app-switch, swipe-away) most tail messages were lost.
-// keepalive lets the POST outlive the page.
-function flushPersist() {
-  if (user.value && chat.messages.length > savedCount.value) persist({ keepalive: true })
+// Chat history is now written AUTHORITATIVELY on the SERVER (assistant route's
+// onFinish → persistTurn), which runs regardless of the browser — so a disconnect,
+// a tab close, or a client-tool that parks the chat no longer loses the turn. The
+// client only refreshes LOCAL state each turn (message cache + sidebar order) so
+// the UI feels instant; it no longer POSTs messages (that would double-write).
+function syncLocalThread() {
+  if (!activeId.value) return
+  savedCount.value = chat.messages.length
+  msgCache.set(activeId.value, { messages: chat.messages, oldestId: oldestLoadedId.value, hasMore: hasMoreOlder.value, products: savedProducts.value })
+  bumpActiveToTop()
 }
 
 function bumpActiveToTop() {

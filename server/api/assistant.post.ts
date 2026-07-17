@@ -174,6 +174,80 @@ async function callApi(path: string, opts: { method?: string; body?: any; token?
   return data?.data ?? data
 }
 
+// ── AUTHORITATIVE server-side turn persistence ──────────────────────────────
+// History used to be written ONLY by the browser, after the stream reached
+// 'ready'. That silently lost whole conversations whenever the client never got
+// there: a disconnect/tab-close mid-turn, or a CLIENT-executed tool
+// (create_account / create_self_order / cancel_order) that parks the chat waiting
+// for a tool result the user never completes. onFinish runs SERVER-SIDE the moment
+// generation finishes, regardless of the client — so persisting here captures the
+// turn no matter what the browser does. (Best-effort; never blocks the reply.)
+
+// Strip heavy base64 thumbnails from tool outputs so history rows stay small
+// (mirrors the old client cleanParts — the live gallery already rendered them).
+function stripBase64Products(output: any): any {
+  const prods = output?.products
+  if (!Array.isArray(prods)) return output
+  return { ...output, products: prods.map((p: any) => (typeof p?.image === 'string' && p.image.startsWith('data:') ? { ...p, image: null } : p)) }
+}
+
+// Rebuild the assistant message's UI parts from the stream steps, in the SAME
+// shape the admin viewer + chat resume expect: text parts and `tool-<name>` parts
+// carrying { input, output, state }.
+function assistantPartsFromSteps(steps: any[], finalText: string): any[] {
+  const parts: any[] = []
+  for (const step of steps || []) {
+    const results = new Map((step?.toolResults || []).map((r: any) => [r.toolCallId, r]))
+    for (const call of (step?.toolCalls || [])) {
+      const r: any = results.get(call.toolCallId)
+      const out = r ? (r.output ?? r.result) : undefined
+      parts.push({
+        type: 'tool-' + call.toolName,
+        toolCallId: call.toolCallId,
+        state: r ? 'output-available' : 'input-available',
+        input: call.input ?? call.args ?? {},
+        ...(out !== undefined ? { output: stripBase64Products(out) } : {}),
+      })
+    }
+    const t = String(step?.text || '')
+    if (t.trim()) parts.push({ type: 'text', text: t })
+  }
+  if (finalText?.trim() && !parts.some((p) => p.type === 'text')) parts.push({ type: 'text', text: finalText })
+  return parts
+}
+
+// The user's NEW message = the last role:'user' entry sent this turn. Attached
+// files become a light marker (never store base64 in history).
+function userPartsFromMessages(messages: any[]): any[] | null {
+  for (let i = (messages?.length || 0) - 1; i >= 0; i--) {
+    const m = messages[i]
+    if (m?.role !== 'user') continue
+    const raw = Array.isArray(m.parts) ? m.parts : (typeof m.content === 'string' ? [{ type: 'text', text: m.content }] : [])
+    const parts = raw
+      .map((p: any) => (p?.type === 'file' ? { type: 'text', text: String(p.mediaType || '').includes('pdf') ? '📎 (PDF)' : '📎 (imagen)' } : p))
+      .filter((p: any) => p && (p.type !== 'text' || String(p.text || '').length))
+    return parts.length ? parts : null
+  }
+  return null
+}
+
+// Save this turn (new user message + assistant reply) to the conversation. No-op
+// for guests / threads without an id or token.
+async function persistTurn(conversationId: number | undefined, token: string | undefined, messages: any[], steps: any[], finalText: string) {
+  if (!conversationId || !token) return
+  const toSave: any[] = []
+  const uParts = userPartsFromMessages(messages)
+  if (uParts) toSave.push({ role: 'user', content: { parts: uParts } })
+  const aParts = assistantPartsFromSteps(steps, finalText)
+  if (aParts.length) toSave.push({ role: 'assistant', content: { parts: aParts } })
+  if (!toSave.length) return
+  try {
+    await callApi(`/conversations/${conversationId}/messages`, { method: 'POST', body: { messages: toSave }, token, timeoutMs: 10000 })
+  } catch (e) {
+    console.error('[assistant] persistTurn failed:', e instanceof Error ? e.message : e)
+  }
+}
+
 // Replace attached PDF file parts with their extracted TEXT before the model sees
 // them. WHY: not every chat model accepts a PDF document part (older Claude/Gemini
 // variants reject it, which fails the whole turn — the "I sent a PDF and got no
@@ -590,11 +664,14 @@ export default defineEventHandler(async (event) => {
     // model can write its closing line and add follow-ups, but can't draw a 2nd gallery.
     prepareStep: () => (galleryShown ? { activeTools: NON_GALLERY_TOOLS } : undefined),
     onError: ({ error }) => console.error('[assistant] error:', error instanceof Error ? error.message : error),
-    onFinish: ({ text, steps }) => {
+    onFinish: async ({ text, steps }) => {
       // A turn that used a product tool is a SEARCH (logged server-side by
       // /products/search). A turn with no product tool is a business QUESTION.
       const usedProductTool = (steps || []).some((s: any) => (s.toolCalls || []).some((c: any) => PRODUCT_TOOLS.has(c.toolName)))
       if (!usedProductTool) logQuestion(question, text || '', auth, conversationId)
+      // Durably save the turn server-side (awaited so it completes within the
+      // stream lifecycle — see persistTurn). Authoritative writer of chat history.
+      await persistTurn(conversationId, token, messages, steps, text || '')
     },
     tools: {
       web_search: webSearchTool,
