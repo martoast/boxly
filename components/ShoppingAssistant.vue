@@ -199,7 +199,7 @@
                 </span>
                 <div class="min-w-0 flex-1">
                   <p class="text-[16px] font-bold text-gray-900 leading-tight">Crear mi envío</p>
-                  <p class="text-[13px] text-gray-500 mt-0.5">Ya sé qué enviar — crea tu orden en segundos.</p>
+                  <p class="text-[13px] text-gray-500 mt-0.5">Ya lo compré, estoy listo para enviar.</p>
                 </div>
                 <svg class="w-5 h-5 text-gray-300 group-hover:text-primary-500 group-hover:translate-x-0.5 transition-all shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
               </NuxtLink>
@@ -228,10 +228,11 @@
               <AssistantComposer ref="composerRef" v-model:text="input" :mic-recording="micRecording" :mic-transcribing="micTranscribing" :mic-levels="micLevels" :mic-error="micError" :busy="isBusy" placeholder="Compra lo que sea…" @send="onComposerSend" @mic="toggleMic" />
             </div>
 
-            <!-- Centered loader until every card image is resolved + decoded, then
-                 reveal the whole grid at once (no emoji-then-image pop-in). -->
+            <!-- Cards paint immediately with their emoji placeholder; each photo
+                 streams in on its own and cross-fades over the emoji when decoded.
+                 Only the (fast) admin-prompt LIST fetch gates first paint. -->
             <Transition name="fade-fast" mode="out-in">
-              <div v-if="!cardsReady" key="cards-loading" class="py-16 grid place-items-center">
+              <div v-if="!promptsReady" key="cards-loading" class="py-16 grid place-items-center">
                 <svg class="w-7 h-7 animate-spin text-gray-300" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
               </div>
               <div v-else key="cards-ready">
@@ -243,8 +244,13 @@
                   class="group relative block w-full h-44 md:h-52 rounded-3xl overflow-hidden mb-3 text-left active:scale-[.99] transition-transform shadow-sm"
                   :class="`bg-gradient-to-br ${suggestions[0].grad}`"
                 >
-                  <img v-if="cardImg(suggestions[0])" :src="cardImg(suggestions[0])" @error="onCardImgError(suggestions[0])" referrerpolicy="no-referrer" class="absolute inset-0 w-full h-full object-cover transition-transform group-hover:scale-105" />
-                  <span v-else class="absolute inset-0 grid place-items-center text-[84px] opacity-90 select-none transition-transform group-hover:scale-105">{{ suggestions[0].emoji }}</span>
+                  <span class="absolute inset-0 grid place-items-center text-[84px] select-none transition-[opacity,transform] duration-300 group-hover:scale-105" :class="cardLoading(suggestions[0]) ? 'opacity-60' : 'opacity-90'">{{ suggestions[0].emoji }}</span>
+                  <img v-if="showCardImg(suggestions[0])" :src="cardImg(suggestions[0])" @load="onCardImgLoad(cardImg(suggestions[0]))" @error="onCardImgError(suggestions[0])" referrerpolicy="no-referrer"
+                       :class="loadedImgs.has(cardImg(suggestions[0])) ? 'opacity-100' : 'opacity-0'"
+                       class="absolute inset-0 w-full h-full object-cover transition-[opacity,transform] duration-500 group-hover:scale-105" />
+                  <span v-if="cardLoading(suggestions[0])" class="absolute top-3 right-3 grid place-items-center w-7 h-7 rounded-full bg-black/25 backdrop-blur-sm pointer-events-none">
+                    <svg class="w-4 h-4 animate-spin text-white" viewBox="0 0 24 24" fill="none"><circle class="opacity-30" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
+                  </span>
                   <span class="absolute top-3 left-3 text-[12px] font-bold text-gray-800 bg-white/90 backdrop-blur rounded-full px-2.5 py-1 shadow-sm">Pruébalo</span>
                   <span class="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/65 to-transparent pointer-events-none"></span>
                   <span class="absolute left-4 bottom-3.5 right-4 text-white text-lg md:text-xl font-bold leading-snug drop-shadow">{{ suggestions[0].title || suggestions[0].text }}</span>
@@ -259,8 +265,13 @@
                     class="group relative block aspect-[4/5] rounded-2xl overflow-hidden text-left active:scale-[.98] transition-transform shadow-sm"
                     :class="`bg-gradient-to-br ${s.grad}`"
                   >
-                    <img v-if="cardImg(s)" :src="cardImg(s)" @error="onCardImgError(s)" referrerpolicy="no-referrer" class="absolute inset-0 w-full h-full object-cover transition-transform group-hover:scale-105" />
-                    <span v-else class="absolute inset-0 grid place-items-center text-[60px] opacity-90 select-none transition-transform group-hover:scale-105">{{ s.emoji }}</span>
+                    <span class="absolute inset-0 grid place-items-center text-[72px] select-none transition-[opacity,transform] duration-300 group-hover:scale-105" :class="cardLoading(s) ? 'opacity-60' : 'opacity-90'">{{ s.emoji }}</span>
+                    <img v-if="showCardImg(s)" :src="cardImg(s)" @load="onCardImgLoad(cardImg(s))" @error="onCardImgError(s)" referrerpolicy="no-referrer"
+                         :class="loadedImgs.has(cardImg(s)) ? 'opacity-100' : 'opacity-0'"
+                         class="absolute inset-0 w-full h-full object-cover transition-[opacity,transform] duration-500 group-hover:scale-105" />
+                    <span v-if="cardLoading(s)" class="absolute top-2.5 right-2.5 grid place-items-center w-6 h-6 rounded-full bg-black/25 backdrop-blur-sm pointer-events-none">
+                      <svg class="w-3.5 h-3.5 animate-spin text-white" viewBox="0 0 24 24" fill="none"><circle class="opacity-30" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
+                    </span>
                     <span class="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/65 to-transparent pointer-events-none"></span>
                     <span class="absolute left-3 bottom-2.5 right-3 text-white text-[15px] font-bold leading-snug drop-shadow">{{ s.title || s.text }}</span>
                   </button>
@@ -1070,33 +1081,42 @@ function saveCardImageCache() {
   } catch { /* ignore */ }
 }
 function cardImg(s) { return s?.img || cardImages.value[s?.imgq] || null }
-function onCardImgError(s) { if (s?.imgq) { cardImages.value = { ...cardImages.value, [s.imgq]: '' }; saveCardImageCache() } }
 
-// The starter cards stay hidden behind a single centered loader until ALL their
-// images are resolved AND decoded — so the whole grid paints at once instead of
-// flashing emoji placeholders and popping images in one by one.
-const cardsReady = ref(false)
-// Resolve once the browser has actually fetched+decoded each URL (or failed).
-function preloadImages(urls) {
-  return Promise.all((urls || []).map((u) => new Promise((resolve) => {
-    const img = new Image()
-    img.referrerPolicy = 'no-referrer'
-    img.onload = img.onerror = () => resolve()
-    img.src = u
-  })))
+// Per-card image state so each card can show its OWN loading → photo transition
+// instead of blocking the whole grid behind one spinner.
+const loadedImgs = ref(new Set()) // URLs the browser has decoded → fade them in
+const failedImgs = ref(new Set()) // URLs that errored → fall back to the emoji
+function onCardImgLoad(url) { if (url && !loadedImgs.value.has(url)) loadedImgs.value = new Set(loadedImgs.value).add(url) }
+function onCardImgError(s) {
+  const url = cardImg(s)
+  if (url) failedImgs.value = new Set(failedImgs.value).add(url)
+  // Remember an imgq miss so we don't keep retrying it (uploaded s.img stays as-is).
+  if (s?.imgq && !s?.img) { cardImages.value = { ...cardImages.value, [s.imgq]: '' }; saveCardImageCache() }
 }
-// Full first-paint pipeline: load admin cards → resolve a photo per card →
-// preload them → reveal everything together.
+// Render the photo only once we have a URL that hasn't errored.
+function showCardImg(s) { const u = cardImg(s); return !!u && !failedImgs.value.has(u) }
+// True while a card is still working out / decoding its picture — drives the
+// per-card spinner. Emoji shows underneath the whole time.
+function cardLoading(s) {
+  if (!s?.img && s?.imgq && cardImages.value[s.imgq] === undefined) return true // query in flight
+  const u = cardImg(s)
+  return !!u && !failedImgs.value.has(u) && !loadedImgs.value.has(u) // URL known, still decoding
+}
+
+// Only the admin prompt LIST gates first paint (one fast request); images then
+// stream in per-card. The grid is interactive the whole time.
+const promptsReady = ref(false)
 async function prepareStarterCards() {
   await loadStarterPrompts()
-  await ensureCardImages(suggestions.value)
-  await preloadImages(suggestions.value.map(cardImg).filter(Boolean))
-  cardsReady.value = true
+  promptsReady.value = true // paint the cards NOW — don't wait on any image
+  ensureCardImages(suggestions.value) // fire-and-forget; each card fills in as it resolves
 }
-async function ensureCardImages(list) {
-  for (const s of list || []) {
+// Fetch every card photo IN PARALLEL (was a serial await loop) so all queries go
+// out at once and each card fills in the moment its own request returns.
+function ensureCardImages(list) {
+  return Promise.all((list || []).map(async (s) => {
     const q = s?.imgq
-    if (!q || cardImages.value[q] !== undefined || fetchingImg.has(q)) continue
+    if (!q || cardImages.value[q] !== undefined || fetchingImg.has(q)) return
     fetchingImg.add(q)
     try {
       const r = await $fetch('/api/card-image', { params: { q } })
@@ -1107,7 +1127,7 @@ async function ensureCardImages(list) {
     } finally {
       fetchingImg.delete(q)
     }
-  }
+  }))
 }
 
 const isBusy = computed(() => chat.status === 'streaming' || chat.status === 'submitted')
@@ -1219,11 +1239,10 @@ onMounted(() => {
   watch(activeId, (id) => syncUrl(id))
   // Resolve a real product photo for each starter card (cached in localStorage).
   loadCardImageCache()
-  // Prepare ALL starter cards + images, then reveal them at once (centered loader
-  // until ready — no emoji-then-image pop-in). Never block longer than 6s on the
-  // image prefetch in case a lookup is slow/unreachable.
+  // Load the admin cards, paint them immediately (emoji placeholders), then stream
+  // each photo in per-card. Safety: reveal the grid even if the list fetch hangs.
   prepareStarterCards()
-  setTimeout(() => { cardsReady.value = true }, 6000)
+  setTimeout(() => { promptsReady.value = true }, 6000)
   // Hub: rotate the inviting placeholder + detect an in-progress shipment.
   if (hub.value) {
     if (user.value) loadOpenOrder()
@@ -1238,7 +1257,7 @@ onMounted(() => {
     }, 1200)
   }
   // After the first reveal, keep filling images if the personalized set changes.
-  watch(suggestions, (list) => { if (cardsReady.value) ensureCardImages(list) })
+  watch(suggestions, (list) => { if (promptsReady.value) ensureCardImages(list) })
   // Restore the saved sidebar collapsed/expanded preference (default collapsed).
   // On the public /search page always start CLOSED (landing-style) — don't reopen
   // from a stored preference.
