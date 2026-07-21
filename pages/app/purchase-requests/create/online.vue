@@ -209,7 +209,7 @@
       <div v-if="view === 'product'" class="fixed inset-0 z-40 bg-gray-50 flex flex-col">
         <!-- top bar -->
         <div class="bg-white border-b border-gray-200 flex-shrink-0">
-          <div class="max-w-2xl mx-auto px-4 py-3.5 flex items-center gap-3">
+          <div class="max-w-2xl lg:max-w-5xl mx-auto px-4 py-3.5 flex items-center gap-3">
             <button @click="cancelProduct" class="p-2 -ml-2 hover:bg-gray-100 rounded-lg transition-colors">
               <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
             </button>
@@ -222,18 +222,20 @@
 
         <!-- scroll area -->
         <div class="flex-1 overflow-y-auto">
-          <div class="max-w-2xl mx-auto px-4 py-5 space-y-6">
+          <!-- Mobile: single column (image on top). Desktop: two columns — image
+               left (sticky, capped by the column so it never dominates), form right. -->
+          <div class="max-w-2xl lg:max-w-5xl mx-auto px-4 py-5 lg:py-8 lg:grid lg:grid-cols-2 lg:gap-10 lg:items-start">
 
-            <!-- image gallery -->
-            <div>
-              <div class="aspect-square w-full rounded-2xl bg-white border border-gray-100 overflow-hidden flex items-center justify-center">
+            <!-- image gallery (left / sticky on desktop) -->
+            <div class="lg:sticky lg:top-6">
+              <div class="aspect-square w-full max-w-md mx-auto lg:max-w-[25rem] lg:mx-0 rounded-2xl bg-white border border-gray-100 overflow-hidden flex items-center justify-center">
                 <img v-if="mainImage" :src="mainImage" class="w-full h-full object-contain" @error="onImgError">
                 <div v-else class="text-gray-300 flex flex-col items-center gap-2">
                   <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
                   <span class="text-xs">{{ t.noImage }}</span>
                 </div>
               </div>
-              <div v-if="draft.images.length > 1" class="flex gap-2 mt-3 overflow-x-auto pb-1">
+              <div v-if="draft.images.length > 1" class="flex gap-2 mt-3 max-w-md mx-auto lg:max-w-[25rem] lg:mx-0 overflow-x-auto pb-1">
                 <button
                   v-for="(img, i) in draft.images.slice(0, 8)"
                   :key="i"
@@ -246,9 +248,11 @@
               </div>
             </div>
 
+            <!-- details (right on desktop) -->
+            <div class="space-y-6 mt-6 lg:mt-0">
+
             <!-- title + price -->
             <div>
-              <label class="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-1">{{ t.productName }}</label>
               <input
                 v-model="draft.title"
                 type="text"
@@ -329,18 +333,31 @@
               <textarea v-model="draft.notes" rows="2" :placeholder="t.notesPlaceholder" class="block w-full rounded-xl border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 text-sm py-2"></textarea>
             </div>
 
-            <!-- link -->
-            <a v-if="draft.product_url" :href="draft.product_url" target="_blank" class="inline-flex items-center gap-1 text-xs text-primary-600 hover:underline">
-              {{ t.viewOnStore }}
-              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
-            </a>
+            <!-- actions: verify-on-store (a trust action for a confirm screen) + the
+                 primary CTA. On DESKTOP the primary lives here at the end of the
+                 content; on MOBILE it's the sticky bar below (content scrolls). -->
+            <div class="pt-2 space-y-3">
+              <a v-if="draft.product_url" :href="draft.product_url" target="_blank"
+                 class="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-gray-300 text-gray-700 font-semibold text-sm hover:bg-gray-50 active:scale-[0.99] transition-all">
+                {{ t.viewOnStore }}
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+              </a>
+              <button
+                @click="commitDraft"
+                :disabled="!canCommit"
+                class="hidden lg:flex w-full py-3.5 bg-primary-600 hover:bg-primary-500 text-white font-bold rounded-xl shadow-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed items-center justify-center gap-2"
+              >
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                {{ editingIndex === null ? t.addToList : t.saveChanges }}
+              </button>
+            </div>
 
-            <div class="h-4"></div>
+            </div><!-- /details -->
           </div>
         </div>
 
-        <!-- sticky add bar -->
-        <div class="flex-shrink-0 bg-white border-t border-gray-200 px-4 py-3" style="padding-bottom: calc(0.75rem + env(safe-area-inset-bottom))">
+        <!-- sticky add bar — MOBILE only; desktop's CTA sits in the details column -->
+        <div class="lg:hidden flex-shrink-0 bg-white border-t border-gray-200 px-4 py-3" style="padding-bottom: calc(0.75rem + env(safe-area-inset-bottom))">
           <div class="max-w-2xl mx-auto">
             <button
               @click="commitDraft"
