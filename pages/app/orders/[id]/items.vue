@@ -50,25 +50,30 @@
       </div>
 
       <div v-else-if="order">
-        <!-- Desktop Add/Edit Form — only once there's a product to add to (or
-             while editing). When empty, the guided "PASO FINAL" hero below is
-             the single centerpiece call-to-action. -->
-        <div v-if="canEdit && (hasItems || editingItemId)" id="desktop-form" class="hidden sm:block bg-white rounded-2xl ring-1 ring-gray-900/5 shadow-sm p-6 mb-8 transition-all duration-300 ease-out hover:shadow-md">
-          <div class="flex items-center justify-between mb-6">
-            <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-xl grid place-items-center text-white shadow-sm bg-gradient-to-br from-primary-500 to-indigo-600">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+        <!-- Desktop Add/Edit Form — the inline add UI for desktop, always present
+             when the order is editable (empty or not). Desktop NEVER opens the
+             mobile bottom-sheet; on the first product it wears the "PASO FINAL"
+             header so the empty state still feels guided. Mobile uses the hero +
+             sheet below instead. -->
+        <div v-if="canEdit" id="desktop-form" class="hidden sm:block bg-white rounded-2xl ring-1 ring-gray-900/5 shadow-sm p-6 mb-8 transition-all duration-300 ease-out hover:shadow-md">
+          <div class="mb-6">
+            <span v-if="!hasItems && !editingItemId" class="inline-block text-[11px] font-extrabold tracking-[0.18em] text-primary-700 bg-primary-50 border border-primary-100 rounded-full px-3 py-1 mb-3">{{ t.finalStep }}</span>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl grid place-items-center text-white shadow-sm bg-gradient-to-br from-primary-500 to-indigo-600">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+                </div>
+                <div>
+                  <h2 class="text-lg font-bold text-gray-900">
+                    {{ editingItemId ? t.editProduct : (hasItems ? t.addAnotherProduct : t.emptyTitle) }}
+                  </h2>
+                  <p class="text-sm text-gray-500">{{ (!hasItems && !editingItemId) ? t.emptyCopy : t.addProductSub }}</p>
+                </div>
               </div>
-              <div>
-                <h2 class="text-lg font-bold text-gray-900">
-                  {{ editingItemId ? t.editProduct : (hasItems ? t.addAnotherProduct : t.addProduct) }}
-                </h2>
-                <p class="text-sm text-gray-500">{{ t.addProductSub }}</p>
-              </div>
+              <button v-if="editingItemId" @click="cancelEdit" class="text-sm text-red-600 hover:text-red-700 font-medium px-3 py-1 hover:bg-red-50 rounded-lg transition-colors">
+                {{ t.cancelEdit }}
+              </button>
             </div>
-            <button v-if="editingItemId" @click="cancelEdit" class="text-sm text-red-600 hover:text-red-700 font-medium px-3 py-1 hover:bg-red-50 rounded-lg transition-colors">
-              {{ t.cancelEdit }}
-            </button>
           </div>
 
           <form @submit.prevent="handleSubmit" class="space-y-6">
@@ -140,7 +145,7 @@
                 'w-full py-3.5 rounded-xl font-bold text-lg transition-all duration-200 active:scale-[0.99] flex items-center justify-center gap-2',
                 (submitting || !itemForm.product_name.trim())
                   ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                  : 'bg-gray-900 text-white hover:bg-black shadow-lg shadow-gray-900/10 hover:-translate-y-0.5'
+                  : 'bg-primary-600 text-white hover:bg-primary-700 shadow-lg shadow-primary-600/20 hover:-translate-y-0.5'
               ]"
             >
               <svg v-if="!submitting" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
@@ -205,10 +210,12 @@
           <!-- ORDER PROOF OF PURCHASE — required before confirming. One array
                of files for the whole order so the customer can upload a
                receipt per store in this final step. -->
-          <div v-if="canEdit" class="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
+          <!-- Required: an amber "needs attention" tint until a PDF is attached, so
+               the customer sees the gate BEFORE hitting the disabled Continue button. -->
+          <div v-if="canEdit" class="rounded-2xl border p-5 sm:p-6 transition-colors" :class="orderProofs.length ? 'bg-white border-gray-200' : 'bg-amber-50/40 border-amber-300'">
             <!-- Header with icon -->
             <div class="flex items-start gap-3">
-              <div class="hidden sm:flex w-10 h-10 rounded-xl bg-primary-50 text-primary-600 items-center justify-center flex-shrink-0">
+              <div class="hidden sm:flex w-10 h-10 rounded-xl items-center justify-center flex-shrink-0 transition-colors" :class="orderProofs.length ? 'bg-primary-50 text-primary-600' : 'bg-amber-100 text-amber-700'">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
               </div>
               <div class="min-w-0">
@@ -278,9 +285,10 @@
           </div>
         </div>
 
-        <!-- Guided final step — the single, dominant centerpiece when the
-             order has no products yet. -->
-        <div v-else class="relative overflow-hidden text-center py-14 sm:py-20 px-6 bg-white rounded-2xl ring-1 ring-gray-900/5 mt-2">
+        <!-- Guided final step — the mobile empty-state centerpiece (its CTA opens
+             the bottom sheet). On desktop the inline form above is the add UI,
+             so this hero is hidden there. -->
+        <div v-else class="sm:hidden relative overflow-hidden text-center py-14 px-6 bg-white rounded-2xl ring-1 ring-gray-900/5 mt-2">
           <div class="pointer-events-none absolute -top-16 left-1/2 -translate-x-1/2 w-64 h-64 rounded-full bg-primary-400/10 blur-3xl"></div>
           <div class="relative max-w-md mx-auto">
             <span class="inline-block text-[11px] font-extrabold tracking-[0.18em] text-primary-700 bg-primary-50 border border-primary-100 rounded-full px-3 py-1 mb-6">{{ t.finalStep }}</span>
@@ -397,7 +405,7 @@
                             </div>
                         </div>
                     </div>
-                    <button type="submit" :disabled="submitting || !itemForm.product_name.trim()" class="w-full py-4 bg-gray-900 text-white font-bold text-lg rounded-xl hover:bg-black disabled:opacity-50 transition-all shadow-xl shadow-gray-200">{{ submitting ? t.processing : (editingItemId ? t.updateProductButton : t.addProductButton) }}</button>
+                    <button type="submit" :disabled="submitting || !itemForm.product_name.trim()" class="w-full py-4 bg-primary-600 text-white font-bold text-lg rounded-xl hover:bg-primary-700 disabled:opacity-50 transition-all shadow-lg shadow-primary-600/20">{{ submitting ? t.processing : (editingItemId ? t.updateProductButton : t.addProductButton) }}</button>
                     <div class="h-6"></div>
                   </form>
                 </div>
@@ -681,7 +689,18 @@ const editItem = (item) => {
 
 const cancelEdit = () => { editingItemId.value = null; resetForm(); };
 const resetForm = () => { itemForm.value = { product_name: "", product_url: "", merchant_order_id: "", quantity: 1, declared_value: "", tracking_number: "", estimated_delivery_date: "" }; existingFiles.value = { image: { url: null, name: null } }; markedForDeletion.value = { image: false }; removeProductImage(); showDetails.value = false; };
-const openAddModal = () => { if (editingItemId.value) cancelEdit(); showAddProductModal.value = true; };
+// Adding a product: the bottom sheet is MOBILE only. On desktop we route to the
+// always-present inline form (scroll to it + focus its first field) so a desktop
+// user never gets the phone-style popup.
+const openAddModal = () => {
+  if (editingItemId.value) cancelEdit();
+  if (window.innerWidth < 640) {
+    showAddProductModal.value = true;
+  } else {
+    document.getElementById('desktop-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setTimeout(() => document.getElementById('product_name_desktop')?.focus(), 250);
+  }
+};
 const closeModal = () => { showAddProductModal.value = false; cancelEdit(); };
 
 const handleSubmit = async () => {
