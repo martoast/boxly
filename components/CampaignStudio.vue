@@ -110,50 +110,90 @@
 
       <!-- ══ DRAFT ══ -->
       <div v-else-if="view === 'draft'" class="pb-4">
-        <button @click="back" class="text-sm font-semibold text-gray-500 hover:text-gray-800 mb-3">← Volver a ideas</button>
-
-        <!-- HERO: editor + live preview side by side -->
-        <div class="grid lg:grid-cols-2 gap-4">
-          <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-5" :class="drafting && 'opacity-50 pointer-events-none'">
-            <div class="flex items-center justify-between mb-1">
-              <label class="text-[11px] font-bold uppercase tracking-wide text-gray-400">Asunto</label>
-              <span class="text-[11px] font-semibold tabular-nums" :class="(draft.subject||'').length > 50 ? 'text-red-500' : 'text-gray-300'">{{ (draft.subject||'').length }}/50</span>
-            </div>
-            <input v-model="draft.subject" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-[15px] font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500" />
-            <label class="block text-[11px] font-bold uppercase tracking-wide text-gray-400 mb-1 mt-4">Cuerpo</label>
-            <textarea v-model="draft.body" rows="6" class="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-[14px] leading-relaxed text-gray-800 focus:outline-none focus:ring-2 focus:ring-primary-500"></textarea>
-            <div class="mt-3 grid grid-cols-2 gap-3">
-              <div><label class="block text-[11px] font-bold uppercase tracking-wide text-gray-400 mb-1">Botón (CTA)</label><input v-model="draft.cta_text" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-primary-500" /></div>
-              <div><label class="block text-[11px] font-bold uppercase tracking-wide text-gray-400 mb-1">Enlace</label><input v-model="draft.cta_url" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-primary-500" /></div>
-            </div>
-          </div>
-          <div class="lg:sticky lg:top-4 self-start">
-            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-              <div class="bg-gray-50 border-b border-gray-100 px-4 py-2 flex items-center justify-between">
-                <span class="text-[11px] font-bold uppercase tracking-wide text-gray-400">Vista previa · así se verá</span>
-                <span v-if="drafting" class="text-[11px] text-primary-600 font-semibold inline-flex items-center gap-1"><svg class="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> reescribiendo…</span>
-              </div>
-              <div class="p-5">
-                <p class="text-[16px] font-bold text-gray-900">{{ draft.subject }}</p>
-                <p class="text-[14px] text-gray-700 whitespace-pre-wrap leading-relaxed mt-2">{{ draft.body }}</p>
-                <a class="inline-block mt-4 px-4 py-2 rounded-lg bg-primary-600 text-white text-[13px] font-bold">{{ draft.cta_text || 'Ver más' }}</a>
-              </div>
-            </div>
-          </div>
+        <div class="flex items-center justify-between mb-3">
+          <button @click="back" class="text-sm font-semibold text-gray-500 hover:text-gray-800">← Volver a ideas</button>
+          <p class="hidden sm:flex items-center gap-1.5 text-[12px] text-gray-400">Edítalo o pídeselo a la IA — lo ves en vivo <span class="text-primary-500">→</span></p>
         </div>
 
-        <!-- AFINAR CON IA — the two AI actions, unified -->
-        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mt-4">
-          <div class="flex items-center gap-2 mb-2.5">
-            <span class="grid place-items-center w-6 h-6 rounded-lg bg-gradient-to-br from-primary-500 to-primary-700 text-white"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z"/></svg></span>
-            <span class="text-[13px] font-extrabold text-gray-900">Afinar con IA</span>
+        <div class="grid lg:grid-cols-2 gap-4 items-start">
+          <!-- LEFT: where you WORK — edit directly or ask the AI -->
+          <div class="space-y-4">
+            <!-- Editor -->
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-5 transition-opacity" :class="drafting && 'opacity-50 pointer-events-none'">
+              <div class="flex items-center gap-2 mb-3">
+                <span class="grid place-items-center w-6 h-6 rounded-lg bg-gray-900 text-white"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg></span>
+                <span class="text-[13px] font-extrabold text-gray-900">Tu correo</span>
+                <span class="text-[11px] text-gray-400 ml-auto">Puedes editarlo a mano</span>
+              </div>
+              <div class="flex items-center justify-between mb-1">
+                <label class="text-[11px] font-bold uppercase tracking-wide text-gray-400">Asunto</label>
+                <span class="text-[11px] font-semibold tabular-nums" :class="(draft.subject||'').length > 50 ? 'text-red-500' : 'text-gray-300'">{{ (draft.subject||'').length }}/50</span>
+              </div>
+              <input v-model="draft.subject" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-[15px] font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+              <label class="block text-[11px] font-bold uppercase tracking-wide text-gray-400 mb-1 mt-4">Cuerpo</label>
+              <textarea v-model="draft.body" rows="6" class="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-[14px] leading-relaxed text-gray-800 focus:outline-none focus:ring-2 focus:ring-primary-500"></textarea>
+              <div class="mt-3 grid grid-cols-2 gap-3">
+                <div><label class="block text-[11px] font-bold uppercase tracking-wide text-gray-400 mb-1">Botón (CTA)</label><input v-model="draft.cta_text" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-primary-500" /></div>
+                <div><label class="block text-[11px] font-bold uppercase tracking-wide text-gray-400 mb-1">Enlace</label><input v-model="draft.cta_url" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-primary-500" /></div>
+              </div>
+            </div>
+
+            <!-- AI assist — the star: ask in words, watch it land on the RIGHT -->
+            <div class="bg-gradient-to-br from-primary-50/70 to-white rounded-2xl border border-primary-100 shadow-sm p-4">
+              <div class="flex items-center gap-2 mb-2.5">
+                <span class="grid place-items-center w-6 h-6 rounded-lg bg-gradient-to-br from-primary-500 to-primary-700 text-white"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z"/></svg></span>
+                <span class="text-[13px] font-extrabold text-gray-900">Pídele cambios a la IA</span>
+              </div>
+
+              <div class="flex gap-2">
+                <input v-model="comment" @keydown.enter="refine" :disabled="drafting" placeholder="Dile qué cambiar — ej. hazlo más corto…" class="flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-2.5 text-[13px] bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-60" />
+                <button @click="refine" :disabled="drafting || !comment.trim()"
+                  class="rounded-lg px-4 py-2.5 text-[13px] font-bold transition whitespace-nowrap inline-flex items-center gap-1.5"
+                  :class="comment.trim() && !drafting ? 'bg-primary-600 hover:bg-primary-700 text-white shadow-sm' : 'border border-gray-200 text-gray-400 cursor-not-allowed'">
+                  <svg v-if="drafting" class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                  {{ drafting ? 'Aplicando…' : 'Aplicar' }}
+                </button>
+              </div>
+
+              <!-- quick asks: shows WHAT you can ask (kills the "what do I do?") -->
+              <div class="flex flex-wrap gap-1.5 mt-2.5">
+                <button v-for="q in QUICK_ASKS" :key="q" @click="quickAsk(q)" :disabled="drafting" class="text-[12px] font-semibold text-gray-600 bg-white border border-gray-200 rounded-full px-2.5 py-1 hover:border-primary-300 hover:text-primary-700 disabled:opacity-40 transition">{{ q }}</button>
+              </div>
+
+              <!-- distinct flow: variations produce a CHOICE, not an in-place edit -->
+              <button @click="variations" :disabled="drafting" class="mt-2.5 w-full text-[12.5px] font-bold text-primary-700 bg-white border border-primary-200 rounded-lg py-2 hover:bg-primary-50 disabled:opacity-40 transition">✨ Generar 3 variaciones para elegir</button>
+            </div>
           </div>
-          <div class="flex flex-col sm:flex-row gap-2">
-            <input v-model="comment" @keydown.enter="refine" placeholder="Dile qué cambiar — ej. hazlo más corto, menciona el envío gratis…" class="flex-1 border border-gray-200 rounded-lg px-3 py-2.5 text-[13px] focus:outline-none focus:ring-2 focus:ring-primary-500" />
-            <button @click="refine" :disabled="drafting || !comment.trim()"
-              class="rounded-lg px-4 py-2.5 text-[13px] font-bold transition whitespace-nowrap"
-              :class="comment.trim() && !drafting ? 'bg-primary-600 hover:bg-primary-700 text-white shadow-sm' : 'border border-gray-200 text-gray-400 cursor-not-allowed'">Aplicar cambio</button>
-            <button @click="variations" :disabled="drafting" class="rounded-lg px-4 py-2.5 text-[13px] font-bold border border-gray-200 text-gray-700 hover:border-primary-200 disabled:opacity-40 transition whitespace-nowrap">✨ 3 variaciones</button>
+
+          <!-- RIGHT: the live RESULT + everything that CHANGED, all in one place -->
+          <div class="lg:sticky lg:top-4 self-start space-y-3">
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+              <div class="bg-gray-50 border-b border-gray-100 px-4 py-2 flex items-center justify-between min-h-[36px]">
+                <span class="text-[11px] font-bold uppercase tracking-wide text-gray-400">Vista previa · así lo verán</span>
+                <span v-if="drafting" class="text-[11px] text-primary-600 font-semibold inline-flex items-center gap-1"><svg class="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> reescribiendo…</span>
+                <Transition name="fade"><span v-if="!drafting && changedLabel" class="text-[11px] font-bold text-emerald-600 inline-flex items-center gap-1">✨ {{ changedLabel }}</span></Transition>
+              </div>
+              <div class="p-5 transition-opacity" :class="drafting && 'opacity-40'">
+                <p class="text-[16px] font-bold text-gray-900 -mx-1.5 px-1.5 rounded-md" :class="{ 'flash-hl': flashSubject }">{{ draft.subject }}</p>
+                <p class="text-[14px] text-gray-700 whitespace-pre-wrap leading-relaxed mt-2 -mx-1.5 px-1.5 rounded-md" :class="{ 'flash-hl': flashBody }">{{ draft.body }}</p>
+                <a class="inline-block mt-4 px-4 py-2 rounded-lg bg-primary-600 text-white text-[13px] font-bold" :class="{ 'flash-ring': flashCta }">{{ draft.cta_text || 'Ver más' }}</a>
+              </div>
+            </div>
+
+            <!-- Change history — the running record of what the AI did, on the
+                 RESULT side next to the preview. New items animate in (motion is
+                 what sells cause→effect). Fills the space under the sticky preview. -->
+            <div v-if="history.length" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+              <p class="text-[10px] font-bold uppercase tracking-wide text-gray-400 mb-2">Historial de cambios</p>
+              <TransitionGroup name="hist" tag="div" class="space-y-1.5">
+                <div v-for="(h, i) in history" :key="h + '·' + (history.length - i)" class="flex items-start gap-2 text-[13px] text-gray-700">
+                  <span class="grid place-items-center w-4 h-4 rounded-full bg-emerald-100 text-emerald-600 shrink-0 mt-0.5"><svg class="w-2.5 h-2.5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 011.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z" clip-rule="evenodd"/></svg></span>
+                  <span>{{ h }}</span>
+                </div>
+              </TransitionGroup>
+            </div>
+
+            <p class="text-[11px] text-gray-400 text-center">Este es el correo real que recibirán tus clientes.</p>
           </div>
         </div>
 
@@ -161,6 +201,7 @@
         <div class="sticky bottom-3 mt-4 z-10">
           <div class="bg-white/95 backdrop-blur border border-gray-200 rounded-2xl shadow-lg p-2.5 flex flex-col sm:flex-row items-center gap-2.5">
             <div class="flex items-center gap-2 flex-1 w-full">
+              <span class="text-[11px] font-bold uppercase tracking-wide text-gray-400 whitespace-nowrap hidden sm:inline">Enviar a</span>
               <select v-model="draft.audience" class="border border-gray-200 rounded-lg px-3 py-2 text-[13px] bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 flex-1 sm:flex-none">
                 <option v-for="a in AUDIENCES" :key="a" :value="a">{{ audLabel(a) }}</option>
               </select>
@@ -226,6 +267,16 @@ const editStyle = ref(false) // steer HOW it writes (tone / info), separate from
 const draft = ref({ name: '', subject: '', body: '', cta_text: '', cta_url: '', audience: 'all' })
 const comment = ref('')
 const variationsList = ref([])
+// AI refine feedback — so the admin SEES the change land (which fields changed +
+// what was applied), instead of the text silently swapping under them.
+const QUICK_ASKS = ['Hazlo más corto', 'Más urgente', 'Menciona el envío gratis', 'Tono más cálido', 'Agrega un emoji']
+const history = ref([])          // the running list of applied asks (the "conversation")
+const changedLabel = ref('')     // transient "✨ Cuerpo actualizado" ON the preview (result side)
+const flashSubject = ref(false)
+const flashBody = ref(false)
+const flashCta = ref(false)
+function flashField(r) { r.value = false; nextTick(() => { r.value = true; setTimeout(() => { r.value = false }, 1700) }) }
+function quickAsk(text) { if (drafting.value) return; comment.value = text; refine() }
 const pastCampaigns = ref([])
 const audienceSize = ref(null)
 
@@ -292,11 +343,29 @@ async function pick(idea) {
 }
 
 async function refine() {
-  if (!comment.value.trim()) return
+  if (!comment.value.trim() || drafting.value) return
+  const asked = comment.value.trim()
+  const before = { ...draft.value }
   drafting.value = true
   try {
-    const res = await $fetch('/api/campaigns/draft', { method: 'POST', body: { mode: 'refine', draft: draft.value, comment: comment.value, guidance: guidance.value } })
-    if (res?.draft) { draft.value = res.draft; comment.value = '' }
+    const res = await $fetch('/api/campaigns/draft', { method: 'POST', body: { mode: 'refine', draft: draft.value, comment: asked, guidance: guidance.value } })
+    if (res?.draft) {
+      draft.value = res.draft
+      comment.value = ''
+      history.value = [asked, ...history.value.filter((h) => h !== asked)].slice(0, 8)
+      // Flash exactly the fields the AI touched AND name them ON the preview (the
+      // result side, where the user is looking), so the change is impossible to miss.
+      await nextTick()
+      const changed = []
+      if (before.subject !== res.draft.subject) { flashField(flashSubject); changed.push('asunto') }
+      if (before.body !== res.draft.body) { flashField(flashBody); changed.push('cuerpo') }
+      if ((before.cta_text || '') !== (res.draft.cta_text || '')) { flashField(flashCta); changed.push('botón') }
+      if (changed.length) {
+        const lbl = changed.length > 1 ? `${changed.join(' y ')} actualizados` : `${changed[0]} actualizado`
+        changedLabel.value = lbl.charAt(0).toUpperCase() + lbl.slice(1)
+        setTimeout(() => { changedLabel.value = '' }, 2800)
+      }
+    }
   } catch (e) { alert(e?.data?.message || 'Error') } finally { drafting.value = false }
 }
 
@@ -338,3 +407,19 @@ function reset() {
   view.value = 'start'; ideas.value = []; moment.value = ''; comment.value = ''; variationsList.value = []
 }
 </script>
+
+<style scoped>
+/* Flash the exact fields the AI just changed — a clear transient EVENT (a quick
+   highlight that fades out), never a persistent style. */
+@keyframes flashHl { 0% { background-color: rgba(46, 107, 183, 0.22); } 30% { background-color: rgba(46, 107, 183, 0.22); } 100% { background-color: transparent; } }
+.flash-hl { animation: flashHl 1.3s ease-out; }
+@keyframes flashRing { 0% { box-shadow: 0 0 0 3px rgba(46, 107, 183, 0.45); } 30% { box-shadow: 0 0 0 3px rgba(46, 107, 183, 0.45); } 100% { box-shadow: 0 0 0 0 rgba(46, 107, 183, 0); } }
+.flash-ring { animation: flashRing 1.3s ease-out; }
+.fade-enter-active, .fade-leave-active { transition: opacity 0.25s ease; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
+/* New change-history items slide + fade in — motion sells the cause→effect. */
+.hist-enter-active { transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.hist-enter-from { opacity: 0; transform: translateY(-6px); }
+.hist-move { transition: transform 0.4s ease; }
+@media (prefers-reduced-motion: reduce) { .flash-hl, .flash-ring, .hist-enter-active, .hist-move { animation: none; transition: none; } }
+</style>
