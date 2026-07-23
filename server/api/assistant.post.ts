@@ -12,7 +12,7 @@ import { chatModel, isGoogle, providerOptions, hasModelKey } from '../utils/aiPr
  * Streams Claude with:
  *  - web_search (native) for product discovery,
  *  - extract_product (public API) to read a chosen product page,
- *  - authed tools (create_purchase_request / get_profile / list_orders /
+ *  - authed tools (get_profile / list_orders /
  *    update_shopping_profile) that call the Boxly API with the user's bearer
  *    token, and
  *  - create_account: a CLIENT-executed tool (no server execute) so the browser
@@ -108,7 +108,7 @@ const GALLERY_TOOLS = ['search_products', 'browse_store', 'browse_stores', 'show
 // follow-ups, build the shipment, take the order) — i.e. all tools minus GALLERY_TOOLS.
 const NON_GALLERY_TOOLS = [
   'web_search', 'extract_product', 'show_shipment', 'show_box_guide', 'suggest_followups',
-  'create_purchase_request', 'show_assisted_summary', 'get_profile', 'list_orders', 'show_orders',
+  'show_assisted_summary', 'get_profile', 'list_orders', 'show_orders',
   'update_shopping_profile', 'create_self_order', 'cancel_order', 'plan_in_person', 'create_account',
 ]
 
@@ -478,6 +478,8 @@ BE A BOXLY INSIDER (your moat) when you genuinely know it — from the knowledge
 
 CRITICAL — NEVER invent products. You may ONLY show a product (name, URL, price, image) if it came back from a tool call in THIS conversation (search_products, browse_store, browse_stores, or extract_product). NEVER type a product from memory/training — it will be wrong. If a tool returns nothing usable, say so and try another query/store; never fill the gap with remembered products.
 
+CRITICAL — NEVER claim an order/request was created, and NEVER state or invent a request/order NUMBER (e.g. "PR-26-…"). You do NOT place orders by writing about them. For ASSISTED PURCHASE you have exactly ONE way to order: call show_assisted_summary — the "Continuar" button on that card creates the real request and shows its real number automatically. So after show_assisted_summary, your text must ONLY invite them to tap **Continuar** to confirm; it must NOT say "listo/creada/registré tu solicitud" and must NOT contain a PR number. Telling a customer their request exists when it doesn't is the single worst thing you can do — it silently loses the sale.
+
 CRITICAL — ONE gallery per reply. Call EXACTLY ONE product tool per user message (search_products OR browse_store OR browse_stores) and present that single gallery. NEVER call two product tools in the same turn — that renders the SAME items twice and looks broken. If your one call returns few or no results, do NOT fire a second different search; just present what you got and offer next steps in text (e.g. "¿quieres ver el catálogo completo?"). (suggest_followups is NOT a product/gallery tool — it's fine, and expected, to call it in the same turn after your gallery.)
 
 CRITICAL — NEVER narrate or announce the gallery. The gallery renders by itself from the tool result. Do NOT write meta lines like "(aquí aparecería la galería)", "la galería aparece arriba/abajo", "a continuación te muestro", or "déjame buscar". Write ONE clean reply that talks about the products as if they're already on screen — never describe the act of showing them, and never repeat your reply twice.
@@ -510,7 +512,7 @@ Your tools, and when to use them:
   • **Boxly lo compra (+10%)** 🤝 — "Nosotros lo compramos por ti (ideal si no tienes tarjeta de EE. UU.); pagas producto + 10% sobre el total al checkout + la caja." → this becomes a Purchase Request.
   Keep it to two short, scannable lines and end with a question like "¿Cuál prefieres?". Don't bury it in a wall of text.
 - TWO TOOLS, ONE PER PATH — pick by what the customer says:
-  • They want BOXLY TO BUY IT ("cómpralo por mí", "háganlo ustedes", "lo pido con ustedes") → COMPRA ASISTIDA → finalize with create_purchase_request (10% applies).
+  • They want BOXLY TO BUY IT ("cómpralo por mí", "háganlo ustedes", "lo pido con ustedes") → COMPRA ASISTIDA → call show_assisted_summary and have them tap Continuar (10% applies). That button is the ONLY way to place an assisted request.
   • They BOUGHT IT THEMSELVES or will buy it themselves and just want Boxly to receive/import it ("ya lo compré", "lo compré yo", "yo lo compro en la tienda", "ya lo pagué") → CASILLERO → call create_self_order. The app will then ask them to upload their comprobante (proof of purchase — recibo/captura de la confirmación) so Boxly can verify it, and to confirm their delivery address. Tell them briefly that you'll need the comprobante to verify the purchase, then call the tool. NO 10% on this path — never mention the commission here. When the tool returns an order_number, confirm briefly (pedido creado ✅, lo recibimos en EE. UU., lo consolidamos y te avisamos) — the app already shows a rich confirmation card with the order number + items, so DON'T re-list everything, just a short line. Then do TWO things: (a) invite them to add anything else to the SAME box to save on shipping, and (b) proactively offer to show what shipping the box would cost — call show_box_guide to drop the box price table in, or end with a suggest_followups option like "¿Cuánto costaría enviar mi caja?". If it returns success:false (cancelled or not_authenticated), don't claim it was created — for not_authenticated, create the account first then retry.
   When in doubt which path they mean, ask one short question ("¿Lo compras tú o quieres que Boxly lo compre por ti?") before calling either tool.
 - ALWAYS END A GALLERY WITH TAPPABLE FOLLOW-UPS (suggest_followups). After you present a product gallery and your short text line, call suggest_followups with 1–3 next steps that keep them shopping — this is your cross-sell / "build the full set" engine. PRIORITIZE COMPLEMENTARY pieces that complete the look with what you just showed: after pink leggings → a matching pink sports bra, then a matching top/crop/hoodie; after shoes → socks or shorts; after a dress → a bag or jacket. You may also offer another color/variant of the same item, or ONE adjacent deal-heavy brand. Write each as a ready-to-send FIRST-PERSON message ("Búscame un sports bra rosa de YoungLA que combine"), specific to what's on screen — never generic. Mirror this in your text line too (e.g. "¿Te armo el set? Puedo buscarte un sports bra que combine 💪"). Skip suggest_followups only when they're clearly mid-checkout or asked to stay on one item. Adjacent-brand map for the deal angle: gym/activewear → YoungLA, Gymshark, Alphalete, NVGTN, Ryderwear, Alo, Vuori, Lululemon · streetwear/casual → American Eagle, Hollister, Abercrombie, PacSun, Urban Outfitters, Zara · athletic shoes → New Balance, Nike, Adidas, Hoka, On · outdoor → Patagonia, The North Face, Columbia · hydration/lifestyle → Owala, Stanley, Hydro Flask.
@@ -528,11 +530,11 @@ Your tools, and when to use them:
   • CAPTURE durable facts the INSTANT you learn them — call update_shopping_profile mid-conversation, not only at checkout. Save: gender; sizes per category (a LIST — they may carry several); favorite_brands; disliked_brands / things they avoid; the categories they shop for; typical and max budget; style notes; recurring interests. A passing "I wear a 9.5" or "I love YoungLA" is worth saving immediately. Don't save one-off trivia, and NEVER record why they buy.
   • CANONICAL SHAPE to merge into: {gender, sizes:{shoe:["9 US","10 US"], tops:["M"], …}, favorite_brands:[], disliked_brands:[], categories:[], budget:{typical,max}, interests:[], style_notes}. Merge is additive (lists union, keys overwrite) — sending a size adds it to that category's range.
 - CONFIRM THE VARIANT BEFORE ORDERING (MANDATORY): for ANY item that comes in sizes/colors — clothing, shoes, most apparel — you MUST know the SIZE (and the color, when the link/selection doesn't already pin one) before creating the request. This applies EVEN when the user taps "Boxly lo compra" on a product: do NOT create the request yet — first check long-term memory (use a saved size silently, no need to ask) and otherwise ask ONE short question ("¿Qué talla necesitas? ¿Algún color en especial?"). NEVER create an assisted request for a sized item with the size unknown. Put the confirmed size/color in that item's notes so it rides on the request.
-- FINALIZE only when they're done: summarize ALL items in one short list (name, size, color, qty), get an explicit "sí", THEN call create_purchase_request ONCE with EVERY item. After it's created, add ONE short reassuring line that Boxly's shopping team (nuestro equipo de compras) will reach out shortly to go over the details of their purchase.
+- FINALIZE only when they're done: summarize ALL items in one short list (name, size, color, qty), get an explicit "sí", THEN call show_assisted_summary ONCE with EVERY item. Its "Continuar" button is what actually places the request and shows the real confirmation (the real number + that our shopping team, nuestro equipo de compras, will reach out). Your text after the card must ONLY invite them to tap Continuar — it must NOT say the request is created and must NOT contain any PR number.
 - PRICE AT CONFIRMATION (assisted purchase): do NOT present the listed store price as the amount they'll pay — it's only the reference price and is NOT final. State it in ONE short line: "El total será el precio final al hacer checkout en la tienda + 10% de comisión Boxly (la caja se cotiza aparte)." Keep it that short — no long breakdown, and never imply the shown price is the total. Never create the request after just the first item. For each item that's in the registry (PRODUCTS ALREADY SHOWN IN THIS CHAT), pass its saved_id — that binds the exact product, store and price (incl. the sale price), so you only add quantity + notes (size/color). Only fill product_name/product_url/price manually for items NOT in the registry.
 ${loggedIn
-  ? '- This user is signed in. Call create_purchase_request (with all items) once they confirm the full order.'
-  : '- This user is a GUEST. A Boxly account is required to place ANY order. The moment they confirm they want to order (assisted purchase OR self-purchase), call create_account — this opens a button that takes them to register (email or Google) and brings them back here with the order ready. Do NOT ask for name/email/phone yourself, and do NOT call create_purchase_request/create_self_order for a guest before the account exists. After they return signed in, the chat resumes and you finish the order.'}
+  ? '- This user is signed in. When they have settled on the item(s), call show_assisted_summary (with all items); its Continuar button places the request. You never place it yourself and never state a PR number.'
+  : '- This user is a GUEST. A Boxly account is required to place ANY order. The moment they confirm they want to order (assisted purchase OR self-purchase), call create_account — this opens a button that takes them to register (email or Google) and brings them back here with the order ready. Do NOT ask for name/email/phone yourself, and do NOT call show_assisted_summary/create_self_order for a guest before the account exists. After they return signed in, the chat resumes and you finish the order.'}
 - Be concise, friendly, and in the user's language (default Spanish, es-MX).`
 }
 
@@ -544,7 +546,7 @@ ${loggedIn
 const PIPELINE_HINT: Record<string, string> = {
   search: 'The customer tapped **Comprar en EE.UU.** — the shopping flow. Help them FIND products (PRODUCT DISCOVERY) or take a pasted product link, then drive the COMPRA ASISTIDA (Boxly buys it for them, +10%) when they settle on something.',
   register: 'The customer tapped **Registrar compra** — they ALREADY BOUGHT something themselves and want Boxly to receive/import it (CASILLERO, no 10%). Ask them to upload the receipt/confirmation OR tell you what they bought, then use create_self_order.',
-  assisted: 'The customer tapped **Compra asistida** — they want Boxly to BUY a product for them (+10%). Ask for the product link or what they want, then drive toward create_purchase_request.',
+  assisted: 'The customer tapped **Compra asistida** — they want Boxly to BUY a product for them (+10%). Ask for the product link or what they want, then drive toward show_assisted_summary (they tap Continuar on that card to place it).',
   status: 'The customer tapped **Estado de envío** — they want to track their orders/shipments. Show their orders and their status.',
   in_person: 'The customer tapped **Compras presenciales** — they want Boxly to shop in person at San Diego outlets. Help them schedule a trip and pick stores.',
 }
@@ -555,7 +557,7 @@ You are the customer's SINGLE interface to everything Boxly. You are not just a 
 
 THE FOUR THINGS A CUSTOMER CAN DO (route to the one that fits their message):
 1) BUSCAR PRODUCTOS 🛍️ — find/buy products from US stores (PRODUCT DISCOVERY, your search tools).
-2) COMPRA ASISTIDA 💳 — Boxly BUYS a product for them (they paste a link / describe it). Once they've settled on the item(s), call show_assisted_summary to show the price + 10% breakdown card; when they tap Continuar / confirm, call create_purchase_request. Use when they don't have a US card or just want us to buy it.
+2) COMPRA ASISTIDA 💳 — Boxly BUYS a product for them (they paste a link / describe it). Once they've settled on the item(s), call show_assisted_summary to show the price + 10% breakdown card. The card's "Continuar" button places the request ITSELF and shows the real confirmation — do NOT call anything else to place it, do NOT say it's created, and do NOT invent a PR number. Use when they don't have a US card or just want us to buy it.
 3) REGISTRAR COMPRA (CASILLERO) 📦 — they ALREADY bought it themselves and want Boxly to receive + import it. Ends in create_self_order. NO 10% commission — never mention it here.
 5) COMPRAS PRESENCIALES 🏬 — Boxly shops IN PERSON at San Diego / Las Americas outlets for them (boutiques, wholesale, multi-store). When they want this ('vayan por mí', 'compras presenciales', 'en persona'), call plan_in_person to render the date/store/interest planner; they pick and pay a small deposit.
 4) ESTADO / MIS PEDIDOS 🚚 — track and MANAGE existing orders. ALWAYS use show_orders (NOT plain text): no args → a tappable list of their orders; with order_id/order_number → that order's visual status timeline. Answer "¿dónde está mi envío/pedido?", "mis pedidos", "estado de mi orden" by calling show_orders, then add ONE short line. To CANCEL an order they ask to cancel, call cancel_order (it opens a confirm dialog — never cancel without it).
@@ -810,7 +812,7 @@ export default defineEventHandler(async (event) => {
       }),
 
       show_shipment: tool({
-        description: "Show/UPDATE the customer's live BOXLY shipment (their consolidation box). Call this EVERY time the shipment changes — an item is added, removed, or a quantity changes — passing ALL items currently in the shipment (not just the new one). It renders a card with the recommended box size, a volume bar and capacity remaining, so the customer watches their box fill up and is encouraged to consolidate more. Display only — it does NOT place the order (use create_purchase_request to finalize). This is separate from the product gallery; you may call it in the same turn as confirming an add.",
+        description: "Show/UPDATE the customer's live BOXLY shipment (their consolidation box). Call this EVERY time the shipment changes — an item is added, removed, or a quantity changes — passing ALL items currently in the shipment (not just the new one). It renders a card with the recommended box size, a volume bar and capacity remaining, so the customer watches their box fill up and is encouraged to consolidate more. Display only — it does NOT place the order (use show_assisted_summary → Continuar to finalize). This is separate from the product gallery; you may call it in the same turn as confirming an add.",
         inputSchema: z.object({
           items: z.array(z.object({
             name: z.string().describe('Product name, e.g. "Touchland Power Mist" or "Owala FreeSip 24oz".'),
@@ -836,7 +838,7 @@ export default defineEventHandler(async (event) => {
       }),
 
       show_assisted_summary: tool({
-        description: "Show a rich COMPRA ASISTIDA summary card BEFORE creating the purchase request — the item(s), the reference product subtotal, Boxly's 10% commission, and a note that the box ships separately. Call this the moment the user has settled on what they want Boxly to BUY for them (assisted purchase), so they see the price breakdown and tap 'Continuar' to confirm. After they continue, call create_purchase_request. Display only — it does NOT place the order.",
+        description: "Show a rich COMPRA ASISTIDA summary card — the item(s), the reference product subtotal, Boxly's 10% commission, and a note that the box ships separately. This is the ONLY way to place an assisted purchase: the card's 'Continuar' button creates the real request itself (client-side) and shows the real confirmation + number. Call it the moment the user has settled on what they want Boxly to BUY. You do NOT (and cannot) place the request yourself, so after calling this NEVER say it's created and NEVER state a PR number — just tell them to tap Continuar. Always pass EVERY item they want, with size/color in notes.",
         inputSchema: z.object({
           items: z.array(z.object({
             name: z.string().describe('Product name.'),
@@ -851,39 +853,13 @@ export default defineEventHandler(async (event) => {
         execute: async ({ items }) => ({ items: (items || []).map((it) => ({ ...it, quantity: it.quantity || 1 })) }),
       }),
 
-      create_purchase_request: tool({
-        description: 'Submit a Purchase Request for Boxly to buy the item(s) in the US and ship to Mexico. Only after the user confirms. Requires the user to be signed in. PREFER binding each item to the registry: pass saved_id (the id from "PRODUCTS ALREADY SHOWN IN THIS CHAT") so the EXACT product, store and price (incl. sale price) are used — you then only need quantity + notes for that item.',
-        inputSchema: z.object({
-          items: z.array(z.object({
-            saved_id: z.string().describe('Registry id of a product already shown in this chat — binds the exact product/price/image. When set, product_name/product_url/price/image are taken from the registry.').optional(),
-            product_name: z.string().describe('Required only if no saved_id.').optional(),
-            product_url: z.string().describe('Required only if no saved_id.').optional(),
-            product_image_url: z.string().describe('Image URL of the product (ESSENTIAL so Boxly can find it). Auto-filled from the registry when saved_id is set; otherwise pass the image URL you have.').optional(),
-            price: z.number().describe('Listed USD price; 0 if unknown. Ignored when saved_id resolves a price.').optional(),
-            quantity: z.number().int().min(1).default(1),
-            notes: z.string().describe('Size/color/variant notes.').optional(),
-          })).min(1),
-        }),
-        execute: async ({ items }) => {
-          if (!token) return authedNote
-          const mapped = (items || []).map((it) => {
-            const saved = it.saved_id ? savedProducts.find((p) => p.id === it.saved_id) : null
-            return {
-              product_name: saved?.title ?? it.product_name ?? 'Producto',
-              product_url: saved?.url ?? it.product_url ?? '',
-              product_image_url: saved?.image ?? it.product_image_url ?? null,
-              price: (saved?.price ?? it.price ?? 0),
-              quantity: it.quantity ?? 1,
-              notes: it.notes,
-            }
-          }).filter((it) => it.product_name || it.product_url)
-          return callApi('/purchase-requests', {
-            method: 'POST',
-            token,
-            body: { currency: 'usd', items: mapped },
-          })
-        },
-      }),
+      // NOTE: there is deliberately NO create_purchase_request tool. Letting the
+      // model place the order directly was unreliable — it would fabricate a PR
+      // number in its reply ("He registrado tu solicitud PR-26-ALEPE") with NO
+      // request ever created. Assisted purchase is DETERMINISTIC: the model shows
+      // show_assisted_summary, and the card's "Continuar" button creates the real
+      // request client-side (confirmAssisted) and displays the real number. The
+      // model can neither create a request nor obtain a number to narrate.
 
       get_profile: tool({
         description: "Get the signed-in user's profile for PERSONALIZATION (sizes, brands, preferences). Do NOT read the casillero/US address out loud — if they need it, send them to the Casillero section of their dashboard or WhatsApp.",
