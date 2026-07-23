@@ -1617,6 +1617,31 @@ async function confirmAssisted(part) {
 }
 function editAssisted() { composerRef.value?.focus() }
 
+// AUTO-CREATE the assisted request the instant its summary card appears — the
+// customer already said "Boxly lo compra", so a second "Continuar" tap only
+// confuses them and loses the sale. Deterministic (real request_number from the
+// API); confirmAssisted guards against double-firing. We watch a derived list of
+// available summary toolCallIds so this runs exactly when a NEW summary lands.
+function autoCreateAssisted() {
+  for (const m of chat.messages) {
+    if (m.role !== 'assistant') continue
+    for (const part of (m.parts || [])) {
+      if (part?.type === 'tool-show_assisted_summary' && part.state === 'output-available'
+          && part.toolCallId && (part.output?.items?.length)
+          && !assistedResults[part.toolCallId] && !assistedErrors[part.toolCallId]
+          && assistedCreatingId.value !== part.toolCallId) {
+        confirmAssisted(part)
+      }
+    }
+  }
+}
+watch(
+  () => chat.messages.flatMap((m) => (m.parts || [])
+    .filter((p) => p?.type === 'tool-show_assisted_summary' && p.state === 'output-available' && p.toolCallId)
+    .map((p) => p.toolCallId)).join(','),
+  () => autoCreateAssisted(),
+)
+
 function openProduct(p) { selectedProduct.value = p }
 function onModalAssisted(p) { selectedProduct.value = null; onAssistedProduct(p) }
 

@@ -26,14 +26,18 @@
     </div>
     <p class="mt-2 text-[11px] text-gray-400 leading-snug">El 10% se calcula sobre el total final al hacer checkout en la tienda (producto + envío que cobre la tienda). Este es un estimado — el total exacto va en tu cotización, no pagas nada todavía.</p>
 
-    <p v-if="error" class="mt-2 text-[12px] font-semibold text-red-600">{{ error }}</p>
-
-    <div class="flex items-center gap-2 mt-3">
-      <button type="button" :disabled="loading" @click="$emit('edit')" class="px-3 py-2.5 text-gray-500 hover:bg-gray-100 disabled:opacity-50 text-[13px] font-semibold rounded-xl transition">Editar</button>
-      <button type="button" :disabled="loading" @click="$emit('confirm')" class="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-primary-500 hover:bg-primary-600 active:scale-[.98] disabled:opacity-60 disabled:active:scale-100 text-white text-[13px] font-bold rounded-xl transition-all shadow-sm shadow-primary-500/20">
-        <svg v-if="loading" class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
-        {{ loading ? 'Creando tu solicitud…' : 'Continuar — crear solicitud' }}
-      </button>
+    <!-- The request is created AUTOMATICALLY the moment this card appears (the
+         customer already asked Boxly to buy it) — no extra "Continuar" tap. On
+         failure we surface a retry so the sale is never silently lost. -->
+    <div class="mt-3">
+      <div v-if="!error" class="inline-flex items-center gap-2 text-[13px] font-bold text-primary-700">
+        <svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
+        Creando tu solicitud…
+      </div>
+      <div v-else>
+        <p class="text-[12px] font-semibold text-red-600 mb-2">{{ error }}</p>
+        <button type="button" @click="$emit('confirm')" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-primary-500 hover:bg-primary-600 active:scale-[.98] text-white text-[13px] font-bold rounded-xl transition-all shadow-sm shadow-primary-500/20">Reintentar</button>
+      </div>
     </div>
   </div>
 </template>
