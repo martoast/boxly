@@ -72,8 +72,22 @@ cards that arrive live can create anything.
 ## Verification
 
 - [x] `nuxt build` passes.
-- [ ] Replay chat #238's flow on staging: 5 items added one at a time → exactly
-      ONE PR, 5 items, no duplicates, one confirmation email.
+- [x] Deployed (CI/CD runs `php artisan migrate --force` from the Dockerfile).
+      `conversation_id` is present on the API's PR payload and BOTH new filters
+      demonstrably apply (`status=paid` → 0 while unfiltered → 2). Prod serves
+      the exact content-hashed chunk the local build produced.
+- [x] PUT replace semantics, run live against the CLI account's own old test
+      request (PR 90) and restored afterwards: whole cart re-sent with one new
+      item → exactly 2 rows, the original row REUSED (same item id) rather than
+      duplicated; re-sending without it deletes it and leaves the original
+      untouched. This is precisely the shape that produced Marisol's 15 rows.
+- [x] An item added on a later card keeps its picture — `product_image_url` is
+      stored and re-hosted on our bucket, and the file is cleaned up when the
+      item is removed.
+- [ ] Real chat end-to-end: 5 items added one at a time → ONE PR, 5 items, one
+      confirmation email. (POST-with-`conversation_id` is the one path not
+      exercised in prod — testing it means a live request + a "new request"
+      email to Velonie.)
 - [ ] Reopen that chat → no new PR, cards show the real number, adding a 6th
       item updates the same PR.
 - [ ] Add an item after the PR is quoted → new PR created, old one untouched.
