@@ -426,15 +426,48 @@ function buildShipment(items: any[]) {
   }
 }
 
-// Boxly's default box price table (shipping cost per consolidated box to Mexico).
-// Source of truth for the in-chat box-guide component. Update here if prices change.
+// Boxly's box table (shipping cost per consolidated box to Mexico) as shown in
+// chat. Dimensions/weights/capacity live here; the PRICES are pulled live from
+// Stripe by boxGuide() below — these values are only the offline fallback, so
+// the concierge can never quote a price the customer won't actually be charged.
 const BOX_GUIDE = [
-  { key: 'XS', label: 'Extra chica', price_mxn: 1200, dims: '32×24×13 cm', max_kg: 8, fits: '~5–7 prendas dobladas' },
-  { key: 'S', label: 'Chica', price_mxn: 2200, dims: '42×27×32 cm', max_kg: 15, fits: '~10–15 prendas dobladas' },
-  { key: 'M', label: 'Mediana', price_mxn: 4000, dims: '42×52×40 cm', max_kg: 25, fits: '~24–34 prendas dobladas', popular: true },
-  { key: 'L', label: 'Grande', price_mxn: 5100, dims: '52×42×40 cm', max_kg: 35, fits: '~38–48 prendas dobladas' },
-  { key: 'XL', label: 'Extra grande', price_mxn: 6250, dims: '52×62×53 cm', max_kg: 50, fits: '~52–72 prendas dobladas' },
+  { key: 'XS', label: 'Extra chica', price_mxn: 1300, dims: '32×24×13 cm', max_kg: 8, fits: '~5–7 prendas dobladas' },
+  { key: 'S', label: 'Chica', price_mxn: 2400, dims: '42×27×32 cm', max_kg: 15, fits: '~10–15 prendas dobladas' },
+  { key: 'M', label: 'Mediana', price_mxn: 4400, dims: '42×52×40 cm', max_kg: 25, fits: '~24–34 prendas dobladas', popular: true },
+  { key: 'L', label: 'Grande', price_mxn: 5600, dims: '52×42×40 cm', max_kg: 35, fits: '~38–48 prendas dobladas' },
+  { key: 'XL', label: 'Extra grande', price_mxn: 6900, dims: '52×62×53 cm', max_kg: 50, fits: '~52–72 prendas dobladas' },
 ]
+
+// LIVE box prices, read from the Stripe catalog (/products) and cached for a few
+// minutes so a price change reaches the chat without a deploy. Each size has
+// several active prices — the list price is the highest for that size; the
+// cheaper ones are the in-between amounts used for odd shipments and must never
+// be quoted as the public price. shipping=false is the border-pickup "Crossing"
+// catalog, a different service entirely.
+const BOX_SIZE_BY_NAME: Record<string, string> = {
+  'extra small box': 'XS', 'small box': 'S', 'medium box': 'M', 'large box': 'L', 'extra large box': 'XL',
+}
+let boxPriceCache: { at: number; prices: Record<string, number> } | null = null
+async function boxGuide() {
+  if (!boxPriceCache || Date.now() - boxPriceCache.at > 10 * 60 * 1000) {
+    try {
+      const res = await callApi('/products', { timeoutMs: 8000 })
+      const next: Record<string, number> = {}
+      for (const p of Array.isArray(res) ? res : []) {
+        if (String(p?.shipping) !== 'true') continue
+        const size = BOX_SIZE_BY_NAME[String(p?.name || '').trim().toLowerCase()]
+        const price = Number(p?.price)
+        if (!size || !Number.isFinite(price)) continue
+        if (next[size] === undefined || price > next[size]) next[size] = price
+      }
+      // Only accept a COMPLETE table; a partial catalog must not half-update the
+      // quote the customer sees.
+      if (BOX_GUIDE.every((b) => next[b.key] > 0)) boxPriceCache = { at: Date.now(), prices: next }
+    } catch { /* keep the last good prices, or the static fallback above */ }
+  }
+  const live = boxPriceCache?.prices
+  return BOX_GUIDE.map((b) => ({ ...b, price_mxn: live?.[b.key] ?? b.price_mxn }))
+}
 
 // The per-shopper, per-turn context: long-term memory + the in-chat product
 // registry. Kept SEPARATE from systemPrompt() so it can be sent as its own
@@ -827,7 +860,7 @@ export default defineEventHandler(async (event) => {
       show_box_guide: tool({
         description: "Show Boxly's box SIZES and SHIPPING PRICES as a table in the chat. Call this whenever the customer asks about box sizes, shipping/box prices or cost — '¿cuánto cuesta el envío?', '¿qué cajas tienen?', '¿cuánto cuesta mandar una caja?', '¿cuáles son las medidas/precios?', 'how much is shipping'. The box price is the shipping cost for the WHOLE consolidated box (the product cost + Boxly's 10% commission are SEPARATE). After showing it, answer their question briefly and steer them to consolidate into the smallest box that fits.",
         inputSchema: z.object({}),
-        execute: async () => ({ boxes: BOX_GUIDE }),
+        execute: async () => ({ boxes: await boxGuide() }),
       }),
 
       suggest_followups: tool({

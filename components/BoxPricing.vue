@@ -78,7 +78,7 @@
 </template>
 
 <script setup>
-import { reactive } from "vue";
+import { computed, onMounted, reactive } from "vue";
 
 const props = defineProps({
   ctaLink: {
@@ -102,14 +102,25 @@ const TRUST = [
 // The three things that matter, as clean value points (replaces the disclaimer paragraphs).
 const FACTS = ["factPrice", "factShipping", "factConsolidate"];
 
-// Box pricing data — fixed price per size; capacity numbers are approximate examples.
-const boxes = [
-  { size: "XS", price: 1200, perItem: 240, garments: 5,   pairs: 2,  weightLimit: 8,  dimensions: { es: "32 × 24 × 13 cm", en: "32 × 24 × 13 cm" } },
-  { size: "S",  price: 2200, perItem: 110, garments: 20,  pairs: 5,  weightLimit: 15, dimensions: { es: "42 × 27 × 32 cm", en: "42 × 27 × 32 cm" } },
-  { size: "M",  price: 4000, perItem: 100, garments: 40,  pairs: 10, weightLimit: 25, dimensions: { es: "42 × 52 × 40 cm", en: "42 × 52 × 40 cm" }, popular: true },
-  { size: "L",  price: 5100, perItem: 85,  garments: 60,  pairs: 20, weightLimit: 35, dimensions: { es: "52 × 42 × 40 cm", en: "52 × 42 × 40 cm" } },
-  { size: "XL", price: 6250, perItem: 55,  garments: 100, pairs: 30, weightLimit: 50, dimensions: { es: "52 × 62 × 53 cm", en: "52 × 62 × 53 cm" }, bestValue: true },
+// Box data — capacity numbers are approximate examples. The PRICE is not here:
+// it comes from Stripe via useBoxPrices() so a price change goes live without a
+// deploy (these used to be hardcoded and silently went stale).
+const BOXES = [
+  { size: "XS", garments: 5,   pairs: 2,  weightLimit: 8,  dimensions: { es: "32 × 24 × 13 cm", en: "32 × 24 × 13 cm" } },
+  { size: "S",  garments: 20,  pairs: 5,  weightLimit: 15, dimensions: { es: "42 × 27 × 32 cm", en: "42 × 27 × 32 cm" } },
+  { size: "M",  garments: 40,  pairs: 10, weightLimit: 25, dimensions: { es: "42 × 52 × 40 cm", en: "42 × 52 × 40 cm" }, popular: true },
+  { size: "L",  garments: 60,  pairs: 20, weightLimit: 35, dimensions: { es: "52 × 42 × 40 cm", en: "52 × 42 × 40 cm" } },
+  { size: "XL", garments: 100, pairs: 30, weightLimit: 50, dimensions: { es: "52 × 62 × 53 cm", en: "52 × 62 × 53 cm" }, bestValue: true },
 ];
+
+const { prices: boxPrices, load: loadBoxPrices } = useBoxPrices();
+onMounted(() => { loadBoxPrices(); });
+
+// "per item" is derived from the live price so it can never contradict it.
+const boxes = computed(() => BOXES.map((b) => {
+  const price = boxPrices.value[b.size];
+  return { ...b, price, perItem: Math.round(price / b.garments) };
+}));
 const specsOpen = reactive({});
 
 // Translations

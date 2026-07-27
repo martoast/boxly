@@ -174,7 +174,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { Dialog, DialogPanel, TransitionChild, TransitionRoot } from '@headlessui/vue'
 
 defineProps({
@@ -214,15 +214,19 @@ const dimLabels = computed(() => ({
 const weight = ref(null)
 const dims = reactive({ length: null, width: null, height: null })
 
-// Box tiers — single source of truth here. If pricing changes, update
-// the same list on the landing's BoxPricing component too.
-const BOXES = [
-  { size: 'XS', dims: [32, 24, 13], maxKg: 8,  priceMxn: 1200, dimensions: '32×24×13 cm' },
-  { size: 'S',  dims: [42, 27, 32], maxKg: 15, priceMxn: 2200, dimensions: '42×27×32 cm' },
-  { size: 'M',  dims: [42, 52, 40], maxKg: 25, priceMxn: 4000, dimensions: '42×52×40 cm' },
-  { size: 'L',  dims: [52, 42, 40], maxKg: 35, priceMxn: 5100, dimensions: '52×42×40 cm' },
-  { size: 'XL', dims: [52, 62, 53], maxKg: 50, priceMxn: 6250, dimensions: '52×62×53 cm' },
+// Box tiers. Dimensions and weight limits live here; the PRICE comes from
+// Stripe via useBoxPrices() so this quote can never disagree with what the
+// customer is actually invoiced.
+const BOX_SPECS = [
+  { size: 'XS', dims: [32, 24, 13], maxKg: 8,  dimensions: '32×24×13 cm' },
+  { size: 'S',  dims: [42, 27, 32], maxKg: 15, dimensions: '42×27×32 cm' },
+  { size: 'M',  dims: [42, 52, 40], maxKg: 25, dimensions: '42×52×40 cm' },
+  { size: 'L',  dims: [52, 42, 40], maxKg: 35, dimensions: '52×42×40 cm' },
+  { size: 'XL', dims: [52, 62, 53], maxKg: 50, dimensions: '52×62×53 cm' },
 ]
+const { prices: boxPrices, load: loadBoxPrices } = useBoxPrices()
+onMounted(() => { loadBoxPrices() })
+const BOXES = computed(() => BOX_SPECS.map((b) => ({ ...b, priceMxn: boxPrices.value[b.size] })))
 
 // Calculate matching box: sort both user dims and box dims ascending so
 // rotation is automatic (a long-thin item that doesn't fit in standard
@@ -236,7 +240,7 @@ const result = computed(() => {
 
   const sortedUser = [...userDims].sort((a, b) => a - b)
 
-  for (const box of BOXES) {
+  for (const box of BOXES.value) {
     if (w > box.maxKg) continue
     const sortedBox = [...box.dims].sort((a, b) => a - b)
     const fits = sortedUser.every((d, i) => d <= sortedBox[i])

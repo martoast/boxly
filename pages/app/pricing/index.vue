@@ -98,7 +98,7 @@
 </template>
 
 <script setup>
-import { reactive, computed } from 'vue'
+import { reactive, computed, onMounted } from 'vue'
 
 definePageMeta({
   layout: 'app',
@@ -145,12 +145,20 @@ const ICONS = {
 }
 
 // Capacity-first box table. Dimensions/weight kept but hidden under "Ver especificaciones".
-const BOXES = [
-  { key: 'XS', name: 'Caja XS', price: 1200, perItem: 240, garments: 5,   pairs: 2,  bags: null, dims: '32 × 24 × 13 cm', maxKg: 8 },
-  { key: 'S',  name: 'Caja S',  price: 2200, perItem: 110, garments: 20,  pairs: 5,  bags: null, dims: '42 × 27 × 32 cm', maxKg: 15 },
-  { key: 'M',  name: 'Caja M',  price: 4000, perItem: 100, garments: 40,  pairs: 10, bags: 8,  tag: 'Más Popular', popular: true, dims: '42 × 52 × 40 cm', maxKg: 25 },
-  { key: 'L',  name: 'Caja L',  price: 5100, perItem: 85,  garments: 60,  pairs: 20, bags: 15, dims: '52 × 42 × 40 cm', maxKg: 35 },
-  { key: 'XL', name: 'Caja XL', price: 6250, perItem: 55,  garments: 100, pairs: 30, bags: 20, tag: 'Mejor Valor', bestValue: true, dims: '52 × 62 × 53 cm', maxKg: 50 },
+// Prices are NOT here — they come from Stripe via useBoxPrices(), so raising a
+// price in Stripe updates this page without a deploy.
+const BOX_SPECS = [
+  { key: 'XS', name: 'Caja XS', garments: 5,   pairs: 2,  bags: null, dims: '32 × 24 × 13 cm', maxKg: 8 },
+  { key: 'S',  name: 'Caja S',  garments: 20,  pairs: 5,  bags: null, dims: '42 × 27 × 32 cm', maxKg: 15 },
+  { key: 'M',  name: 'Caja M',  garments: 40,  pairs: 10, bags: 8,  tag: 'Más Popular', popular: true, dims: '42 × 52 × 40 cm', maxKg: 25 },
+  { key: 'L',  name: 'Caja L',  garments: 60,  pairs: 20, bags: 15, dims: '52 × 42 × 40 cm', maxKg: 35 },
+  { key: 'XL', name: 'Caja XL', garments: 100, pairs: 30, bags: 20, tag: 'Mejor Valor', bestValue: true, dims: '52 × 62 × 53 cm', maxKg: 50 },
 ]
+const { prices: boxPrices, load: loadBoxPrices } = useBoxPrices()
+onMounted(() => { loadBoxPrices() })
+const BOXES = computed(() => BOX_SPECS.map((b) => {
+  const price = boxPrices.value[b.key]
+  return { ...b, price, perItem: Math.round(price / b.garments) }
+}))
 const specsOpen = reactive({})
 </script>
