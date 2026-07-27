@@ -58,13 +58,13 @@ Includes consolidation in San Diego and air shipping to anywhere in Mexico.
 
 | Size | Dimensions      | Max weight | Price (MXN) |
 |------|-----------------|------------|-------------|
-| XS   | 32 × 24 × 13 cm | 8 kg       | $1,200      |
-| S    | 42 × 27 × 32 cm | 15 kg      | $2,200      |
-| M    | 42 × 52 × 40 cm | 25 kg      | $4,000      |
-| L    | 52 × 42 × 40 cm | 35 kg      | $5,100      |
-| XL   | 52 × 62 × 53 cm | 50 kg      | $6,250      |
+| XS   | 32 × 24 × 13 cm | 8 kg       | $1,300      |
+| S    | 42 × 27 × 32 cm | 15 kg      | $2,400      |
+| M    | 42 × 52 × 40 cm | 25 kg      | $4,400      |
+| L    | 52 × 42 × 40 cm | 35 kg      | $5,600      |
+| XL   | 52 × 62 × 53 cm | 50 kg      | $6,900      |
 
-For voice, spell prices in words ("cuatro mil pesos", not "$4,000").
+For voice, spell prices in words ("cuatro mil cuatrocientos pesos", not "$4,400").
 
 ## WHAT IS INCLUDED
 - Receiving packages in the U.S.
