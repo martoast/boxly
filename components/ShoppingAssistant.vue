@@ -365,7 +365,11 @@
                            stay independent. -->
                       <div v-if="assistedResults[part.toolCallId]" class="bg-green-50 border border-green-200 rounded-2xl p-4 max-w-sm">
                         <p class="text-sm font-bold text-green-800 flex items-center gap-1.5"><svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 011.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z" clip-rule="evenodd"/></svg> Listo — nosotros nos encargamos 🎉</p>
-                        <p class="text-xs text-green-700 mt-1">Solicitud <span class="font-semibold">{{ assistedResults[part.toolCallId].request_number }}</span> creada. Te enviamos la cotización (producto + servicio + envío) para que la apruebes — no pagas nada todavía.</p>
+                        <!-- Everything the customer adds in this chat goes into the SAME
+                             request (one shipment, one box, one quote), so a later card
+                             says "actualizada" instead of implying a second order. -->
+                        <p v-if="assistedResults[part.toolCallId].updated" class="text-xs text-green-700 mt-1">Agregado a tu solicitud <span class="font-semibold">{{ assistedResults[part.toolCallId].request_number }}</span>. Todo va en el mismo envío y te enviamos una sola cotización para que la apruebes — no pagas nada todavía.</p>
+                        <p v-else class="text-xs text-green-700 mt-1">Solicitud <span class="font-semibold">{{ assistedResults[part.toolCallId].request_number }}</span> creada. Te enviamos la cotización (producto + servicio + envío) para que la apruebes — no pagas nada todavía.</p>
                         <p class="text-xs text-green-700 mt-1.5 flex items-start gap-1.5"><span>🛍️</span><span>Nuestro equipo de compras se pondrá en contacto contigo en breve para revisar los detalles de tu compra.</span></p>
                         <NuxtLink to="/app/purchase-requests" class="inline-block mt-2 text-xs font-semibold text-green-800 underline active:scale-95 transition-transform">Ver mis solicitudes →</NuxtLink>
                       </div>
@@ -1581,7 +1585,15 @@ function trackOrder(ord) {
 // card only shows a real request_number returned by the API.
 const assistedCreatingId = ref(null)        // toolCallId currently being created
 const assistedErrors = reactive({})         // toolCallId -> error string
-const assistedResults = reactive({})        // toolCallId -> { request_number } (real creation only)
+const assistedResults = reactive({})        // toolCallId -> { request_number, updated } (real creation only)
+// ONE CHAT = ONE SHIPMENT = ONE REQUEST. Every summary card carries the WHOLE
+// running cart (the model re-sends every item each time), so a second card is
+// "same shipment, one more item" — NOT a new order. Creating a request per card
+// gave one customer 5 requests for 5 items, each a superset of the last (15 item
+// rows for 5 products) plus 5 confirmation emails. So: the first card creates
+// the request, every later card UPDATES it (PUT replaces its items with the
+// cart). Kept per conversation and recovered from the API on reload.
+const assistedPr = ref(null)                // { id, request_number } for THIS chat
 async function confirmAssisted(part) {
   const id = part?.toolCallId
   if (!id || assistedCreatingId.value || assistedResults[id]) return
@@ -1603,10 +1615,33 @@ async function confirmAssisted(part) {
   assistedErrors[id] = ''
   assistedCreatingId.value = id
   try {
-    const res = await $customFetch('/purchase-requests', { method: 'POST', body: { currency: 'usd', items } })
-    const pr = res?.data || res
+    let pr = null
+    // Update this chat's open request when we have one. If it's already been
+    // quoted the API refuses the edit (400/403/404) — that request is in the
+    // shopping team's hands, so the extra item legitimately becomes a new one.
+    // Any OTHER failure (network, 500) must NOT fall through to a create, or a
+    // hiccup silently duplicates the whole shipment.
+    if (assistedPr.value?.id) {
+      try {
+        const res = await $customFetch(`/purchase-requests/${assistedPr.value.id}`, { method: 'PUT', body: { currency: 'usd', items } })
+        pr = res?.data || res
+      } catch (e) {
+        const status = e?.response?.status || e?.statusCode
+        if (![400, 403, 404].includes(status)) throw e
+        assistedPr.value = null
+      }
+    }
+    const updated = !!pr
+    if (!pr) {
+      const res = await $customFetch('/purchase-requests', {
+        method: 'POST',
+        body: { currency: 'usd', items, conversation_id: activeId.value || undefined },
+      })
+      pr = res?.data || res
+    }
     if (!pr?.request_number) throw new Error('no_request_number')
-    assistedResults[id] = { request_number: pr.request_number }
+    assistedPr.value = { id: pr.id, request_number: pr.request_number }
+    assistedResults[id] = { request_number: pr.request_number, updated }
     loadConversations().catch(() => {})
     scrollDown()
   } catch (e) {
@@ -1616,6 +1651,40 @@ async function confirmAssisted(part) {
   }
 }
 function editAssisted() { composerRef.value?.focus() }
+
+// Summary cards that were already on screen before this session touched the
+// chat — i.e. loaded from history. Their request was placed when they first
+// appeared; re-firing on load would order the same shipment all over again
+// (a reopened chat is REPLAYED verbatim, tool state and all).
+const assistedHandled = new Set()
+function markAssistedHandled() {
+  for (const m of chat.messages) {
+    for (const part of (m.parts || [])) {
+      if (part?.type === 'tool-show_assisted_summary' && part.toolCallId) assistedHandled.add(part.toolCallId)
+    }
+  }
+}
+// Reopening a chat loses the in-memory link to its request, so re-adopt it from
+// the API. Without this, adding one more item to an old chat would open a second
+// request holding the whole cart again. It also restores the confirmation the
+// customer saw the first time — otherwise the old cards come back showing
+// "Continuar", as if nothing had been placed.
+async function adoptAssistedPr() {
+  if (!user.value || !activeId.value || assistedPr.value) return
+  const cards = chat.messages.flatMap((m) => (m.parts || []).filter((p) => p?.type === 'tool-show_assisted_summary' && p.toolCallId))
+  if (!cards.length) return
+  try {
+    const r = await $customFetch(`/purchase-requests?conversation_id=${activeId.value}`)
+    const pr = (r?.data?.data || [])[0] // newest — this chat's shipment
+    if (!pr?.request_number) return
+    for (const c of cards) {
+      if (!assistedResults[c.toolCallId]) assistedResults[c.toolCallId] = { request_number: pr.request_number, updated: false }
+    }
+    // Only a request still awaiting review can take more items; once it's quoted
+    // the API rejects edits, so a new item correctly starts its own request.
+    if (pr.status === 'pending_review') assistedPr.value = { id: pr.id, request_number: pr.request_number }
+  } catch { /* the chat still works; a later card just opens a fresh request */ }
+}
 
 // AUTO-CREATE the assisted request the instant its summary card appears — the
 // customer already said "Boxly lo compra", so a second "Continuar" tap only
@@ -1628,6 +1697,7 @@ function autoCreateAssisted() {
     for (const part of (m.parts || [])) {
       if (part?.type === 'tool-show_assisted_summary' && part.state === 'output-available'
           && part.toolCallId && (part.output?.items?.length)
+          && !assistedHandled.has(part.toolCallId)
           && !assistedResults[part.toolCallId] && !assistedErrors[part.toolCallId]
           && assistedCreatingId.value !== part.toolCallId) {
         confirmAssisted(part)
@@ -1683,6 +1753,7 @@ async function maybeResumeGuest() {
   if (Date.now() - (stash.ts || 0) > 30 * 60 * 1000) return false // too old — don't surprise them
   // Restore the chat history into the live chat.
   chat.messages = stash.messages.map((m, i) => ({ id: 'r' + i, role: m.role, parts: (m.content && m.content.parts) || [] }))
+  markAssistedHandled() // restored history — the model places the order fresh below
   registerFromMessages() // rebuild the in-chat product registry so the PR can bind the saved product
   // Migrate the conversation under the now-authenticated account.
   try {
@@ -1711,6 +1782,7 @@ function maybeRestoreGuestChat() {
   if (!stash || !Array.isArray(stash.messages) || !stash.messages.length) return
   if (Date.now() - (stash.ts || 0) > 30 * 60 * 1000) { localStorage.removeItem(GUEST_RESUME_KEY); return } // too old
   chat.messages = stash.messages.map((m, i) => ({ id: 'g' + i, role: m.role, parts: (m.content && m.content.parts) || [] }))
+  markAssistedHandled() // purely visual restore — must not place anything
   registerFromMessages() // rebuild the product registry so a later PR can bind the saved product
   scrollDown()
 }
@@ -1775,6 +1847,7 @@ function newChat() {
   chat.messages = []
   activeId.value = null
   savedCount.value = 0
+  assistedPr.value = null // a new chat is a new shipment → a new request
   retitled.value = false
   oldestLoadedId.value = null
   hasMoreOlder.value = false
@@ -1795,6 +1868,7 @@ async function openChat(id) {
   activeId.value = id
   retitled.value = true
   drawerOpen.value = false
+  assistedPr.value = null // re-adopted below, from the request this chat owns
   const cached = msgCache.get(id)
   if (cached) {
     loadingChat.value = false
@@ -1803,6 +1877,8 @@ async function openChat(id) {
     hasMoreOlder.value = cached.hasMore
     savedProducts.value = cached.products || []
     savedCount.value = chat.messages.length
+    markAssistedHandled()
+    adoptAssistedPr()
     scrollDown()
     return
   }
@@ -1822,6 +1898,8 @@ async function openChat(id) {
     savedProducts.value = r.data.products || [] // full registry, derived from all history
     savedCount.value = msgs.length
     msgCache.set(id, { messages: msgs, oldestId: oldestLoadedId.value, hasMore: hasMoreOlder.value, products: savedProducts.value })
+    markAssistedHandled()
+    adoptAssistedPr()
     scrollDown()
   } catch (e) {
     console.error(e)
@@ -1845,6 +1923,7 @@ async function loadOlder() {
     const older = (r.data.messages || []).map(mapMsg)
     if (older.length) {
       chat.messages = [...older, ...chat.messages]
+      markAssistedHandled() // history — their requests were placed long ago
       savedCount.value += older.length // prepended messages are already saved
       oldestLoadedId.value = older[0].id
       hasMoreOlder.value = !!r.data.has_more
