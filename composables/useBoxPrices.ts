@@ -27,7 +27,10 @@ const SIZE_BY_NAME: Record<string, string> = {
 // blip shows slightly stale prices rather than an empty or $0 pricing table.
 export const FALLBACK_BOX_PRICES: Record<string, number> = { XS: 1300, S: 2400, M: 4400, L: 5600, XL: 6900 }
 
-export function useBoxPrices() {
+// NOTE: must be `export const … = () => {}`, matching every other composable
+// here. Declared as `export function`, Nuxt's auto-import scan skips it and the
+// components 500 with "useBoxPrices is not defined" at SSR.
+export const useBoxPrices = () => {
   const { $customFetch } = useNuxtApp() as any
   const prices = useState<Record<string, number>>('boxPrices', () => ({ ...FALLBACK_BOX_PRICES }))
   const loaded = useState<boolean>('boxPricesLoaded', () => false)
