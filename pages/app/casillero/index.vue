@@ -88,7 +88,10 @@
         </div>
       </div>
 
-      <!-- 2. Primary CTA — once their packages are on the way, they create the envío. -->
+      <!-- 2. Boxly Shopper — the address above, but automatic while they shop. -->
+      <ShopperExtensionCard :name="fullUserName" />
+
+      <!-- 3. Primary CTA — once their packages are on the way, they create the envío. -->
       <div class="bg-gradient-to-r from-primary-50 to-white rounded-2xl border border-primary-100 p-6 sm:p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div class="min-w-0">
           <h3 class="text-lg font-bold text-gray-900">{{ t.nextStepTitle }}</h3>

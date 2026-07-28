@@ -1,0 +1,1030 @@
+import { generateObject } from 'ai'
+import { z } from 'zod'
+import { auxModel, providerOptions, hasModelKey } from './aiProvider'
+
+/**
+ * Brains for the Boxly Shopper side panel (the Chrome extension that rides along
+ * while a customer shops a US store).
+ *
+ * Same philosophy as ./curate.ts — MODEL FOR JUDGMENT, CODE FOR GUARANTEES:
+ *
+ *   - Code guarantees the things that must be certain: only sellers we trust,
+ *     only listings that actually carry an image and a price, never an empty
+ *     panel, and the price band math.
+ *   - One model pass (vision) does the judgment code can't: is this listing
+ *     actually the SAME product, and does its photo look good enough to sit in a
+ *     premium gallery? A blurry phone snapshot of used sneakers is exactly what
+ *     the allowlist can't catch and what makes the panel look cheap.
+ *
+ * Everything here is best-effort. A failed model call, a dead SerpAPI, a store
+ * with no coupons — none of it may ever break the panel. The shopper still gets
+ * the price comparison, the Boxly address and the "Boxly lo compra" button.
+ */
+
+/**
+ * How long a shopper-panel result is cached, in seconds.
+ *
+ * `SHOPPER_CACHE_TTL=0` turns caching OFF entirely, which is what you want while
+ * developing: a cached panel keeps serving the old shape after a code change, so
+ * you edit something and the panel stubbornly shows the previous result for the
+ * same product. In production it saves two SerpAPI calls plus a vision pass per
+ * product per window, so don't leave it at 0 there.
+ */
+export function cacheTtl(): number {
+  const raw = process.env.SHOPPER_CACHE_TTL
+  if (raw === undefined || raw === '') return 60 * 15
+  const n = Number(raw)
+  return isFinite(n) && n >= 0 ? n : 60 * 15
+}
+
+/** True when caching is disabled (SHOPPER_CACHE_TTL=0). */
+export const cacheOff = () => cacheTtl() === 0
+
+// ─── Trusted sellers ─────────────────────────────────────────────────────────
+//
+// The shopper explicitly asked for real distributors, not fringe pages. Match is
+// by PREFIX on the slugified store name, because SerpAPI returns marketplace
+// listings as "eBay - gius3187" / "Amazon.com - Seller" — the marketplace always
+// comes first, so a prefix match is both accurate and safe (a random store called
+// "targetfitness" would slip past a `contains` check, not a prefix one).
+
+/** Big-box chains and major retailers — catalog photography, reliable stock. */
+const CHAIN_SELLERS = [
+  'walmart', 'target', 'amazon', 'bestbuy', 'costco', 'samsclub', 'macys',
+  'nordstrom', 'nordstromrack', 'kohls', 'dickssportinggoods', 'dicks', 'academy',
+  'scheels', 'rei', 'footlocker', 'kidsfootlocker', 'champssports', 'finishline',
+  'jdsports', 'journeys', 'famousfootwear', 'dsw', 'shoecarnival', 'hibbett',
+  'zappos', 'sephora', 'ulta', 'bathandbodyworks', 'homedepot', 'lowes',
+  'wayfair', 'ikea', 'containerstore', 'williamssonoma', 'crateandbarrel',
+  'pottervbarn', 'potterybarn', 'bedbathandbeyond', 'staples', 'officedepot',
+  'petco', 'petsmart', 'chewy', 'gamestop', 'barnesandnoble', 'michaels',
+  'joann', 'hobbylobby', 'tractorsupply', 'harborfreight', 'menards',
+  'jcpenney', 'dillards', 'saksfifthavenue', 'saksoff5th', 'bloomingdales',
+  'neimanmarcus', 'revolve', 'asos', 'shopbop', 'ssense', 'farfetch',
+  'urbanoutfitters', 'anthropologie', 'freepeople', 'abercrombie', 'aeropostale',
+  'americaneagle', 'hollister', 'express', 'gap', 'oldnavy', 'bananarepublic',
+  'jcrew', 'madewell', 'uniqlo', 'zara', 'hm', 'mango', 'primark', 'boohoo',
+  'shein', 'forever21', 'torrid', 'lanebryant', 'victoriassecret', 'pinkvs',
+  'aerie', 'backcountry', 'moosejaw', 'evo', 'sierra', 'tjmaxx', 'marshalls',
+  'homegoods', 'ross', 'burlington', 'bigfive', 'modells', 'sportsmanswarehouse',
+  'cabelas', 'basspro', 'llbean', 'landsend', 'eddiebauer', 'columbia',
+  'newegg', 'bhphotovideo', 'adorama', 'microcenter', 'crutchfield', 'apple',
+  'samsung', 'dell', 'hp', 'lenovo', 'lg', 'sony', 'bose', 'jbl', 'anker',
+  'walgreens', 'cvs', 'riteaid', 'kroger', 'safeway', 'albertsons', 'publix',
+  'wholefoods', 'traderjoes', 'aldi', 'heb', 'meijer', 'wegmans', 'shoprite',
+  'qvc', 'hsn', 'overstock', 'boscovs', 'belk', 'burkes', 'citytrends',
+]
+
+/**
+ * Brand-direct stores. A brand selling its own product is the single most
+ * trustworthy listing there is — best photos, guaranteed authenticity.
+ */
+// Entries are matched against the SLUGIFIED store name, so they must contain no
+// spaces or punctuation ("steve madden" would never match anything).
+const BRAND_SELLERS = [
+  'nike', 'adidas', 'newbalance', 'puma', 'reebok', 'asics', 'brooks', 'hoka',
+  'saucony', 'onrunning', 'salomon', 'merrell', 'timberland', 'ugg',
+  'crocs', 'birkenstock', 'vans', 'converse', 'underarmour', 'lululemon',
+  'gymshark', 'aloyoga', 'fabletics', 'athleta', 'patagonia',
+  'thenorthface', 'arcteryx', 'carhartt', 'levis', 'wrangler', 'dickies',
+  'ralphlauren', 'poloralphlauren', 'tommyhilfiger', 'calvinklein', 'guess',
+  'michaelkors', 'coach', 'katespade', 'toryburch', 'lacoste', 'champion',
+  'fila', 'skechers', 'clarks', 'drmartens', 'stevemadden',
+  'aldo', 'ninewest', 'stanley', 'yeti', 'hydroflask', 'owala',
+  'contigo', 'camelbak', 'nalgene', 'dyson', 'shark', 'ninja', 'instantpot',
+  'kitchenaid', 'cuisinart', 'lecreuset', 'pyrex', 'lego', 'mattel',
+  'hasbro', 'funko', 'nintendo', 'playstation', 'xbox', 'razer', 'logitech',
+  'corsair', 'steelseries', 'hyperx', 'garmin', 'fitbit', 'gopro', 'dji',
+  'canon', 'nikon', 'fujifilm', 'oakley', 'rayban', 'mauijim',
+  'goodr', 'knix', 'skims', 'savagex', 'shapermint', 'spanx', 'thirdlove',
+  'rhode', 'glossier', 'drunkelephant', 'theordinary', 'cerave', 'larocheposay',
+  'olaplex', 'ghd', 'revlon', 'maybelline', 'loreal', 'nyx',
+  'dfyne', 'youngla', 'buffbunny', 'oneractive', 'halara',
+  // Short brand names. Prefix matching would make "on" trust every store called
+  // "Online…" and "elf" trust "Elfster", so isTrustedSeller() requires an EXACT
+  // slug match for anything under 4 characters.
+  'on', 'alo', 'oxo', 'elf', 'gap', 'hm', 'rei', 'dsw', 'qvc', 'hsn', 'heb',
+]
+
+/**
+ * Resale marketplaces the shopper explicitly wants included — this is where the
+ * real savings live (the 30%-off used listings in the mockup). Trusted as
+ * PLATFORMS: the platform is legitimate even though the individual seller is
+ * anonymous, so these pass the allowlist but are labeled as resale so the panel
+ * can badge them and the model can weigh their photo quality harder.
+ */
+// NOTE: Poshmark is deliberately EXCLUDED — Alex doesn't want that market.
+// Don't add it back without asking.
+const RESALE_SELLERS = [
+  'ebay', 'mercari', 'stockx', 'goat', 'grailed', 'depop',
+  'thredup', 'therealreal', 'vestiairecollective', 'tiktokshop', 'tiktok',
+  'kixify', 'flightclub', 'stadiumgoods', 'sneakerbardetroit',
+]
+
+const ALL_TRUSTED = new Set([...CHAIN_SELLERS, ...BRAND_SELLERS, ...RESALE_SELLERS])
+
+export const slug = (s: any) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '')
+
+/**
+ * True when the store name starts with a seller we trust.
+ *
+ * Prefix, not substring: SerpAPI returns marketplace listings as
+ * "eBay - gius3187" / "Amazon.com - Seller", so the platform is always first —
+ * and a substring check would trust a fringe store called "targetfitness".
+ *
+ * Tokens under 4 characters must match EXACTLY. Otherwise "on" (the running
+ * brand) would wave through every store whose name starts with "on".
+ */
+const MIN_PREFIX_LEN = 4
+
+export function isTrustedSeller(store: any, extraTrusted: string[] = []): boolean {
+  const s = slug(store)
+  if (!s) return false
+  for (const t of ALL_TRUSTED) {
+    if (t.length < MIN_PREFIX_LEN ? s === t : s.startsWith(t)) return true
+  }
+  // The store the shopper is already on is trusted by definition — but a short
+  // host like "on.com" gets the same exact-match treatment.
+  for (const t of extraTrusted) {
+    const e = slug(t)
+    if (!e) continue
+    if (e.length < MIN_PREFIX_LEN ? s === e : s.startsWith(e) || e.startsWith(s)) return true
+  }
+  return false
+}
+
+/** True when the seller is an anonymous-seller resale platform (badge it). */
+export function isResaleSeller(store: any): boolean {
+  const s = slug(store)
+  return !!s && RESALE_SELLERS.some((t) => s.startsWith(t))
+}
+
+// ─── Listing hygiene ─────────────────────────────────────────────────────────
+
+/**
+ * A listing may only appear if it can be rendered beautifully: a real http image
+ * (base64 thumbnails from Google are low-res placeholders and look terrible on a
+ * retina tile), a price to compare against, and a title.
+ */
+export function hasRenderableImage(p: any): boolean {
+  const img = String(p?.image || '')
+  return /^https?:\/\//i.test(img)
+}
+
+/** Smallest byte count we'll accept — below this it's a spacer or an error page. */
+const MIN_IMAGE_BYTES = 1024
+
+/**
+ * We only ever want the small representative thumbnail — the one already in the
+ * search result — never a full-size product photo. Real ones land at 5-20KB, so
+ * 512KB is generous; anything past it is a store serving us a 4000px hero we'd
+ * render into a 62px tile. Enforced against Content-Length BEFORE reading the
+ * body, so an oversized image costs us headers, not megabytes.
+ */
+const MAX_IMAGE_BYTES = 512 * 1024
+
+/**
+ * Fetch every thumbnail ONCE and keep only the listings whose image really
+ * loads, attaching the bytes for the vision pass.
+ *
+ * This solves two problems with one round of requests:
+ *
+ *   1. A URL that 404s renders as a blank grey tile in the panel. "Only high
+ *      quality pictures" has to mean the picture actually exists, and no amount
+ *      of URL-shape checking can tell you that.
+ *   2. The AI SDK downloads image URLs itself, and a SINGLE failed download
+ *      rejects the whole generateObject call — so one dead SerpAPI thumbnail was
+ *      silently disabling curation for the entire product and letting every junk
+ *      listing through. Handing the model bytes we already hold removes that
+ *      failure mode completely.
+ *
+ * Bytes are attached under `_bytes` and MUST be stripped before caching or
+ * returning (see stripBytes) — they're megabytes of noise in a JSON payload.
+ */
+export async function loadThumbnails(listings: any[]): Promise<any[]> {
+  const out = await Promise.all(
+    listings.map(async (l) => {
+      try {
+        const res = await fetch(l.image, { signal: AbortSignal.timeout(6000) })
+        if (!res.ok) return null
+        const type = res.headers.get('content-type') || ''
+        if (!type.startsWith('image/')) return null
+        // Bail on the header when the server tells us it's oversized, so we never
+        // pull the body down just to throw it away.
+        const declared = Number(res.headers.get('content-length') || 0)
+        if (declared > MAX_IMAGE_BYTES) return null
+        const buf = new Uint8Array(await res.arrayBuffer())
+        if (buf.byteLength < MIN_IMAGE_BYTES || buf.byteLength > MAX_IMAGE_BYTES) return null
+        return { ...l, _bytes: buf, _mime: type.split(';')[0] }
+      } catch {
+        return null
+      }
+    }),
+  )
+  return out.filter(Boolean) as any[]
+}
+
+/** Drop the image bytes before anything is cached or serialized to the client. */
+export function stripBytes(listings: any[]): any[] {
+  return listings.map(({ _bytes, _mime, ...rest }) => rest)
+}
+
+/** Normalize a raw search result into the panel's listing shape. */
+export function toListing(p: any) {
+  const price = typeof p?.price === 'number' ? p.price : null
+  return {
+    title: String(p?.title || '').trim(),
+    price,
+    was: p?.was ?? null,
+    on_sale: !!p?.on_sale,
+    store: p?.store || null,
+    image: p?.image || null,
+    url: p?.url || null,
+    rating: p?.rating ?? null,
+    reviews: p?.reviews ?? null,
+    condition: normalizeCondition(p),
+    resale: isResaleSeller(p?.store),
+    // Google Shopping never returns a merchant URL — only its own product page
+    // and this token. Carried through so a click can resolve the real store link
+    // on demand (see /api/shopper/resolve); resolving all 20 up front would mean
+    // 20 extra SerpAPI calls for listings nobody opens.
+    token: p?.token || null,
+  }
+}
+
+/**
+ * Stamp "X% menos" onto listings, against the price on the page RIGHT NOW.
+ *
+ * Deliberately NOT part of toListing(): the listing set is cached for 15 minutes
+ * and the page price is not part of the cache key, so a saving computed at cache
+ * time would still be on screen after the store dropped the item into a sale —
+ * telling the shopper they save 30% when they no longer do.
+ *
+ * A rounded 0% (from $159.99 vs $160) is dropped: it isn't a saving, it's noise.
+ */
+export function withSavings(listings: any[], pagePrice: number | null): any[] {
+  return listings.map((l) => {
+    const raw =
+      pagePrice && typeof l.price === 'number' && l.price < pagePrice
+        ? Math.round(((pagePrice - l.price) / pagePrice) * 100)
+        : 0
+    return { ...l, percent_less: raw >= 1 ? raw : null }
+  })
+}
+
+/**
+ * Condition: Google's own `second_hand_condition` when present, otherwise read it
+ * off the title.
+ *
+ * The default depends on WHO is selling. A retailer listing with no marker is
+ * new — that's what retailers sell. An anonymous resale listing with no marker
+ * is genuinely UNKNOWN, and calling it "new" is a lie the shopper pays for: a
+ * $45 eBay pair badged "Nuevo, 72% menos" next to a $160 retail page is exactly
+ * the kind of thing that gets someone burned.
+ */
+export function normalizeCondition(p: any): 'new' | 'used' | 'refurbished' | 'unknown' {
+  const raw = String(p?.condition || '').toLowerCase()
+  if (raw.includes('refurb')) return 'refurbished'
+  if (raw) return 'used'
+  const t = String(p?.title || '').toLowerCase()
+  if (/\bbrand new\b|\bnew with (box|tags?)\b|\bnwt\b|\bnib\b|\bdeadstock\b|\bds\b/.test(t)) return 'new'
+  if (/\brefurb(ished)?\b|\brenewed\b/.test(t)) return 'refurbished'
+  // "Pre Owned" / "pre-owned" / "preowned" all appear in the wild — the space
+  // variant is the common one on eBay and was slipping through as "new".
+  if (/\bused\b|\bpre[\s-]?owned\b|\bpre[\s-]?loved\b|\bsecond[\s-]?hand\b|\bworn\b|\bvtg\b|\bvintage\b|\bgently\b/.test(t)) {
+    return 'used'
+  }
+  return isResaleSeller(p?.store) ? 'unknown' : 'new'
+}
+
+/**
+ * Adult or kids? A grade-school / youth version of a sneaker is a genuinely
+ * DIFFERENT, smaller product that happens to share a model name — and it's
+ * always cheaper, so it lands at the top of a "cheaper alternatives" list
+ * wearing a fake "53% menos" badge. That's a lie we can't ship.
+ *
+ * This is a code GUARANTEE, not a judgment call: the signals are unambiguous
+ * keywords, and asking a cheap vision model to catch them proved unreliable.
+ */
+export function ageBracket(title: string): 'kids' | 'adult' {
+  const t = ` ${String(title || '').toLowerCase()} `
+  const kids =
+    /\bkids?\b|\bgrade[\s-]?school\b|\bpre[\s-]?school\b|\btoddler\b|\binfant\b|\byouth\b|\bjunior\b|\bjuniors\b|\bboys?'?s?\b|\bgirls?'?s?\b|\bbig kid\b|\blittle kid\b|\bbaby\b|\(gs\)|\(ps\)|\(td\)|\bgs\b|\bsize \d{1,2}(\.5)?y\b|\b\d{1,2}(\.5)?y\b/
+  return kids.test(t) ? 'kids' : 'adult'
+}
+
+/**
+ * Drop repeats across the two search passes. Same URL is the same listing; when
+ * a marketplace gives us no usable URL, fall back to title+store+price so a
+ * duplicate row can't slip through.
+ */
+export function dedupeListings(listings: any[]): any[] {
+  const seen = new Set<string>()
+  const out: any[] = []
+  for (const l of listings) {
+    const key = l.url ? `u:${String(l.url).toLowerCase()}` : `t:${slug(l.title)}|${slug(l.store)}|${l.price}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(l)
+  }
+  return out
+}
+
+/**
+ * Weave the retail pass and the resale pass together, 2 retail : 1 resale.
+ *
+ * Retail leads because that's the honest baseline for "is this price fair", but
+ * resale has to be well represented in what the model sees — those are the
+ * listings that actually save the shopper 30%, and sending the model 24 retail
+ * rows would starve them out before curation ever ran.
+ */
+export function interleave(primary: any[], secondary: any[]): any[] {
+  const out: any[] = []
+  let i = 0
+  let j = 0
+  while (i < primary.length || j < secondary.length) {
+    for (let k = 0; k < 2 && i < primary.length; k++) out.push(primary[i++])
+    if (j < secondary.length) out.push(secondary[j++])
+  }
+  return out
+}
+
+// ─── Price verdict ───────────────────────────────────────────────────────────
+
+export type Verdict = {
+  label: 'good' | 'typical' | 'high'
+  page_price: number | null
+  band: { min: number; max: number } | null
+  /** Condition of the cheapest / most expensive comparison listing, for copy. */
+  min_condition: string | null
+  max_condition: string | null
+  sample: number
+}
+
+/**
+ * Where this page's price sits against everything else on the market.
+ *
+ * Two different questions, deliberately answered from two different sets:
+ *
+ *   - The VERDICT ("is $160 fair?") compares against listings in the SAME
+ *     condition. Judging a brand-new retail page against $45 beaten-up eBay
+ *     pairs would mark every MSRP in the world as "caro", which is useless
+ *     advice — of course secondhand is cheaper.
+ *   - The BAND ("what else is out there?") spans EVERYTHING, so the shopper
+ *     still sees the secondhand floor. That's the whole point of the panel.
+ *
+ * Median-relative rather than min-relative: one absurd "for parts" listing
+ * shouldn't drag the verdict. ±10% around the median is "typical" — tight
+ * enough to be useful, wide enough that normal price scatter isn't a verdict.
+ */
+export function priceVerdict(
+  pagePrice: number | null,
+  listings: any[],
+  pageCondition: 'new' | 'used' | 'refurbished' = 'new',
+): Verdict {
+  const priced = listings.filter((l) => typeof l.price === 'number' && l.price > 0)
+  const prices = priced.map((l) => l.price as number).sort((a, b) => a - b)
+
+  if (!prices.length) {
+    return { label: 'typical', page_price: pagePrice, band: null, min_condition: null, max_condition: null, sample: 0 }
+  }
+
+  // Same-condition comparison set for the verdict; fall back to everything when
+  // there aren't enough peers to say anything meaningful.
+  const peers = priced.filter((l) => l.condition === pageCondition).map((l) => l.price as number).sort((a, b) => a - b)
+  const judgeSet = peers.length >= 3 ? peers : prices
+
+  const median = judgeSet[Math.floor(judgeSet.length / 2)]
+  const min = prices[0]
+  const max = prices[prices.length - 1]
+
+  // The band must contain the page price, or the marker renders off-scale.
+  const band = {
+    min: pagePrice ? Math.min(min, pagePrice) : min,
+    max: pagePrice ? Math.max(max, pagePrice) : max,
+  }
+
+  let label: Verdict['label'] = 'typical'
+  if (pagePrice) {
+    if (pagePrice < median * 0.9) label = 'good'
+    else if (pagePrice > median * 1.1) label = 'high'
+  }
+
+  const cheapest = priced.find((l) => l.price === min)
+  const dearest = priced.find((l) => l.price === max)
+
+  return {
+    label,
+    page_price: pagePrice,
+    band,
+    min_condition: cheapest?.condition || null,
+    max_condition: dearest?.condition || null,
+    sample: prices.length,
+  }
+}
+
+// ─── Facets (filters) ────────────────────────────────────────────────────────
+//
+// Only facets we can back with REAL data from the listing set. We deliberately do
+// NOT invent a "Material" filter or split sizes into Women/Men — Google Shopping
+// titles don't carry that reliably, and a filter that silently matches nothing is
+// worse than no filter at all.
+
+const COLOR_WORDS: Record<string, string> = {
+  black: 'Negro', white: 'Blanco', grey: 'Gris', gray: 'Gris', silver: 'Plata',
+  brown: 'Café', tan: 'Beige', beige: 'Beige', cream: 'Crema', ivory: 'Marfil',
+  blue: 'Azul', navy: 'Azul marino', teal: 'Turquesa', green: 'Verde',
+  olive: 'Verde olivo', red: 'Rojo', burgundy: 'Vino', maroon: 'Vino',
+  pink: 'Rosa', purple: 'Morado', lilac: 'Lila', violet: 'Violeta',
+  yellow: 'Amarillo', gold: 'Dorado', orange: 'Naranja', multicolor: 'Multicolor',
+}
+
+/** Sizes as they actually appear in marketplace titles: "Size 10.5", "US 9", "M". */
+function sizesFromTitle(title: string): string[] {
+  const out = new Set<string>()
+  const t = ` ${title} `
+  for (const m of t.matchAll(/\b(?:size|talla|us)\s*[:#]?\s*(\d{1,2}(?:\.5)?)\b/gi)) {
+    // "Size 07" and "Size 7" are the same shoe — normalize or the facet shows both.
+    out.add(String(parseFloat(m[1])))
+  }
+  for (const m of t.matchAll(/\b(XS|S|M|L|XL|XXL|XXXL|2XL|3XL)\b/g)) out.add(m[1].toUpperCase())
+  return [...out]
+}
+
+function colorsFromTitle(title: string): string[] {
+  const t = title.toLowerCase()
+  const out = new Set<string>()
+  for (const [en, es] of Object.entries(COLOR_WORDS)) {
+    if (new RegExp(`\\b${en}\\b`).test(t)) out.add(es)
+  }
+  return [...out]
+}
+
+export type Facets = {
+  price: { min: number; max: number } | null
+  stores: string[]
+  conditions: string[]
+  sizes: string[]
+  colors: string[]
+}
+
+export function buildFacets(listings: any[]): Facets {
+  const prices = listings.map((l) => l.price).filter((p: any) => typeof p === 'number') as number[]
+  const stores = new Map<string, number>()
+  const conditions = new Set<string>()
+  const sizes = new Set<string>()
+  const colors = new Set<string>()
+
+  for (const l of listings) {
+    // Collapse "eBay - gius3187" down to the platform so the filter is usable.
+    const store = String(l.store || '').split(/\s+[-–—]\s+/)[0].trim()
+    if (store) stores.set(store, (stores.get(store) || 0) + 1)
+    if (l.condition) conditions.add(l.condition)
+    for (const s of sizesFromTitle(l.title || '')) sizes.add(s)
+    for (const c of colorsFromTitle(l.title || '')) colors.add(c)
+  }
+
+  const sortSizes = (a: string, b: string) => {
+    const na = parseFloat(a), nb = parseFloat(b)
+    if (!isNaN(na) && !isNaN(nb)) return na - nb
+    if (!isNaN(na)) return -1
+    if (!isNaN(nb)) return 1
+    const order = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '2XL', '3XL', 'XXXL']
+    return order.indexOf(a) - order.indexOf(b)
+  }
+
+  // A facet with a single value can't filter anything — don't offer it.
+  const multi = (arr: string[]) => (arr.length > 1 ? arr : [])
+
+  // Sizes are the one facet that can actively mislead: most Shopping titles don't
+  // carry a size, so filtering by "7.5" would hide 20 perfectly good listings
+  // whose title simply never mentioned a size. Only offer it when enough of the
+  // set actually exposes one.
+  const withSize = listings.filter((l) => sizesFromTitle(l.title || '').length).length
+  const sizesUsable = listings.length > 0 && withSize / listings.length >= 0.4 && sizes.size > 1
+
+  return {
+    price: prices.length ? { min: Math.min(...prices), max: Math.max(...prices) } : null,
+    stores: multi([...stores.entries()].sort((a, b) => b[1] - a[1]).map(([s]) => s)),
+    conditions: multi([...conditions]),
+    sizes: sizesUsable ? [...sizes].sort(sortSizes).slice(0, 24) : [],
+    colors: multi([...colors]),
+  }
+}
+
+export type Filters = {
+  min_price?: number | null
+  max_price?: number | null
+  stores?: string[]
+  conditions?: string[]
+  sizes?: string[]
+  colors?: string[]
+}
+
+export function applyFilters(listings: any[], f: Filters = {}): any[] {
+  const wantStores = (f.stores || []).map(slug).filter(Boolean)
+  const wantConds = (f.conditions || []).filter(Boolean)
+  const wantSizes = (f.sizes || []).map((s) => s.toUpperCase()).filter(Boolean)
+  const wantColors = (f.colors || []).filter(Boolean)
+
+  return listings.filter((l) => {
+    if (typeof f.min_price === 'number' && (l.price === null || l.price < f.min_price)) return false
+    if (typeof f.max_price === 'number' && (l.price === null || l.price > f.max_price)) return false
+    if (wantStores.length) {
+      const s = slug(l.store)
+      if (!wantStores.some((w) => s.startsWith(w))) return false
+    }
+    if (wantConds.length && !wantConds.includes(l.condition)) return false
+    if (wantSizes.length) {
+      const have = sizesFromTitle(l.title || '').map((s) => s.toUpperCase())
+      if (!have.some((s) => wantSizes.includes(s))) return false
+    }
+    if (wantColors.length) {
+      const have = colorsFromTitle(l.title || '')
+      if (!have.some((c) => wantColors.includes(c))) return false
+    }
+    return true
+  })
+}
+
+// ─── The one model pass: same-product check + photo quality + ranking ────────
+
+// Per-item verdicts, not a bare keep-list. A cheap model handed "return the good
+// indices" rubber-stamps the whole batch; forcing a decision AND a reason for
+// every single item is what makes it actually look at each photo.
+const curateSchema = z.object({
+  items: z.array(
+    z.object({
+      i: z.number().int().describe('The candidate index being judged.'),
+      same_product: z.boolean().describe('Is this the same product (any colorway), same age bracket?'),
+      photo_ok: z.boolean().describe('Is the photo clean enough for a premium gallery?'),
+      reason: z.string().describe('Max 8 words. Why you rejected it, or "ok".'),
+      rank: z.number().int().describe('1 = show first. Only meaningful when kept.'),
+    }),
+  ),
+})
+
+const CURATE_SYSTEM = `You curate the "similar listings" gallery in a premium shopping panel. The shopper is on a product page and wants cheaper or better alternatives for THE SAME product.
+
+You get the product they are looking at, then a numbered list of candidate listings — each with its title, seller, price, condition, and its PHOTO.
+
+Judge EVERY candidate individually and return one entry per index with same_product, photo_ok, a short reason, and a rank. Do not skip any index. Be a strict gatekeeper, not a rubber stamp — in a typical batch several listings genuinely fail.
+
+REJECT a listing (same_product: false) when:
+- It is NOT the same product (a different model, a different silhouette, an accessory, a case, a single shoelace, a two-pack of something unrelated). Different COLORWAY of the same model is fine and welcome.
+- It is a DIFFERENT AGE BRACKET than the product being viewed. A kids / grade-school / preschool / toddler / infant / youth / "GS" / "PS" / "TD" version is NOT an alternative to an adult item — it is a smaller, cheaper, different product, and showing it as "50% less" is a lie. Reject it whenever the viewed product is an adult one (and reject adult listings when the viewed product is for kids). Men's vs. women's cuts of the same model ARE valid alternatives — keep those.
+- The PHOTO is not good enough for a premium gallery: blurry, dark, badly lit, taken on a carpet/bed/floor, a hand holding the item, a cluttered background, a screenshot, a photo of a shoebox instead of the item, heavy watermarks or text overlays, a collage of several photos, or a placeholder/no-image graphic. Be strict — one ugly photo makes the whole panel look cheap.
+- The title is spam (keyword soup, ALL CAPS shouting, stuffed with unrelated brands).
+
+ORDER the kept ones by:
+1. Photo quality and how clearly the product is presented — clean product shot on a plain background first.
+2. Value — a lower price for the same product ranks higher.
+3. Seller quality — a real retailer edges out an anonymous resale seller at a similar price.
+
+It is much better to return 6 excellent listings than 20 mediocre ones. Return an empty list only if genuinely nothing is the same product.`
+
+/**
+ * ONE vision pass that decides same-product + photo quality + order. Replaces
+ * both a text-only relevance rank and a separate image screen; it's the only way
+ * to catch "right product, terrible photo", which is exactly what makes a panel
+ * look cheap and what no allowlist can detect.
+ *
+ * Code guarantees around it: we never return an empty gallery when we had
+ * candidates (a model that rejects everything falls back to the deterministic
+ * order), and every returned index is real.
+ */
+/** How many listings one vision call judges. See curateListings(). */
+const VISION_BATCH = 9
+
+export async function curateListings(
+  pageProduct: { title: string; brand?: string | null; price?: number | null },
+  candidates: any[],
+): Promise<any[]> {
+  if (!candidates.length) return candidates
+  if (!hasModelKey() || process.env.SHOPPER_VISION_SCREEN === '0') return candidates
+
+  // SPLIT AND RUN IN PARALLEL. Vision latency scales with the number of images
+  // in the call — one 20-image pass measured ~11s and was the single biggest
+  // component of a cold panel. Two or three 9-image passes cost the same tokens
+  // but finish in roughly the time of the slowest one.
+  //
+  // The tradeoff is that ranking is batch-local rather than global. That's fine:
+  // the batches are interleaved back together, so the best of each still surfaces
+  // near the top, and the REJECT decisions — which are what protect quality —
+  // are per-item and completely unaffected by batching.
+  const batches: any[][] = []
+  for (let i = 0; i < candidates.length; i += VISION_BATCH) {
+    batches.push(candidates.slice(i, i + VISION_BATCH))
+  }
+
+  const results = await Promise.all(batches.map((b) => curateBatch(pageProduct, b)))
+
+  // A batch that failed returns null — fall back to its own candidates so one
+  // bad call degrades that slice only, never the whole gallery.
+  const kept = results.map((r, i) => r ?? batches[i])
+
+  // Round-robin the batches back together.
+  const merged: any[] = []
+  for (let i = 0; ; i++) {
+    let added = false
+    for (const list of kept) {
+      if (i < list.length) {
+        merged.push(list[i])
+        added = true
+      }
+    }
+    if (!added) break
+  }
+  return merged.length ? merged : candidates
+}
+
+/** One vision call. Returns the kept items best-first, or null if it failed. */
+async function curateBatch(
+  pageProduct: { title: string; brand?: string | null; price?: number | null },
+  batch: any[],
+): Promise<any[] | null> {
+  try {
+    const content: any[] = [
+      {
+        type: 'text',
+        text:
+          `Product the shopper is viewing: ${pageProduct.brand ? pageProduct.brand + ' ' : ''}${pageProduct.title}` +
+          (pageProduct.price ? ` — listed at $${pageProduct.price}` : '') +
+          `\n\nCandidates:`,
+      },
+    ]
+    batch.forEach((c, i) => {
+      content.push({
+        type: 'text',
+        text: `\n[${i}] ${String(c.title || '').slice(0, 120)} — ${c.store || '?'}${c.price ? ` — $${c.price}` : ''} — ${c.condition}`,
+      })
+      // Bytes we already fetched (see loadThumbnails), not the URL: letting the
+      // SDK re-download means one dead thumbnail rejects the whole call.
+      content.push({ type: 'image', image: c._bytes || c.image, mimeType: c._mime })
+    })
+
+    const { object } = await generateObject({
+      model: auxModel(),
+      schema: curateSchema,
+      system: CURATE_SYSTEM,
+      messages: [{ role: 'user', content }],
+      providerOptions: providerOptions(),
+      // The batches run in PARALLEL, so this ceiling costs wall-clock only in
+      // the bad case — and the bad case matters: a timed-out batch falls back to
+      // its raw candidates, dumping nine unfiltered listings into the gallery.
+      // Waiting a few more seconds beats shipping the junk we built this pass to
+      // remove. Typical completion is ~5-6s.
+      abortSignal: AbortSignal.timeout(20000),
+    })
+
+    const seen = new Set<number>()
+    const kept: { item: any; rank: number }[] = []
+    for (const v of object?.items || []) {
+      const i = v?.i
+      if (typeof i !== 'number' || i < 0 || i >= batch.length || seen.has(i)) continue
+      seen.add(i)
+      if (v.same_product === false || v.photo_ok === false) continue
+      kept.push({ item: batch[i], rank: typeof v.rank === 'number' ? v.rank : 999 })
+    }
+    kept.sort((a, b) => a.rank - b.rank)
+
+    // An empty batch is a legitimate verdict — those nine really were all junk.
+    // The caller decides what to do when EVERY batch comes back empty.
+    return kept.map((k) => k.item)
+  } catch (e: any) {
+    // Loud on purpose: this pass is what keeps junk listings and ugly photos out,
+    // and its failure mode (show everything) looks like "the filter doesn't work"
+    // rather than like an error. Silence here cost us a debugging session once.
+    console.warn('[shopper] vision batch failed:', e?.message || e)
+    return null // caller substitutes this batch's raw candidates
+  }
+}
+
+// ─── Coupons ─────────────────────────────────────────────────────────────────
+
+const couponSchema = z.object({
+  coupons: z.array(
+    z.object({
+      code: z.string().describe('The literal code the shopper types at checkout, e.g. SAVE20.'),
+      description: z
+        .string()
+        .describe(
+          'What it gives, in Mexican Spanish, MAX 4 WORDS — it sits on one line next to the code. e.g. "25% de descuento", "envío gratis", "10% primera compra".',
+        ),
+    }),
+  ),
+})
+
+const COUPON_SYSTEM = `You extract working promo codes for ONE store from Google search results.
+
+Return only codes that are clearly stated as a CODE the shopper types at checkout for THAT store. A code looks like SAVE20, WELCOME15, FREESHIP, NB25-XYZ.
+
+NEVER return:
+- Codes for a different store than the one named.
+- Generic marketing text ("no code needed", "auto applied", "sitewide sale", "up to 50% off") — those are not codes.
+- Words scraped out of a sentence that merely look like a code (SHOP, SALE, CLICK, HERE, TODAY, NEW).
+- Made-up codes. If the results contain no real code, return an empty list.
+
+Write each description in Mexican Spanish, FOUR WORDS MAXIMUM. It renders on a single line beside the code, so drop filler: "10% de descuento en tu primera compra" must be written "10% primera compra".`
+
+export type Coupon = { code: string; description: string }
+
+/** A plausible checkout code — not a sentence fragment, not a single word like SALE. */
+function looksLikeCode(code: string): boolean {
+  const c = code.trim().toUpperCase()
+  if (!/^[A-Z0-9][A-Z0-9._-]{2,23}$/.test(c)) return false
+  // Reject the generic words models love to hallucinate as codes.
+  if (/^(SHOP|SALE|CLICK|HERE|TODAY|NEW|CODE|NONE|FREE|OFF|DEAL|DEALS|SAVE|PROMO|COUPON)$/.test(c)) return false
+  // A real code almost always mixes letters with digits, or is a known word+number.
+  return /\d/.test(c) || c.length >= 5
+}
+
+/**
+ * Promo codes for a store, mined from Google organic results and cached PER STORE
+ * for 6 hours — one lookup serves every product page on that store, which is what
+ * keeps this affordable.
+ *
+ * Codes scraped from coupon sites go stale; the panel labels them as "puede que ya
+ * no funcione" rather than promising savings.
+ */
+export async function findCoupons(
+  storeName: string,
+  apiPost: (path: string, body: any) => Promise<any>,
+): Promise<Coupon[]> {
+  const name = String(storeName || '').trim()
+  if (!name || !hasModelKey()) return []
+
+  const storage = useStorage('cache')
+  const key = 'coupons:' + slug(name)
+  if (!cacheOff()) {
+    const hit = await storage.getItem<Coupon[]>(key)
+    if (hit) return hit
+  }
+
+  try {
+    const res = await apiPost('/products/web-search', {
+      query: `${name} promo code coupon`,
+      num: 10,
+    })
+    const results: any[] = res?.results || []
+    if (!results.length) return []
+
+    const digest = results
+      .map((r) => `${r.title}\n${r.snippet}`)
+      .join('\n---\n')
+      .slice(0, 6000)
+
+    const { object } = await generateObject({
+      model: auxModel(),
+      schema: couponSchema,
+      system: COUPON_SYSTEM,
+      prompt: `Store: ${name}\n\nSearch results:\n${digest}`,
+      providerOptions: providerOptions(),
+      // 12s, not 6s. This runs in parallel with the shopping searches, so
+      // anything under those costs no wall-clock — and at 6s the extraction was
+      // losing races under load and silently reporting "no coupons" for a store
+      // that had three.
+      abortSignal: AbortSignal.timeout(12000),
+    })
+
+    const seen = new Set<string>()
+    const coupons: Coupon[] = []
+    for (const c of object?.coupons || []) {
+      const code = String(c?.code || '').trim().toUpperCase()
+      if (!looksLikeCode(code) || seen.has(code)) continue
+      seen.add(code)
+      coupons.push({ code, description: String(c?.description || '').trim().slice(0, 60) })
+      if (coupons.length >= 8) break
+    }
+
+    // Cache successes for 6h. An empty result caches for 30 min only, so a store
+    // that simply had a bad search moment self-heals instead of looking
+    // coupon-less for the rest of the day.
+    if (!cacheOff()) {
+      await storage.setItem(key, coupons, { ttl: coupons.length ? 60 * 60 * 6 : 60 * 30 })
+    }
+    return coupons
+  } catch {
+    return []
+  }
+}
+
+// ─── Which number on the page is the price? ──────────────────────────────────
+
+const pickPriceSchema = z.object({
+  index: z.number().int().describe('Index of the product\'s current price, or -1 if none of them is.'),
+  currency: z.string().describe('ISO code of that price, e.g. MXN, USD, EUR.'),
+  reason: z.string().describe('Max 8 words.'),
+})
+
+const PICK_PRICE_SYSTEM = `You are given text snippets scraped from ONE product page, each with the copy surrounding it. Exactly one of them is usually the price the shopper pays for THIS product right now.
+
+Pick that one and return its index.
+
+Do NOT pick:
+- a free-shipping threshold ("ENVÍO GRATUITO POR MXN1575", "free shipping over $50")
+- an instalment or financing amount ("12 meses sin intereses", "4 pagos de $X")
+- a crossed-out or "before" price — we want what they pay TODAY
+- a cart total, subtotal, tax, or a loyalty/points value
+- the price of a recommended or related product
+- a price range for other variants when a single current price exists
+
+Return the ISO currency code for the price you picked. Judge it from the symbol and the language of the surrounding copy: on a Mexican storefront a bare "$" is MXN, not USD.
+
+If none of the snippets is this product's current price, return index -1.`
+
+/**
+ * Let the model decide which snippet is the price.
+ *
+ * Heuristics kept picking the wrong number — a shipping-threshold banner beat
+ * the real price tag on Alo's Mexican storefront — and every store lays this out
+ * differently, so the rules would never stop growing. This is judgment work, so
+ * it goes to the model, exactly like ranking listings does.
+ *
+ * Code still guarantees the outcome: the model may only CHOOSE from candidates
+ * the page actually contained (it can't invent a number), the amount comes from
+ * our own parse of that candidate, and any failure falls back to the heuristic
+ * pick the extension already made.
+ */
+export async function pickPrice(
+  candidates: any[],
+  ctx: { title: string; localeCurrency?: string | null },
+): Promise<{ amount: number; currency: string } | null> {
+  if (!Array.isArray(candidates) || !candidates.length) return null
+  if (!hasModelKey()) return null
+
+  const list = candidates
+    .slice(0, 24)
+    .map((c, i) => `${i}: "${String(c.text || '').slice(0, 40)}"  — context: "${String(c.context || '').slice(0, 120)}"`)
+    .join('\n')
+
+  try {
+    const { object } = await generateObject({
+      model: auxModel(),
+      schema: pickPriceSchema,
+      system: PICK_PRICE_SYSTEM,
+      prompt:
+        `Product: ${ctx.title}\n` +
+        (ctx.localeCurrency ? `Storefront currency (from its locale): ${ctx.localeCurrency}\n` : '') +
+        `\nSnippets:\n${list}`,
+      providerOptions: providerOptions(),
+      abortSignal: AbortSignal.timeout(8000),
+    })
+
+    const i = object?.index
+    if (typeof i !== 'number' || i < 0 || i >= candidates.length) return null
+
+    // The AMOUNT is ours, not the model's — it only chose which snippet.
+    const chosen = candidates[i]
+    const amount = Number(chosen?.amount)
+    if (!isFinite(amount) || amount <= 0) return null
+
+    const currency = String(object?.currency || chosen?.currency || ctx.localeCurrency || '').toUpperCase()
+    if (!/^[A-Z]{3}$/.test(currency)) return null
+
+    return { amount, currency }
+  } catch {
+    return null
+  }
+}
+
+// ─── Mexico-vs-US price comparison ───────────────────────────────────────────
+
+/**
+ * How many units of `currency` one US dollar buys. Cached 12h — FX moves far
+ * too slowly to matter here, and this runs on every localized product view.
+ * Returns null on failure so the caller shows no comparison rather than a wrong
+ * one.
+ */
+export async function usdRate(currency: string): Promise<number | null> {
+  const code = String(currency || '').toUpperCase()
+  if (!code || code === 'USD') return 1
+
+  const storage = useStorage('cache')
+  const key = 'fx:' + code
+  const hit = await storage.getItem<number>(key)
+  if (hit) return hit
+
+  // Two providers. Without a rate there is no comparison and the shopper loses
+  // the single most valuable thing the panel tells them, so one cold-DNS
+  // timeout must not be enough to lose it (measured: a first call timed out at
+  // 6s, the retry answered in 200ms).
+  const sources = [
+    `https://api.frankfurter.dev/v1/latest?base=USD&symbols=${code}`,
+    'https://open.er-api.com/v6/latest/USD',
+  ]
+
+  for (const src of sources) {
+    try {
+      const res = await fetch(src, { signal: AbortSignal.timeout(8000) })
+      if (!res.ok) continue
+      const data: any = await res.json()
+      const rate = Number(data?.rates?.[code])
+      if (!isFinite(rate) || rate <= 0) continue
+      await storage.setItem(key, rate, { ttl: 60 * 60 * 12 })
+      return rate
+    } catch {
+      // try the next provider
+    }
+  }
+  console.warn('[shopper] no FX rate for', code, '— price comparison suppressed')
+  return null
+}
+
+export type PriceCompare = {
+  local_amount: number
+  local_currency: string
+  local_usd: number
+  us_amount: number
+  /** The US price expressed in the shopper's own currency, at today's rate. */
+  us_local: number
+  savings_usd: number
+  /** The saving in the shopper's own currency — the number that lands. */
+  savings_local: number
+  savings_percent: number
+  fx: number
+}
+
+/**
+ * The core Boxly argument, made concrete: what this exact product costs on the
+ * store's Mexican site versus its US site.
+ *
+ * Both numbers are real — the local one read off the page the shopper is
+ * looking at, the US one fetched through ScraperAPI's US exit node — so this is
+ * the same product at the same retailer, not an approximation.
+ *
+ * Returns null unless there is a genuine saving worth acting on; a 2% gap is
+ * noise once shipping is involved, and overstating it would be dishonest.
+ */
+export function buildCompare(
+  localAmount: number | null,
+  localCurrency: string | null,
+  usAmount: number | null,
+  fx: number | null,
+): PriceCompare | null {
+  if (!localAmount || !localCurrency || !usAmount || !fx || fx <= 0) return null
+
+  const localUsd = localAmount / fx
+  const savings = localUsd - usAmount
+  const percent = Math.round((savings / localUsd) * 100)
+
+  // Below ~5% it isn't a story, and it could just be FX drift or a rounding rule.
+  if (savings <= 0 || percent < 5) return null
+
+  return {
+    local_amount: localAmount,
+    local_currency: localCurrency,
+    local_usd: Math.round(localUsd * 100) / 100,
+    us_amount: usAmount,
+    // Both sides in pesos as well as dollars: a shopper comparing MX$1,590 to
+    // "$64" has to do the conversion in their head to see the gap. Doing it for
+    // them is the difference between a number and an argument.
+    us_local: Math.round(usAmount * fx),
+    savings_usd: Math.round(savings * 100) / 100,
+    savings_local: Math.round(savings * fx),
+    savings_percent: percent,
+    fx,
+  }
+}
+
+// ─── Query building ──────────────────────────────────────────────────────────
+
+/**
+ * Turn a messy PDP title into the query Google Shopping answers best: brand +
+ * model, without the marketing tail ("| Free Shipping", "- Shop Now", SKUs).
+ */
+export function productQuery(title: string, brand?: string | null): string {
+  let t = String(title || '')
+    .split(/\s*[|]\s*/)[0]              // "…9060 | New Balance" → "…9060"
+    .replace(/\s*[-–—]\s*(shop|buy|official|free shipping|new arrivals?).*/i, '')
+    .replace(/\b(sku|item|style|model)\s*[:#]?\s*[A-Z0-9-]{4,}\b/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  const b = String(brand || '').trim()
+  // Only prepend the brand when the title doesn't already carry it.
+  if (b && !t.toLowerCase().includes(b.toLowerCase())) t = `${b} ${t}`
+
+  return t.split(/\s+/).slice(0, 12).join(' ').slice(0, 160)
+}
+
+/**
+ * A looser version of the query, for when the specific one came back nearly
+ * empty.
+ *
+ * Apparel titles carry a colourway ("Cropped Timeless Tee - Dune Grass") that
+ * makes the search so narrow it returns one listing or none. Dropping the tail
+ * after the dash — and any parenthetical — finds the same garment in other
+ * colours at other stores, which is still a useful comparison.
+ *
+ * Returns '' when there's nothing to broaden, so the caller can skip the call.
+ */
+export function broadenQuery(query: string): string {
+  const t = String(query || '')
+    .replace(/\s*\(.*?\)\s*/g, ' ')     // "(Women's)"
+    .split(/\s+[-–—]\s+/)[0]            // "… Tee - Dune Grass" → "… Tee"
+    .replace(/\s+/g, ' ')
+    .trim()
+  const broad = t.split(/\s+/).slice(0, 8).join(' ')
+  return broad && broad.toLowerCase() !== String(query || '').trim().toLowerCase() ? broad : ''
+}

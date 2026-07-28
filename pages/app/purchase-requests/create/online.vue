@@ -487,6 +487,20 @@ onMounted(() => {
       else sessionStorage.removeItem(DRAFT_KEY);
     } catch { /* storage blocked — no-op */ }
   }, { deep: true });
+
+  // Deep link from the Boxly Shopper extension ("Boxly lo compra") and from any
+  // shared product link: ?url=<product page> drops the shopper straight into the
+  // product screen with the item already scraped. Reuses startFromUrl() so the
+  // scrape, the variant pre-fill and the failure fallback all behave identically
+  // to pasting the link by hand. The param is stripped afterwards so a refresh
+  // doesn't add the same product twice.
+  const incoming = typeof route.query.url === 'string' ? route.query.url.trim() : '';
+  if (incoming) {
+    quickInput.value = incoming;
+    startFromUrl();
+    const { url: _drop, ...rest } = route.query;
+    router.replace({ query: rest });
+  }
 });
 
 const loading = ref(false);
