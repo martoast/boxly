@@ -1484,6 +1484,7 @@ const translations = {
   software: { es: "Software", en: "Software" },
   office: { es: "Oficina", en: "Office" },
   po_box: { es: "Apartado Postal", en: "PO Box" },
+  fees: { es: "Comisiones de pago", en: "Payment fees" },
   misc: { es: "Varios", en: "Miscellaneous" },
   shippingRevenue: { es: "Ingresos Envíos", en: "Shipping Revenue" },
   serviceFeeRevenue: { es: "Ingresos Compras", en: "Purchase Fees" },
