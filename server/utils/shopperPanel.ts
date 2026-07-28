@@ -993,6 +993,9 @@ export function buildCompare(
   fx: number | null,
 ): PriceCompare | null {
   if (!localAmount || !localCurrency || !usAmount || !fx || fx <= 0) return null
+  // A "local" price already in dollars means the page was never foreign — the
+  // comparison would be the US price against itself, scaled by an exchange rate.
+  if (localCurrency === 'USD') return null
 
   const localUsd = localAmount / fx
   const savings = localUsd - usAmount
