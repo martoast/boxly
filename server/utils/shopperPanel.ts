@@ -740,32 +740,47 @@ async function curateBatch(
 const offerSchema = z.object({
   offers: z.array(
     z.object({
+      code: z
+        .string()
+        .describe(
+          'The code EXACTLY as it appears in the text, character for character. Empty string if the text describes a discount but never shows a code.',
+        ),
       description: z
         .string()
-        .describe('The offer in Mexican Spanish, MAX 6 WORDS. e.g. "15% de descuento para maestros", "envío gratis desde $50".'),
+        .describe('What it gives, in Mexican Spanish, MAX 7 WORDS. Keep the qualifier: "15% para estudiantes", "15% primera compra app".'),
     }),
   ),
 })
 
-const OFFER_SYSTEM = `You extract the discount offers a store is currently running, from Google search results.
+const OFFER_SYSTEM = `You extract discount CODES and offers for ONE store from Google search results.
 
-Return each distinct offer as a short Spanish (Mexican) phrase, 7 words maximum.
+CODES ARE THE PRIORITY. A code the shopper can paste at checkout is the single most valuable thing here. Look hard for them — Reddit threads, Facebook posts and brand pages often print them in full ("Use code: ALOAPP15", "code AYADVOCATE"). Coupon-aggregator sites usually hide theirs behind a "Claim" button, so those genuinely have none.
 
-KEEP THE QUALIFIER. Who the offer is for, or what it applies to, is the most important part — an offer stripped of its condition misleads. Write "15% para estudiantes", not "15% al suscribirte", when the source says the discount is for students. Write "15% en tu primera compra en la app", not "15% en app".
+For each offer return:
+- code: the code EXACTLY as written, character for character. If the text does not show one, return an EMPTY STRING. NEVER guess, complete, or build a code out of the store's name — a plausible code that fails at checkout is worse than no code at all, and it is the one thing that destroys trust instantly.
+- description: what it gives, Mexican Spanish, 7 words max, KEEPING the qualifier ("15% para estudiantes", not "15% al suscribirte", when the source says students).
 
-REJECT an offer when:
-- It has no concrete condition or scope: "20% de descuento en productos", "descuento en tu compra" — that tells the shopper nothing they can act on.
-- It is vague ceiling marketing: "hasta 40%", "up to 50% off", "save big".
-- It is the coupon site's own cash-back or referral reward, not the store's.
-- It is expired, or belongs to a different store.
-
-Prefer offers stated with a clear condition (who qualifies, minimum spend, first order, specific category) over an aggregator's headline claim.
-
-DO NOT return promo codes. Coupon sites hide the real code behind a "Claim" button, so any code here is unreliable and we no longer show them.`
-
+Skip: expired offers, the coupon site's own cash-back, vague ceiling marketing ("hasta 40%"), and anything for a different store.`
 
 /** One promotion a store is running. Deliberately has no code — see findOffers. */
-export type StoreOffer = { description: string }
+export type StoreOffer = {
+  /** Empty when the source described a discount but never printed a code. */
+  code: string
+  description: string
+}
+
+/** A plausible checkout code — not a sentence fragment, not a bare number. */
+function looksLikeCode(code: string): boolean {
+  const c = code.trim().toUpperCase()
+  if (!/^[A-Z0-9][A-Z0-9._-]{3,23}$/.test(c)) return false
+  if (/^(SHOP|SALE|CLICK|HERE|TODAY|NEW|CODE|NONE|FREE|OFF|DEAL|DEALS|SAVE|PROMO|COUPON|ORDER|ITEMS|STYLE)$/.test(c)) {
+    return false
+  }
+  // Must contain a letter: a bare number is a price, a SKU or a year.
+  return /[A-Z]/.test(c)
+}
+
+const reEscape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 /**
  * Does this offer say WHO qualifies, or WHAT unlocks it?
@@ -827,11 +842,20 @@ export async function findOffers(
   }
 
   try {
-    const res = await apiPost('/products/web-search', { query: `${name} promo code coupon`, num: 10 })
-    const results: any[] = res?.results || []
+    // Two passes. The generic one finds aggregators, which describe offers but
+    // hide the codes; the second targets where people post codes in full —
+    // Reddit threads, brand social posts, "use code" phrasing. Measured: the
+    // generic search for New Balance returned nine results and zero literal
+    // codes, while the Alo Reddit and Facebook results printed AYADVOCATE and
+    // ALOAPP15 outright.
+    const [generic, direct] = await Promise.all([
+      apiPost('/products/web-search', { query: `${name} promo code coupon`, num: 10 }),
+      apiPost('/products/web-search', { query: `"${name}" "use code" OR "código" discount reddit`, num: 10 }),
+    ])
+    const results: any[] = [...(generic?.results || []), ...(direct?.results || [])]
     if (!results.length) return []
 
-    const digest = results.map((r) => `${r.title}\n${r.snippet}`).join('\n---\n').slice(0, 6000)
+    const digest = results.map((r) => `${r.title}\n${r.snippet}`).join('\n---\n').slice(0, 9000)
 
     const { object } = await generateObject({
       model: auxModel(),
@@ -844,21 +868,38 @@ export async function findOffers(
       abortSignal: AbortSignal.timeout(12000),
     })
 
+    const haystack = digest.toUpperCase()
     const seen = new Set<string>()
     const offers: StoreOffer[] = []
+
     for (const o of object?.offers || []) {
       const description = String(o?.description || '').trim().slice(0, 60)
       if (!description) continue
-      if (!hasCondition(description)) {
+
+      // A code must appear VERBATIM in the source, as a whole token, and contain
+      // a letter. Anything else is invented — the model produced NB20 and
+      // WELCOME10 for a page that contained neither.
+      const raw = String(o?.code || '').trim().toUpperCase()
+      const present = raw && new RegExp(`(^|[^A-Z0-9])${reEscape(raw)}([^A-Z0-9]|$)`).test(haystack)
+      const code = looksLikeCode(raw) && present ? raw : ''
+
+      // Codes carry their own proof, so they skip the condition rule. A
+      // code-less offer still has to say who qualifies or what unlocks it.
+      if (!code && !hasCondition(description)) {
         console.warn('[shopper] dropped unconditional claim:', description)
         continue
       }
-      const dedupe = description.toLowerCase()
-      if (seen.has(dedupe)) continue
-      seen.add(dedupe)
-      offers.push({ description })
-      if (offers.length >= 6) break
+      if (raw && !code) console.warn('[shopper] dropped invented code:', raw)
+
+      const key = code || description.toLowerCase()
+      if (seen.has(key)) continue
+      seen.add(key)
+      offers.push({ code, description })
+      if (offers.length >= 8) break
     }
+
+    // Codes first — they're the thing worth opening the panel for.
+    offers.sort((a, b) => (b.code ? 1 : 0) - (a.code ? 1 : 0))
 
     // Cache successes 6h; an empty result only 30 min, so a store that had a bad
     // search moment self-heals instead of looking offer-less all day.
