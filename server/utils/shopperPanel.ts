@@ -714,14 +714,48 @@ const offerSchema = z.object({
 
 const OFFER_SYSTEM = `You extract the discount offers a store is currently running, from Google search results.
 
-Return each distinct offer as a short Spanish (Mexican) phrase, 6 words maximum. Examples: "15% de descuento para maestros", "20% al suscribirte", "envío gratis desde $50".
+Return each distinct offer as a short Spanish (Mexican) phrase, 7 words maximum.
 
-DO NOT return promo codes. Coupon sites hide the real code behind a "Claim" button, so any code in this text is unreliable and we no longer show them.
+KEEP THE QUALIFIER. Who the offer is for, or what it applies to, is the most important part — an offer stripped of its condition misleads. Write "15% para estudiantes", not "15% al suscribirte", when the source says the discount is for students. Write "15% en tu primera compra en la app", not "15% en app".
 
-Skip: expired offers, cash-back from the coupon site itself, vague "up to X%" marketing with no concrete offer, and anything for a different store.`
+REJECT an offer when:
+- It has no concrete condition or scope: "20% de descuento en productos", "descuento en tu compra" — that tells the shopper nothing they can act on.
+- It is vague ceiling marketing: "hasta 40%", "up to 50% off", "save big".
+- It is the coupon site's own cash-back or referral reward, not the store's.
+- It is expired, or belongs to a different store.
+
+Prefer offers stated with a clear condition (who qualifies, minimum spend, first order, specific category) over an aggregator's headline claim.
+
+DO NOT return promo codes. Coupon sites hide the real code behind a "Claim" button, so any code here is unreliable and we no longer show them.`
+
 
 /** One promotion a store is running. Deliberately has no code — see findOffers. */
 export type StoreOffer = { description: string }
+
+/**
+ * Does this offer say WHO qualifies, or WHAT unlocks it?
+ *
+ * A bare "30% de descuento sitewide" is the least trustworthy claim in the set
+ * and the least actionable. It comes from coupon-aggregator headlines ("Alo Yoga
+ * Promo Codes - 40% Off"), whose bodies then say "save UP TO 40%" — the model
+ * drops the ceiling and reports it as a flat discount nobody will get. And if an
+ * unconditional sitewide sale were genuinely running, the shopper would already
+ * see it on the page they're looking at.
+ *
+ * Offers with a condition are the opposite: "15% para estudiantes", "10% al
+ * suscribirte", "30% extra en rebajas" are specific, verifiable, and something
+ * the shopper can actually go and claim.
+ *
+ * Tried and rejected first: checking whether the percentage appears only in
+ * "up to" phrasing. The aggregator TITLE states it flat, so the check never
+ * fired.
+ */
+const OFFER_CONDITION =
+  /estudiante|maestro|militar|enfermer|m[ée]dico|primera compra|primer pedido|app\b|suscrib|registr|newsletter|correo|referi|amigo|rebaj|liquidaci[óo]n|outlet|sale\b|m[íi]nimo|desde \$|cumplea[ñn]|socio|miembro|estudiantil|cashback|env[íi]o gratis/i
+
+function hasCondition(description: string): boolean {
+  return OFFER_CONDITION.test(description)
+}
 
 
 /**
@@ -780,6 +814,10 @@ export async function findOffers(
     for (const o of object?.offers || []) {
       const description = String(o?.description || '').trim().slice(0, 60)
       if (!description) continue
+      if (!hasCondition(description)) {
+        console.warn('[shopper] dropped unconditional claim:', description)
+        continue
+      }
       const dedupe = description.toLowerCase()
       if (seen.has(dedupe)) continue
       seen.add(dedupe)
