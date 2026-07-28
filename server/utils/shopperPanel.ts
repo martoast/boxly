@@ -40,123 +40,127 @@ export function cacheTtl(): number {
 /** True when caching is disabled (SHOPPER_CACHE_TTL=0). */
 export const cacheOff = () => cacheTtl() === 0
 
-// ─── Trusted sellers ─────────────────────────────────────────────────────────
+// ─── Retail arbitrage tiers ──────────────────────────────────────────────────
 //
-// The shopper explicitly asked for real distributors, not fringe pages. Match is
-// by PREFIX on the slugified store name, because SerpAPI returns marketplace
-// listings as "eBay - gius3187" / "Amazon.com - Seller" — the marketplace always
-// comes first, so a prefix match is both accurate and safe (a random store called
-// "targetfitness" would slip past a `contains` check, not a prefix one).
+// Boxly is not a marketplace search engine. Its customers already shop premium
+// US retailers and want to pay less WITHOUT giving up trust — so the job is the
+// best legitimate retail price, not the lowest number on the internet.
+//
+// The feeling to produce: "I was about to pay full price, and Boxly found it
+// cheaper at another trusted retailer."
+//
+// Matching is by PREFIX on the slugified store name, because SerpAPI returns
+// marketplace listings as "eBay - gius3187" — the platform always comes first,
+// so a prefix match is accurate where a substring match would trust a fringe
+// store called "targetfitness".
 
-/** Big-box chains and major retailers — catalog photography, reliable stock. */
-const CHAIN_SELLERS = [
-  'walmart', 'target', 'amazon', 'bestbuy', 'costco', 'samsclub', 'macys',
-  'nordstrom', 'nordstromrack', 'kohls', 'dickssportinggoods', 'dicks', 'academy',
-  'scheels', 'rei', 'footlocker', 'kidsfootlocker', 'champssports', 'finishline',
-  'jdsports', 'journeys', 'famousfootwear', 'dsw', 'shoecarnival', 'hibbett',
-  'zappos', 'sephora', 'ulta', 'bathandbodyworks', 'homedepot', 'lowes',
-  'wayfair', 'ikea', 'containerstore', 'williamssonoma', 'crateandbarrel',
-  'pottervbarn', 'potterybarn', 'bedbathandbeyond', 'staples', 'officedepot',
-  'petco', 'petsmart', 'chewy', 'gamestop', 'barnesandnoble', 'michaels',
-  'joann', 'hobbylobby', 'tractorsupply', 'harborfreight', 'menards',
-  'jcpenney', 'dillards', 'saksfifthavenue', 'saksoff5th', 'bloomingdales',
-  'neimanmarcus', 'revolve', 'asos', 'shopbop', 'ssense', 'farfetch',
-  'urbanoutfitters', 'anthropologie', 'freepeople', 'abercrombie', 'aeropostale',
-  'americaneagle', 'hollister', 'express', 'gap', 'oldnavy', 'bananarepublic',
-  'jcrew', 'madewell', 'uniqlo', 'zara', 'hm', 'mango', 'primark', 'boohoo',
-  'shein', 'forever21', 'torrid', 'lanebryant', 'victoriassecret', 'pinkvs',
-  'aerie', 'backcountry', 'moosejaw', 'evo', 'sierra', 'tjmaxx', 'marshalls',
-  'homegoods', 'ross', 'burlington', 'bigfive', 'modells', 'sportsmanswarehouse',
-  'cabelas', 'basspro', 'llbean', 'landsend', 'eddiebauer', 'columbia',
-  'newegg', 'bhphotovideo', 'adorama', 'microcenter', 'crutchfield', 'apple',
-  'samsung', 'dell', 'hp', 'lenovo', 'lg', 'sony', 'bose', 'jbl', 'anker',
-  'walgreens', 'cvs', 'riteaid', 'kroger', 'safeway', 'albertsons', 'publix',
-  'wholefoods', 'traderjoes', 'aldi', 'heb', 'meijer', 'wegmans', 'shoprite',
-  'qvc', 'hsn', 'overstock', 'boscovs', 'belk', 'burkes', 'citytrends',
+/** Tier 1 — the brand's own store. Highest priority: authentic, best photos. */
+const TIER1_BRAND = [
+  'nike', 'newbalance', 'adidas', 'aloyoga', 'lululemon', 'arcteryx', 'patagonia',
+  'apple', 'dyson', 'coach', 'michaelkors', 'puma', 'reebok', 'asics', 'brooks',
+  'hoka', 'saucony', 'onrunning', 'salomon', 'merrell', 'timberland', 'ugg',
+  'crocs', 'birkenstock', 'vans', 'converse', 'underarmour', 'gymshark',
+  'fabletics', 'athleta', 'thenorthface', 'carhartt', 'levis', 'wrangler',
+  'dickies', 'ralphlauren', 'poloralphlauren', 'tommyhilfiger', 'calvinklein',
+  'guess', 'katespade', 'toryburch', 'lacoste', 'champion', 'fila', 'skechers',
+  'clarks', 'drmartens', 'stevemadden', 'aldo', 'ninewest', 'stanley', 'yeti',
+  'hydroflask', 'owala', 'owalalife', 'contigo', 'camelbak', 'nalgene', 'shark',
+  'ninja', 'instantpot', 'kitchenaid', 'cuisinart', 'lecreuset', 'lego',
+  'mattel', 'hasbro', 'funko', 'nintendo', 'playstation', 'xbox', 'razer',
+  'logitech', 'corsair', 'steelseries', 'hyperx', 'garmin', 'fitbit', 'gopro',
+  'dji', 'canon', 'nikon', 'fujifilm', 'oakley', 'rayban', 'mauijim', 'goodr',
+  'knix', 'skims', 'savagex', 'spanx', 'thirdlove', 'rhode', 'glossier',
+  'drunkelephant', 'theordinary', 'cerave', 'larocheposay', 'olaplex', 'ghd',
+  'revlon', 'maybelline', 'loreal', 'nyx', 'dfyne', 'youngla', 'buffbunny',
+  'oneractive', 'halara', 'victoriassecret', 'samsung', 'sony', 'bose', 'jbl',
+  'anker', 'columbia', 'llbean', 'eddiebauer', 'alo', 'oxo', 'elf', 'on',
+]
+
+/** Tier 2 — authorized retailers. The core of the arbitrage engine. */
+const TIER2_AUTHORIZED = [
+  'nordstrom', 'saksfifthavenue', 'bloomingdales', 'macys', 'dickssportinggoods',
+  'dicks', 'rei', 'zappos', 'shopbop', 'revolve', 'ssense', 'endclothing', 'end',
+  'kith', 'feature', 'amanamaniere', 'bodega', 'jdsports', 'finishline',
+  'footlocker', 'kidsfootlocker', 'champssports', 'neimanmarcus', 'dsw',
+  'target', 'walmart', 'amazon', 'bestbuy', 'costco', 'samsclub', 'kohls',
+  'academy', 'scheels', 'hibbett', 'famousfootwear', 'shoecarnival', 'journeys',
+  'dtlr', 'sephora', 'ulta', 'bathandbodyworks', 'homedepot', 'lowes', 'wayfair',
+  'ikea', 'williamssonoma', 'crateandbarrel', 'potterybarn', 'containerstore',
+  'staples', 'officedepot', 'petco', 'petsmart', 'chewy', 'gamestop',
+  'barnesandnoble', 'michaels', 'joann', 'hobbylobby', 'tractorsupply',
+  'jcpenney', 'dillards', 'belk', 'urbanoutfitters', 'anthropologie',
+  'freepeople', 'abercrombie', 'americaneagle', 'aeropostale', 'hollister',
+  'express', 'gap', 'oldnavy', 'bananarepublic', 'jcrew', 'madewell', 'uniqlo',
+  'zara', 'mango', 'asos', 'farfetch', 'backcountry', 'moosejaw', 'evo',
+  'cabelas', 'basspro', 'sportsmanswarehouse', 'landsend', 'newegg',
+  'bhphotovideo', 'adorama', 'microcenter', 'crutchfield', 'aerie', 'torrid',
+  'lanebryant', 'qvc', 'hsn', 'walgreens', 'cvs', 'rei', 'nordstromca',
+]
+
+/** Tier 3 — outlet and clearance. Still legitimate retail channels. */
+const TIER3_OUTLET = [
+  'nordstromrack', 'saksoff5th', 'saksoff', 'nikeclearance', 'adidasoutlet',
+  'sierra', '6pm', 'sixpm', 'jcrewfactory', 'tjmaxx', 'marshalls', 'homegoods',
+  'ross', 'burlington', 'overstock', 'shein', 'boohoo', 'forever21',
 ]
 
 /**
- * Brand-direct stores. A brand selling its own product is the single most
- * trustworthy listing there is — best photos, guaranteed authenticity.
+ * Tier 4 — marketplaces. OFF by default.
+ *
+ * Anonymous sellers, no returns worth the name, and authenticity you can't
+ * vouch for. Surfacing these alongside Nordstrom teaches the shopper that Boxly
+ * is a bargain aggregator, which is the opposite of the position we want. They
+ * appear only when the shopper opts in, or when retail found nothing at all.
  */
-// Entries are matched against the SLUGIFIED store name, so they must contain no
-// spaces or punctuation ("steve madden" would never match anything).
-const BRAND_SELLERS = [
-  'nike', 'adidas', 'newbalance', 'puma', 'reebok', 'asics', 'brooks', 'hoka',
-  'saucony', 'onrunning', 'salomon', 'merrell', 'timberland', 'ugg',
-  'crocs', 'birkenstock', 'vans', 'converse', 'underarmour', 'lululemon',
-  'gymshark', 'aloyoga', 'fabletics', 'athleta', 'patagonia',
-  'thenorthface', 'arcteryx', 'carhartt', 'levis', 'wrangler', 'dickies',
-  'ralphlauren', 'poloralphlauren', 'tommyhilfiger', 'calvinklein', 'guess',
-  'michaelkors', 'coach', 'katespade', 'toryburch', 'lacoste', 'champion',
-  'fila', 'skechers', 'clarks', 'drmartens', 'stevemadden',
-  'aldo', 'ninewest', 'stanley', 'yeti', 'hydroflask', 'owala',
-  'contigo', 'camelbak', 'nalgene', 'dyson', 'shark', 'ninja', 'instantpot',
-  'kitchenaid', 'cuisinart', 'lecreuset', 'pyrex', 'lego', 'mattel',
-  'hasbro', 'funko', 'nintendo', 'playstation', 'xbox', 'razer', 'logitech',
-  'corsair', 'steelseries', 'hyperx', 'garmin', 'fitbit', 'gopro', 'dji',
-  'canon', 'nikon', 'fujifilm', 'oakley', 'rayban', 'mauijim',
-  'goodr', 'knix', 'skims', 'savagex', 'shapermint', 'spanx', 'thirdlove',
-  'rhode', 'glossier', 'drunkelephant', 'theordinary', 'cerave', 'larocheposay',
-  'olaplex', 'ghd', 'revlon', 'maybelline', 'loreal', 'nyx',
-  'dfyne', 'youngla', 'buffbunny', 'oneractive', 'halara',
-  // Short brand names. Prefix matching would make "on" trust every store called
-  // "Online…" and "elf" trust "Elfster", so isTrustedSeller() requires an EXACT
-  // slug match for anything under 4 characters.
-  'on', 'alo', 'oxo', 'elf', 'gap', 'hm', 'rei', 'dsw', 'qvc', 'hsn', 'heb',
+// NOTE: Poshmark is deliberately absent — Alex excluded that market explicitly.
+// Don't add it back without asking; it has now been reintroduced by accident once.
+const TIER4_MARKETPLACE = [
+  'ebay', 'mercari', 'grailed', 'vestiairecollective', 'depop',
+  'facebookmarketplace', 'offerup', 'whatnot', 'stockx', 'goat', 'thredup',
+  'therealreal', 'kixify', 'flightclub', 'stadiumgoods', 'curtsy', 'kashew',
+  'etsy', 'aliexpress', 'wish', 'temu', 'tiktokshop', 'tiktok',
 ]
-
-/**
- * Resale marketplaces the shopper explicitly wants included — this is where the
- * real savings live (the 30%-off used listings in the mockup). Trusted as
- * PLATFORMS: the platform is legitimate even though the individual seller is
- * anonymous, so these pass the allowlist but are labeled as resale so the panel
- * can badge them and the model can weigh their photo quality harder.
- */
-// NOTE: Poshmark is deliberately EXCLUDED — Alex doesn't want that market.
-// Don't add it back without asking.
-const RESALE_SELLERS = [
-  'ebay', 'mercari', 'stockx', 'goat', 'grailed', 'depop',
-  'thredup', 'therealreal', 'vestiairecollective', 'tiktokshop', 'tiktok',
-  'kixify', 'flightclub', 'stadiumgoods', 'sneakerbardetroit',
-]
-
-const ALL_TRUSTED = new Set([...CHAIN_SELLERS, ...BRAND_SELLERS, ...RESALE_SELLERS])
 
 export const slug = (s: any) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '')
 
-/**
- * True when the store name starts with a seller we trust.
- *
- * Prefix, not substring: SerpAPI returns marketplace listings as
- * "eBay - gius3187" / "Amazon.com - Seller", so the platform is always first —
- * and a substring check would trust a fringe store called "targetfitness".
- *
- * Tokens under 4 characters must match EXACTLY. Otherwise "on" (the running
- * brand) would wave through every store whose name starts with "on".
- */
+/** Under 4 chars must match exactly, or "on" trusts every "Online…" store. */
 const MIN_PREFIX_LEN = 4
 
-export function isTrustedSeller(store: any, extraTrusted: string[] = []): boolean {
-  const s = slug(store)
-  if (!s) return false
-  for (const t of ALL_TRUSTED) {
+function inList(s: string, list: string[]): boolean {
+  for (const t of list) {
     if (t.length < MIN_PREFIX_LEN ? s === t : s.startsWith(t)) return true
-  }
-  // The store the shopper is already on is trusted by definition — but a short
-  // host like "on.com" gets the same exact-match treatment.
-  for (const t of extraTrusted) {
-    const e = slug(t)
-    if (!e) continue
-    if (e.length < MIN_PREFIX_LEN ? s === e : s.startsWith(e) || e.startsWith(s)) return true
   }
   return false
 }
 
+/** 1-4, or null when we don't recognise the seller at all. */
+export function sellerTier(store: any, extraTrusted: string[] = []): number | null {
+  const s = slug(store)
+  if (!s) return null
+  // The store the shopper is already on counts as the brand itself.
+  for (const t of extraTrusted) {
+    const e = slug(t)
+    if (e && e.length >= MIN_PREFIX_LEN && (s.startsWith(e) || e.startsWith(s))) return 1
+  }
+  if (inList(s, TIER1_BRAND)) return 1
+  if (inList(s, TIER2_AUTHORIZED)) return 2
+  if (inList(s, TIER3_OUTLET)) return 3
+  if (inList(s, TIER4_MARKETPLACE)) return 4
+  return null
+}
+
+export function isMarketplace(store: any): boolean {
+  return sellerTier(store) === 4
+}
+
+/** Legacy name kept for callers: any recognised seller. */
+export function isTrustedSeller(store: any, extraTrusted: string[] = []): boolean {
+  return sellerTier(store, extraTrusted) !== null
+}
+
 /** True when the seller is an anonymous-seller resale platform (badge it). */
 export function isResaleSeller(store: any): boolean {
-  const s = slug(store)
-  return !!s && RESALE_SELLERS.some((t) => s.startsWith(t))
+  return isMarketplace(store)
 }
 
 // ─── Listing hygiene ─────────────────────────────────────────────────────────
@@ -244,6 +248,7 @@ export function toListing(p: any) {
     reviews: p?.reviews ?? null,
     condition: normalizeCondition(p),
     resale: isResaleSeller(p?.store),
+    tier: sellerTier(p?.store),
     // Google Shopping never returns a merchant URL — only its own product page
     // and this token. Carried through so a click can resolve the real store link
     // on demand (see /api/shopper/resolve); resolving all 20 up front would mean
@@ -347,6 +352,31 @@ export function interleave(primary: any[], secondary: any[]): any[] {
     if (j < secondary.length) out.push(secondary[j++])
   }
   return out
+}
+
+/**
+ * Order results the way a personal shopper would, not the way a price scraper
+ * would: the brand's own store, then authorized retailers, then outlets, then
+ * (only if allowed) marketplaces. New before used. Price decides between peers.
+ *
+ * Ranking purely by lowest dollar amount is what put an anonymous eBay seller
+ * above Nordstrom — technically correct, and exactly the recommendation that
+ * costs a customer their confidence in the purchase.
+ */
+export function rankByTrust(listings: any[]): any[] {
+  const conditionRank = (c: string) => (c === 'new' ? 0 : c === 'unknown' ? 1 : 2)
+  return [...listings].sort((a, b) => {
+    // NEW outranks tier. "New Balance Reconsidered" is the brand's own
+    // refurbished channel — tier 1 — and sorting by tier first put a used pair
+    // above new stock at Nordstrom. Never lead with used.
+    const ca = conditionRank(a.condition)
+    const cb = conditionRank(b.condition)
+    if (ca !== cb) return ca - cb
+    const ta = a.tier ?? 9
+    const tb = b.tier ?? 9
+    if (ta !== tb) return ta - tb
+    return (a.price ?? Infinity) - (b.price ?? Infinity)
+  })
 }
 
 // ─── Price verdict ───────────────────────────────────────────────────────────
@@ -564,24 +594,29 @@ const curateSchema = z.object({
   ),
 })
 
-const CURATE_SYSTEM = `You curate the "similar listings" gallery in a premium shopping panel. The shopper is on a product page and wants cheaper or better alternatives for THE SAME product.
+const CURATE_SYSTEM = `You are a luxury personal shopper, not a coupon site. You curate alternative places to buy THE SAME product for a customer who already shops premium US retailers and wants to pay less without giving up trust.
 
-You get the product they are looking at, then a numbered list of candidate listings — each with its title, seller, price, condition, and its PHOTO.
+You get the product they are looking at, then numbered candidate listings — title, seller, price, condition, and PHOTO.
 
-Judge EVERY candidate individually and return one entry per index with same_product, photo_ok, a short reason, and a rank. Do not skip any index. Be a strict gatekeeper, not a rubber stamp — in a typical batch several listings genuinely fail.
+Judge EVERY candidate and return one entry per index. Be a strict gatekeeper: in a typical batch several genuinely fail.
 
-REJECT a listing (same_product: false) when:
-- It is NOT the same product (a different model, a different silhouette, an accessory, a case, a single shoelace, a two-pack of something unrelated). Different COLORWAY of the same model is fine and welcome.
-- It is a DIFFERENT AGE BRACKET than the product being viewed. A kids / grade-school / preschool / toddler / infant / youth / "GS" / "PS" / "TD" version is NOT an alternative to an adult item — it is a smaller, cheaper, different product, and showing it as "50% less" is a lie. Reject it whenever the viewed product is an adult one (and reject adult listings when the viewed product is for kids). Men's vs. women's cuts of the same model ARE valid alternatives — keep those.
-- The PHOTO is not good enough for a premium gallery: blurry, dark, badly lit, taken on a carpet/bed/floor, a hand holding the item, a cluttered background, a screenshot, a photo of a shoebox instead of the item, heavy watermarks or text overlays, a collage of several photos, or a placeholder/no-image graphic. Be strict — one ugly photo makes the whole panel look cheap.
-- The title is spam (keyword soup, ALL CAPS shouting, stuffed with unrelated brands).
+REJECT (same_product: false) when:
+- It is NOT the same product — a different model or silhouette, an accessory, a case, a single shoelace, a bundle of something unrelated. A different COLOURWAY of the same model is fine and welcome.
+- It is a DIFFERENT AGE BRACKET. A kids / grade-school / preschool / toddler / youth / "GS" / "PS" / "TD" version is a smaller, cheaper, different product, and showing it as "50% less" is a lie. Men's vs women's cuts of the same model ARE valid alternatives.
+- The seller is a random dropshipper, an unknown storefront, or anything you would not send a friend to. Prefer no result over a doubtful one.
+- The title is spam: keyword soup, ALL CAPS, stuffed with unrelated brands.
 
-ORDER the kept ones by:
-1. Photo quality and how clearly the product is presented — clean product shot on a plain background first.
-2. Value — a lower price for the same product ranks higher.
-3. Seller quality — a real retailer edges out an anonymous resale seller at a similar price.
+REJECT (photo_ok: false) when the photo isn't fit for a premium gallery: blurry, dark, shot on a carpet or bed, a hand holding the item, cluttered background, a screenshot, a photo of the box instead of the product, heavy watermarks, a collage, or a placeholder. One ugly photo makes the whole panel look cheap.
 
-It is much better to return 6 excellent listings than 20 mediocre ones. Return an empty list only if genuinely nothing is the same product.`
+ORDER the survivors by TRUST FIRST, price second:
+1. The brand's own store.
+2. Authorized retailers — Nordstrom, Saks, Macy's, Dick's, REI, Zappos, SSENSE, END., Foot Locker, Nordstrom Rack and the like.
+3. Outlet and clearance arms of legitimate retailers.
+4. Anything else.
+Within a tier: new condition first, then clean presentation, then lower price.
+
+A cheaper listing from a seller the customer wouldn't trust is NOT a better result. If showing it would reduce their confidence in the purchase, rank the trusted retailer above it. Six excellent options beat twenty mediocre ones.`
+
 
 /**
  * ONE vision pass that decides same-product + photo quality + order. Replaces
