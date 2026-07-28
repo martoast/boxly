@@ -700,59 +700,29 @@ async function curateBatch(
   }
 }
 
-// ─── Coupons ─────────────────────────────────────────────────────────────────
+// ─── Store offers ────────────────────────────────────────────────────────────
 
-const couponSchema = z.object({
+const offerSchema = z.object({
   offers: z.array(
     z.object({
-      code: z
-        .string()
-        .describe(
-          'The code EXACTLY as it appears in the text, character for character. Empty string when the text states a discount but never shows a code.',
-        ),
       description: z
         .string()
-        .describe(
-          'What it gives, in Mexican Spanish, MAX 5 WORDS. e.g. "25% de descuento", "envío gratis", "15% para maestros".',
-        ),
+        .describe('The offer in Mexican Spanish, MAX 6 WORDS. e.g. "15% de descuento para maestros", "envío gratis desde $50".'),
     }),
   ),
 })
 
-const COUPON_SYSTEM = `You extract discount offers for ONE store from Google search results.
+const OFFER_SYSTEM = `You extract the discount offers a store is currently running, from Google search results.
 
-Most coupon sites hide the actual code behind a "Claim" or "Show code" button, so the code is usually NOT in the text you are given. That is normal and expected.
+Return each distinct offer as a short Spanish (Mexican) phrase, 6 words maximum. Examples: "15% de descuento para maestros", "20% al suscribirte", "envío gratis desde $50".
 
-For each distinct offer you find, return:
-- code: the code EXACTLY as written in the text, character for character. If the text does not show a code, return an EMPTY STRING. Never guess, complete, or reconstruct a code from the store's name — a plausible-looking code that does not work is worse than no code at all.
-- description: what the offer gives, in Mexican Spanish, 5 words maximum.
+DO NOT return promo codes. Coupon sites hide the real code behind a "Claim" button, so any code in this text is unreliable and we no longer show them.
 
-Include real offers that have no code ("15% para maestros", "envío gratis desde $50") — those are still useful to the shopper.
+Skip: expired offers, cash-back from the coupon site itself, vague "up to X%" marketing with no concrete offer, and anything for a different store.`
 
-Skip: expired offers, cash-back from the coupon site itself, "up to X%" marketing with no concrete offer, and anything for a different store.`
+/** One promotion a store is running. Deliberately has no code — see findOffers. */
+export type StoreOffer = { description: string }
 
-export type Coupon = {
-  /** Empty when the source stated a discount but never showed a code. */
-  code: string
-  description: string
-}
-
-/** A plausible checkout code — not a sentence fragment, not a bare number. */
-function looksLikeCode(code: string): boolean {
-  const c = code.trim().toUpperCase()
-  if (!/^[A-Z0-9][A-Z0-9._-]{3,23}$/.test(c)) return false
-  // Reject the generic words models reach for when there's no real code.
-  if (/^(SHOP|SALE|CLICK|HERE|TODAY|NEW|CODE|NONE|FREE|OFF|DEAL|DEALS|SAVE|PROMO|COUPON|ORDER|ITEMS|STYLE)$/.test(c)) {
-    return false
-  }
-  // Must contain a letter. A pure number is a price, a SKU or a year — "420"
-  // slipped through as a coupon code because it appeared somewhere in the page
-  // text and satisfied every other rule.
-  return /[A-Z]/.test(c)
-}
-
-/** Escape a string for safe use inside a RegExp. */
-const reEscape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 /**
  * Promo codes for a store, mined from Google organic results and cached PER STORE
@@ -762,87 +732,71 @@ const reEscape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
  * Codes scraped from coupon sites go stale; the panel labels them as "puede que ya
  * no funcione" rather than promising savings.
  */
-export async function findCoupons(
+/**
+ * The offers a store is currently running, mined from Google organic results and
+ * cached per store for 6 hours.
+ *
+ * NO CODES. We used to extract promo codes here and they were fabricated: coupon
+ * sites hide the real string behind a "Claim" button, so the snippets contain no
+ * codes at all, and the model — asked for codes — invented plausible ones
+ * (NB20, WELCOME10). A code that fails at checkout costs more trust than an
+ * absent one. Until there's a reliable source, we show the offer and let the
+ * shopper look for it at the till.
+ */
+export async function findOffers(
   storeName: string,
   apiPost: (path: string, body: any) => Promise<any>,
-): Promise<Coupon[]> {
+): Promise<StoreOffer[]> {
   const name = String(storeName || '').trim()
   if (!name || !hasModelKey()) return []
 
   const storage = useStorage('cache')
-  const key = 'coupons:' + slug(name)
+  const key = 'offers:' + slug(name)
   if (!cacheOff()) {
-    const hit = await storage.getItem<Coupon[]>(key)
+    const hit = await storage.getItem<StoreOffer[]>(key)
     if (hit) return hit
   }
 
   try {
-    const res = await apiPost('/products/web-search', {
-      query: `${name} promo code coupon`,
-      num: 10,
-    })
+    const res = await apiPost('/products/web-search', { query: `${name} promo code coupon`, num: 10 })
     const results: any[] = res?.results || []
     if (!results.length) return []
 
-    const digest = results
-      .map((r) => `${r.title}\n${r.snippet}`)
-      .join('\n---\n')
-      .slice(0, 6000)
+    const digest = results.map((r) => `${r.title}\n${r.snippet}`).join('\n---\n').slice(0, 6000)
 
     const { object } = await generateObject({
       model: auxModel(),
-      schema: couponSchema,
-      system: COUPON_SYSTEM,
+      schema: offerSchema,
+      system: OFFER_SYSTEM,
       prompt: `Store: ${name}\n\nSearch results:\n${digest}`,
       providerOptions: providerOptions(),
-      // 12s, not 6s. This runs in parallel with the shopping searches, so
-      // anything under those costs no wall-clock — and at 6s the extraction was
-      // losing races under load and silently reporting "no coupons" for a store
-      // that had three.
+      // Runs in parallel with the shopping searches, so anything under those
+      // costs no wall-clock.
       abortSignal: AbortSignal.timeout(12000),
     })
 
-    // CODE GUARANTEE: a code the model produced but that appears NOWHERE in the
-    // source is invented. Coupon sites hide codes behind a "Claim" button, so
-    // the model is under real pressure to fill the field — and it did, with
-    // plausible strings like NB20 and WELCOME10 that exist nowhere in the
-    // results. A code that fails at checkout is worse than no code, so anything
-    // not present verbatim gets its code stripped and survives only as an offer.
-    const haystack = digest.toUpperCase()
     const seen = new Set<string>()
-    const coupons: Coupon[] = []
-    for (const c of object?.offers || []) {
-      const raw = String(c?.code || '').trim().toUpperCase()
-      const description = String(c?.description || '').trim().slice(0, 60)
+    const offers: StoreOffer[] = []
+    for (const o of object?.offers || []) {
+      const description = String(o?.description || '').trim().slice(0, 60)
       if (!description) continue
-
-      // Whole-token match, not a substring: "420" must not qualify because the
-      // page happens to contain "$4200".
-      const present = raw && new RegExp(`(^|[^A-Z0-9])${reEscape(raw)}([^A-Z0-9]|$)`).test(haystack)
-      const code = looksLikeCode(raw) && present ? raw : ''
-      const key = code || description.toUpperCase()
-      if (seen.has(key)) continue
-      seen.add(key)
-
-      coupons.push({ code, description })
-      if (coupons.length >= 8) break
+      const dedupe = description.toLowerCase()
+      if (seen.has(dedupe)) continue
+      seen.add(dedupe)
+      offers.push({ description })
+      if (offers.length >= 6) break
     }
-    const invented = (object?.offers || []).filter(
-      (c: any) => String(c?.code || '').trim() && !haystack.includes(String(c.code).trim().toUpperCase()),
-    ).length
-    if (invented) console.warn(`[shopper] dropped ${invented} invented coupon code(s) for ${name}`)
 
-    // Cache successes for 6h. An empty result caches for 30 min only, so a store
-    // that simply had a bad search moment self-heals instead of looking
-    // coupon-less for the rest of the day.
+    // Cache successes 6h; an empty result only 30 min, so a store that had a bad
+    // search moment self-heals instead of looking offer-less all day.
     if (!cacheOff()) {
-      await storage.setItem(key, coupons, { ttl: coupons.length ? 60 * 60 * 6 : 60 * 30 })
+      await storage.setItem(key, offers, { ttl: offers.length ? 60 * 60 * 6 : 60 * 30 })
     }
-    return coupons
+    return offers
   } catch (e: any) {
-    // Silent here meant "this store has no coupons", which is a different and
-    // much less alarming statement than "the extraction threw".
-    console.warn('[shopper] coupon extraction failed for', name, '-', e?.message || e)
+    // Silent here meant "this store has no offers", which is a different and much
+    // less alarming statement than "the extraction threw".
+    console.warn('[shopper] offer extraction failed for', name, '-', e?.message || e)
     return []
   }
 }
