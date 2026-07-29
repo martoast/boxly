@@ -430,8 +430,59 @@ export function rankByTrust(listings: any[]): any[] {
     const ta = a.tier ?? 9
     const tb = b.tier ?? 9
     if (ta !== tb) return ta - tb
+    // A price we confirmed at the retailer outranks a cheaper one we couldn't.
+    // Otherwise the most eye-catching row is the one we trust least — which is
+    // precisely how a stale $56.23 ended up at the top of the list.
+    const va = a.verified ? 0 : 1
+    const vb = b.verified ? 0 : 1
+    if (va !== vb) return va - vb
     return (a.price ?? Infinity) - (b.price ?? Infinity)
   })
+}
+
+/**
+ * Confirm a listing's price at the retailer before we claim a saving on it.
+ *
+ * Google Shopping's index goes stale and its links sometimes land on a
+ * different colourway. Measured on New Balance 530: SerpAPI reported DICK'S at
+ * $56.23 with "48% OFF" while the live page was $109.99 — the panel advertised
+ * a 49% saving that did not exist. That is the failure mode that costs a
+ * customer's trust permanently, and no amount of ranking fixes it.
+ *
+ * Two upstream calls per listing (resolve the merchant URL, then read the live
+ * price), so only the few listings actually making a claim are checked. A
+ * listing we cannot verify keeps its place but loses the right to advertise a
+ * discount.
+ */
+export async function verifyPrices(
+  listings: any[],
+  api: (path: string, body: any, timeoutMs?: number) => Promise<any>,
+  limit = 3,
+): Promise<any[]> {
+  const targets = listings.slice(0, limit)
+
+  const checked = await Promise.all(
+    targets.map(async (l) => {
+      if (!l.token) return { ...l, verified: false }
+      try {
+        const detail = await api('/products/details', { token: l.token, store: l.store }, 20000)
+        const link = detail?.link
+        if (!link) return { ...l, verified: false }
+
+        const live = await api('/products/extract', { url: link }, 25000)
+        const price = typeof live?.price === 'number' && live.price > 0 ? live.price : null
+        // No price on the page — DICK'S and others hide it behind "See Price In
+        // Cart". Unknown is not the same as confirmed.
+        if (price === null) return { ...l, url: link, verified: false }
+
+        return { ...l, url: link, price, verified: true, indexed_price: l.price }
+      } catch {
+        return { ...l, verified: false }
+      }
+    }),
+  )
+
+  return [...checked, ...listings.slice(limit).map((l) => ({ ...l, verified: false }))]
 }
 
 // ─── Price verdict ───────────────────────────────────────────────────────────
