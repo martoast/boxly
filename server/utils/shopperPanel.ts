@@ -304,6 +304,16 @@ export function toListing(p: any) {
     condition: normalizeCondition(p),
     resale: isResaleSeller(p?.store),
     tier: sellerTier(p?.store),
+    /**
+     * Is this the very store the shopper is already on?
+     *
+     * sameProduct() compares URLs, but Google Shopping hands us a google.com
+     * link, so it never matched — and an ALDO listing showed up under "Mejor
+     * precio en otras tiendas" while the shopper was standing on aldoshoes.com.
+     * A cheaper listing at the same retailer is still useful; it just isn't
+     * another store, and saying it is reads as misdirection.
+     */
+    same_store: false,
     // Google Shopping never returns a merchant URL — only its own product page
     // and this token. Carried through so a click can resolve the real store link
     // on demand (see /api/shopper/resolve); resolving all 20 up front would mean
