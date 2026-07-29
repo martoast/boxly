@@ -751,7 +751,9 @@ const OFFER_SYSTEM = `You extract the promotions a store publishes ON ITS OWN WE
 
 Everything you are given comes from the retailer's own pages, so it is first-party and current. Return each distinct promotion as a short Spanish (Mexican) phrase, 7 words maximum, KEEPING who qualifies — "15% para estudiantes", not "15% de descuento".
 
-Include: student, military, medical and teacher discounts; newsletter or signup offers; free-shipping thresholds; loyalty or member pricing that is free to join.
+Include: newsletter or signup offers, first-order discounts, free-shipping thresholds, seasonal sales, and loyalty or member pricing that is free to join.
+
+NEVER include discounts that require US credentials — student, military, veteran, first responder, nurse, medical or teacher. Our customers shop from Mexico and cannot pass the US verification these require (a .edu address, a US military ID, SheerID). Listing them is noise at best and a false promise at worst.
 
 Skip: anything expired or seasonal that has clearly passed, vague ceiling marketing ("hasta 40%"), and promo codes — we do not show codes.`
 
@@ -778,6 +780,15 @@ export type StoreOffer = { description: string }
  */
 const OFFER_CONDITION =
   /estudiante|maestro|militar|enfermer|m[ée]dico|primera compra|primer pedido|app\b|suscrib|registr|newsletter|correo|referi|amigo|rebaj|liquidaci[óo]n|outlet|sale\b|m[íi]nimo|desde \$|cumplea[ñn]|socio|miembro|estudiantil|cashback|env[íi]o gratis/i
+
+/**
+ * Discounts gated behind US credentials. A Boxly customer shops from Mexico and
+ * cannot verify as a US student, teacher, nurse or service member — these need a
+ * .edu address, a US military ID or a SheerID check. Surfacing them is a promise
+ * the shopper can't collect on.
+ */
+const US_CREDENTIAL_ONLY =
+  /estudiante|student|militar|military|veterano|veteran|maestro|teacher|educador|docente|enfermer|nurse|m[ée]dic|medical|healthcare|primeros? respondientes?|first responder|socorrista|gobierno|government employee/i
 
 function hasCondition(description: string): boolean {
   return OFFER_CONDITION.test(description)
@@ -856,6 +867,10 @@ export async function findOffers(
     for (const o of object?.offers || []) {
       const description = String(o?.description || '').trim().slice(0, 60)
       if (!description || !hasCondition(description)) continue
+      if (US_CREDENTIAL_ONLY.test(description)) {
+        console.warn('[shopper] dropped US-credential offer:', description)
+        continue
+      }
       const key = description.toLowerCase()
       if (seen.has(key)) continue
       seen.add(key)
