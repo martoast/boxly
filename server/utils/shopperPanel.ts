@@ -78,30 +78,47 @@ const TIER1_BRAND = [
 
 /** Tier 2 — authorized retailers. The core of the arbitrage engine. */
 const TIER2_AUTHORIZED = [
-  'nordstrom', 'saksfifthavenue', 'bloomingdales', 'macys', 'dickssportinggoods',
-  'dicks', 'rei', 'zappos', 'shopbop', 'revolve', 'ssense', 'endclothing', 'end',
-  'kith', 'feature', 'amanamaniere', 'bodega', 'jdsports', 'finishline',
-  'footlocker', 'kidsfootlocker', 'champssports', 'neimanmarcus', 'dsw',
-  'target', 'walmart', 'amazon', 'bestbuy', 'costco', 'samsclub', 'kohls',
-  'academy', 'scheels', 'hibbett', 'famousfootwear', 'shoecarnival', 'journeys',
-  'dtlr', 'sephora', 'ulta', 'bathandbodyworks', 'homedepot', 'lowes', 'wayfair',
-  'ikea', 'williamssonoma', 'crateandbarrel', 'potterybarn', 'containerstore',
-  'staples', 'officedepot', 'petco', 'petsmart', 'chewy', 'gamestop',
-  'barnesandnoble', 'michaels', 'joann', 'hobbylobby', 'tractorsupply',
-  'jcpenney', 'dillards', 'belk', 'urbanoutfitters', 'anthropologie',
+  // Department stores and big box
+  'nordstrom', 'saksfifthavenue', 'bloomingdales', 'macys', 'neimanmarcus',
+  'dillards', 'belk', 'jcpenney', 'target', 'walmart', 'bestbuy', 'costco',
+  'samsclub', 'kohls', 'dickssportinggoods', 'dicks', 'rei', 'academy',
+  'scheels', 'zappos',
+  // Sneaker chains — sale price + promo code + rewards is the usual play
+  'jdsports', 'finishline', 'footlocker', 'kidsfootlocker', 'champssports',
+  'hibbett', 'dtlr', 'snipes', 'shoepalace', 'citygear', 'journeys', 'zumiez',
+  'famousfootwear', 'shoecarnival', 'dsw',
+  // Boutiques — deepest markdowns on colourways that didn't sell through
+  'feature', 'sneakerpolitics', 'extrabutter', 'concepts', 'cncpts', 'bodega',
+  'packershoes', 'packer', 'lapstoneandhammer', 'lapstonehammer', 'oneness',
+  'onenessboutique', 'notreshop', 'notre', 'socialstatus', 'socialstatuspgh',
+  'amamaniere', 'undefeated', 'kith', 'saintalfred', 'wishatl', 'wishatlanta',
+  'renarts', 'sneakerroom', 'commonwealth', 'commonwealthftgg', 'properlbc',
+  'proper', 'xhibition', 'atmos', 'bait', 'jimmyjazz', 'shoegallery',
+  // Fashion — Sambas, Gazelles, Salomon, On, Veja, designer
+  'ssense', 'endclothing', 'end', 'hbx', 'farfetch', 'lncc', 'yoox', 'asos',
+  'urbanoutfitters', 'pacsun', 'revolve', 'shopbop', 'mrporter', 'matchesfashion',
+  'net-a-porter', 'netaporter', 'luisaviaroma', 'mytheresa',
+  // Everything else authorized
+  'sephora', 'ulta', 'bathandbodyworks', 'homedepot', 'lowes', 'wayfair', 'ikea',
+  'williamssonoma', 'crateandbarrel', 'potterybarn', 'containerstore', 'staples',
+  'officedepot', 'petco', 'petsmart', 'chewy', 'gamestop', 'barnesandnoble',
+  'michaels', 'joann', 'hobbylobby', 'tractorsupply', 'anthropologie',
   'freepeople', 'abercrombie', 'americaneagle', 'aeropostale', 'hollister',
   'express', 'gap', 'oldnavy', 'bananarepublic', 'jcrew', 'madewell', 'uniqlo',
-  'zara', 'mango', 'asos', 'farfetch', 'backcountry', 'moosejaw', 'evo',
-  'cabelas', 'basspro', 'sportsmanswarehouse', 'landsend', 'newegg',
-  'bhphotovideo', 'adorama', 'microcenter', 'crutchfield', 'aerie', 'torrid',
-  'lanebryant', 'qvc', 'hsn', 'walgreens', 'cvs', 'rei', 'nordstromca',
+  'zara', 'mango', 'backcountry', 'moosejaw', 'evo', 'cabelas', 'basspro',
+  'sportsmanswarehouse', 'landsend', 'newegg', 'bhphotovideo', 'adorama',
+  'microcenter', 'crutchfield', 'aerie', 'torrid', 'lanebryant', 'qvc', 'hsn',
+  'walgreens', 'cvs',
 ]
 
 /** Tier 3 — outlet and clearance. Still legitimate retail channels. */
 const TIER3_OUTLET = [
-  'nordstromrack', 'saksoff5th', 'saksoff', 'nikeclearance', 'adidasoutlet',
-  'sierra', '6pm', 'sixpm', 'jcrewfactory', 'tjmaxx', 'marshalls', 'homegoods',
-  'ross', 'burlington', 'overstock', 'shein', 'boohoo', 'forever21',
+  'nordstromrack', 'joesnewbalanceoutlet', 'joesnewbalance', 'sixpm', '6pm',
+  'shoppremiumoutlets', 'saksoff5th', 'saksoff', 'off5th',
+  'macysbackstage', 'macyslastact', 'nikeclearance', 'nikefactory',
+  'adidasoutlet', 'sierra', 'sierratradingpost', 'jcrewfactory', 'gapfactory',
+  'tjmaxx', 'marshalls', 'homegoods', 'ross', 'burlington', 'overstock',
+  'shein', 'boohoo', 'forever21', 'lastcall',
 ]
 
 /**
@@ -121,16 +138,39 @@ const TIER4_MARKETPLACE = [
   'etsy', 'aliexpress', 'wish', 'temu', 'tiktokshop', 'tiktok',
 ]
 
-export const slug = (s: any) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '')
+/**
+ * Store name → comparable key.
+ *
+ * Diacritics are FOLDED, not dropped: stripping non-ASCII turned
+ * "A Ma Maniére" into "amamanire", which matched nothing. Any accented
+ * retailer name would have failed the same way.
+ */
+export const slug = (s: any) =>
+  String(s || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '')
 
 /** Under 4 chars must match exactly, or "on" trusts every "Online…" store. */
 const MIN_PREFIX_LEN = 4
 
-function inList(s: string, list: string[]): boolean {
+/**
+ * How long a match this list gives, or 0.
+ *
+ * LONGEST match wins across tiers, not first-tier-wins. "nordstromrack" starts
+ * with "nordstrom", so checking tier 2 first classified Nordstrom Rack — an
+ * outlet — as a full-price authorized retailer. Same for Macy's Backstage and
+ * Nike Clearance. Those are exactly the channels where the margin is, so
+ * getting their tier wrong matters.
+ */
+function matchLen(s: string, list: string[]): number {
+  let best = 0
   for (const t of list) {
-    if (t.length < MIN_PREFIX_LEN ? s === t : s.startsWith(t)) return true
+    const hit = t.length < MIN_PREFIX_LEN ? s === t : s.startsWith(t)
+    if (hit && t.length > best) best = t.length
   }
-  return false
+  return best
 }
 
 /** 1-4, or null when we don't recognise the seller at all. */
@@ -142,11 +182,26 @@ export function sellerTier(store: any, extraTrusted: string[] = []): number | nu
     const e = slug(t)
     if (e && e.length >= MIN_PREFIX_LEN && (s.startsWith(e) || e.startsWith(s))) return 1
   }
-  if (inList(s, TIER1_BRAND)) return 1
-  if (inList(s, TIER2_AUTHORIZED)) return 2
-  if (inList(s, TIER3_OUTLET)) return 3
-  if (inList(s, TIER4_MARKETPLACE)) return 4
-  return null
+  // Amazon is authorized ONLY when Amazon itself (or the brand) is the seller.
+  // SerpAPI renders third-party listings as "Amazon.com - SellerName", and those
+  // carry the same counterfeit exposure as any marketplace.
+  if (s.startsWith('amazon')) return s === 'amazon' || s === 'amazoncom' ? 2 : 4
+
+  const scores: Array<[number, number]> = [
+    [1, matchLen(s, TIER1_BRAND)],
+    [2, matchLen(s, TIER2_AUTHORIZED)],
+    [3, matchLen(s, TIER3_OUTLET)],
+    [4, matchLen(s, TIER4_MARKETPLACE)],
+  ]
+  let tier: number | null = null
+  let best = 0
+  for (const [t, len] of scores) {
+    if (len > best) {
+      best = len
+      tier = t
+    }
+  }
+  return tier
 }
 
 export function isMarketplace(store: any): boolean {
