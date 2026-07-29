@@ -49,9 +49,6 @@
             <div class="flex items-start justify-between gap-3 mb-4">
               <NuxtLink :to="`/app/admin/war-chest/${account.id}`" class="flex items-center gap-2 min-w-0 group">
                 <h3 class="text-lg font-bold text-gray-900 truncate group-hover:text-primary-600 transition-colors">{{ account.name }}</h3>
-                <span v-if="account.payment_method" class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary-50 text-primary-700 flex-shrink-0">
-                  {{ account.payment_method }}
-                </span>
                 <svg class="w-4 h-4 text-gray-300 group-hover:text-primary-500 transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
               </NuxtLink>
               <div class="flex items-center gap-1 flex-shrink-0">
@@ -132,20 +129,6 @@
               <label class="block text-sm font-medium text-gray-700 mb-1.5">{{ t.name }}</label>
               <input v-model="modalForm.name" type="text" class="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
             </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1.5">{{ t.routingMethod }}</label>
-              <div class="flex flex-wrap gap-2">
-                <button
-                  type="button" @click="modalForm.payment_method = ''"
-                  :class="['px-3 py-2 rounded-xl text-sm font-medium border transition-colors', !modalForm.payment_method ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50']"
-                >{{ t.methodNone }}</button>
-                <button
-                  v-for="pm in paymentMethods" :key="pm" type="button" @click="modalForm.payment_method = pm"
-                  :class="['px-3 py-2 rounded-xl text-sm font-medium border transition-colors', modalForm.payment_method === pm ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50']"
-                >{{ pm }}</button>
-              </div>
-              <p class="text-xs text-gray-500 mt-1.5">{{ t.routingHint }}</p>
-            </div>
             <div v-if="!editing" class="grid grid-cols-2 gap-3">
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1.5">{{ t.balance }}</label>
@@ -191,14 +174,12 @@ definePageMeta({
 const { $customFetch, $toast } = useNuxtApp()
 const { t: createTranslations } = useLanguage()
 
-const paymentMethods = ['NU', 'HSBC', 'Stripe']
-
 const loading = ref(true)
 const saving = ref(false)
 const accounts = ref([])
 const showModal = ref(false)
 const editing = ref(null)
-const modalForm = ref({ name: '', payment_method: '', current_balance: 0, target_amount: 0 })
+const modalForm = ref({ name: '', current_balance: 0, target_amount: 0 })
 const showDeleteModal = ref(false)
 const accountToDelete = ref(null)
 
@@ -251,13 +232,13 @@ const saveField = async (account, field, value) => {
 
 const openCreate = () => {
   editing.value = null
-  modalForm.value = { name: '', payment_method: '', current_balance: 0, target_amount: 0 }
+  modalForm.value = { name: '', current_balance: 0, target_amount: 0 }
   showModal.value = true
 }
 
 const openEdit = (account) => {
   editing.value = account
-  modalForm.value = { name: account.name, payment_method: account.payment_method || '' }
+  modalForm.value = { name: account.name }
   showModal.value = true
 }
 
@@ -265,14 +246,13 @@ const saveModal = async () => {
   saving.value = true
   try {
     if (editing.value) {
-      const body = { name: modalForm.value.name, payment_method: modalForm.value.payment_method || null }
+      const body = { name: modalForm.value.name }
       const res = await $customFetch(`/admin/war-chest/${editing.value.id}`, { method: 'PUT', body })
       const idx = accounts.value.findIndex((a) => a.id === editing.value.id)
       if (idx !== -1) accounts.value[idx] = res.data
     } else {
       const body = {
         name: modalForm.value.name,
-        payment_method: modalForm.value.payment_method || null,
         current_balance: parseFloat(modalForm.value.current_balance || 0),
         target_amount: parseFloat(modalForm.value.target_amount || 0),
       }
@@ -317,9 +297,6 @@ const translations = {
   overall: { es: 'Progreso General', en: 'Overall Progress' },
   overallNote: { es: 'La meta general es la suma de las metas de cada cuenta.', en: 'The overall goal is the sum of each account\'s goal.' },
   name: { es: 'Nombre', en: 'Name' },
-  routingMethod: { es: 'Método de pago vinculado', en: 'Linked payment method' },
-  methodNone: { es: 'Ninguno', en: 'None' },
-  routingHint: { es: 'Órdenes pagadas y gastos con este método entran/salen de esta cuenta.', en: 'Orders paid and expenses with this method flow in/out of this account.' },
   edit: { es: 'Editar', en: 'Edit' },
   delete: { es: 'Eliminar', en: 'Delete' },
   cancel: { es: 'Cancelar', en: 'Cancel' },

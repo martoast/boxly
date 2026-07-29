@@ -14,7 +14,6 @@
             <div class="min-w-0">
               <div class="flex items-center gap-2">
                 <h1 class="text-xl sm:text-2xl font-extrabold text-gray-900 truncate">{{ account?.name || '…' }}</h1>
-                <span v-if="account?.payment_method" class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary-50 text-primary-700">{{ account.payment_method }}</span>
               </div>
               <p v-if="account" class="text-xs sm:text-sm text-gray-600 mt-0.5">{{ t.balance }}: <span class="font-bold text-gray-900">${{ formatMoney(account.current_balance) }}</span></p>
             </div>
@@ -92,7 +91,6 @@
               <p v-if="tx.balance_after !== null" class="text-[11px] text-gray-400 mt-0.5">${{ formatMoney(tx.balance_after) }}</p>
             </div>
             <button
-              v-if="canDelete(tx)"
               @click="deleteTx(tx)"
               class="p-1.5 text-gray-300 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
               :title="t.delete"
@@ -238,9 +236,6 @@ const saveEntry = async () => {
     saving.value = false
   }
 }
-
-// Only entries not tied to an order/expense can be removed here.
-const canDelete = (tx) => ['manual', 'adjustment', 'opening'].includes(tx.source_type)
 
 const deleteTx = async (tx) => {
   try {
