@@ -159,6 +159,24 @@
                       <div v-if="b.products.length > 8" class="text-[10px] text-gray-400 mt-1">+{{ b.products.length - 8 }} más</div>
                     </div>
 
+                    <!-- Box price table the customer was actually shown. Without
+                         this it rendered as a bare "⚙️ show_box_guide" chip, which
+                         reads as "we never quoted them" — the opposite of what
+                         happened. The prices are the ones really sent, not a
+                         re-read of today's Stripe catalog. -->
+                    <div v-else-if="b.t === 'boxes'" class="mt-1.5">
+                      <div class="text-[11px] font-semibold text-gray-400 mb-1">{{ b.label }}</div>
+                      <div class="rounded-lg border border-gray-100 bg-gray-50 divide-y divide-gray-100">
+                        <div v-for="(bx, xi) in b.boxes" :key="xi" class="flex items-center justify-between gap-3 px-2 py-1">
+                          <span class="min-w-0 text-[11px] text-gray-600 truncate">
+                            <span class="font-semibold text-gray-800">{{ bx.label || bx.key }}</span>
+                            <span v-if="bx.dims" class="text-gray-400"> · {{ bx.dims }}</span>
+                          </span>
+                          <span class="shrink-0 text-[11px] font-bold text-gray-800 tabular-nums">${{ fmtMx(bx.price_mxn) }}</span>
+                        </div>
+                      </div>
+                    </div>
+
                     <!-- Follow-up suggestions the assistant offered -->
                     <div v-else-if="b.t === 'suggestions'" class="mt-1.5">
                       <div class="text-[11px] font-semibold text-gray-400 mb-1">{{ b.label }}</div>
@@ -272,8 +290,11 @@ function messageBits(m) {
       const q = p.input?.query || p.input?.store || p.input?.store_url
       const products = Array.isArray(p.output?.products) ? p.output.products : null
       const suggestions = Array.isArray(p.output?.suggestions) ? p.output.suggestions : null
+      const boxes = Array.isArray(p.output?.boxes) ? p.output.boxes : null
       if (GALLERY_TOOLS.has(name) && products && products.length) {
         bits.push({ t: 'products', label: toolLabel(name, q, products.length), products })
+      } else if (name === 'show_box_guide' && boxes && boxes.length) {
+        bits.push({ t: 'boxes', label: toolLabel(name), boxes })
       } else if (name === 'suggest_followups' && suggestions && suggestions.length) {
         bits.push({ t: 'suggestions', label: toolLabel(name), items: suggestions.map((s) => (typeof s === 'string' ? s : s?.text)).filter(Boolean) })
       } else {
@@ -299,8 +320,18 @@ function toolLabel(name, q, n) {
     web_search: `🌐 Búsqueda web${q ? ` “${q}”` : ''}`,
     extract_product: `🔗 Extrajo producto`,
     suggest_followups: `💬 Sugerencias`,
+    show_box_guide: `📦 Mostró precios de cajas`,
+    show_shipment: `📦 Mostró el envío`,
+    get_profile: `👤 Leyó el perfil`,
+    update_shopping_profile: `👤 Actualizó el perfil`,
+    list_orders: `📋 Consultó pedidos`,
+    create_account: `✨ Creó cuenta`,
   }
   return map[name] || `⚙️ ${name}`
+}
+
+function fmtMx(n) {
+  return new Intl.NumberFormat('es-MX').format(Number(n) || 0)
 }
 function fmtDateTime(d) {
   if (!d) return ''
