@@ -57,6 +57,11 @@ export default defineEventHandler(async (event) => {
     })
     const data = await res.json().catch(() => null)
     if (!res.ok) {
+      // `upstream` tells the shopper nothing and tells us less. The one time
+      // this fired for real, the actual cause (a NOT NULL order_number) was
+      // only visible by curling Laravel directly — the proxy had thrown the
+      // message away. Keep the response opaque, keep the log specific.
+      console.error('[shopper] box add failed', res.status, data?.message || data?.error || '')
       setResponseStatus(event, res.status === 401 ? 401 : 502)
       return { error: res.status === 401 ? 'no_account' : 'upstream' }
     }

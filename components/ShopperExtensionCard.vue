@@ -80,18 +80,21 @@ const onMessage = (e) => {
   }
 }
 
+/**
+ * Linking lives in ONE place: plugins/shopperExtension.client.ts.
+ *
+ * This button used to post its own `connect` payload with just a name and
+ * email. The extension replaces the whole stored account on every handshake, so
+ * that tokenless payload DELETED the API token the plugin had just minted — and
+ * a shopper who pressed "Conectar mi cuenta" ended up strictly worse off than
+ * one who never touched it: the panel could read their box but never add to it,
+ * failing with a generic error.
+ *
+ * A ping makes the extension re-announce, which the plugin answers with a full,
+ * token-carrying link. One path, so the two can't disagree.
+ */
 const connect = () => {
-  window.postMessage(
-    {
-      source: 'boxly-app',
-      type: 'connect',
-      payload: {
-        name: props.name || user.value?.name || '',
-        email: user.value?.email || '',
-      },
-    },
-    window.location.origin,
-  )
+  window.postMessage({ source: 'boxly-app', type: 'ping' }, window.location.origin)
 }
 
 onMounted(() => {
