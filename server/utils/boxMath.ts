@@ -1,0 +1,213 @@
+/**
+ * What a box actually costs — the one implementation.
+ *
+ * Boxly prices shipping per BOX at a fixed rate, so the cost of any single item
+ * is meaningless on its own. A MX$1,590 shirt bought in the US for MX$1,118
+ * looks like a 30% win until you add the MX$1,300 an XS box costs, at which
+ * point the shopper has paid 52% MORE than if they'd bought it at home.
+ *
+ * The shopper panel quoted that half-price for its entire life. This module
+ * exists so it can't happen again, and so the chat and the panel can never
+ * disagree about which box a set of items lands in — one volume model, one
+ * ladder, both surfaces importing from here.
+ *
+ * Volumes are in "shoe-units": one boxed pair of shoes = 1.0.
+ */
+
+/** How much room an item takes. Calibrated so the prenda counts below land right. */
+export const ARCHETYPE_VOL: Record<string, number> = {
+  rigid_small: 0.05, // cosmetics, perfume, jewelry, accessories, cables
+  flat_soft: 0.30, // tees, leggings, shorts, underwear, swimwear
+  medium_soft: 0.45, // jeans, hoodies, joggers, light jackets, backpacks
+  rigid_medium: 0.25, // bottles, tumblers, electronics
+  shoes: 1.50, // a boxed pair
+  bulky_soft: 0.80, // boots, thick coats, blankets, pillows, helmets
+  fragile: 2.00, // lamps, glass, decor — awkward, poor packing efficiency
+}
+export const DEFAULT_VOL = 0.40
+
+export const ARCH_LABEL: Record<string, string> = {
+  rigid_small: 'Pequeño', flat_soft: 'Ropa', medium_soft: 'Mediano',
+  rigid_medium: 'Mediano', shoes: 'Calzado', bulky_soft: 'Voluminoso', fragile: 'Frágil',
+}
+
+/** `usable` = volume at which the box is full, in shoe-units. */
+export const BOX_TIERS = [
+  { key: 'XS', label: 'Extra chica', usable: 2.0 },
+  { key: 'S', label: 'Chica', usable: 4.5 },
+  { key: 'M', label: 'Mediana', usable: 10 },
+  { key: 'L', label: 'Grande', usable: 14.5 },
+  { key: 'XL', label: 'Extra grande', usable: 21.5 },
+]
+
+const RE_SHOES = /shoe|sneaker|tenis|boot|bota|cleat|sandal|heel|loafer|zapat/i
+const RE_FRAGILE = /lamp|l[aá]mpara|glass|vidrio|vase|florero|mirror|espejo|frame|cuadro|ceramic|porcelain|decor/i
+const RE_RIGID_SMALL = /saniti|mist|antibac|perfume|cologne|fragran|skincare|serum|lipstick|labial|mascara|cosmetic|maquillaje|cream|crema|lotion|loci[oó]n|cards?|cartas|pok[eé]mon|wallet|cartera|watch|reloj|jewel|joy|ring|anillo|necklace|collar|earring|arete|sunglass|lentes|case|funda|charger|cargador|earbuds|airpods|keychain|llavero/i
+const RE_BULKY = /coat|parka|abrigo|puffer|\bdown\b|blanket|comforter|duvet|cobija|plush|peluche|pillow|almohada|duffel|luggage|maleta|suitcase|tent|sleeping bag|appliance|electrodom|coffee maker|cafetera|\bpot\b|olla|helmet|casco/i
+const RE_MEDIUM = /jean|pant|pantal[oó]n|jogger|sudadera|hoodie|sweater|sweatshirt|jacket|chamarra|backpack|mochila|handbag|bolsa|\bbag\b|purse/i
+const RE_RIGID_MEDIUM = /bottle|botella|tumbler|termo|\bcup\b|\bmug\b|taza|owala|stanley|hydro|flask|speaker|bocina|camera|c[aá]mara|console|consola|electronic|electr[oó]nico/i
+const RE_FLAT_SOFT = /legging|mall[oó]n|shirt|camiset|camisa|\btee\b|playera|\btop\b|blouse|blusa|dress|vestido|short|skirt|falda|underwear|ropa interior|sock|calcet|\bbra\b|brasier|swim|traje de ba/i
+
+/** Guess the archetype from a product name. Order matters — narrowest first. */
+export function archetypeFromName(name: string): string | null {
+  const t = name || ''
+  if (RE_SHOES.test(t)) return 'shoes'
+  if (RE_FRAGILE.test(t)) return 'fragile'
+  if (RE_RIGID_SMALL.test(t)) return 'rigid_small'
+  if (RE_BULKY.test(t)) return 'bulky_soft'
+  if (RE_RIGID_MEDIUM.test(t)) return 'rigid_medium'
+  if (RE_MEDIUM.test(t)) return 'medium_soft'
+  if (RE_FLAT_SOFT.test(t)) return 'flat_soft'
+  return null
+}
+
+/** Volume of one unit of this product, in shoe-units. */
+export function itemUnits(name: string, type?: string | null): number {
+  const t = type && ARCHETYPE_VOL[type] ? type : archetypeFromName(name || '')
+  return t ? ARCHETYPE_VOL[t] : DEFAULT_VOL
+}
+
+/** The smallest box that holds this volume (15% squeeze, as the packers do). */
+export function boxFor(units: number) {
+  return BOX_TIERS.find((b) => units <= b.usable * 1.15) || BOX_TIERS[BOX_TIERS.length - 1]
+}
+
+export type BoxEconomics = {
+  /** Volume of ONE of this item. */
+  item_units: number
+  /** How many of this item fill the box it would ship in. */
+  fits: number
+  /** The box a single one of these would ship in. */
+  solo_box: { key: string; label: string; price_mxn: number }
+  /** Total for ONE, all in — the number the shopper actually pays. */
+  solo_total_mxn: number
+  /** Positive = buying one from the US costs MORE than buying it locally. */
+  solo_vs_local_pct: number | null
+  /** Items needed before the saving covers the box. null when it never does. */
+  breakeven_items: number | null
+  /** What a full box of this item is worth. */
+  full_box: { items: number; saving_mxn: number } | null
+}
+
+/**
+ * The honest economics of buying THIS product through Boxly.
+ *
+ * @param productLocalMxn what the item costs from the US, in pesos
+ * @param savingPerItemMxn what each one saves vs the Mexican price (0 if unknown)
+ * @param name product title, for the volume guess
+ * @param boxPrices live MXN price per box key (from Stripe — never hardcode)
+ */
+export function boxEconomics(
+  productLocalMxn: number | null,
+  savingPerItemMxn: number,
+  name: string,
+  boxPrices: Record<string, number>,
+): BoxEconomics | null {
+  const units = itemUnits(name)
+  if (!units) return null
+
+  const solo = boxFor(units)
+  const soloPrice = boxPrices[solo.key]
+  if (!Number.isFinite(soloPrice)) return null
+
+  // How many fit in that same box — the number the shopper is being asked for.
+  // Capped: by volume alone 45 perfumes "fit" an XS, which is true of the space
+  // and false of the 8 kg limit — and one unbelievable number discredits every
+  // honest one beside it.
+  const FITS_CAP = 20
+  const fits = Math.min(FITS_CAP, Math.max(1, Math.floor((solo.usable * 1.15) / units)))
+
+  const soloTotal = (productLocalMxn || 0) + soloPrice
+
+  // Break-even: n items save n × saving, and cost whichever box they need. The
+  // box can grow as n does, so walk it rather than dividing — dividing quietly
+  // assumes the XS holds an unlimited number of shirts.
+  let breakeven: number | null = null
+  if (savingPerItemMxn > 0) {
+    for (let n = 1; n <= 80; n++) {
+      const box = boxFor(units * n)
+      const price = boxPrices[box.key]
+      if (!Number.isFinite(price)) break
+      if (savingPerItemMxn * n - price > 0) { breakeven = n; break }
+    }
+  }
+
+  // The box worth describing is the one the shopper would actually END UP in,
+  // not the one a single item ships in. A pair of shoes fits alone in an XS, but
+  // break-even is 3 pairs — which is an S. Quoting "fill the XS" there would
+  // promise a full box that still loses money.
+  let fullBox: { items: number; saving_mxn: number } | null = null
+  if (savingPerItemMxn > 0 && breakeven) {
+    const target = boxFor(units * breakeven)
+    const targetPrice = boxPrices[target.key]
+    if (Number.isFinite(targetPrice)) {
+      const holds = Math.max(breakeven, Math.floor((target.usable * 1.15) / units))
+      fullBox = { items: holds, saving_mxn: Math.round(savingPerItemMxn * holds - targetPrice) }
+    }
+  }
+
+  return {
+    item_units: units,
+    fits,
+    solo_box: { key: solo.key, label: solo.label, price_mxn: soloPrice },
+    solo_total_mxn: Math.round(soloTotal),
+    solo_vs_local_pct:
+      productLocalMxn && savingPerItemMxn > 0
+        ? Math.round(((soloTotal - (productLocalMxn + savingPerItemMxn)) / (productLocalMxn + savingPerItemMxn)) * 100)
+        : null,
+    breakeven_items: breakeven,
+    full_box: fullBox,
+  }
+}
+
+// ─── Live prices ─────────────────────────────────────────────────────────────
+
+/**
+ * Offline fallback ONLY. Real prices come from the Stripe catalog below, so a
+ * price change reaches every surface without a deploy. Never quote these
+ * directly — a stale box price is a broken promise at checkout.
+ */
+const FALLBACK_PRICES: Record<string, number> = { XS: 1300, S: 2400, M: 4400, L: 5600, XL: 6900 }
+
+const SIZE_BY_NAME: Record<string, string> = {
+  'extra small box': 'XS', 'small box': 'S', 'medium box': 'M',
+  'large box': 'L', 'extra large box': 'XL',
+}
+
+let cache: { at: number; prices: Record<string, number> } | null = null
+
+/**
+ * Box prices in MXN, live from the Stripe catalog, cached a few minutes.
+ *
+ * Each size has several active prices — the list price is the HIGHEST for that
+ * size; the cheaper ones are in-between amounts used for odd shipments and must
+ * never be quoted publicly. `shipping=false` is the border-pickup catalog, a
+ * different service.
+ *
+ * @param getProducts returns the raw /products catalog
+ */
+export async function loadBoxPrices(
+  getProducts: () => Promise<any>,
+): Promise<Record<string, number>> {
+  if (cache && Date.now() - cache.at < 10 * 60 * 1000) return cache.prices
+  try {
+    const res = await getProducts()
+    const next: Record<string, number> = {}
+    for (const p of Array.isArray(res) ? res : []) {
+      if (String(p?.shipping) !== 'true') continue
+      const size = SIZE_BY_NAME[String(p?.name || '').trim().toLowerCase()]
+      const price = Number(p?.price)
+      if (!size || !Number.isFinite(price)) continue
+      if (next[size] === undefined || price > next[size]) next[size] = price
+    }
+    // Only accept a COMPLETE table; a partial catalog must not half-update the
+    // quote the shopper sees.
+    if (BOX_TIERS.every((b) => next[b.key] > 0)) {
+      cache = { at: Date.now(), prices: next }
+      return next
+    }
+  } catch {
+    /* keep the last good prices, or the static fallback */
+  }
+  return cache?.prices ?? FALLBACK_PRICES
+}
