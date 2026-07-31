@@ -479,7 +479,13 @@ export async function verifyPrices(
         const link = detail?.link
         if (!link) return { ...l, verified: false }
 
-        const live = await api('/products/extract', { url: link }, 25000)
+        // 35s, not 25s. The retailers worth verifying (Foot Locker, Nordstrom)
+        // refuse the standard proxy pool, so the API retries them on ultra
+        // premium — which answered Nordstrom in 23.9s where the cheap pool 403s
+        // instantly. A 25s cap aborted the retry just before it succeeded.
+        // Affordable now only because verification runs solely when there IS a
+        // cheaper price to confirm; see panel.post.ts.
+        const live = await api('/products/extract', { url: link }, 35000)
         const price = typeof live?.price === 'number' && live.price > 0 ? live.price : null
         // No price on the page — DICK'S and others hide it behind "See Price In
         // Cart". Unknown is not the same as confirmed.

@@ -99,6 +99,73 @@ running, and prod still has the old code. The 8s figure is the measured cost of
 one details→extract chain against `api.boxly.mx`, not a re-timed panel. Worth
 confirming from the `[shopper] cold panel` log line after deploy.
 
+---
+
+# Follow-up: price verification was broken in prod
+
+Re-measuring against the local stack surfaced something bigger than latency.
+
+`/products/extract` was returning **422 "Could not reach the product page"** for
+Foot Locker, Nordstrom and DICK'S — so `verified` was false for every listing at
+those retailers, so the panel showed "precio de referencia" and **no saving**,
+at exactly the stores where the saving lives. v0.29.0's verification was, in
+practice, not working for big-box retail.
+
+**Not credits** — 99,101 of 100,000 remaining. (Checked first, deliberately: I
+misdiagnosed a ScraperAPI failure as credits once before.)
+
+Two root causes, both confirmed by calling ScraperAPI directly:
+
+1. **The standard proxy pool is refused by protected retailers**, and it says so
+   in two different ways — Foot Locker `403 "requires the use of our Ultra
+   Premium Proxies"`, Nordstrom `500 "Protected domains…"` after ~53s. Passing
+   `ultra_premium=true` returns `200` with the real price.
+2. **Foot Locker's JSON-LD is a `ProductGroup`** with no top-level `offers` —
+   the price sits on each `hasVariant`. `parseJsonLd()` only accepted `Product`,
+   so it reported "could not parse" on a page that states its price 13 times.
+
+## Fixes
+
+`api/` — `ProductExtractController`:
+- `fetch()` retries once on `ultra_premium=true`, but only where the *proxy*
+  failed (timeout, 5xx, or the explicit 403). A 404 never retries — a dearer
+  proxy fetches the same 404. `SCRAPERAPI_ULTRA=false` disables it.
+- Ultra timeout 45s (vs 12s): Nordstrom needs ~24s, so the old cap would have
+  rejected every success it buys.
+- `parseJsonLd()` accepts `ProductGroup` and reads the variant offer matching
+  the requested URL (`variantOffer()`), falling back to the first priced one.
+
+`app/` — `verifyPrices()` extract timeout 25s → 35s, or the app aborts just
+before the slower pool answers.
+
+## Measured, local stack, before → after
+
+| Panel | Before | After |
+|---|---|---|
+| YoungLA (DTC, page is best price) | 19.5s | **3.6s** |
+| ALDO (generic fashion) | 14.4s | **3.2s** |
+| New Balance (4 cheaper listings) | 56.9s, **0 verified** | 39.9s, **2 verified** |
+
+New Balance now surfaces `Nordstrom $124.99 — 22% menos`, verified live. That
+hero was previously impossible: the chain 422'd every time.
+
+Retry paths tested individually: Foot Locker (403 → ultra, 200 @1.4s, price 115),
+Nordstrom (timeout → ultra, 200 @12.9s), and a deliberately bad ALDO URL
+(422 @2.1s, **no** ultra retry — doesn't pay for a known-dead page).
+
+## Still open
+
+- **~40s on panels that DO have savings.** Verification is a serial
+  details→extract chain and ultra premium is slow (DICK'S exceeded even the 35s
+  cap). This is now the main latency problem, and it is the opposite trade from
+  the one above: those panels are the valuable ones.
+- **Credit cost of ultra premium is unmeasured.** ScraperAPI's `/account`
+  endpoint appears to lag — it reported 0 credits spent across three panels,
+  which cannot be right. Don't trust that number; watch the real balance over a
+  day. Ultra is documented as substantially dearer per request.
+
+---
+
 **Known tradeoff.** We no longer catch a listing whose indexed price is stale
 *high* but is really cheaper live. Previously the 3 cheapest were checked
 regardless, so such a listing could be rescued if it happened to be in that
