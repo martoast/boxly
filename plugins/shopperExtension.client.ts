@@ -71,14 +71,35 @@ export default defineNuxtPlugin((nuxtApp) => {
    * origin (verified in its service worker against sender.origin), so no other
    * site can plant a name.
    */
-  const link = () => {
+  const link = async () => {
     const user = useState<any>('user')
     if (!user.value?.id) return
+
+    // Mint the extension's API token while we're here, signed in, on our own
+    // origin. Without it the panel can only READ — it could show a shopper that
+    // their box needs three items and had no way to put one in.
+    //
+    // A failure here must not block the handshake: the name still routes their
+    // package, and the panel degrades to "conecta tu cuenta" on the box button
+    // rather than breaking.
+    let token = ''
+    try {
+      const { $customFetch } = useNuxtApp() as any
+      const res = await $customFetch('/me/shopper-extension/token', { method: 'POST' })
+      token = res?.data?.token || res?.token || ''
+    } catch {
+      // no token this time; the extension keeps whatever it already had
+    }
+
     window.postMessage(
       {
         source: 'boxly-app',
         type: 'connect',
-        payload: { name: user.value.name || '', email: user.value.email || '' },
+        payload: {
+          name: user.value.name || '',
+          email: user.value.email || '',
+          ...(token ? { token } : {}),
+        },
       },
       window.location.origin,
     )
