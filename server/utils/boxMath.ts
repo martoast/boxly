@@ -234,10 +234,16 @@ export function deadZone(units: number, price: number, avgUnit: number): DeadZon
   const perNow = price / Math.max(units, 0.01)
   const perFull = price / usable
 
-  // "Just crossed" = using less than 60% of what they already paid for, with
-  // real room left. Below that threshold the nudge is noise; above it, the
-  // shopper is genuinely leaving money on the table.
-  const inZone = units < usable * 0.6 && room >= 2
+  // "Just crossed" = using no more than ~65% of what they already paid for,
+  // with real room left. Below that the nudge is noise; above it the shopper is
+  // genuinely leaving money on the table.
+  //
+  // 0.65, not 0.6, because of a case the flow test surfaced: four pairs of
+  // shoes is 6.0u, which lands in an M (usable 10) at exactly 60% — so the
+  // strict `<` missed it. And it is the textbook dead zone: three pairs ship in
+  // an S at MX$800 each, the fourth pushes them into an M at MX$1,100 each.
+  // Adding an item made every item MORE expensive, and we said nothing.
+  const inZone = units <= usable * 0.65 && room >= 2
 
   return {
     in: inZone,
