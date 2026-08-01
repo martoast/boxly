@@ -35,6 +35,12 @@ export const ARCH_LABEL: Record<string, string> = {
 export const BOX_TIERS = [
   { key: 'XS', label: 'Extra chica', usable: 2.0 },
   { key: 'S', label: 'Chica', usable: 4.5 },
+  // The "shmedium" — a real box Boxly ships but never listed on the site.
+  // Stripe models it as a SECOND PRICE on the Medium product (same product id,
+  // same dimensions on the metadata), which is why it is invisible by name and
+  // why we key it off the price instead. 7.0u is the midpoint between S (4.5)
+  // and M (10); correct it the moment someone measures the real box.
+  { key: 'SM', label: 'Mediana chica', usable: 7 },
   { key: 'M', label: 'Mediana', usable: 10 },
   { key: 'L', label: 'Grande', usable: 14.5 },
   { key: 'XL', label: 'Extra grande', usable: 21.5 },
@@ -167,11 +173,26 @@ export function boxEconomics(
  * price change reaches every surface without a deploy. Never quote these
  * directly — a stale box price is a broken promise at checkout.
  */
-const FALLBACK_PRICES: Record<string, number> = { XS: 1300, S: 2400, M: 4400, L: 5600, XL: 6900 }
+const FALLBACK_PRICES: Record<string, number> = { XS: 1300, S: 2400, SM: 3300, M: 4400, L: 5600, XL: 6900 }
 
 const SIZE_BY_NAME: Record<string, string> = {
   'extra small box': 'XS', 'small box': 'S', 'medium box': 'M',
   'large box': 'L', 'extra large box': 'XL',
+}
+
+/**
+ * Sizes Stripe cannot express by name.
+ *
+ * The shmedium is a second PRICE on the Medium product — same product id, same
+ * dimensions — so name mapping sees two "Medium Box" entries and the
+ * highest-wins rule silently discarded the cheaper one. Keyed by price id, it
+ * is unambiguous.
+ *
+ * If this box ever gets its own Stripe product, delete this and let the name
+ * mapping do the work.
+ */
+const SIZE_BY_PRICE_ID: Record<string, string> = {
+  price_1TycM4BAXLV60x1LO8mJ9d0K: 'SM', // Medium Box @ MX$3,300 — the shmedium
 }
 
 let cache: { at: number; prices: Record<string, number> } | null = null
@@ -266,7 +287,9 @@ export async function loadBoxPrices(
     const next: Record<string, number> = {}
     for (const p of Array.isArray(res) ? res : []) {
       if (String(p?.shipping) !== 'true') continue
-      const size = SIZE_BY_NAME[String(p?.name || '').trim().toLowerCase()]
+      const size =
+        SIZE_BY_PRICE_ID[String(p?.price_id || '')] ??
+        SIZE_BY_NAME[String(p?.name || '').trim().toLowerCase()]
       const price = Number(p?.price)
       if (!size || !Number.isFinite(price)) continue
       if (next[size] === undefined || price > next[size]) next[size] = price
