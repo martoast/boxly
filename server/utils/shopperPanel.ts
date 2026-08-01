@@ -394,7 +394,19 @@ export function dedupeListings(listings: any[]): any[] {
   for (const l of listings) {
     const key = l.url ? `u:${String(l.url).toLowerCase()}` : `t:${slug(l.title)}|${slug(l.store)}|${l.price}`
     if (seen.has(key)) continue
+
+    // Also collapse same store + same price, whatever the URL says.
+    //
+    // Google Shopping hands us a distinct token per row, so keying on URL alone
+    // let the SAME offer appear repeatedly: a real New Balance panel showed
+    // Zappos twice and New Balance Reconsidered in pairs at 56, 80 and 90.
+    // To a shopper those are not four options, they are two — and a list that
+    // repeats itself reads as broken before it reads as thorough.
+    const offer = `s:${slug(l.store)}|${l.price}|${l.condition || 'new'}`
+    if (seen.has(offer)) continue
+
     seen.add(key)
+    seen.add(offer)
     out.push(l)
   }
   return out

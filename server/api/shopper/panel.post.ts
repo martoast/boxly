@@ -154,13 +154,27 @@ export default defineEventHandler(async (event) => {
   const localAmount = typeof body?.local_price === 'number' && body.local_price > 0 ? body.local_price : null
   let localCurrency = body?.local_currency ? String(body.local_currency).toUpperCase() : null
   const candidates: any[] = Array.isArray(body?.price_candidates) ? body.price_candidates : []
-  // Marketplaces (eBay, Mercari, StockX…) are OFF unless the shopper asks. Boxly
-  // sells trust, not the lowest number on the internet.
-  const includeMarketplace = !!(filters as any)?.marketplace
-  // Used and refurbished sit with the marketplaces: legitimate, occasionally
-  // great value, never the main event. That includes a brand's own refurb
-  // channel (New Balance Reconsidered), which is tier 1 but still not new.
-  const includeUsed = !!(filters as any)?.used
+  /**
+   * Marketplaces and used stock are now shown BY DEFAULT — in their own section.
+   *
+   * They used to be hidden behind a filter, because Boxly sells trust and a
+   * cheap anonymous seller outranking Nordstrom on price alone is exactly the
+   * recommendation that costs a customer their confidence.
+   *
+   * Alex's call (2026-08-01): separating them solves that without hiding them.
+   * New retail is still the headline and still ranked by trust; used lives
+   * underneath, labelled, as a second opportunity rather than a competitor.
+   * A shopper can still switch them off in the filter sheet.
+   *
+   * POSHMARK REMAINS EXCLUDED (COMPASS §5) — confirmed with Alex in the same
+   * decision. It is handled in `sellerTier`, not here.
+   *
+   * Cost: this runs the second ("used") shopping pass on every cold panel
+   * rather than only when asked. One extra SerpAPI call per product per cache
+   * window — deliberate, and worth watching in the credit burn.
+   */
+  const includeMarketplace = (filters as any)?.marketplace !== false
+  const includeUsed = (filters as any)?.used !== false
 
   // Which number on the page is the price? The extension makes a heuristic pick,
   // but store layouts defeat heuristics — a free-shipping banner outranked the
@@ -224,9 +238,14 @@ export default defineEventHandler(async (event) => {
   // request below. Caching it produced a stale entry with no comparison at all.
   let usPrice: number | null = base?.us_price ?? null
 
-  // The hero needs the US price and nothing else, so don't pay for the shopping
-  // pass to get it. This is the whole point of the stage.
-  if (heroOnly && !base) {
+  // Localized page: the hero is the MX-vs-US comparison, which needs the US
+  // price and nothing else — so don't pay for the shopping pass to get it.
+  //
+  // On a US page there is no comparison to make (they are already looking at a
+  // US price), and the hero is the RANKED MARKET instead: the same shopping
+  // pass, minus verification. That path falls through to the pipeline below
+  // with toVerify = 0.
+  if (heroOnly && wantCompare && !base) {
     const usDetail = wantCompare ? await api('/products/extract', { url }, 25000) : null
     const heroUs = typeof usDetail?.price === 'number' && usDetail.price > 0 ? usDetail.price : null
     const heroCompare = wantCompare
@@ -378,7 +397,12 @@ export default defineEventHandler(async (event) => {
     const claimable = basePrice
       ? byPrice.filter((l) => typeof l.price === 'number' && l.price < basePrice).length
       : byPrice.length
-    const toVerify = Math.min(3, claimable)
+    // Two, not three: verification is the whole latency budget on a US page
+    // (67s measured on a New Balance PDP, where the cheapest listings sit at
+    // protected retailers that need ScraperAPI's slow ultra-premium pool).
+    // In the hero stage we verify NOTHING — the ranked list ships first and the
+    // confirmed prices arrive with the full request.
+    const toVerify = heroOnly ? 0 : Math.min(2, claimable)
     const verified = await verifyPrices(byPrice, api, toVerify)
     const listings = rankByTrust(verified)
     const tVerify = Date.now()
@@ -497,7 +521,23 @@ export default defineEventHandler(async (event) => {
   const filtered = applyFilters(all, filters)
   const confirmed = filtered.filter((l: any) => l.verified)
   const unconfirmed = filtered.filter((l: any) => !l.verified)
-  const listings = (confirmed.length ? [...confirmed, ...unconfirmed.slice(0, 2)] : filtered).slice(0, 40)
+  const ranked_ = confirmed.length ? [...confirmed, ...unconfirmed.slice(0, 2)] : filtered
+
+  /**
+   * Two sections, not one ranked blob.
+   *
+   * New retail is the answer to "what does this cost"; used is a second, cheaper
+   * opportunity for a shopper willing to take it. Mixing them means a $52 eBay
+   * listing outranks Foot Locker on price alone, which COMPASS §"retail
+   * arbitrage" says is technically correct and exactly the recommendation that
+   * costs a customer their confidence.
+   *
+   * Separated, both are honest: the headline stays trustworthy and the cheap
+   * option is still one glance away.
+   */
+  const isUsed = (l: any) => l.condition && l.condition !== 'new'
+  const listings = ranked_.filter((l: any) => !isUsed(l)).slice(0, 40)
+  const used = ranked_.filter(isUsed).slice(0, 12)
 
   return {
     product: { ...product, price: pagePrice },
@@ -506,6 +546,10 @@ export default defineEventHandler(async (event) => {
     box,
     offers: base.offers || [],
     listings,
+    used,
+    // The US-page hero ships the ranked market with nothing verified yet; the
+    // panel keeps its skeleton for the confirmations still on the way.
+    partial: heroOnly || undefined,
     total: all.length,
     facets,
     cached,
