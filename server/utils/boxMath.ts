@@ -35,14 +35,30 @@ export const ARCH_LABEL: Record<string, string> = {
 export const BOX_TIERS = [
   { key: 'XS', label: 'Extra chica', usable: 2.0 },
   { key: 'S', label: 'Chica', usable: 4.5 },
-  // The "shmedium" — a real box Boxly ships but never listed on the site.
-  // Stripe models it as a SECOND PRICE on the Medium product (same product id,
-  // same dimensions on the metadata), which is why it is invisible by name and
-  // why we key it off the price instead. 7.0u is the midpoint between S (4.5)
-  // and M (10); correct it the moment someone measures the real box.
-  { key: 'SM', label: 'Mediana chica', usable: 7 },
+  // ── The half sizes ────────────────────────────────────────────────────────
+  //
+  // Boxly ships EIGHT box sizes, not five. Between each of the big ones sits a
+  // midpoint box that was never listed on the site and never modelled here:
+  //
+  //     1300 · 2400 · 3300 · 4400 · 5100 · 5600 · 6250 · 6900
+  //      XS     S     SM      M     ML      L    LXL     XL
+  //
+  // They were invisible for a precise reason. Stripe carries each one as a
+  // SECOND PRICE on its larger neighbour's product — SM on Medium, ML on Large,
+  // LXL on Extra Large — so they share a product id, a name and a set of
+  // dimensions with the box above them. Name mapping saw duplicates and the
+  // highest-wins rule threw the cheaper one away, which meant we quoted the
+  // FULL size for every shipment that actually fits a half size.
+  //
+  // Capacities are the midpoints of their neighbours, because Stripe holds the
+  // larger box's dimensions for them and there is nothing real to derive from.
+  // These three numbers are the only estimates in this file — correct them the
+  // moment someone measures the real boxes. Everything downstream reads this.
+  { key: 'SM', label: 'Mediana chica', usable: 7.25 },
   { key: 'M', label: 'Mediana', usable: 10 },
+  { key: 'ML', label: 'Grande chica', usable: 12.25 },
   { key: 'L', label: 'Grande', usable: 14.5 },
+  { key: 'LXL', label: 'Extra grande chica', usable: 18 },
   { key: 'XL', label: 'Extra grande', usable: 21.5 },
 ]
 
@@ -173,7 +189,9 @@ export function boxEconomics(
  * price change reaches every surface without a deploy. Never quote these
  * directly — a stale box price is a broken promise at checkout.
  */
-const FALLBACK_PRICES: Record<string, number> = { XS: 1300, S: 2400, SM: 3300, M: 4400, L: 5600, XL: 6900 }
+const FALLBACK_PRICES: Record<string, number> = {
+  XS: 1300, S: 2400, SM: 3300, M: 4400, ML: 5100, L: 5600, LXL: 6250, XL: 6900,
+}
 
 const SIZE_BY_NAME: Record<string, string> = {
   'extra small box': 'XS', 'small box': 'S', 'medium box': 'M',
@@ -181,18 +199,19 @@ const SIZE_BY_NAME: Record<string, string> = {
 }
 
 /**
- * Sizes Stripe cannot express by name.
+ * The half sizes, which Stripe cannot express by name.
  *
- * The shmedium is a second PRICE on the Medium product — same product id, same
- * dimensions — so name mapping sees two "Medium Box" entries and the
- * highest-wins rule silently discarded the cheaper one. Keyed by price id, it
- * is unambiguous.
+ * Each is a second PRICE on its larger neighbour's product, so it shares that
+ * box's name and dimensions and is indistinguishable by name alone. Price ids
+ * are unambiguous.
  *
- * If this box ever gets its own Stripe product, delete this and let the name
+ * If these ever get their own Stripe products, delete this map and let the name
  * mapping do the work.
  */
 const SIZE_BY_PRICE_ID: Record<string, string> = {
-  price_1TycM4BAXLV60x1LO8mJ9d0K: 'SM', // Medium Box @ MX$3,300 — the shmedium
+  price_1TycM4BAXLV60x1LO8mJ9d0K: 'SM', // "Medium Box" @ MX$3,300
+  price_1TyzynBAXLV60x1LQuPHhomo: 'ML', // "Large Box" @ MX$5,100
+  price_1TyzyNBAXLV60x1L1E2qaslp: 'LXL', // "Extra Large Box" @ MX$6,250
 }
 
 let cache: { at: number; prices: Record<string, number> } | null = null
