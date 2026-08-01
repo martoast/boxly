@@ -50,10 +50,17 @@ export const BOX_TIERS = [
   // highest-wins rule threw the cheaper one away, which meant we quoted the
   // FULL size for every shipment that actually fits a half size.
   //
-  // Capacities are the midpoints of their neighbours, because Stripe holds the
-  // larger box's dimensions for them and there is nothing real to derive from.
-  // These three numbers are the only estimates in this file — correct them the
-  // moment someone measures the real boxes. Everything downstream reads this.
+  // These are NOT separate boxes with their own measurements, and nobody should
+  // go looking for any (Alex, 2026-08-01): a half size is what Boxly charges
+  // when a shipment lands BETWEEN two defined box sizes — too big for the one
+  // below, not filling the one above. So the capacity here is a price boundary,
+  // not a physical lid: cross 5.175u and you are no longer paying the S rate,
+  // and you pay SM until the shipment is genuinely M-sized.
+  //
+  // The thresholds are the midpoints of their neighbours, which is the fairest
+  // reading of "in between" and keeps the ladder monotonic. They are the only
+  // judgement calls in this file; move them if the warehouse prices differently
+  // in practice. Everything downstream reads this table.
   { key: 'SM', label: 'Mediana chica', usable: 7.25 },
   { key: 'M', label: 'Mediana', usable: 10 },
   { key: 'ML', label: 'Grande chica', usable: 12.25 },
