@@ -1,3 +1,5 @@
+import { withBoxState } from '../../utils/boxState'
+
 /**
  * Put a product in the shopper's box, from the extension.
  *
@@ -65,7 +67,14 @@ export default defineEventHandler(async (event) => {
       setResponseStatus(event, res.status === 401 ? 401 : 502)
       return { error: res.status === 401 ? 'no_account' : 'upstream' }
     }
-    return { box: data?.data ?? data }
+    // The panel draws the box from these numbers; computing them here keeps a
+    // single source of truth (see server/utils/boxState.ts).
+    const box = await withBoxState(data?.data ?? data, () =>
+      fetch(`${API_BASE}/products`, { signal: AbortSignal.timeout(8000) })
+        .then((r) => r.json())
+        .then((d: any) => d?.data ?? d),
+    )
+    return { box }
   } catch {
     setResponseStatus(event, 504)
     return { error: 'timeout' }

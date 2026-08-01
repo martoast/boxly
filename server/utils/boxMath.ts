@@ -186,6 +186,71 @@ let cache: { at: number; prices: Record<string, number> } | null = null
  *
  * @param getProducts returns the raw /products catalog
  */
+/**
+ * The dead zone: the worst place to stop, and the most honest place to push.
+ *
+ * COMPASS §1b computes it and calls it "the highest-leverage nudge in the
+ * product". Shipping is priced per BOX, so just tipping over a size boundary
+ * means paying for the bigger box while carrying the smaller one's contents —
+ * about 1.8x the per-unit cost of simply filling the box below.
+ *
+ * Pushing here is honest in a way most upsells are not: **the shopper has
+ * already paid for that space.** Filling it costs them nothing more in
+ * shipping, and every item they add makes every other item cheaper.
+ *
+ * Deliberately NOT an upsell to a bigger box (§5): the only number that may go
+ * up is how full it is. `room` is how many more of a typical item fit in the
+ * box they are ALREADY in.
+ */
+export type DeadZone = {
+  /** True when they've crossed into this box but are nowhere near filling it. */
+  in: boolean
+  box_key: string
+  box_label: string
+  /** Units already used, and what the box holds. */
+  units: number
+  usable: number
+  /** How many more typical items fit in the space they've already bought. */
+  room: number
+  per_unit_now: number
+  per_unit_full: number
+}
+
+/**
+ * @param units   total shoe-units currently in the box
+ * @param price   what that box costs, MXN
+ * @param avgUnit typical size of the things this shopper adds
+ */
+export function deadZone(units: number, price: number, avgUnit: number): DeadZone | null {
+  if (!units || units <= 0 || !price || price <= 0) return null
+
+  const box = boxFor(units)
+  const usable = box.usable
+  const unit = avgUnit > 0 ? avgUnit : DEFAULT_VOL
+
+  // Room measured against the box they are IN — never the next one up.
+  const room = Math.max(0, Math.floor((usable * 1.15 - units) / unit))
+
+  const perNow = price / Math.max(units, 0.01)
+  const perFull = price / usable
+
+  // "Just crossed" = using less than 60% of what they already paid for, with
+  // real room left. Below that threshold the nudge is noise; above it, the
+  // shopper is genuinely leaving money on the table.
+  const inZone = units < usable * 0.6 && room >= 2
+
+  return {
+    in: inZone,
+    box_key: box.key,
+    box_label: box.label,
+    units: Math.round(units * 100) / 100,
+    usable,
+    room,
+    per_unit_now: Math.round(perNow),
+    per_unit_full: Math.round(perFull),
+  }
+}
+
 export async function loadBoxPrices(
   getProducts: () => Promise<any>,
 ): Promise<Record<string, number>> {
