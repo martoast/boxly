@@ -29,6 +29,7 @@ import {
 } from '../../utils/shopperPanel'
 import { boxEconomics, loadBoxPrices } from '../../utils/boxMath'
 import { ebayConfigured, ebaySearch } from '../../utils/ebay'
+import { bestBuyConfigured, bestBuySearch } from '../../utils/bestbuy'
 
 /**
  * ONE endpoint that renders the whole Boxly Shopper side panel.
@@ -562,6 +563,40 @@ export default defineEventHandler(async (event) => {
    * Separated, both are honest: the headline stays trustworthy and the cheap
    * option is still one glance away.
    */
+  /**
+   * A real retail price, from the retailer.
+   *
+   * The first feed-sourced row in the product. Everything else on a US page
+   * says "precio de referencia" because confirming a price means scraping the
+   * retailer, and the retailers worth confirming refuse us. This one told us
+   * directly — so it is verified, it can carry a discount badge, and it cost
+   * neither a ScraperAPI credit nor a 57-second wait.
+   *
+   * Prepended, not appended: it is the only row here we can actually stand
+   * behind, and rankByTrust already puts verified above unverified.
+   */
+  if (bestBuyConfigured()) {
+    const feed = await bestBuySearch(productQuery(title, brand), brand, 6)
+    if (feed && feed.length) {
+      const anchorPrice = pagePrice ?? usPrice
+      const rows = feed
+        .filter((l) => !anchorPrice || (l.price <= anchorPrice * 8 && l.price >= anchorPrice / 8))
+        .map((l) => ({
+          ...l,
+          tier: 2, // authorised retailer
+          same_store: isSameStore(l.store, store, host),
+          percent_less:
+            anchorPrice && l.price < anchorPrice
+              ? Math.round(((anchorPrice - l.price) / anchorPrice) * 100)
+              : null,
+        }))
+      if (rows.length) {
+        ranked_.unshift(...rows)
+        console.info(`[shopper] ${rows.length} verified Best Buy row(s) from the feed`)
+      }
+    }
+  }
+
   const isUsed = (l: any) => l.condition && l.condition !== 'new'
   const listings = ranked_.filter((l: any) => !isUsed(l)).slice(0, 40)
   let used = ranked_.filter(isUsed).slice(0, 12)
