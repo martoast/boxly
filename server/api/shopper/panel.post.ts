@@ -518,7 +518,33 @@ export default defineEventHandler(async (event) => {
    * They stop earning it the moment confirmed prices exist — so once there are
    * verified listings, keep at most two unconfirmed ones behind them.
    */
-  const filtered = applyFilters(all, filters)
+  /**
+   * Drop prices that cannot be dollars.
+   *
+   * A real Owala panel listed "owalacolombiatiendas.com" at $116,617.86 — a
+   * COLOMBIAN PESO price read as USD. It became the top row, and it poisoned
+   * the market band into "$29.99 – $116,617.86", which makes the whole panel
+   * look broken in one glance.
+   *
+   * COMPASS already says this for the page we are standing on: "a price we
+   * can't confirm is USD is treated as no price at all". The same rule has to
+   * apply to listings, and nobody had applied it.
+   *
+   * A ratio, not a fixed ceiling: the same product at 8x the page price is not
+   * the same product, or not the same currency, and either way we must not show
+   * it. Compared against the MEDIAN when there is no page price, so one bad row
+   * cannot drag the threshold up to cover itself.
+   */
+  const priced = all.filter((l: any) => typeof l.price === 'number' && l.price > 0)
+  const sorted = priced.map((l: any) => l.price).sort((a: number, b: number) => a - b)
+  const median = sorted.length ? sorted[Math.floor(sorted.length / 2)] : null
+  const anchor = pagePrice ?? median
+  const sane = (l: any) =>
+    !anchor || typeof l.price !== 'number' || (l.price <= anchor * 8 && l.price >= anchor / 8)
+  const dropped = all.length - all.filter(sane).length
+  if (dropped) console.warn(`[shopper] dropped ${dropped} listing(s) outside 8x of ${anchor} — likely another currency`)
+
+  const filtered = applyFilters(all.filter(sane), filters)
   const confirmed = filtered.filter((l: any) => l.verified)
   const unconfirmed = filtered.filter((l: any) => !l.verified)
   const ranked_ = confirmed.length ? [...confirmed, ...unconfirmed.slice(0, 2)] : filtered
