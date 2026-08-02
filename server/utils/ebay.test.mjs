@@ -1,0 +1,115 @@
+/**
+ * The eBay client, without an eBay key.
+ *
+ * Everything here runs against a mocked `fetch`, so it proves the contract now
+ * and will still prove it the day the real credentials land. The cases are the
+ * ones that would embarrass us on a shopper's screen:
+ *
+ *   · a peso price shown as dollars      (a Colombian row once read $116,617.86)
+ *   · an auction bid shown as a price    (not a price anyone can pay)
+ *   · an empty "Usado" heading            (worse than no heading)
+ *   · anything at all before the keys exist
+ *
+ *   node --experimental-strip-types server/utils/ebay.test.mjs
+ */
+import { ebayConfigured, ebayToken, ebaySearch } from './ebay.ts'
+
+let pass = 0
+let fail = 0
+const check = (name, cond, detail = '') => {
+  if (cond) {
+    console.log(`  ✓ ${name}`)
+    pass++
+  } else {
+    console.log(`  ✗ ${name}  ${detail}`)
+    fail++
+  }
+}
+
+const realFetch = globalThis.fetch
+const withFetch = async (impl, fn) => {
+  globalThis.fetch = impl
+  try {
+    return await fn()
+  } finally {
+    globalThis.fetch = realFetch
+  }
+}
+
+const item = (over = {}) => ({
+  title: 'New Balance 574 Core Grey',
+  price: { value: '52.00', currency: 'USD' },
+  image: { imageUrl: 'https://i.ebayimg.com/x.jpg' },
+  itemWebUrl: 'https://www.ebay.com/itm/123',
+  condition: 'Pre-owned',
+  seller: { username: 'carlastuff' },
+  ...over,
+})
+
+const okFetch = (items) => async (url) => {
+  if (String(url).includes('/identity/v1/oauth2/token')) {
+    return { ok: true, json: async () => ({ access_token: 'tok', expires_in: 7200 }) }
+  }
+  return { ok: true, json: async () => ({ itemSummaries: items }) }
+}
+
+// ── Before the keys arrive, this must be completely inert ──────────────────
+delete process.env.EBAY_CLIENT_ID
+delete process.env.EBAY_CLIENT_SECRET
+check('unconfigured: reports not configured', ebayConfigured() === false)
+check('unconfigured: no token', (await ebayToken()) === null)
+check('unconfigured: search returns null, so the caller falls back', (await ebaySearch('x')) === null)
+
+process.env.EBAY_CLIENT_ID = 'app-id'
+process.env.EBAY_CLIENT_SECRET = 'cert-id'
+check('configured once both keys are set', ebayConfigured() === true)
+
+// ── Mapping ────────────────────────────────────────────────────────────────
+await withFetch(okFetch([item()]), async () => {
+  const [l] = await ebaySearch('New Balance 574')
+  check('maps price', l.price === 52)
+  check('names the SELLER, not just "eBay"', l.store === 'eBay - carlastuff', l.store)
+  check('"Pre-owned" becomes used', l.condition === 'used', l.condition)
+  check('keeps the real listing URL', l.url === 'https://www.ebay.com/itm/123')
+  check('marked verified — it is eBay answering about its own listing', l.verified === true)
+})
+
+// ── The rules that keep nonsense off the screen ────────────────────────────
+await withFetch(okFetch([item({ price: { value: '116617.86', currency: 'COP' } })]), async () => {
+  const out = await ebaySearch('x')
+  check('drops a non-USD price outright', out.length === 0, JSON.stringify(out))
+})
+
+await withFetch(okFetch([item({ price: { value: '0', currency: 'USD' } })]), async () => {
+  check('drops a zero price', (await ebaySearch('x')).length === 0)
+})
+
+await withFetch(okFetch([item({ itemWebUrl: undefined })]), async () => {
+  check('drops a listing with nowhere to send the shopper', (await ebaySearch('x')).length === 0)
+})
+
+await withFetch(okFetch([item({ condition: 'New' }), item({ condition: 'Refurbished' })]), async () => {
+  const out = await ebaySearch('x')
+  check('keeps eBay\'s own condition vocabulary', out[0].condition === 'new' && out[1].condition === 'refurbished')
+})
+
+// ── Failure must be silent and fall back, never half-render ────────────────
+await withFetch(
+  async (url) =>
+    String(url).includes('/oauth2/token')
+      ? { ok: true, json: async () => ({ access_token: 'tok', expires_in: 7200 }) }
+      : { ok: false, status: 500, text: async () => 'boom' },
+  async () => check('a failed search returns null, not an empty section', (await ebaySearch('x')) === null),
+)
+
+await withFetch(
+  async () => ({ ok: false, status: 401, text: async () => 'invalid_scope' }),
+  async () => {
+    // Force a fresh token attempt rather than reusing the cached one.
+    process.env.EBAY_CLIENT_SECRET = 'rotated'
+    check('a rejected token returns null', (await ebayToken()) === null)
+  },
+)
+
+console.log(fail ? `\n${fail} eBay case(s) FAILED` : '\nall eBay cases pass')
+process.exit(fail ? 1 : 0)

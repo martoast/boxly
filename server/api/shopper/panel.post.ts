@@ -28,6 +28,7 @@ import {
   type Filters,
 } from '../../utils/shopperPanel'
 import { boxEconomics, loadBoxPrices } from '../../utils/boxMath'
+import { ebayConfigured, ebaySearch } from '../../utils/ebay'
 
 /**
  * ONE endpoint that renders the whole Boxly Shopper side panel.
@@ -563,7 +564,40 @@ export default defineEventHandler(async (event) => {
    */
   const isUsed = (l: any) => l.condition && l.condition !== 'new'
   const listings = ranked_.filter((l: any) => !isUsed(l)).slice(0, 40)
-  const used = ranked_.filter(isUsed).slice(0, 12)
+  let used = ranked_.filter(isUsed).slice(0, 12)
+
+  /**
+   * Prefer eBay's own API for the used section.
+   *
+   * The SerpAPI resale pass gives us an INDEX of eBay: stale, unverifiable, and
+   * occasionally another currency. eBay's Browse API gives the live listing —
+   * so those rows can finally carry a real discount badge instead of
+   * "precio de referencia", which is the whole reason this section felt weak.
+   *
+   * Falls back silently to the indexed rows when the API is unconfigured or
+   * fails. Shipping this before the credentials arrive changes nothing.
+   */
+  if (ebayConfigured()) {
+    const direct = await ebaySearch(productQuery(title, brand), 12)
+    if (direct && direct.length) {
+      const anchorPrice = pagePrice ?? usPrice
+      used = direct
+        // The same sanity rule as everything else: 8x the page price is not the
+        // same product, whatever the feed says.
+        .filter((l) => !anchorPrice || (l.price <= anchorPrice * 8 && l.price >= anchorPrice / 8))
+        .map((l) => ({
+          ...l,
+          tier: 4,
+          same_store: false,
+          percent_less:
+            anchorPrice && l.price < anchorPrice
+              ? Math.round(((anchorPrice - l.price) / anchorPrice) * 100)
+              : null,
+        }))
+        .slice(0, 12)
+      console.info(`[shopper] used section from eBay API: ${used.length} listings`)
+    }
+  }
 
   return {
     product: { ...product, price: pagePrice },
