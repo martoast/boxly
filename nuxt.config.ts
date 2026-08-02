@@ -39,6 +39,31 @@ export default defineNuxtConfig({
       // root html lang stays es as the canonical default for
       // screen-readers, search engines, and translation tools.
       htmlAttrs: { lang: 'es' },
+      /**
+       * Skimlinks — affiliate monetisation for OUTBOUND links on boxly.mx.
+       *
+       * It rewrites links to merchants we already send people to (DICK'S,
+       * Foot Locker, Walmart…) so a purchase they were going to make anyway
+       * pays a commission. It changes nothing about what the shopper sees or
+       * pays.
+       *
+       * Deliberately NOT in the extension. The panel needs Skimlinks' PRODUCT
+       * API — real retailer prices, which is a different product entirely — and
+       * the extension's Web Store disclosure says we do not collect browsing
+       * history. A link-rewriting script inside it would make that false.
+       * This runs on our own site only; the snippet is domain-locked to
+       * boxly.mx regardless.
+       *
+       * `defer` because nothing on the page waits for it, and a third-party
+       * script has no business blocking our first paint.
+       */
+      script: [
+        {
+          src: 'https://s.skimresources.com/js/307089X1795364.skimlinks.js',
+          type: 'text/javascript',
+          defer: true,
+        },
+      ],
       title: 'Boxly - Compra en cualquier parte del mundo y recibe en México',
       meta: [
         // Essential SEO tags
