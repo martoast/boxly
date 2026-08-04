@@ -88,6 +88,46 @@ await withFetch(okFetch([item({ itemWebUrl: undefined })]), async () => {
   check('drops a listing with nowhere to send the shopper', (await ebaySearch('x')).length === 0)
 })
 
+// eBay's own itemWebUrl carries tracking params that serve an ERROR PAGE —
+// reproduced live on /itm/227447664778. The canonical path is what works.
+await withFetch(
+  okFetch([item({ itemWebUrl: 'https://www.ebay.com/itm/227447664778?_skw=New+Balance&hash=item34f4eff08a:g:JwkA' })]),
+  async () => {
+    const [l] = await ebaySearch('New Balance')
+    check('strips eBay\'s tracking query — with it the listing 404s', l.url === 'https://www.ebay.com/itm/227447664778', l.url)
+  },
+)
+
+// Best match is generous: "New Balance 2010" returns a Numeric 306. Same brand,
+// different shoe — the merely-similar comparison COMPASS §5 rules out.
+await withFetch(
+  okFetch([
+    item({ title: 'New Balance 2010 Casual Black Shadow Grey' }),
+    item({ title: 'New Balance Jamie Foy x Numeric 306 Skate Shoes' }),
+  ]),
+  async () => {
+    const out = await ebaySearch('New Balance 2010')
+    check('drops a different model that merely shares the brand', out.length === 1, JSON.stringify(out.map((l) => l.title)))
+  },
+)
+
+// Nothing distinctive to match on — a loose section beats no section.
+await withFetch(okFetch([item({ title: 'Cropped Timeless Tee Dune Grass' })]), async () => {
+  check('keeps everything when the query has no model number', (await ebaySearch('Alo Cropped Timeless Tee')).length === 1)
+})
+
+// Cheapest first, decided by us — eBay is asked for RELEVANCE, not price order.
+await withFetch(
+  okFetch([
+    item({ title: 'New Balance 574 A', price: { value: '80', currency: 'USD' } }),
+    item({ title: 'New Balance 574 B', price: { value: '30', currency: 'USD' } }),
+  ]),
+  async () => {
+    const out = await ebaySearch('New Balance 574')
+    check('sorts cheapest first in code', out.map((l) => l.price).join(',') === '30,80', out.map((l) => l.price).join(','))
+  },
+)
+
 await withFetch(okFetch([item({ condition: 'New' }), item({ condition: 'Refurbished' })]), async () => {
   const out = await ebaySearch('x')
   check('keeps eBay\'s own condition vocabulary', out[0].condition === 'new' && out[1].condition === 'refurbished')

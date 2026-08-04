@@ -121,6 +121,72 @@ export type EbayListing = {
 }
 
 /**
+ * The model designations in a query — "574", "990v4", "XT-6".
+ *
+ * A token carrying a digit is what separates one shoe from another; the words
+ * around it ("new", "balance", "shoes") are shared by the entire catalogue.
+ */
+function modelTokens(s: string): string[] {
+  return String(s || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .split(/\s+/)
+    .filter((w) => /\d/.test(w) && w.length >= 2)
+}
+
+/**
+ * Is this listing the SAME product, or just something the search engine liked?
+ *
+ * Best match is generous: "New Balance 2010" returns a "Jamie Foy x Numeric 306"
+ * — same brand, different shoe, and it sorted to the top on price. Presenting
+ * that as the used version of what the shopper is looking at is precisely the
+ * merely-similar comparison COMPASS §5 rules out, and it would arrive wearing a
+ * discount badge because eBay rows are `verified`.
+ *
+ * So: every model designation in the query must appear in the title. A word
+ * overlap test (what the Best Buy client uses) is too weak here, because "new"
+ * and "balance" alone already clear it.
+ *
+ * Queries with no model number at all — plain apparel — keep everything, since
+ * there is nothing distinctive to match on and dropping the section entirely
+ * would be worse than a loose one.
+ */
+function sameProduct(query: string, title: string): boolean {
+  const want = modelTokens(query)
+  if (!want.length) return true
+  const got = new Set(modelTokens(title))
+  return want.every((w) => got.has(w))
+}
+
+/**
+ * The listing URL, minus eBay's own tracking query.
+ *
+ * `itemWebUrl` comes back carrying whatever eBay felt like attaching — `amdata`,
+ * or `_skw` + `hash` echoing the search keywords — and **that query string
+ * serves an error page**. Reproduced in a real browser on a live listing:
+ *
+ *   /itm/227447664778?_skw=…&hash=item34f4eff08a:g:…  → "Error Page | eBay"
+ *   /itm/227447664778                                 → the listing
+ *
+ * The item was fine both times; only the parameters differed. Since every row
+ * here exists to be clicked, a link that 404s to the shopper is worse than no
+ * row at all — so we keep the canonical `/itm/<id>` and drop the rest. Nothing
+ * of ours rides in that query (we have no eBay affiliate program), so there is
+ * nothing to lose by stripping it.
+ */
+function cleanItemUrl(raw: any): string | null {
+  const s = String(raw || '')
+  if (!s) return null
+  try {
+    const u = new URL(s)
+    return `${u.origin}${u.pathname}`
+  } catch {
+    // Not parseable — better to drop the row than to ship a link we can't read.
+    return null
+  }
+}
+
+/**
  * Search eBay for a product.
  *
  * Returns null when unconfigured or on any failure, so the caller can fall back
@@ -131,14 +197,27 @@ export async function ebaySearch(query: string, limit = 12): Promise<EbayListing
   const t = await ebayToken()
   if (!t || !query.trim()) return null
 
+  /**
+   * Ask for RELEVANCE, then sort by price ourselves.
+   *
+   * `sort=price` looks like the obvious choice for a "cheapest used" section and
+   * is a trap: eBay returns the cheapest things MATCHING the words, which for
+   * "New Balance 2010" is laces, insoles and single photos. Measured live — all
+   * 12 rows came back under $18 against a $145 shoe, the caller's 8x sanity
+   * filter deleted every one, and the Usado section rendered empty.
+   *
+   * Best match (the default, so no sort param) returns the shoe. We over-fetch
+   * so there is still material after the caller drops the out-of-band prices,
+   * and do the cheap-first ordering in code below, where it costs nothing.
+   */
+  const want = Math.min(50, Math.max(1, limit))
   const url =
     `${host()}/buy/browse/v1/item_summary/search` +
     `?q=${encodeURIComponent(query)}` +
-    `&limit=${Math.min(50, Math.max(1, limit))}` +
+    `&limit=${Math.min(50, want * 3)}` +
     // Fixed-price only: an auction's current bid is not a price the shopper can
     // pay, and showing it as one is the "false savings" §5 warns about.
-    `&filter=${encodeURIComponent('buyingOptions:{FIXED_PRICE}')}` +
-    `&sort=price`
+    `&filter=${encodeURIComponent('buyingOptions:{FIXED_PRICE}')}`
 
   try {
     const res = await fetch(url, {
@@ -166,7 +245,7 @@ export async function ebaySearch(query: string, limit = 12): Promise<EbayListing
         if (!Number.isFinite(amount) || amount <= 0 || currency !== 'USD') return null
 
         const image = it?.image?.imageUrl || it?.thumbnailImages?.[0]?.imageUrl || null
-        const url = it?.itemWebUrl
+        const url = cleanItemUrl(it?.itemWebUrl)
         if (!url) return null
 
         return {
@@ -189,6 +268,11 @@ export async function ebaySearch(query: string, limit = 12): Promise<EbayListing
         }
       })
       .filter((x): x is EbayListing => x !== null)
+      .filter((l) => sameProduct(query, l.title))
+      // Cheapest first — the ordering the panel wants, applied after eBay has
+      // already decided what is actually the product (see the note above).
+      .sort((a, b) => a.price - b.price)
+      .slice(0, want)
   } catch (e: any) {
     console.error('[ebay] search error', e?.message)
     return null

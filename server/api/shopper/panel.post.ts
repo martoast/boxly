@@ -216,6 +216,25 @@ export default defineEventHandler(async (event) => {
     host,
   }
 
+  /**
+   * Start the feed lookups NOW, not where their results get used.
+   *
+   * Both only need the title, and neither depends on anything the retail
+   * pipeline produces — but they used to run after it, so the Usado section
+   * waited out a 16s search, a 10s vision pass and a 9s verification chain
+   * before its own call had even been made. It was the last thing to appear and
+   * the shopper felt every second of it.
+   *
+   * Kicked off here they overlap that whole pipeline and are almost always
+   * settled by the time we read them, which costs nothing and removes the wait
+   * entirely. Both clients resolve to null on any failure and are awaited
+   * unconditionally below, so nothing dangles even when the handler returns
+   * early for the hero stage.
+   */
+  const feedQuery = productQuery(title, brand)
+  const ebayPending = ebayConfigured() ? ebaySearch(feedQuery, 12) : null
+  const bestBuyPending = bestBuyConfigured() ? bestBuySearch(feedQuery, brand, 6) : null
+
   // The expensive half (search + vision curation + coupons) is cached per product
   // for 15 minutes; filters are applied per request on top of the cached set, so
   // opening the filter sheet is instant and free.
@@ -227,7 +246,7 @@ export default defineEventHandler(async (event) => {
   const key =
     'shopperpanel:' +
     createHash('md5')
-      .update([url, title, brand || '', store].map((s) => String(s).toLowerCase()).join(' '))
+      .update([url, title, brand || '', store].map((s) => String(s).toLowerCase()).join('\0'))
       .digest('hex')
   // SHOPPER_CACHE_TTL=0 disables the cache outright — set it locally so a code
   // change is visible on the very next open instead of 15 minutes later.
@@ -575,8 +594,8 @@ export default defineEventHandler(async (event) => {
    * Prepended, not appended: it is the only row here we can actually stand
    * behind, and rankByTrust already puts verified above unverified.
    */
-  if (bestBuyConfigured()) {
-    const feed = await bestBuySearch(productQuery(title, brand), brand, 6)
+  if (bestBuyPending) {
+    const feed = await bestBuyPending
     if (feed && feed.length) {
       const anchorPrice = pagePrice ?? usPrice
       const rows = feed
@@ -612,8 +631,35 @@ export default defineEventHandler(async (event) => {
    * Falls back silently to the indexed rows when the API is unconfigured or
    * fails. Shipping this before the credentials arrive changes nothing.
    */
-  if (ebayConfigured()) {
-    const direct = await ebaySearch(productQuery(title, brand), 12)
+  if (ebayPending) {
+    const specific = feedQuery
+    let direct = await ebayPending
+
+    /**
+     * Broaden when the exact title finds almost nothing.
+     *
+     * eBay matches the query close to word-for-word, and a sneaker title carries
+     * its colourway — "New Balance 2010 - Neptune Grey/Shadow Blue" returns ONE
+     * listing at $197 against a $145 page. Drop the colourway and the same shoe
+     * returns 12 from $15. Measured on both pages tested live; the narrow query
+     * doesn't just return less, it returns the wrong tail — the single survivor
+     * is a resale ABOVE retail, so the section argued against itself.
+     *
+     * Same helper the retail pass already uses, and the same threshold logic:
+     * only when the specific query nearly missed, so an exact match is never
+     * traded away for a looser one.
+     */
+    if (!direct || direct.length < 3) {
+      const broad = broadenQuery(specific)
+      if (broad) {
+        const wider = await ebaySearch(broad, 12)
+        if (wider && wider.length > (direct?.length || 0)) {
+          console.info(`[shopper] eBay broadened "${specific}" → "${broad}" (${direct?.length || 0} → ${wider.length})`)
+          direct = wider
+        }
+      }
+    }
+
     if (direct && direct.length) {
       const anchorPrice = pagePrice ?? usPrice
       used = direct
