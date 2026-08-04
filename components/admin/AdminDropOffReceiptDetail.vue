@@ -18,7 +18,7 @@
       </div>
 
       <div v-else class="space-y-6">
-        <AdminDropOffReceiptForm :existing-receipt="receipt" @submit="onSave" />
+        <AdminDropOffReceiptForm :existing-receipt="receipt" :submitting="saving" @submit="onSave" />
 
         <!-- Photos -->
         <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
@@ -137,6 +137,7 @@ const t = computed(() => (isEmployee.value
 
 const receipt = ref(null)
 const loading = ref(true)
+const saving = ref(false)
 const uploading = ref(false)
 const sending = ref(false)
 const deletingPath = ref(null)
@@ -159,6 +160,7 @@ const fetchReceipt = async () => {
 }
 
 const onSave = async (form) => {
+  saving.value = true
   try {
     const res = await $customFetch(`${apiNs.value}/drop-off-receipts/${route.params.id}`, {
       method: 'PUT',
@@ -168,6 +170,8 @@ const onSave = async (form) => {
     toast.success(t.value.saved)
   } catch (e) {
     toast.error(e?.data?.message || 'Error')
+  } finally {
+    saving.value = false
   }
 }
 

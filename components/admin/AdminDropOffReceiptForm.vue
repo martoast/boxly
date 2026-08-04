@@ -35,16 +35,42 @@
         ></textarea>
         <p class="text-xs text-gray-400 mt-1">{{ t.contentsHint }}</p>
       </div>
+
+      <!-- Only when creating. On an existing receipt the detail page's photo
+           section manages them, so two pickers would fight over the same set. -->
+      <div v-if="!existingReceipt">
+        <label class="block text-sm font-semibold text-gray-900 mb-1">{{ t.photos }}</label>
+
+        <div v-if="staged.length" class="grid grid-cols-3 sm:grid-cols-4 gap-3 mb-3">
+          <div v-for="(item, i) in staged" :key="item.url" class="relative aspect-square rounded-xl overflow-hidden bg-gray-100">
+            <img :src="item.url" alt="" class="w-full h-full object-cover" />
+            <button
+              type="button"
+              class="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/60 text-white text-xs flex items-center justify-center hover:bg-red-600 transition-colors"
+              @click="removeStaged(i)"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+
+        <label class="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 cursor-pointer">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.66-.9l.82-1.2A2 2 0 0110.07 4h3.86a2 2 0 011.66.9l.82 1.2a2 2 0 001.66.9H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          {{ staged.length ? t.addMorePhotos : t.addPhotos }}
+          <input type="file" accept="image/*" multiple class="hidden" @change="onStageFiles" />
+        </label>
+        <p class="text-xs text-gray-400 mt-1">{{ t.photosHint }}</p>
+      </div>
     </div>
 
     <div class="flex justify-end gap-3">
       <NuxtLink :to="basePath" class="px-5 py-2.5 rounded-xl border border-gray-200 text-gray-700 font-medium hover:bg-gray-50">{{ t.cancel }}</NuxtLink>
       <button
         type="submit"
-        :disabled="saving || !form.user_id"
+        :disabled="submitting || !form.user_id"
         class="px-6 py-2.5 bg-primary-500 hover:bg-primary-600 disabled:bg-gray-300 text-white font-bold rounded-xl shadow-lg shadow-primary-500/20 transition-colors"
       >
-        {{ saving ? t.saving : (existingReceipt ? t.saveChanges : t.create) }}
+        {{ submitting ? t.saving : (existingReceipt ? t.saveChanges : t.create) }}
       </button>
     </div>
   </form>
@@ -55,6 +81,11 @@ import AdminCustomerSearch from '~/components/admin/AdminCustomerSearch.vue'
 
 const props = defineProps({
   existingReceipt: { type: Object, default: null },
+  // Owned by the page, because only the page knows when the whole sequence
+  // (create, then upload the staged photos) has actually finished. `emit` is
+  // not awaitable, so a local flag would re-enable the button mid-flight and
+  // a second click would file a second receipt — and send a second email.
+  submitting: { type: Boolean, default: false },
 })
 const emit = defineEmits(['submit'])
 
@@ -78,6 +109,10 @@ const t = computed(() => (isEmployee.value
       contents: 'What they dropped off',
       contentsPlaceholder: '2 boxes of Nike sneakers\n1 Coach bag',
       contentsHint: 'One item per line works well — this text goes in their receipt email.',
+      photos: 'Photos (optional)',
+      addPhotos: 'Add photos',
+      addMorePhotos: 'Add more',
+      photosHint: 'Uploaded right after the receipt is created. They show up in the customer\'s email.',
       cancel: 'Cancel',
       saving: 'Saving...',
       saveChanges: 'Save changes',
@@ -93,6 +128,10 @@ const t = computed(() => (isEmployee.value
       contents: 'Qué entregaron',
       contentsPlaceholder: '2 cajas de tenis Nike\n1 bolsa Coach',
       contentsHint: 'Una cosa por línea funciona bien — este texto va en el correo del cliente.',
+      photos: 'Fotos (opcional)',
+      addPhotos: 'Agregar fotos',
+      addMorePhotos: 'Agregar más',
+      photosHint: 'Se suben justo después de crear el recibo. Aparecen en el correo del cliente.',
       cancel: 'Cancelar',
       saving: 'Guardando...',
       saveChanges: 'Guardar cambios',
@@ -149,15 +188,27 @@ watch(customerName, (name) => {
   }
 })
 
-const saving = ref(false)
+// Photos picked before the receipt exists. They can't be uploaded yet — the
+// storage path is keyed by receipt number — so they're held as Files with a
+// local preview URL and handed to the page to upload right after create.
+const staged = ref([])
 
-const onSubmit = async () => {
-  if (!form.value.user_id) return
-  saving.value = true
-  try {
-    await emit('submit', { ...form.value })
-  } finally {
-    saving.value = false
+const onStageFiles = (e) => {
+  for (const file of Array.from(e.target.files ?? [])) {
+    staged.value.push({ file, url: URL.createObjectURL(file) })
   }
+  e.target.value = ''
+}
+
+const removeStaged = (index) => {
+  URL.revokeObjectURL(staged.value[index].url)
+  staged.value.splice(index, 1)
+}
+
+onUnmounted(() => staged.value.forEach((item) => URL.revokeObjectURL(item.url)))
+
+const onSubmit = () => {
+  if (!form.value.user_id || props.submitting) return
+  emit('submit', { ...form.value }, staged.value.map((item) => item.file))
 }
 </script>
