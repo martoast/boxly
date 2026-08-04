@@ -466,10 +466,22 @@ export default defineEventHandler(async (event) => {
     // exits in the US (country_code=us), so this is the real dollar price the
     // same retailer charges — the other half of the comparison that is Boxly's
     // whole pitch. Runs in the same wave, so it costs no extra wall-clock.
-    // …but never longer than the budget leaves us, minus the ~6s the thumbnail
-    // and vision passes still need after this returns. A search allowed to run
-    // to 20s when only 12 remain doesn't produce a slow panel, it produces a 502.
-    const searchCap = Math.max(4000, Math.min(20000, budgetLeft() - 6000))
+    /**
+     * …but never longer than the budget leaves us, minus what the rest of the
+     * pipeline still needs after this returns. A search allowed to run to 20s
+     * when only 12 remain doesn't produce a slow panel, it produces a 502.
+     *
+     * The reserve is 12s, measured rather than guessed: a cold Stanley Quencher
+     * resolved in 29.6s in production with the search capped near 18, so the
+     * thumbnail, vision, verification and feed passes after it cost ~11s. The
+     * first version of this reserved 6s and landed 0.4s inside Netlify's kill.
+     *
+     * That leaves a cold search a narrow window, and it is meant to. Once the
+     * scheduler warms the upstream a search costs 0.7–2.6s and this never
+     * binds; when it does bind we are already losing, and a partial panel beats
+     * a 502.
+     */
+    const searchCap = Math.max(4000, Math.min(20000, budgetLeft() - 12000))
     const [search, resale, offers, usDetail] = await Promise.all([
       api('/products/search', { query, limit: 40 }, searchCap),
       // The "used" pass exists purely to surface marketplaces. Skipping it when

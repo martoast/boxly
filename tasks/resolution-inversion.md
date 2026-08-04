@@ -74,7 +74,7 @@ happening while somebody watches.
       then 0 for the same product minutes apart. Put them in `base`, and widen the
       write gate to include them.
 - [x] **4. Laravel warms the upstream before it calls the panel.** The actual fix.
-- [ ] **5. Verify in production** that a warmed resolve writes a row, that a second
+- [x] **5. Verify in production** that a warmed resolve writes a row, that a second
       call with a different URL reads it back, and therefore that the shared secret
       is right.
 
@@ -136,3 +136,30 @@ unexercised in production.
 The scheduler needs a process running `php artisan schedule:run` every minute on
 DigitalOcean. Without it none of this fires on its own — it only helps products
 a shopper happens to open twice inside the cache window.
+
+## Step 5 — verified in production, 2026-08-04
+
+A product never resolved before (Stanley Quencher H2.0 30 oz), called twice with
+DIFFERENT urls so the in-memory cache — which keys on the url — cannot explain
+the second result:
+
+| call | result |
+|---|---|
+| cold resolve | 200 in **29.60s**, `cached: false`, 2 listings, 2 used |
+| different url, same title | 200 in **0.67s**, `cached: true`, 2 listings, 2 used |
+
+44x. The second call can only have come from the index, so `indexPut` wrote and
+`indexGet` read — which also settles the open question about whether the
+Netlify and DigitalOcean copies of `PRODUCT_INDEX_SECRET` match. They do.
+
+The index is no longer starved. It has now been exercised end to end.
+
+### The 29.6s is not fixed
+
+That cold resolve landed 0.4s inside Netlify's 30s kill. The budget guard did
+not hold, because it reserved 6s for everything after the search and the
+thumbnail/vision/verify/feed passes actually cost ~11s. Reserve raised to 12s.
+
+This is mitigation, not a fix. Organic cold traffic still races the ceiling and
+will sometimes lose; what makes it stop mattering is the scheduler warming the
+upstream, and that still needs `php artisan schedule:run` on DigitalOcean.
