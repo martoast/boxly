@@ -31,6 +31,7 @@ import { boxEconomics, loadBoxPrices } from '../../utils/boxMath'
 import { ebayConfigured, ebaySearch } from '../../utils/ebay'
 import { bestBuyConfigured, bestBuySearch } from '../../utils/bestbuy'
 import { canonicalKey, indexGet, indexPut } from '../../utils/productIndex'
+import { matchLevel } from '../../utils/match'
 
 /**
  * ONE endpoint that renders the whole Boxly Shopper side panel.
@@ -711,6 +712,15 @@ export default defineEventHandler(async (event) => {
     }
   }
 
+  /**
+   * Label each row "exact" or "similar" — stage 5 of tasks/product-index.md.
+   *
+   * Not a filter. A cheaper colourway is still worth showing; it just must not
+   * masquerade as the item on the page, which is what a bare discount badge on
+   * an orange Sway did to someone looking at a blue FreeSip.
+   */
+  const mark = (l: any) => ({ ...l, match: matchLevel({ title, brand, variant }, l.title || '') })
+
   const isUsed = (l: any) => l.condition && l.condition !== 'new'
   const listings = ranked_.filter((l: any) => !isUsed(l)).slice(0, 40)
   let used = ranked_.filter(isUsed).slice(0, 12)
@@ -781,8 +791,8 @@ export default defineEventHandler(async (event) => {
     compare,
     box,
     offers: base.offers || [],
-    listings,
-    used,
+    listings: listings.map(mark),
+    used: used.map(mark),
     // The US-page hero ships the ranked market with nothing verified yet; the
     // panel keeps its skeleton for the confirmations still on the way.
     partial: heroOnly || undefined,
