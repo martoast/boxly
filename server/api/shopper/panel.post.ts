@@ -145,6 +145,20 @@ export default defineEventHandler(async (event) => {
             .map(([k, v]) => [String(k).toLowerCase().slice(0, 20), String(v).slice(0, 60)]),
         ) as Record<string, string>)
       : null
+  /**
+   * A scheduled refresh asks us to ignore what we remembered and resolve again.
+   *
+   * SECRET-GATED, and that is not decoration: this endpoint is public, and a
+   * freely settable `refresh` flag would let anyone force the expensive path —
+   * a SerpAPI search, a vision pass and a verification chain — on every request,
+   * turning our own cache into a cost-amplification lever pointed at us. Same
+   * secret the index writes use, so only our own scheduler can spend that money.
+   */
+  const forceRefresh =
+    body?.refresh === true &&
+    !!process.env.PRODUCT_INDEX_SECRET &&
+    getHeader(event, 'x-boxly-index-secret') === process.env.PRODUCT_INDEX_SECRET
+
   let pagePrice = typeof body?.price === 'number' && body.price > 0 ? body.price : null
   const filters: Filters = body?.filters || {}
 
@@ -282,7 +296,12 @@ export default defineEventHandler(async (event) => {
       .digest('hex')
   // SHOPPER_CACHE_TTL=0 disables the cache outright — set it locally so a code
   // change is visible on the very next open instead of 15 minutes later.
-  let base = cacheOff() ? null : await storage.getItem<any>(key)
+  // forceRefresh must skip BOTH caches. Skipping only the index left the
+  // scheduled refresh reading its answer out of this 15-minute in-memory cache
+  // and reporting success without re-resolving anything — the row it was sent
+  // to replace kept its old resolved_at, so it stayed stale and got picked
+  // again on the next run, forever.
+  let base = cacheOff() || forceRefresh ? null : await storage.getItem<any>(key)
   /**
    * Second layer: the persistent product index.
    *
@@ -299,7 +318,8 @@ export default defineEventHandler(async (event) => {
    * shown.
    */
   const idxKey = canonicalKey({ ids, brand, title, variant })
-  if (!base && !cacheOff() && idxKey) {
+
+  if (!base && !cacheOff() && idxKey && !forceRefresh) {
     const remembered = await indexGet(idxKey, 6 * 3600)
     if (remembered) {
       base = remembered
@@ -514,7 +534,7 @@ export default defineEventHandler(async (event) => {
     if (!cacheOff() && (listings.length || offers.length)) {
       await storage.setItem(key, base, { ttl: cacheTtl() })
       // …and remember it past this instance's 15 minutes.
-      await indexPut(idxKey, base, { ids, title, brand, variant, image: body?.image || null, store })
+      await indexPut(idxKey, base, { ids, title, brand, variant, image: body?.image || null, store, sourceUrl: url })
     }
   }
 
@@ -528,7 +548,7 @@ export default defineEventHandler(async (event) => {
       base.us_price = usPrice
       await storage.setItem(key, base, { ttl: cacheTtl() })
       // …and remember it past this instance's 15 minutes.
-      await indexPut(idxKey, base, { ids, title, brand, variant, image: body?.image || null, store })
+      await indexPut(idxKey, base, { ids, title, brand, variant, image: body?.image || null, store, sourceUrl: url })
     }
   }
 

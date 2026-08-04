@@ -108,7 +108,7 @@ export async function indexGet(key: string, maxAgeSeconds: number): Promise<any 
 export async function indexPut(
   key: string,
   payload: any,
-  meta: { ids?: ProductIds; title?: string | null; brand?: string | null; variant?: string | null; image?: string | null; store?: string | null },
+  meta: { ids?: ProductIds; title?: string | null; brand?: string | null; variant?: string | null; image?: string | null; store?: string | null; sourceUrl?: string | null },
 ): Promise<void> {
   if (!productIndexConfigured() || !key || !payload) return
   await call(
@@ -122,6 +122,8 @@ export async function indexPut(
       variant: meta.variant || null,
       image: meta.image || null,
       store: meta.store || null,
+      // The page this was resolved FROM — stage 4 needs it to resolve again.
+      source_url: meta.sourceUrl || null,
     },
     4000,
   ).catch(() => null)
