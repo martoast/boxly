@@ -30,6 +30,7 @@ import {
 import { boxEconomics, loadBoxPrices } from '../../utils/boxMath'
 import { ebayConfigured, ebaySearch } from '../../utils/ebay'
 import { bestBuyConfigured, bestBuySearch } from '../../utils/bestbuy'
+import { canonicalKey, indexGet, indexPut } from '../../utils/productIndex'
 
 /**
  * ONE endpoint that renders the whole Boxly Shopper side panel.
@@ -134,6 +135,16 @@ export default defineEventHandler(async (event) => {
   // The size/colour the extension read off the page URL. Length-capped here as
   // well as in the extension: this is request body, so it is attacker-shaped.
   const variant = body?.variant ? String(body.variant).trim().slice(0, 80) : null
+  // gtin / sku / mpn the page published about itself. The index is keyed on
+  // these — see server/utils/productIndex.ts.
+  const ids =
+    body?.ids && typeof body.ids === 'object' && !Array.isArray(body.ids)
+      ? (Object.fromEntries(
+          Object.entries(body.ids)
+            .slice(0, 10)
+            .map(([k, v]) => [String(k).toLowerCase().slice(0, 20), String(v).slice(0, 60)]),
+        ) as Record<string, string>)
+      : null
   let pagePrice = typeof body?.price === 'number' && body.price > 0 ? body.price : null
   const filters: Filters = body?.filters || {}
 
@@ -272,6 +283,30 @@ export default defineEventHandler(async (event) => {
   // SHOPPER_CACHE_TTL=0 disables the cache outright — set it locally so a code
   // change is visible on the very next open instead of 15 minutes later.
   let base = cacheOff() ? null : await storage.getItem<any>(key)
+  /**
+   * Second layer: the persistent product index.
+   *
+   * `storage` above is per-instance and lives 15 minutes — it only ever helps
+   * the same shopper, on the same server, within the same quarter hour. The
+   * index is shared and it survives, so the SECOND shopper on a product gets
+   * what the first one waited 17 seconds for. Stage 2 of
+   * app/tasks/product-index.md.
+   *
+   * Six hours is deliberately conservative. These payloads carry prices, and a
+   * price we present as `verified` has to be one we would defend — the whole
+   * panel rests on that. Stage 4 (scheduled background refresh) is what lets
+   * this window widen safely; until then, an old row is discarded rather than
+   * shown.
+   */
+  const idxKey = canonicalKey({ ids, brand, title, variant })
+  if (!base && !cacheOff() && idxKey) {
+    const remembered = await indexGet(idxKey, 6 * 3600)
+    if (remembered) {
+      base = remembered
+      console.info(`[shopper] index HIT ${idxKey}`)
+    }
+  }
+
   const cached = !!base
 
   // The US price is a stable property of the product, so it lives in the cache.
@@ -478,6 +513,8 @@ export default defineEventHandler(async (event) => {
     // Only cache a panel worth reusing — a failed search should retry, not stick.
     if (!cacheOff() && (listings.length || offers.length)) {
       await storage.setItem(key, base, { ttl: cacheTtl() })
+      // …and remember it past this instance's 15 minutes.
+      await indexPut(idxKey, base, { ids, title, brand, variant, image: body?.image || null, store })
     }
   }
 
@@ -490,6 +527,8 @@ export default defineEventHandler(async (event) => {
     if (usPrice !== null && base && !cacheOff()) {
       base.us_price = usPrice
       await storage.setItem(key, base, { ttl: cacheTtl() })
+      // …and remember it past this instance's 15 minutes.
+      await indexPut(idxKey, base, { ids, title, brand, variant, image: body?.image || null, store })
     }
   }
 
