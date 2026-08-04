@@ -121,6 +121,62 @@ export type EbayListing = {
 }
 
 /**
+ * Words that mean "a thing that goes WITH the product" — or a piece of one.
+ *
+ * Electronics is where this stops being theoretical. Measured against Best Buy
+ * retail, every single row eBay returned was an accessory or a spare part:
+ *
+ *   Apple Watch Series 10 46mm  → "Repair Part - OEM Pull Housing for Apple
+ *                                  Watch 10", "…Mod Kit Case Band Strap Cover",
+ *                                  "…Stainless Steel Strap Case For Apple Watch"
+ *   Nintendo Switch OLED        → "…Battery Display Assembly",
+ *                                  "…Logic Board Motherboard HEG-CPU-01"
+ *
+ * Not one was the product. A $56.98 watch band next to a $429 watch renders as
+ * "87% menos" on a row we marked `verified`, which is the single most damaging
+ * thing this panel can do — COMPASS §5, in its most expensive form.
+ *
+ * The model-number guard cannot catch these: a band FOR an Apple Watch 10 says
+ * "10" and "46mm" precisely because it is for that watch.
+ *
+ * Tuned for precision over recall on purpose. "Sony WH-1000XM5 with case" gets
+ * dropped as collateral, and that is the right trade — there are eleven other
+ * listings, and a row we can't stand behind is worse than no row.
+ */
+const ACCESSORY_WORDS = [
+  'case', 'cover', 'band', 'strap', 'bumper', 'skin', 'sleeve', 'pouch', 'holster',
+  'mount', 'stand', 'dock', 'tripod', 'grip', 'sticker', 'decal', 'keycap',
+  'charger', 'charging', 'cable', 'cord', 'adapter', 'adaptor', 'protector',
+  'battery', 'motherboard', 'logic board', 'housing', 'assembly', 'digitizer',
+  'repair', 'replacement', 'spare', 'part', 'parts', 'kit', 'shell', 'faceplate',
+]
+
+/** Whole words only — see the note in `sameProduct` about "skinny" and "skin". */
+const ACCESSORY_RE = new RegExp(`\\b(${ACCESSORY_WORDS.join('|')})\\b`, 'i')
+
+/**
+ * Product categories that are cheap to confuse and expensive to get wrong.
+ *
+ * A query for Bose QuietComfort Ultra HEADPHONES returned "Bose Ultra Open
+ * Bluetooth Ear Clip" at $52 — a real Bose product, correctly matched on words,
+ * and not remotely the $429 thing the shopper is looking at. Same trap as the
+ * accessory case: plausible, cheap, and wrong.
+ *
+ * Only listed where the confusion is real and the price gap is large. Anything
+ * not named here is untouched.
+ */
+const CATEGORIES: Array<[string, RegExp]> = [
+  ['overear', /\b(headphones?|headset)\b/i],
+  ['inear', /\b(earbuds?|ear ?clip|earphones?|airpods?)\b/i],
+  ['speaker', /\b(speakers?|soundbar)\b/i],
+]
+
+function categoryOf(s: string): string | null {
+  for (const [name, re] of CATEGORIES) if (re.test(s)) return name
+  return null
+}
+
+/**
  * The model designations in a query — "574", "990v4", "XT-6".
  *
  * A token carrying a digit is what separates one shoe from another; the words
@@ -152,6 +208,35 @@ function modelTokens(s: string): string[] {
  * would be worse than a loose one.
  */
 function sameProduct(query: string, title: string): boolean {
+  const q = String(query || '').toLowerCase()
+  const t = String(title || '').toLowerCase()
+
+  /**
+   * Accessory noise, unless an accessory is the thing being shopped for.
+   *
+   * Decided on the QUERY as a whole rather than word by word: someone searching
+   * "AirPods Pro charging case" is shopping for an accessory, and every listing
+   * they want is going to be full of accessory vocabulary — "Charging Case
+   * REPLACEMENT" would have been dropped for a word they didn't happen to type.
+   *
+   * Word boundaries matter more than they look: a substring test finds "skin"
+   * inside "skinny", "part" inside "particle" and "cord" inside "corduroy",
+   * which would quietly delete apparel results.
+   */
+  if (!ACCESSORY_RE.test(q) && ACCESSORY_RE.test(t)) return false
+
+  // "for the Apple Watch" is a thing that attaches to one. Anchored to the
+  // start or to a preceding noun so an ordinary "headphones for travel" — where
+  // "for" describes a use, not a host device — is left alone.
+  if (/^for\b/i.test(String(title || '').trim()) || /\b(compatible with|fits for|designed for)\b/i.test(t)) {
+    return false
+  }
+
+  // Right family, wrong category: earbuds are not over-ear headphones.
+  const qc = categoryOf(q)
+  const tc = categoryOf(t)
+  if (qc && tc && qc !== tc) return false
+
   const want = modelTokens(query)
   if (!want.length) return true
   const got = new Set(modelTokens(title))

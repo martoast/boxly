@@ -111,6 +111,48 @@ await withFetch(
   },
 )
 
+// Electronics: every row eBay returned for an Apple Watch was a band or a
+// repair part, priced like an 87% discount on a $429 watch.
+await withFetch(
+  okFetch([
+    item({ title: 'Apple Watch Series 10 A3003 46mm GPS Jet Black Aluminum' }),
+    item({ title: 'Repair Part - OEM Pull Housing for Apple Watch 10 GPS (46mm, A2999)' }),
+    item({ title: 'For Apple Watch 11 10 Stainless Steel Mod Kit Case Band Strap Cover 46mm' }),
+    item({ title: '46mm Stainless Steel Strap Case For Apple Watch Series 10 Band' }),
+  ]),
+  async () => {
+    const out = await ebaySearch('Apple Watch Series 10 46mm')
+    check('drops bands, cases and repair parts — they carry the model number too',
+      out.length === 1 && /A3003/.test(out[0].title), JSON.stringify(out.map((l) => l.title)))
+  },
+)
+
+await withFetch(
+  okFetch([item({ title: 'OEM Genuine Nintendo Switch OLED Logic Board Motherboard HEG-CPU-01' })]),
+  async () => {
+    check('drops a motherboard sold as a console', (await ebaySearch('Nintendo Switch OLED')).length === 0)
+  },
+)
+
+// Right brand, right family, wrong category — and a $280 gap.
+await withFetch(
+  okFetch([
+    item({ title: 'Bose QuietComfort Ultra Over-Ear Headphones - Black' }),
+    item({ title: 'Bose Ultra Open Bluetooth Ear Clip Purple New Sealed' }),
+  ]),
+  async () => {
+    const out = await ebaySearch('Bose QuietComfort Ultra Headphones')
+    check('earbuds are not over-ear headphones', out.length === 1 && /Over-Ear/.test(out[0].title),
+      JSON.stringify(out.map((l) => l.title)))
+  },
+)
+
+// The exception that keeps the guard honest.
+await withFetch(okFetch([item({ title: 'Apple AirPods Pro Charging Case Replacement' })]), async () => {
+  check('keeps an accessory when the accessory IS what was asked for',
+    (await ebaySearch('AirPods Pro charging case')).length === 1)
+})
+
 // Nothing distinctive to match on — a loose section beats no section.
 await withFetch(okFetch([item({ title: 'Cropped Timeless Tee Dune Grass' })]), async () => {
   check('keeps everything when the query has no model number', (await ebaySearch('Alo Cropped Timeless Tee')).length === 1)
