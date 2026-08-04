@@ -155,10 +155,11 @@ export default defineEventHandler(async (event) => {
    * turning our own cache into a cost-amplification lever pointed at us. Same
    * secret the index writes use, so only our own scheduler can spend that money.
    */
-  const forceRefresh =
-    body?.refresh === true &&
+  const fromScheduler =
     !!process.env.PRODUCT_INDEX_SECRET &&
     getHeader(event, 'x-boxly-index-secret') === process.env.PRODUCT_INDEX_SECRET
+
+  const forceRefresh = body?.refresh === true && fromScheduler
 
   let pagePrice = typeof body?.price === 'number' && body.price > 0 ? body.price : null
   const filters: Filters = body?.filters || {}
@@ -590,7 +591,34 @@ export default defineEventHandler(async (event) => {
     // protected retailers that need ScraperAPI's slow ultra-premium pool).
     // In the hero stage we verify NOTHING — the ranked list ships first and the
     // confirmed prices arrive with the full request.
-    const toVerify = heroOnly ? 0 : Math.min(2, claimable)
+    /**
+     * …and only as many as the clock allows.
+     *
+     * Measured locally, where nothing caps the request:
+     *
+     *     search=14.8s  thumbs=3.6s  vision=2.6s  verify=43.6s(2/5)  total=64.6s
+     *
+     * Verification is 68% of a cold panel, and it is not volume — that 43.6s
+     * was TWO listings checked in parallel, one of which took the whole time.
+     * Each is `/products/details` then `/products/extract`, and the second one
+     * loads the retailer's own page through ScraperAPI's ultra-premium pool
+     * because the retailers worth confirming refuse the cheap one. We are
+     * waiting for Nordstrom to answer, and no amount of our own optimisation
+     * changes that.
+     *
+     * So when the budget is gone, we ship the ranked list unverified and mark
+     * the panel `partial` rather than letting Netlify turn it into a 502. Below
+     * ~18s remaining there is no honest chance of finishing a check.
+     *
+     * `verify: false` is the scheduler saying it will do this itself, in
+     * Laravel, where there is no 30s ceiling — see WarmProductIndex.
+     */
+    const skipVerify = body?.verify === false && fromScheduler
+    const verifyRoom = Math.floor((budgetLeft() - 6000) / 18000)
+    const toVerify = heroOnly || skipVerify ? 0 : Math.max(0, Math.min(2, claimable, verifyRoom))
+    if (!heroOnly && !skipVerify && toVerify < Math.min(2, claimable)) {
+      console.warn(`[shopper] verification cut to ${toVerify} — ${budgetLeft()}ms left`)
+    }
     const verified = await verifyPrices(byPrice, api, toVerify)
     const listings = rankByTrust(verified)
     const tVerify = Date.now()
@@ -886,6 +914,11 @@ export default defineEventHandler(async (event) => {
     // Out of budget counts as partial for the same reason: we stopped early, so
     // this is "still coming", not "this is everything there is".
     partial: heroOnly || budgetLeft() <= 0 || undefined,
+    // Which index row this was. Only for the scheduler, which needs to know
+    // what to update after it finishes the verification we skipped — a shopper
+    // has no use for it and it describes our keying, so it stays behind the
+    // secret.
+    index_key: fromScheduler ? idxKey || null : undefined,
     total: all.length,
     facets,
     cached,

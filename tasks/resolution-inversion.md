@@ -163,3 +163,46 @@ thumbnail/vision/verify/feed passes actually cost ~11s. Reserve raised to 12s.
 This is mitigation, not a fix. Organic cold traffic still races the ceiling and
 will sometimes lose; what makes it stop mattering is the scheduler warming the
 upstream, and that still needs `php artisan schedule:run` on DigitalOcean.
+
+## What actually takes the time — measured, not assumed
+
+Cold Hydro Flask 32oz, run locally where nothing caps the request:
+
+```
+search=14814ms  thumbs=3584ms  vision=2550ms  verify=43610ms(2/5)  total=64558ms
+```
+
+**Verification is 68% of a cold panel.** The SerpAPI search this document spent
+its first half warming is 23%.
+
+And it is not volume. That 43.6s was TWO listings checked in parallel, so one of
+them took the whole time on its own. Each check is `/products/details` (resolve
+the Google token to a merchant link) then `/products/extract` — which loads the
+retailer's own page through ScraperAPI's ultra-premium pool, because the
+retailers worth confirming refuse the cheap one. We are waiting for Nordstrom to
+answer. No optimisation of ours changes that number.
+
+This invalidated the earlier assumption in this document that the search
+dominated. Warming the search alone takes a 65s resolve to about 50s — still
+over Netlify's 30s ceiling, so the scheduler's own panel call would have 502'd
+on exactly the products that need it most.
+
+### So verification moved too
+
+- **Panel** (`panel.post.ts`): `toVerify` is now budget-aware —
+  `verifyRoom = (budgetLeft - 6000) / 18000`, so with under ~24s left it checks
+  one, and under ~18s none, shipping the ranked list unverified and `partial`
+  rather than letting Netlify turn it into a 502.
+- **Panel**: accepts `verify: false` from the scheduler (secret-gated) and
+  returns `index_key` so the caller knows which row it just wrote.
+- **Laravel** (`WarmProductIndex::verifyAndStore()`): takes the rows the panel
+  already chose, asks the retailer what they cost, folds the confirmed prices
+  back into the index row. 40s and 60s timeouts, because here slow is just slow.
+
+It deliberately does not rank, curate or query — two HTTP calls and a
+comparison. There is still exactly one definition of how a product is resolved.
+
+Caveat on the measurement: no page price was sent, so `claimable` fell back to
+all 5 candidates rather than only those cheaper than the page. A real shopper's
+page carries a price, so verification is more targeted than this run suggests —
+production's cold resolve was 29.6s, not 65s.
