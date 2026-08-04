@@ -179,6 +179,27 @@ export default defineEventHandler(async (event) => {
    */
   const heroOnly = body?.stage === 'hero'
 
+  /**
+   * How long we are allowed to take before Netlify makes the decision for us.
+   *
+   * The function is killed at 30s. Production was returning 502 at 30.34s on
+   * cold products — and a 502 is the worst possible outcome here, because the
+   * extension can show nothing at all and the shopper is left with a panel that
+   * looks broken rather than one that looks busy.
+   *
+   * 24s leaves room to assemble and serialise a response. Past it we stop
+   * starting expensive optional work and return what we have marked `partial`,
+   * which the panel already renders as a skeleton — "still coming" is true, and
+   * "we found nothing" would not have been.
+   *
+   * Note this is a floor on honesty, not the fix. The fix is that the scheduler
+   * warms the upstream so we never come near this — see
+   * tasks/resolution-inversion.md.
+   */
+  const startedAt = Date.now()
+  const BUDGET_MS = 24_000
+  const budgetLeft = () => BUDGET_MS - (Date.now() - startedAt)
+
   // The shopper is on a localized storefront (aloyoga.com/es-mx/...): we have
   // the peso price off the page, and `url` is already the US equivalent.
   const localized = !!body?.localized
@@ -245,24 +266,7 @@ export default defineEventHandler(async (event) => {
     host,
   }
 
-  /**
-   * Start the feed lookups NOW, not where their results get used.
-   *
-   * Both only need the title, and neither depends on anything the retail
-   * pipeline produces — but they used to run after it, so the Usado section
-   * waited out a 16s search, a 10s vision pass and a 9s verification chain
-   * before its own call had even been made. It was the last thing to appear and
-   * the shopper felt every second of it.
-   *
-   * Kicked off here they overlap that whole pipeline and are almost always
-   * settled by the time we read them, which costs nothing and removes the wait
-   * entirely. Both clients resolve to null on any failure and are awaited
-   * unconditionally below, so nothing dangles even when the handler returns
-   * early for the hero stage.
-   */
   const feedQuery = productQuery(title, brand, variant)
-  const ebayPending = ebayConfigured() ? ebaySearch(feedQuery, 12) : null
-  const bestBuyPending = bestBuyConfigured() ? bestBuySearch(feedQuery, brand, 6) : null
 
   /**
    * The query with the variant taken back off — the rung below `feedQuery`.
@@ -373,6 +377,59 @@ export default defineEventHandler(async (event) => {
     }
   }
 
+  /**
+   * Start the feed lookups NOW, not where their results get used.
+   *
+   * Neither depends on anything the retail pipeline produces, but they used to
+   * run after it, so the Usado section waited out a 16s search, a 10s vision
+   * pass and a 9s verification chain before its own call had even been made. It
+   * was the last thing to appear and the shopper felt every second of it.
+   * Kicked off here they overlap that whole pipeline and are almost always
+   * settled by the time we read them.
+   *
+   * But here, not before the cache read — which is where they used to be, and
+   * that cost us a wasted eBay call on EVERY panel open. The hero stage returns
+   * above without ever touching `used`, so its call was thrown away in full; a
+   * cached open re-fetched rows it already had. Now they only fire when there
+   * is nothing remembered to fire them for.
+   *
+   * Both resolve to null on failure and are awaited unconditionally below, so
+   * nothing dangles.
+   */
+  const needFeeds = !base || !Array.isArray(base.ebay)
+  const ebayPending = needFeeds && ebayConfigured() ? ebaySearch(feedQuery, 12) : null
+  const bestBuyPending = needFeeds && bestBuyConfigured() ? bestBuySearch(feedQuery, brand, 6) : null
+
+  /**
+   * The raw eBay rows for this product, broadened if the exact title nearly missed.
+   *
+   * eBay matches close to word-for-word, and a sneaker title carries its
+   * colourway — "New Balance 2010 - Neptune Grey/Shadow Blue" returns ONE
+   * listing at $197 against a $145 page. Drop the colourway and the same shoe
+   * returns 12 from $15. Measured on both pages tested live; the narrow query
+   * doesn't just return less, it returns the wrong tail — the single survivor
+   * is a resale ABOVE retail, so the section argued against itself.
+   *
+   * Same ladder the retail pass uses, and the same threshold: only when the
+   * specific query nearly missed, so an exact match is never traded for a
+   * looser one.
+   */
+  async function resolveEbay(): Promise<any[] | null> {
+    if (!ebayPending) return null
+    let direct = await ebayPending
+    if (!direct || direct.length < 3) {
+      const broad = broaderOf(feedQuery)
+      if (broad) {
+        const wider = await ebaySearch(broad, 12)
+        if (wider && wider.length > (direct?.length || 0)) {
+          console.info(`[shopper] eBay broadened "${feedQuery}" → "${broad}" (${direct?.length || 0} → ${wider.length})`)
+          direct = wider
+        }
+      }
+    }
+    return direct || null
+  }
+
   if (!base) {
     const t0 = Date.now()
     /**
@@ -409,12 +466,16 @@ export default defineEventHandler(async (event) => {
     // exits in the US (country_code=us), so this is the real dollar price the
     // same retailer charges — the other half of the comparison that is Boxly's
     // whole pitch. Runs in the same wave, so it costs no extra wall-clock.
+    // …but never longer than the budget leaves us, minus the ~6s the thumbnail
+    // and vision passes still need after this returns. A search allowed to run
+    // to 20s when only 12 remain doesn't produce a slow panel, it produces a 502.
+    const searchCap = Math.max(4000, Math.min(20000, budgetLeft() - 6000))
     const [search, resale, offers, usDetail] = await Promise.all([
-      api('/products/search', { query, limit: 40 }, 20000),
+      api('/products/search', { query, limit: 40 }, searchCap),
       // The "used" pass exists purely to surface marketplaces. Skipping it when
       // they're off saves a SerpAPI call on every product.
       includeMarketplace
-        ? api('/products/search', { query: `${query} used`, limit: 40 }, 12000)
+        ? api('/products/search', { query: `${query} used`, limit: 40 }, Math.min(12000, searchCap))
         : Promise.resolve(null),
       findOffers(store, host, api),
       wantCompare ? api('/products/extract', { url }, 25000) : Promise.resolve(null),
@@ -452,10 +513,12 @@ export default defineEventHandler(async (event) => {
     // "Cropped Timeless Tee - Dune Grass" is specific enough to match almost
     // nothing on Google Shopping, and one lonely listing is a poor comparison.
     // Bounded: this fires only when the precise query nearly missed.
-    if (shortlist.length < 4) {
+    // Budget-gated as well as result-gated: this retry is upside, and spending
+    // the last 10 seconds on it is what turned a thin panel into no panel.
+    if (shortlist.length < 4 && budgetLeft() > 10000) {
       const broad = broaderOf(query)
       if (broad) {
-        const more = await api('/products/search', { query: broad, limit: 40 }, 12000)
+        const more = await api('/products/search', { query: broad, limit: 40 }, Math.min(12000, budgetLeft() - 6000))
         shortlist = dedupeListings([...shortlist, ...prep(more?.products)]).slice(0, 20)
       }
     }
@@ -528,13 +591,53 @@ export default defineEventHandler(async (event) => {
       `[shopper] cold panel ${host} search=${tSearch - t0}ms thumbs=${tThumbs - tSearch}ms(${candidates.length}/${shortlist.length}) vision=${tVision - tThumbs}ms verify=${tVerify - tVision}ms(${toVerify}/${claimable} cheaper than ${basePrice ?? '?'}) total=${tVerify - t0}ms`,
     )
 
+    /**
+     * Settle the feeds into the cached unit too.
+     *
+     * These used to be resolved AFTER the write, so eBay was re-queried on
+     * every single open and never remembered — which is also why the same
+     * Owala returned 3 used rows and then 0 two minutes later. Same product,
+     * same panel, different answer, because the only thing between them was a
+     * live call nobody was caching.
+     *
+     * Raw rows only. The anchor-dependent parts (the 8x sanity filter and
+     * `percent_less`) stay per-request for the same reason `compare` does: the
+     * listings are a property of the product, the comparison is a property of
+     * the page the shopper happens to be standing on.
+     */
+    const [rawEbay, rawBestBuy] = await Promise.all([resolveEbay(), bestBuyPending || Promise.resolve(null)])
+
     // The US price is the honest basis for the verdict on a localized page —
     // comparing a peso figure against a dollar market would be meaningless.
-    base = { listings, offers, query, us_price: usPrice }
-    // Only cache a panel worth reusing — a failed search should retry, not stick.
-    if (!cacheOff() && (listings.length || offers.length)) {
+    base = { listings, offers, query, us_price: usPrice, ebay: rawEbay || [], bestbuy: rawBestBuy || [] }
+
+    /**
+     * Only cache a panel worth reusing — a failed search should retry, not stick.
+     *
+     * `ebay` counts. It used to be `listings.length || offers.length`, and with
+     * every upstream search timing out in production that was permanently
+     * false: the index could never be written, so it could never be read, so
+     * the 17s→1.2s win we measured never once happened for a real shopper.
+     * A panel with a usable Usado section is still a panel worth remembering.
+     */
+    if (!cacheOff() && (listings.length || offers.length || (rawEbay && rawEbay.length))) {
       await storage.setItem(key, base, { ttl: cacheTtl() })
       // …and remember it past this instance's 15 minutes.
+      await indexPut(idxKey, base, { ids, title, brand, variant, image: body?.image || null, store, sourceUrl: url })
+    }
+  } else if (needFeeds) {
+    /**
+     * A remembered panel from before the feeds were part of it.
+     *
+     * `needFeeds` started the lookups on the way in; if we took the cached path
+     * they would otherwise dangle and the Usado section would be empty for
+     * every row already in the index. Fold them in and write back, so this
+     * costs the first shopper on an old row and nobody after them.
+     */
+    base.ebay = (await resolveEbay()) || []
+    base.bestbuy = (await (bestBuyPending || Promise.resolve(null))) || []
+    if (!cacheOff()) {
+      await storage.setItem(key, base, { ttl: cacheTtl() })
       await indexPut(idxKey, base, { ids, title, brand, variant, image: body?.image || null, store, sourceUrl: url })
     }
   }
@@ -690,9 +793,9 @@ export default defineEventHandler(async (event) => {
    * Prepended, not appended: it is the only row here we can actually stand
    * behind, and rankByTrust already puts verified above unverified.
    */
-  if (bestBuyPending) {
-    const feed = await bestBuyPending
-    if (feed && feed.length) {
+  {
+    const feed: any[] = base.bestbuy || []
+    if (feed.length) {
       const anchorPrice = pagePrice ?? usPrice
       const rows = feed
         .filter((l) => !anchorPrice || (l.price <= anchorPrice * 8 && l.price >= anchorPrice / 8))
@@ -736,42 +839,15 @@ export default defineEventHandler(async (event) => {
    * Falls back silently to the indexed rows when the API is unconfigured or
    * fails. Shipping this before the credentials arrive changes nothing.
    */
-  if (ebayPending) {
-    const specific = feedQuery
-    let direct = await ebayPending
-
-    /**
-     * Broaden when the exact title finds almost nothing.
-     *
-     * eBay matches the query close to word-for-word, and a sneaker title carries
-     * its colourway — "New Balance 2010 - Neptune Grey/Shadow Blue" returns ONE
-     * listing at $197 against a $145 page. Drop the colourway and the same shoe
-     * returns 12 from $15. Measured on both pages tested live; the narrow query
-     * doesn't just return less, it returns the wrong tail — the single survivor
-     * is a resale ABOVE retail, so the section argued against itself.
-     *
-     * Same helper the retail pass already uses, and the same threshold logic:
-     * only when the specific query nearly missed, so an exact match is never
-     * traded away for a looser one.
-     */
-    if (!direct || direct.length < 3) {
-      const broad = broaderOf(specific)
-      if (broad) {
-        const wider = await ebaySearch(broad, 12)
-        if (wider && wider.length > (direct?.length || 0)) {
-          console.info(`[shopper] eBay broadened "${specific}" → "${broad}" (${direct?.length || 0} → ${wider.length})`)
-          direct = wider
-        }
-      }
-    }
-
-    if (direct && direct.length) {
+  {
+    const direct: any[] = base.ebay || []
+    if (direct.length) {
       const anchorPrice = pagePrice ?? usPrice
       used = direct
         // The same sanity rule as everything else: 8x the page price is not the
         // same product, whatever the feed says.
-        .filter((l) => !anchorPrice || (l.price <= anchorPrice * 8 && l.price >= anchorPrice / 8))
-        .map((l) => ({
+        .filter((l: any) => !anchorPrice || (l.price <= anchorPrice * 8 && l.price >= anchorPrice / 8))
+        .map((l: any) => ({
           ...l,
           tier: 4,
           same_store: false,
@@ -795,7 +871,9 @@ export default defineEventHandler(async (event) => {
     used: used.map(mark),
     // The US-page hero ships the ranked market with nothing verified yet; the
     // panel keeps its skeleton for the confirmations still on the way.
-    partial: heroOnly || undefined,
+    // Out of budget counts as partial for the same reason: we stopped early, so
+    // this is "still coming", not "this is everything there is".
+    partial: heroOnly || budgetLeft() <= 0 || undefined,
     total: all.length,
     facets,
     cached,

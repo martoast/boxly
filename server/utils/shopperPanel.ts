@@ -545,13 +545,23 @@ export function priceVerdict(
   pagePrice: number | null,
   listings: any[],
   pageCondition: 'new' | 'used' | 'refurbished' = 'new',
-): Verdict {
+): Verdict | null {
   const priced = listings.filter((l) => typeof l.price === 'number' && l.price > 0)
   const prices = priced.map((l) => l.price as number).sort((a, b) => a - b)
 
-  if (!prices.length) {
-    return { label: 'typical', page_price: pagePrice, band: null, min_condition: null, max_condition: null, sample: 0 }
-  }
+  /**
+   * No comparison prices, no verdict.
+   *
+   * This used to return `{label: 'typical', band: null, sample: 0}`, and that
+   * shipped: production called a New Balance 2010 "typical" on the strength of
+   * zero observations, because every upstream search had timed out. "Typical"
+   * is a claim about a market we could not see.
+   *
+   * `null` is already the shape the hero stage returns and the panel already
+   * renders nothing for it, so silence costs us no UI work — and this panel is
+   * only worth having if its judgements are ones we could defend.
+   */
+  if (!prices.length) return null
 
   // Same-condition comparison set for the verdict; fall back to everything when
   // there aren't enough peers to say anything meaningful.
