@@ -89,6 +89,7 @@ const destinations = [
   { route: '/app/admin/purchase-requests', es: 'Compra Asistida', en: 'Assisted Purchase', kw: 'purchase requests pr compras asistida' },
   { route: '/app/admin/purchased-products', es: 'Productos Comprados', en: 'Purchased Products', kw: 'purchased productos comprados' },
   { route: '/app/admin/packages', es: 'Paquetes', en: 'Packages', kw: 'packages paquetes tracking' },
+  { route: '/app/admin/drop-off-receipts', es: 'Recibos de Entrega', en: 'Drop-off Receipts', kw: 'drop off dropoff receipts recibos entrega comprobante' },
   { route: '/app/admin/boxes', es: 'Cajas', en: 'Boxes', kw: 'boxes cajas' },
   { route: '/app/admin/customers', es: 'Clientes', en: 'Customers', kw: 'customers clientes users usuarios' },
   { route: '/app/admin/shopping-trips', es: 'Visitas en Persona', en: 'In-Person Trips', kw: 'shopping trips visitas presencial las americas' },
