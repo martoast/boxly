@@ -131,6 +131,9 @@ export default defineEventHandler(async (event) => {
   const url = String(body?.url || '').trim()
   const title = String(body?.title || '').trim()
   const brand = body?.brand ? String(body.brand).trim() : null
+  // The size/colour the extension read off the page URL. Length-capped here as
+  // well as in the extension: this is request body, so it is attacker-shaped.
+  const variant = body?.variant ? String(body.variant).trim().slice(0, 80) : null
   let pagePrice = typeof body?.price === 'number' && body.price > 0 ? body.price : null
   const filters: Filters = body?.filters || {}
 
@@ -231,9 +234,24 @@ export default defineEventHandler(async (event) => {
    * unconditionally below, so nothing dangles even when the handler returns
    * early for the hero stage.
    */
-  const feedQuery = productQuery(title, brand)
+  const feedQuery = productQuery(title, brand, variant)
   const ebayPending = ebayConfigured() ? ebaySearch(feedQuery, 12) : null
   const bestBuyPending = bestBuyConfigured() ? bestBuySearch(feedQuery, brand, 6) : null
+
+  /**
+   * The query with the variant taken back off — the rung below `feedQuery`.
+   *
+   * Every search here broadens when the specific query nearly misses, and
+   * `broadenQuery()` does that by dropping a dash-tail ("… Tee - Dune Grass").
+   * The variant is appended WITHOUT a dash, so on its own it makes the query
+   * unbroadenable: "FreeSip® 24oz Out of the Blue Stainless Steel" has nothing
+   * for that helper to cut, and the retry silently became a no-op — exactly
+   * when it was needed most, because the variant is what narrowed it.
+   *
+   * So the ladder is explicit: specific → dash-stripped → without the variant.
+   */
+  const baseQuery = productQuery(title, brand)
+  const broaderOf = (q: string) => broadenQuery(q) || (baseQuery && baseQuery !== q ? baseQuery : '')
 
   // The expensive half (search + vision curation + coupons) is cached per product
   // for 15 minutes; filters are applied per request on top of the cached set, so
@@ -246,7 +264,10 @@ export default defineEventHandler(async (event) => {
   const key =
     'shopperpanel:' +
     createHash('md5')
-      .update([url, title, brand || '', store].map((s) => String(s).toLowerCase()).join('\0'))
+      // `variant` is redundant with `url` today (stores put the selection in the
+      // query string, which is how we read it), but it now shapes the search —
+      // and the rule above is that everything shaping the value is in the key.
+      .update([url, title, brand || '', store, variant || ''].map((s) => String(s).toLowerCase()).join('\0'))
       .digest('hex')
   // SHOPPER_CACHE_TTL=0 disables the cache outright — set it locally so a code
   // change is visible on the very next open instead of 15 minutes later.
@@ -298,7 +319,22 @@ export default defineEventHandler(async (event) => {
 
   if (!base) {
     const t0 = Date.now()
-    const query = productQuery(title, brand)
+    /**
+     * Retail search stays on the BASE query — no variant.
+     *
+     * Adding it here looked right and measured wrong: the vision pass treats
+     * the variant as a requirement and rejected every listing in another
+     * colour, taking owalalife.com from four rows to two and throwing away the
+     * cheaper ones. A different colourway at a lower price is still a real find
+     * for a shopper deciding whether to buy at all.
+     *
+     * The variant belongs where it demonstrably helps — the feed queries above,
+     * where "FreeSip®" alone matched a 32oz Elphaba and a PINK SKIES. Making
+     * the panel PREFER the exact variant in its ordering, rather than filter to
+     * it, is the better answer for this half and is written up in
+     * tasks/retail-prices.md.
+     */
+    const query = baseQuery
 
     // TWO shopping passes. The plain query returns retail only — Google Shopping
     // simply does not surface eBay/resale for it — and the whole point of the
@@ -361,7 +397,7 @@ export default defineEventHandler(async (event) => {
     // nothing on Google Shopping, and one lonely listing is a poor comparison.
     // Bounded: this fires only when the precise query nearly missed.
     if (shortlist.length < 4) {
-      const broad = broadenQuery(query)
+      const broad = broaderOf(query)
       if (broad) {
         const more = await api('/products/search', { query: broad, limit: 40 }, 12000)
         shortlist = dedupeListings([...shortlist, ...prep(more?.products)]).slice(0, 20)
@@ -650,7 +686,7 @@ export default defineEventHandler(async (event) => {
      * traded away for a looser one.
      */
     if (!direct || direct.length < 3) {
-      const broad = broadenQuery(specific)
+      const broad = broaderOf(specific)
       if (broad) {
         const wider = await ebaySearch(broad, 12)
         if (wider && wider.length > (direct?.length || 0)) {

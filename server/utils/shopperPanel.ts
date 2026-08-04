@@ -1213,7 +1213,7 @@ export function buildCompare(
  * Turn a messy PDP title into the query Google Shopping answers best: brand +
  * model, without the marketing tail ("| Free Shipping", "- Shop Now", SKUs).
  */
-export function productQuery(title: string, brand?: string | null): string {
+export function productQuery(title: string, brand?: string | null, variant?: string | null): string {
   let t = String(title || '')
     .split(/\s*[|]\s*/)[0]              // "…9060 | New Balance" → "…9060"
     .replace(/\s*[-–—]\s*(shop|buy|official|free shipping|new arrivals?).*/i, '')
@@ -1224,6 +1224,27 @@ export function productQuery(title: string, brand?: string | null): string {
   const b = String(brand || '').trim()
   // Only prepend the brand when the title doesn't already carry it.
   if (b && !t.toLowerCase().includes(b.toLowerCase())) t = `${b} ${t}`
+
+  /**
+   * Append the selected variant — the size and colour the shopper is looking at.
+   *
+   * Without it, "FreeSip®" matched every Owala ever made: the panel offered an
+   * orange Sway and a green bottle to someone looking at a blue 24oz, and
+   * eBay's cheapest was a PINK SKIES. With "24oz Out of the Blue" appended,
+   * eBay returns 24oz bottles.
+   *
+   * Word by word, skipping anything the title already says, so a store that
+   * repeats the colourway in its title doesn't spend the 12-word budget saying
+   * it twice. Over-specificity is survivable here — `broadenQuery()` strips
+   * this tail back off when a search comes home nearly empty — but a wasted
+   * budget is not, because the words that get cut are the distinctive ones.
+   */
+  const v = String(variant || '').trim()
+  if (v) {
+    const have = new Set(t.toLowerCase().split(/\s+/))
+    const add = v.split(/\s+/).filter((w) => w && !have.has(w.toLowerCase()))
+    if (add.length) t = `${t} ${add.join(' ')}`
+  }
 
   return t.split(/\s+/).slice(0, 12).join(' ').slice(0, 160)
 }
