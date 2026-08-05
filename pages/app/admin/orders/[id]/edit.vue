@@ -1503,6 +1503,22 @@
               </div>
             </div>
 
+            <!-- Boxly Protection -->
+            <div v-if="protectionProduct">
+              <label class="flex items-start gap-2.5 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer select-none transition-colors">
+                <input
+                  type="checkbox"
+                  v-model="newBox.has_protection"
+                  class="mt-0.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                />
+                <span class="text-sm">
+                  <span class="font-medium text-gray-900">🛡️ {{ t.protection }}</span>
+                  <span class="text-gray-500"> +${{ formatNumber(protectionProduct.price) }}</span>
+                  <span class="block text-xs text-gray-500 mt-0.5">{{ t.protectionHelp }}</span>
+                </span>
+              </label>
+            </div>
+
             <!-- Guia Number (only for shipping orders) -->
             <div v-if="!isCrossing">
               <label class="block text-sm font-medium text-gray-700 mb-1">
@@ -1593,7 +1609,7 @@ const errorMessage = ref("");
 const originalData = ref(null);
 const products = ref([]);
 const showAddBoxModal = ref(false);
-const newBox = ref({ stripe_price_id: "", guia_number: "", gia_file: null, length: null, width: null, height: null, weight: null });
+const newBox = ref({ stripe_price_id: "", has_protection: false, guia_number: "", gia_file: null, length: null, width: null, height: null, weight: null });
 const useSimpleAddress = ref(false);
 const isInitialLoad = ref(true);
 
@@ -1786,6 +1802,10 @@ const translations = {
   box: { es: "caja", en: "box" },
   boxesLabel: { es: "cajas", en: "boxes" },
   protection: { es: "Boxly Protection", en: "Boxly Protection" },
+  protectionHelp: {
+    es: "Protección contra robo, pérdida o daño de esta caja.",
+    en: "Cover against theft, loss, or damage for this box.",
+  },
   protectionPaidWarning: {
     es: "Esta orden ya fue pagada — el cambio no se cobra automáticamente.",
     en: "This order is already paid — the change is not charged automatically.",
@@ -2043,7 +2063,7 @@ const removeBox = (index) => {
 
 const closeAddBoxModal = () => {
   showAddBoxModal.value = false;
-  newBox.value = { stripe_price_id: "", guia_number: "", gia_file: null, length: null, width: null, height: null, weight: null };
+  newBox.value = { stripe_price_id: "", has_protection: false, guia_number: "", gia_file: null, length: null, width: null, height: null, weight: null };
 };
 
 const handleNewBoxGiaFile = (e) => {
@@ -2071,7 +2091,7 @@ const addNewBox = () => {
     box_price: parseFloat(selectedProduct.price) || 0,
     currency: selectedProduct.currency?.toLowerCase() || "mxn",
     quantity: 1,
-    has_protection: false,
+    has_protection: !!newBox.value.has_protection,
     guia_number: newBox.value.guia_number || "",
     gia_url: null,
     gia_filename: null,

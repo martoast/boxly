@@ -439,12 +439,25 @@
                       </svg>
                     </div>
                     <div>
-                      <p class="font-semibold text-gray-900">{{ t.boxLabel }} {{ index + 1 }}: {{ box.box_name }}</p>
+                      <p class="font-semibold text-gray-900">
+                        {{ t.boxLabel }} {{ index + 1 }}: {{ box.box_name }}
+                        <span
+                          v-if="box.has_protection"
+                          class="ml-1.5 align-middle text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded"
+                        >
+                          🛡️ {{ t.protected }}
+                        </span>
+                      </p>
                       <p class="text-xs text-gray-500">{{ formatBoxSizeLabelFull(box.box_size) }}</p>
                     </div>
                   </div>
                   <div class="flex items-center gap-3">
-                    <p class="text-lg font-bold text-gray-900">${{ parseFloat(box.box_price).toFixed(2) }}</p>
+                    <div class="text-right">
+                      <p class="text-lg font-bold text-gray-900">${{ parseFloat(box.box_price).toFixed(2) }}</p>
+                      <p v-if="box.has_protection" class="text-xs text-gray-500">
+                        + ${{ parseFloat(box.protection_price || 0).toFixed(2) }} {{ t.protection }}
+                      </p>
+                    </div>
                     <!-- Print Label Button -->
                     <button
                       v-if="!isCrossing && order.delivery_address"
@@ -618,9 +631,24 @@
             </div>
 
             <!-- Total Box Price -->
-            <div class="flex justify-between items-center mt-4 pt-4 border-t border-gray-200">
-              <p class="text-sm font-semibold text-gray-700">{{ t.totalBoxPrice }}</p>
-              <p class="text-xl font-bold text-gray-900">${{ totalBoxPrice.toFixed(2) }}</p>
+            <div class="mt-4 pt-4 border-t border-gray-200 space-y-2">
+              <div class="flex justify-between items-center">
+                <p class="text-sm font-semibold text-gray-700">{{ t.totalBoxPrice }}</p>
+                <p class="text-xl font-bold text-gray-900">${{ totalBoxPrice.toFixed(2) }}</p>
+              </div>
+              <template v-if="protectionTotal > 0">
+                <div class="flex justify-between items-center">
+                  <p class="text-sm text-gray-600">
+                    🛡️ {{ t.protection }}
+                    <span class="text-gray-400">({{ protectedBoxCount }})</span>
+                  </p>
+                  <p class="text-base font-semibold text-gray-900">${{ protectionTotal.toFixed(2) }}</p>
+                </div>
+                <div class="flex justify-between items-center pt-2 border-t border-gray-200">
+                  <p class="text-sm font-semibold text-gray-700">{{ t.orderTotal }}</p>
+                  <p class="text-xl font-bold text-gray-900">${{ orderTotal.toFixed(2) }}</p>
+                </div>
+              </template>
             </div>
           </div>
 
@@ -921,8 +949,8 @@
                   </div>
                 </div>
                 <div class="flex justify-between items-center mt-3 pt-2 border-t border-gray-200">
-                  <p class="text-sm font-semibold text-gray-700">{{ t.totalBoxPrice }}</p>
-                  <p class="text-base font-bold text-gray-900">${{ totalBoxPrice.toFixed(2) }}</p>
+                  <p class="text-sm font-semibold text-gray-700">{{ protectionTotal > 0 ? t.orderTotal : t.totalBoxPrice }}</p>
+                  <p class="text-base font-bold text-gray-900">${{ orderTotal.toFixed(2) }}</p>
                 </div>
               </div>
 
@@ -935,8 +963,8 @@
                   </span>
                 </div>
                 <div class="flex justify-between items-center mt-1">
-                  <p class="text-sm text-gray-500">{{ t.totalBoxPrice }}</p>
-                  <p class="font-bold text-gray-900">${{ totalBoxPrice.toFixed(2) }}</p>
+                  <p class="text-sm text-gray-500">{{ protectionTotal > 0 ? t.orderTotal : t.totalBoxPrice }}</p>
+                  <p class="font-bold text-gray-900">${{ orderTotal.toFixed(2) }}</p>
                 </div>
 
                 <!-- Re-open consolidation modal to (re)generate the Stripe invoice or
@@ -1000,7 +1028,7 @@
                   <div class="flex justify-between items-center mb-2">
                     <span class="text-xs font-semibold text-primary-700">{{ t.consolidationPayment }} (100%)</span>
                     <!-- Show amount_paid when paid, otherwise show totalBoxPrice -->
-                    <span class="text-sm font-bold text-gray-900">${{ order.paid_at && order.amount_paid ? parseFloat(order.amount_paid).toFixed(2) : totalBoxPrice.toFixed(2) }}</span>
+                    <span class="text-sm font-bold text-gray-900">${{ order.paid_at && order.amount_paid ? parseFloat(order.amount_paid).toFixed(2) : orderTotal.toFixed(2) }}</span>
                   </div>
                   <div class="flex justify-between items-center">
                     <span
@@ -1460,6 +1488,9 @@ const translations = {
   boxSize: { es: "Tamaño de Caja", en: "Box Size" },
   boxPrice: { es: "Precio de Caja", en: "Box Price" },
   totalBoxPrice: { es: "Precio Total Cajas", en: "Total Box Price" },
+  orderTotal: { es: "Total de la Orden", en: "Order Total" },
+  protection: { es: "Boxly Protection", en: "Boxly Protection" },
+  protected: { es: "Protegida", en: "Protected" },
   guiaNumber: { es: "Número de Guía", en: "Guia Number" },
   giaDocument: { es: "Documento GIA", en: "GIA Document" },
   copyGuia: { es: "Copiar guía", en: "Copy guia" },
@@ -1700,6 +1731,24 @@ const totalBoxPrice = computed(() => {
   // Legacy structure: use order-level box_price
   return parseFloat(order.value.box_price) || 0;
 });
+
+// Boxly Protection charged on this order.
+const protectedBoxCount = computed(() => {
+  if (!order.value?.boxes) return 0;
+  return order.value.boxes.reduce(
+    (n, box) => n + (box.has_protection ? (box.quantity || 1) : 0), 0
+  );
+});
+
+const protectionTotal = computed(() => {
+  if (!order.value?.boxes) return parseFloat(order.value?.protection_total) || 0;
+  return order.value.boxes.reduce(
+    (sum, box) => sum + (box.has_protection ? parseFloat(box.protection_price || 0) * (box.quantity || 1) : 0), 0
+  );
+});
+
+// What the customer owes: boxes + protection.
+const orderTotal = computed(() => totalBoxPrice.value + protectionTotal.value);
 
 // Check if payment is complete based on order type
 const isPaymentComplete = computed(() => {
