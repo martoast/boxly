@@ -89,6 +89,30 @@ const TONES = {
   success: { tile: 'bg-gradient-to-br from-emerald-500 to-green-600',  wash: 'bg-emerald-400/30', btn: 'bg-emerald-600 hover:bg-emerald-500', chip: 'bg-emerald-50 text-emerald-700', dot: 'bg-emerald-500' },
 }
 
+/**
+ * Formats an amount for the banner, or returns null when there isn't a real
+ * number to show. Interpolating straight into a template literal turned a null
+ * into the string "null", so the banner read "$null MXN" to the customer.
+ */
+const money = (value, cur) => {
+  const n = Number(value)
+  if (!Number.isFinite(n) || n <= 0) return null
+  return `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${cur}`
+}
+
+/**
+ * What the customer still owes: the quote if one was issued, otherwise the
+ * boxes plus Boxly Protection, less anything already paid.
+ */
+const amountDue = (o) => {
+  const paid = Number(o.amount_paid) || 0
+  const quoted = Number(o.quoted_amount)
+  const total = Number.isFinite(quoted) && quoted > 0
+    ? quoted
+    : (Number(o.box_price) || 0) + (Number(o.protection_total) || 0)
+  return total - paid
+}
+
 const banner = computed(() => {
   const o = props.order
   if (!o) return null
@@ -104,15 +128,15 @@ const banner = computed(() => {
   // Crossing: `shipped` means "ready for pickup in Tijuana" — not "in transit".
   if (isCrossing.value && s === 'shipped') {
     const link = o.payment_link || o.deposit_payment_link
-    const amt = o.quoted_amount ?? o.deposit_amount
-    return { tone: 'pay', icon: ICON.store, title: t.value.readyPickupTitle, desc: t.value.readyPickupDesc, amount: (link && amt) ? `$${amt} ${cur}` : null, cta: link ? { kind: 'external', href: link, label: t.value.payAndPickup } : null, chip: link ? null : t.value.readyChip }
+    const amt = money(o.quoted_amount ?? o.deposit_amount ?? amountDue(o), cur)
+    return { tone: 'pay', icon: ICON.store, title: t.value.readyPickupTitle, desc: t.value.readyPickupDesc, amount: link ? amt : null, cta: link ? { kind: 'external', href: link, label: t.value.payAndPickup } : null, chip: link ? null : t.value.readyChip }
   }
   if (s === 'shipped' && !o.deposit_paid_at && o.deposit_payment_link)
-    return { tone: 'pay', icon: ICON.card, title: t.value.depositRequiredTitle, desc: t.value.depositRequiredDesc, amount: `$${o.deposit_amount} ${cur}`, cta: { kind: 'external', href: o.deposit_payment_link, label: t.value.payDeposit } }
+    return { tone: 'pay', icon: ICON.card, title: t.value.depositRequiredTitle, desc: t.value.depositRequiredDesc, amount: money(o.deposit_amount, cur), cta: { kind: 'external', href: o.deposit_payment_link, label: t.value.payDeposit } }
   if (s === 'shipped')
     return { tone: 'ship', icon: ICON.plane, title: t.value.shippedTitle, desc: t.value.shippedDescription, badge: o.deposit_paid_at ? t.value.depositPaid : null, chip: t.value.inTransit }
   if (s === 'awaiting_payment')
-    return { tone: 'pay', icon: ICON.coin, title: t.value.finalPaymentTitle, desc: t.value.finalPaymentDesc, amount: `$${o.quoted_amount} ${cur}`, cta: o.payment_link ? { kind: 'external', href: o.payment_link, label: t.value.payBalance } : null }
+    return { tone: 'pay', icon: ICON.coin, title: t.value.finalPaymentTitle, desc: t.value.finalPaymentDesc, amount: money(amountDue(o), cur), cta: o.payment_link ? { kind: 'external', href: o.payment_link, label: t.value.payBalance } : null }
   if (s === 'paid')
     return { tone: 'success', icon: ICON.checkCircle, title: t.value.orderComplete, desc: t.value.orderCompleteDesc }
   return null
