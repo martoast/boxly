@@ -36,7 +36,7 @@
             <span v-if="displayWas" class="text-sm font-medium text-gray-400 line-through">${{ displayWas }}</span>
             <span v-if="displayOnSale" class="px-1.5 py-0.5 rounded-md bg-red-500 text-white text-[10px] font-bold">OFERTA</span>
           </div>
-          <p class="text-xs text-gray-500 mt-1">Solo el <span class="font-semibold">precio de tienda</span> — no es el total. Se suma la comisión de Boxly (10%) + envío e impuestos.</p>
+          <p class="text-xs text-gray-500 mt-1">Solo el <span class="font-semibold">precio de tienda</span> — no es el total. Se suma la comisión de Boxly (15%) + envío e impuestos.</p>
 
           <!-- variant options -->
           <div v-for="opt in data.options" :key="opt.name" class="mt-5">
@@ -106,7 +106,7 @@
               </p>
               <ul class="mt-1.5 space-y-0.5 text-[12px] text-primary-800">
                 <li>• Precio del producto</li>
-                <li>• + Comisión de Boxly (10%)</li>
+                <li>• + Comisión de Boxly (15%)</li>
                 <li>• + Envío a México e impuestos</li>
               </ul>
               <p class="text-[12px] text-primary-700 mt-1.5">Te enviamos la cotización con el total antes de que pagues — solo pagas si la apruebas.</p>

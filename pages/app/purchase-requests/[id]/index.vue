@@ -134,9 +134,6 @@
         <p class="text-red-700 text-sm mt-1">{{ request.admin_notes || t.noReason }}</p>
       </div>
 
-      <!-- Progress timeline — clear steps for the online assisted purchase -->
-      <PurchaseRequestTimeline v-if="request.source !== 'in_person'" :request="request" />
-
       <!-- ============================================================ -->
       <!-- IN-PERSON LAYOUT — trip + per-store categories + wishlist     -->
       <!-- ============================================================ -->
@@ -229,10 +226,13 @@
       </template>
 
       <!-- ============================================================ -->
-      <!-- ONLINE LAYOUT — original items list + cost summary sidebar    -->
+      <!-- ONLINE LAYOUT — the products ARE the page                     -->
       <!-- ============================================================ -->
-      <div v-else class="grid md:grid-cols-3 gap-6">
-        <div class="md:col-span-2 space-y-6">
+      <!-- The cost-summary sidebar is gone on purpose. We no longer capture a
+           price at entry, so it rendered a column of "$" and "$0.00" that read
+           as broken. The one number that matters — the quote total — is already
+           the headline of the QUOTED banner above, next to the Pay button. -->
+      <div v-else class="space-y-6">
           <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
             <div class="px-6 py-4 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
               <h3 class="font-semibold text-gray-900">{{ t.requestedItems }}</h3>
@@ -240,26 +240,32 @@
             <div class="divide-y divide-gray-100">
               <div v-for="item in request.items" :key="item.id" class="p-6 hover:bg-gray-50 transition-colors">
                 <div class="flex gap-4 items-start">
+                  <!-- Customer's own photo when they attached one, else the
+                       store's logo. A grey picture icon told you nothing; the
+                       favicon at least says "this one's from Target". -->
                   <a v-if="item.image_full_url" :href="item.image_full_url" target="_blank" class="w-20 h-20 flex-shrink-0 bg-gray-100 rounded-lg overflow-hidden border border-gray-200">
                     <img :src="item.image_full_url" class="w-full h-full object-cover" alt="">
                   </a>
+                  <div v-else-if="storeOf(item.product_url)" class="w-20 h-20 flex-shrink-0 bg-white rounded-lg flex items-center justify-center border border-gray-200 p-3">
+                    <img :src="faviconFor(item.product_url)" class="w-full h-full object-contain" alt="" @error="(e) => (e.target.style.display = 'none')">
+                  </div>
                   <div v-else class="w-20 h-20 flex-shrink-0 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 border border-gray-200">
                     <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                   </div>
                   <div class="flex-1 min-w-0">
                     <h4 class="font-medium text-gray-900 text-lg leading-snug">{{ item.product_name }}</h4>
-                    <a :href="item.product_url" target="_blank" class="text-sm text-primary-600 hover:underline flex items-center gap-1 mt-1 mb-3 w-fit">
+                    <a v-if="item.product_url" :href="item.product_url" target="_blank" class="text-sm text-primary-600 hover:underline flex items-center gap-1 mt-1 mb-3 w-fit">
                       {{ truncateUrl(item.product_url) }}
                     </a>
-                    <div class="grid grid-cols-2 gap-4 text-sm mb-3">
-                      <div class="bg-gray-50 p-2 rounded-lg">
-                        <span class="text-gray-500 block text-xs uppercase tracking-wide">{{ t.price }}</span>
-                        <span class="font-semibold text-gray-900">${{ item.price }}</span>
-                      </div>
-                      <div class="bg-gray-50 p-2 rounded-lg">
-                        <span class="text-gray-500 block text-xs uppercase tracking-wide">{{ t.quantity }}</span>
+                    <!-- Price is intentionally absent: the customer never enters
+                         one now, and an empty "PRECIO $" box just looked broken.
+                         The real price is confirmed at the store and appears in
+                         the quote summary. -->
+                    <div class="text-sm mb-3">
+                      <span class="inline-flex items-baseline gap-1.5 bg-gray-50 px-2.5 py-1.5 rounded-lg">
+                        <span class="text-gray-500 text-xs uppercase tracking-wide">{{ t.quantity }}</span>
                         <span class="font-semibold text-gray-900">{{ item.quantity }}</span>
-                      </div>
+                      </span>
                     </div>
                     <div v-if="item.options && Object.keys(item.options).length > 0" class="flex flex-wrap gap-2 mb-2">
                       <span v-for="(val, key) in item.options" :key="key" class="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded border border-blue-100"><strong>{{ key }}:</strong> {{ val }}</span>
@@ -279,30 +285,11 @@
               </div>
             </div>
           </div>
-        </div>
-
-        <!-- Cost sidebar -->
-        <div class="md:col-span-1">
-          <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 sticky top-24">
-            <h3 class="font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-100">{{ t.summary }}</h3>
-            <div class="space-y-3 text-sm">
-              <div class="flex justify-between text-gray-600">
-                <span>{{ t.merchandise }}</span>
-                <span>${{ request.items_total || request.items.reduce((a,b)=>a+(b.price*b.quantity),0).toFixed(2) }}</span>
-              </div>
-              <div v-if="request.status !== 'pending_review'" class="space-y-3 pt-3 border-t border-dashed border-gray-200">
-                <div class="flex justify-between text-gray-600"><span>{{ t.shipping }}</span><span>${{ request.shipping_cost || '0.00' }}</span></div>
-                <div class="flex justify-between text-gray-600"><span>{{ t.tax }}</span><span>${{ request.sales_tax || '0.00' }}</span></div>
-                <div class="flex justify-between text-gray-600"><span>{{ t.fee }} (10%)</span><span>${{ request.processing_fee || '0.00' }}</span></div>
-              </div>
-              <div v-if="request.status !== 'pending_review'" class="pt-4 mt-4 border-t border-gray-200 flex justify-between font-bold text-lg text-gray-900">
-                <span>{{ t.total }}</span>
-                <span>${{ request.total_amount }}</span>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
+
+      <!-- Progress last: it's reassurance, not the reason you opened the page.
+           The products are. -->
+      <PurchaseRequestTimeline v-if="request.source !== 'in_person'" :request="request" />
     </div>
   </section>
 </template>
@@ -456,6 +443,21 @@ const truncateUrl = (url) => {
     return 'Link';
   }
 };
+
+/** Bare host, or '' when the item has no usable link (name-only requests). */
+const storeOf = (url) => {
+  try {
+    let safeUrl = url;
+    if (!safeUrl) return '';
+    if (!safeUrl.match(/^https?:\/\//i)) safeUrl = 'https://' + safeUrl;
+    return new URL(safeUrl).hostname.replace(/^www\./, '');
+  } catch {
+    return '';
+  }
+};
+
+/** Store logo as the image fallback — no upload, no scrape, no backend. */
+const faviconFor = (url) => `https://www.google.com/s2/favicons?sz=128&domain=${encodeURIComponent(storeOf(url))}`;
 
 onMounted(() => {
   fetchRequest();

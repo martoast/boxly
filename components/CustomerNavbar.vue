@@ -192,6 +192,25 @@
                 aria-orientation="vertical"
               >
                 <div class="py-1" role="none">
+                  <!-- Seeing your existing requests was unreachable from this
+                       menu — it only offered two ways to CREATE one. For a
+                       returning customer "where's the one I already sent?" is
+                       the more common intent, so it goes first. -->
+                  <a
+                    href="/app/purchase-requests"
+                    @click.prevent="handleNavigation('/app/purchase-requests')"
+                    class="group flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-primary-50 hover:text-primary-600 transition-colors duration-200"
+                    role="menuitem"
+                  >
+                    <svg class="w-4 h-4 mr-3 text-gray-400 group-hover:text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
+                    </svg>
+                    <div>
+                      <p class="font-medium">{{ t.prMineTitle }}</p>
+                      <p class="text-xs text-gray-500">{{ t.prMineDesc }}</p>
+                    </div>
+                  </a>
+                  <div class="border-t border-gray-100 my-1"></div>
                   <a
                     href="/app/purchase-requests/create/online"
                     @click.prevent="handleNavigation('/app/purchase-requests/create/online')"
@@ -446,6 +465,21 @@
         <!-- Mobile Solicitudes de Compra — section header + two pipeline entries -->
         <div class="pl-4 mt-2">
           <p class="px-3 pt-2 pb-1 text-xs font-semibold text-gray-500 uppercase tracking-wider">{{ t.purchaseRequests }}</p>
+
+          <!-- Same fix as desktop: mobile listed only the two ways to CREATE a
+               request, with no way to reach the ones you already sent. -->
+          <DisclosureButton
+            as="a"
+            href="/app/purchase-requests"
+            @click.prevent="handleNavigation('/app/purchase-requests')"
+            :class="[
+              isExactRoute('/app/purchase-requests')
+                ? 'bg-primary-50 border-primary-500 text-primary-600'
+                : 'border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900',
+              'block border-l-4 py-2 pl-6 pr-4 text-base font-medium',
+            ]"
+          >{{ t.prMineTitle }}</DisclosureButton>
+
           <DisclosureButton
             as="a"
             href="/app/purchase-requests/create/online"
@@ -581,6 +615,8 @@ const translations = {
   allOrdersDesc: { es: 'Ver historial completo', en: 'View complete history' },
   createNewOrder: { es: 'Crear Nuevo Envio', en: 'Create New Order' },
   purchaseRequests: { es: 'Solicitudes de Compra', en: 'Purchase Requests' },
+  prMineTitle: { es: 'Mis solicitudes', en: 'My requests' },
+  prMineDesc: { es: 'Ver el estado de las que ya enviaste', en: 'See the status of the ones you sent' },
   prOnlineTitle: { es: 'Compra Online', en: 'Online Purchase' },
   prOnlineDesc: { es: 'Mándanos el link de cualquier tienda USA', en: 'Send us a link from any US store' },
   prInPersonTitle: { es: 'Personal Shopping', en: 'Personal Shopping' },
@@ -622,6 +658,10 @@ const isActiveRoute = (route) => {
   if (route === "/app/" && currentPath === "/app/") return true;
   return currentPath.startsWith(route) && (currentPath === route || currentPath.charAt(route.length) === "/");
 };
+
+// Exact match — "My requests" points at /app/purchase-requests, and the prefix
+// matcher above would light it up on the create pages too.
+const isExactRoute = (route) => router.currentRoute.value.path === route;
 
 const handleNavigation = async (path) => {
   if (router.currentRoute.value.path === path) {
