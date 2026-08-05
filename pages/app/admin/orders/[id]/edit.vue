@@ -2340,24 +2340,22 @@ const handleSubmit = async () => {
     }
 
     // Check if boxes changed (including dimensions)
-    const originalBoxesCompare = originalData.value.boxes.map(b => ({
+    // Whatever is listed here IS the definition of "the boxes changed" — a
+    // field left out means edits to it are silently dropped before the request
+    // is even built. Keep it in step with what the box payload sends.
+    const boxFingerprint = (b) => ({
       id: b.id,
       stripe_price_id: b.stripe_price_id,
+      quantity: b.quantity || 1,
+      has_protection: !!b.has_protection,
       guia_number: b.guia_number,
       length: b.length,
       width: b.width,
       height: b.height,
       weight: b.weight,
-    }));
-    const currentBoxesCompare = form.value.boxes.map(b => ({
-      id: b.id,
-      stripe_price_id: b.stripe_price_id,
-      guia_number: b.guia_number,
-      length: b.length,
-      width: b.width,
-      height: b.height,
-      weight: b.weight,
-    }));
+    });
+    const originalBoxesCompare = originalData.value.boxes.map(boxFingerprint);
+    const currentBoxesCompare = form.value.boxes.map(boxFingerprint);
     
     const boxesChanged = JSON.stringify(originalBoxesCompare) !== JSON.stringify(currentBoxesCompare) || hasGiaFiles;
 
