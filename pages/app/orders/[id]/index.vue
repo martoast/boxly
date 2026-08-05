@@ -179,12 +179,17 @@
                   </div>
                 </div>
 
-                <!-- Tracking & GIA Row -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t border-gray-100">
+                <!-- Tracking & GIA Row — only once there is something to show.
+                     Two "Pendiente" placeholders on every unshipped box is noise
+                     that reads like the page is broken. -->
+                <div
+                  v-if="box.guia_number || box.gia_url || box.gia_full_url"
+                  class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t border-gray-100"
+                >
                   <!-- Guia / Tracking -->
-                  <div>
+                  <div v-if="box.guia_number">
                     <p class="text-xs font-medium text-gray-500 mb-1.5">{{ t.trackingNumber }}</p>
-                    <div v-if="box.guia_number">
+                    <div>
                       <NuxtLink
                         :to="`/track?tracking_number=${box.guia_number}`"
                         target="_blank"
@@ -199,14 +204,12 @@
                         </svg>
                       </NuxtLink>
                     </div>
-                    <span v-else class="text-xs text-gray-400 italic">{{ t.pendingTracking }}</span>
                   </div>
 
                   <!-- GIA Document -->
-                  <div>
+                  <div v-if="box.gia_url || box.gia_full_url">
                     <p class="text-xs font-medium text-gray-500 mb-1.5">{{ t.giaDocument }}</p>
                     <a
-                      v-if="box.gia_url || box.gia_full_url"
                       :href="box.gia_url || box.gia_full_url"
                       target="_blank"
                       class="inline-flex items-center gap-2 px-3 py-2 bg-green-50 text-green-700 text-sm font-medium rounded-lg border border-green-200 hover:bg-green-100 transition-colors"
@@ -216,7 +219,6 @@
                       </svg>
                       {{ t.downloadGIA }}
                     </a>
-                    <span v-else class="text-xs text-gray-400 italic">{{ t.pendingGIA }}</span>
                   </div>
                 </div>
               </div>
@@ -540,10 +542,8 @@ const translations = {
   boxLabel: { es: "Caja", en: "Box" },
   trackingNumber: { es: "Número de Rastreo", en: "Tracking Number" },
   trackPackage: { es: "Rastrear Paquete", en: "Track Package" },
-  pendingTracking: { es: "Pendiente", en: "Pending" },
   giaDocument: { es: "Documento GIA", en: "GIA Document" },
   downloadGIA: { es: "Descargar PDF", en: "Download PDF" },
-  pendingGIA: { es: "Pendiente", en: "Pending" },
   // Payment
   paymentSummary: { es: "Resumen de Pago", en: "Payment Summary" },
   shippingCost: { es: "Costo de Envío", en: "Shipping Cost" },
