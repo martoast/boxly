@@ -29,10 +29,16 @@ export const useProtectionPrice = () => {
     if (loaded.value) return price.value
     try {
       const res = await $customFetch('/products')
-      const found = (res?.data || []).find((p: any) => p?.is_protection)
-      const amount = Number(found?.price)
-      if (Number.isFinite(amount) && amount > 0) {
-        price.value = amount
+      // The product carries several active prices — currently 200 MXN and an
+      // 11.6 USD one. Taking the first match rendered the USD figure under a
+      // hardcoded "MXN" label. This page quotes pesos, so only pesos qualify.
+      const mxn = (res?.data || [])
+        .filter((p: any) => p?.is_protection && String(p?.currency).toUpperCase() === 'MXN')
+        .map((p: any) => Number(p?.price))
+        .filter((n: number) => Number.isFinite(n) && n > 0)
+      // Highest is the list price, the same rule the box price table follows.
+      if (mxn.length) {
+        price.value = Math.max(...mxn)
         loaded.value = true
       }
     } catch {
