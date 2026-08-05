@@ -387,6 +387,28 @@
     },
     // Liability FAQs
     {
+      id: 16,
+      category: "liability",
+      question: {
+        es: "¿Qué es Boxly Protection y qué cubre?",
+        en: "What is Boxly Protection and what does it cover?",
+      },
+      answer: {
+        es: [
+          "Boxly Protection es una protección opcional que se agrega por caja al momento de armar tu envío. Si la caja sufre robo, pérdida o daño verificados, te reembolsamos el valor de compra documentado de los artículos afectados, hasta $10,000 MXN por caja protegida.",
+          "Se contrata caja por caja, así que puedes proteger solo el envío que lo necesita. El costo aparece como una línea aparte en la factura de tu orden y en el correo de confirmación.",
+          "No es un seguro ni está respaldado por una aseguradora: es un compromiso comercial directo de Boxly. Para reclamar necesitas avisarnos dentro de los 5 días naturales posteriores a la entrega, tu comprobante de compra y evidencia fotográfica de la caja y su contenido. Conserva el empaque hasta que se resuelva.",
+          "No cubre artículos prohibidos o restringidos, mercancía declarada por debajo de su valor real, daños por empaque deficiente del vendedor original, ni daños indirectos como lucro cesante. Los detalles completos están en la sección 7.1 de los Términos de Servicio.",
+        ],
+        en: [
+          "Boxly Protection is optional protection added per box when your shipment is put together. If the box suffers verified theft, loss, or damage, we reimburse the documented purchase value of the affected items, up to $10,000 MXN per protected box.",
+          "It is contracted box by box, so you can protect only the shipment that needs it. The cost appears as a separate line on your order invoice and in the confirmation email.",
+          "It is not insurance and is not underwritten by an insurer: it is a direct commercial commitment from Boxly. To claim, you must notify us within 5 calendar days of delivery, and provide your proof of purchase and photographic evidence of the box and its contents. Keep the packaging until the claim is resolved.",
+          "It does not cover prohibited or restricted items, goods declared below their actual value, damage from inadequate packaging by the original seller, or indirect damages such as lost profit. Full details are in section 7.1 of the Terms of Service.",
+        ],
+      },
+    },
+    {
       id: 14,
       category: "liability",
       question: {
@@ -396,17 +418,17 @@
       answer: {
         es: [
           "BOXLY actúa exclusivamente como intermediario logístico y no como transportista ni aseguradora.",
-          "BOXLY no ofrece seguro directo sobre los envíos. El cliente puede contratar un seguro adicional directamente con la paquetería correspondiente (como DHL o Estafeta), sujeto a los términos y condiciones de dicha paquetería.",
+          "BOXLY no ofrece seguro. Ofrecemos Boxly Protection, una protección opcional que se contrata por caja y reembolsa el valor documentado de la mercancía en caso de robo, pérdida o daño verificados. El cliente también puede contratar un seguro adicional directamente con la paquetería correspondiente (como DHL o Estafeta), sujeto a los términos de dicha paquetería.",
           "Una vez que el paquete es entregado a la paquetería para su envío, la responsabilidad sobre el transporte, manejo y entrega recae exclusivamente en la paquetería seleccionada.",
           "En caso de daño, pérdida o retraso, BOXLY podrá brindar apoyo administrativo en el proceso de seguimiento o reclamación; sin embargo, la resolución, tiempos de respuesta y cualquier compensación dependerán exclusivamente de la paquetería o aseguradora.",
-          "En caso de no contar con seguro, el cliente asume el riesgo total del envío. BOXLY no será responsable por pérdidas, daños o incidencias ocurridas durante el transporte.",
+          "Sin Boxly Protection ni seguro de la paquetería, el cliente asume el riesgo total del envío. BOXLY no será responsable por pérdidas, daños o incidencias ocurridas durante el transporte.",
         ],
         en: [
           "BOXLY acts exclusively as a logistics intermediary and not as a carrier or insurer.",
-          "BOXLY does not offer direct insurance on shipments. The customer may purchase additional insurance directly with the corresponding carrier (such as DHL or Estafeta), subject to that carrier's terms and conditions.",
+          "BOXLY does not offer insurance. We offer Boxly Protection, an optional protection contracted per box that reimburses the documented value of goods in the event of verified theft, loss, or damage. The customer may also purchase additional insurance directly with the corresponding carrier (such as DHL or Estafeta), subject to that carrier's terms.",
           "Once the package is handed to the carrier for shipment, responsibility for transport, handling, and delivery falls exclusively on the selected carrier.",
           "In case of damage, loss, or delay, BOXLY may provide administrative support in the tracking or claims process; however, resolution, response times, and any compensation will depend exclusively on the carrier or insurer.",
-          "In the absence of insurance, the customer assumes the full risk of the shipment. BOXLY will not be responsible for losses, damages, or incidents occurring during transport.",
+          "Without Boxly Protection or carrier insurance, the customer assumes the full risk of the shipment. BOXLY will not be responsible for losses, damages, or incidents occurring during transport.",
         ],
       },
     },

@@ -196,6 +196,24 @@
                         </div>
                       </div>
                       <p class="text-xs text-gray-400">{{ t.dimensionsHelp }}</p>
+
+                      <!-- Boxly Protection — per box, priced live from Stripe -->
+                      <label
+                        v-if="protectionProduct"
+                        class="flex items-center gap-2.5 pt-1 cursor-pointer select-none"
+                      >
+                        <input
+                          type="checkbox"
+                          v-model="box.has_protection"
+                          class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                        />
+                        <span class="text-sm text-gray-700">
+                          🛡️ {{ t.protection }}
+                          <span class="text-gray-500">
+                            +${{ protectionProduct.price }} {{ protectionProduct.currency }}{{ (box.quantity || 1) > 1 ? ` × ${box.quantity}` : '' }}
+                          </span>
+                        </span>
+                      </label>
                     </div>
                   </div>
 
@@ -205,9 +223,16 @@
                       <span class="text-gray-600">{{ t.totalBoxPrice }}:</span>
                       <span class="font-semibold text-gray-900">${{ totalBoxPrice.toFixed(2) }} MXN</span>
                     </div>
-                    <div class="flex justify-between text-sm mt-1">
+                    <div v-if="protectionTotal > 0" class="flex justify-between text-sm mt-1">
+                      <span class="text-gray-600">
+                        🛡️ {{ t.protection }}
+                        <span class="text-gray-400">({{ protectedBoxCount }} {{ protectedBoxCount === 1 ? t.boxWord : t.boxesWord }})</span>:
+                      </span>
+                      <span class="font-semibold text-gray-900">${{ protectionTotal.toFixed(2) }} MXN</span>
+                    </div>
+                    <div class="flex justify-between text-sm mt-1 pt-1 border-t border-purple-200">
                       <span class="text-purple-700 font-medium">{{ t.invoiceAmount }} (100%):</span>
-                      <span class="font-bold text-purple-700">${{ totalBoxPrice.toFixed(2) }} MXN</span>
+                      <span class="font-bold text-purple-700">${{ orderTotal.toFixed(2) }} MXN</span>
                     </div>
                   </div>
                 </div>
@@ -405,8 +430,13 @@ const processing = ref(false)
 const loadingProducts = ref(false)
 const products = ref([])
 
+const blankBox = () => ({
+  stripe_price_id: '', quantity: 1, has_protection: false,
+  length: null, width: null, height: null, weight: null,
+})
+
 const form = ref({
-  boxes: [{ stripe_price_id: '', quantity: 1, length: null, width: null, height: null, weight: null }],
+  boxes: [blankBox()],
   payment_method: 'stripe',
   planned_ship_date: '',
 })
@@ -434,6 +464,9 @@ const translations = {
   loadingProducts: { es: 'Cargando productos...', en: 'Loading products...' },
   noShippingProducts: { es: 'No hay productos de envío disponibles', en: 'No shipping products available' },
   totalBoxPrice: { es: 'Precio Total de Cajas', en: 'Total Box Price' },
+  protection: { es: 'Boxly Protection', en: 'Boxly Protection' },
+  boxWord: { es: 'caja', en: 'box' },
+  boxesWord: { es: 'cajas', en: 'boxes' },
   invoiceAmount: { es: 'Monto a Pagar', en: 'Amount Due' },
   shipDate: { es: 'Fecha de Envío', en: 'Ship Date' },
   shipDateHelp: { es: 'Día en que se enviará la caja. Aparecerá en el Tablero de Operaciones.', en: 'Day the box will ship. Appears on the Operations Board.' },
@@ -475,12 +508,13 @@ watch(() => props.show, (newVal) => {
         ? existing.map(b => ({
             stripe_price_id: b.stripe_price_id || '',
             quantity: b.quantity || 1,
+            has_protection: !!b.has_protection,
             length: b.length != null ? Number(b.length) : null,
             width: b.width != null ? Number(b.width) : null,
             height: b.height != null ? Number(b.height) : null,
             weight: b.weight != null ? Number(b.weight) : null,
           }))
-        : [{ stripe_price_id: '', quantity: 1, length: null, width: null, height: null, weight: null }],
+        : [blankBox()],
       payment_method: 'stripe',
       planned_ship_date: props.defaultShipDate || (props.order?.planned_ship_date || '').slice(0, 10),
     }
@@ -498,6 +532,19 @@ const totalBoxPrice = computed(() => {
   }, 0)
 })
 
+// Boxly Protection, priced live from Stripe like every box price.
+const protectionProduct = computed(() => products.value.find(p => p.is_protection))
+
+const protectedBoxCount = computed(() =>
+  form.value.boxes.reduce((n, box) => n + (box.has_protection ? (box.quantity || 1) : 0), 0)
+)
+
+const protectionTotal = computed(() =>
+  protectedBoxCount.value * (protectionProduct.value?.price || 0)
+)
+
+const orderTotal = computed(() => totalBoxPrice.value + protectionTotal.value)
+
 const isValid = computed(() => {
   const hasValidBoxes = form.value.boxes.every(box => box.stripe_price_id && box.quantity >= 1)
   const hasAtLeastOneBox = form.value.boxes.length > 0
@@ -506,7 +553,7 @@ const isValid = computed(() => {
 })
 
 const addBox = () => {
-  form.value.boxes.push({ stripe_price_id: '', quantity: 1, length: null, width: null, height: null, weight: null })
+  form.value.boxes.push(blankBox())
 }
 
 const removeBox = (index) => {

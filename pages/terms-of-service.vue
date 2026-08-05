@@ -142,6 +142,31 @@
             </ul>
           </section>
 
+          <!-- Section 7.1: Boxly Protection (optional paid add-on) -->
+          <section>
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">
+              7.1 {{ t.protectionTitle }}
+            </h2>
+            <p class="mb-4">{{ t.protectionText }}</p>
+            <ul class="list-disc pl-6 space-y-2">
+              <li>{{ t.protectionItem1 }}</li>
+              <li>{{ t.protectionItem2 }}</li>
+              <li>{{ t.protectionItem3 }}</li>
+              <li>{{ t.protectionItem4 }}</li>
+              <li>{{ t.protectionItem5 }}</li>
+              <li>{{ t.protectionItem6 }}</li>
+            </ul>
+            <p class="mt-4 mb-2 font-semibold text-gray-900">{{ t.protectionExclusionsTitle }}</p>
+            <ul class="list-disc pl-6 space-y-2">
+              <li>{{ t.protectionExclusion1 }}</li>
+              <li>{{ t.protectionExclusion2 }}</li>
+              <li>{{ t.protectionExclusion3 }}</li>
+              <li>{{ t.protectionExclusion4 }}</li>
+              <li>{{ t.protectionExclusion5 }}</li>
+            </ul>
+            <p class="mt-4 text-sm italic">{{ t.protectionNote }}</p>
+          </section>
+
           <!-- Section 8: Customs and Import Regulations -->
           <section>
             <h2 class="text-xl font-semibold text-gray-900 mb-4">
@@ -593,8 +618,68 @@ const translations = {
     en: "BOXLY does not offer delivery guarantees, transit times, or service outcome guarantees, as these may be affected by external factors such as customs processes, inspections, logistics delays, or causes beyond its control",
   },
   liabilityItem4: {
-    es: "BOXLY no incluye seguro en sus servicios. El cliente podrá contratar cobertura adicional directamente con la paquetería correspondiente (como DHL o Estafeta), bajo sus propios términos y condiciones",
-    en: "BOXLY does not include insurance in its services. The customer may purchase additional coverage directly with the corresponding carrier (such as DHL or Estafeta), under their own terms and conditions",
+    es: "El servicio no incluye cobertura por defecto. El cliente puede contratar Boxly Protection por caja (sección 7.1), y/o cobertura adicional directamente con la paquetería correspondiente (como DHL o Estafeta), bajo sus propios términos y condiciones",
+    en: "The service does not include coverage by default. The customer may purchase Boxly Protection per box (section 7.1), and/or additional coverage directly with the corresponding carrier (such as DHL or Estafeta), under their own terms and conditions",
+  },
+  protectionTitle: {
+    es: "Boxly Protection (protección opcional)",
+    en: "Boxly Protection (optional protection)",
+  },
+  protectionText: {
+    es: "Boxly Protection es un servicio opcional que se contrata por caja y reembolsa el valor documentado de la mercancía en caso de robo, pérdida o daño verificados. No es un seguro ni está respaldado por una institución aseguradora: es un compromiso comercial directo de Boxly USA LLC, sujeto a los términos de esta sección.",
+    en: "Boxly Protection is an optional service contracted per box that reimburses the documented value of goods in the event of verified theft, loss, or damage. It is not insurance and is not underwritten by an insurance institution: it is a direct commercial commitment from Boxly USA LLC, subject to the terms in this section.",
+  },
+  protectionItem1: {
+    es: "Es opcional y se aplica por caja. Solo quedan cubiertas las cajas marcadas expresamente como protegidas en la orden y pagadas en la factura correspondiente. Las cajas sin Boxly Protection no tienen cobertura alguna",
+    en: "It is optional and applies per box. Only boxes expressly marked as protected on the order and paid for on the corresponding invoice are covered. Boxes without Boxly Protection have no coverage whatsoever",
+  },
+  protectionItem2: {
+    es: "El reembolso máximo es de $10,000 MXN por caja protegida, y nunca excede el valor de compra documentado de los artículos afectados. Si el valor documentado es menor al tope, se reembolsa el valor documentado",
+    en: "The maximum reimbursement is $10,000 MXN per protected box, and never exceeds the documented purchase value of the affected items. If the documented value is lower than the cap, the documented value is reimbursed",
+  },
+  protectionItem3: {
+    es: "Cubre robo, pérdida o daño verificados ocurridos mientras la caja está bajo custodia de BOXLY o en tránsito coordinado por BOXLY",
+    en: "It covers verified theft, loss, or damage occurring while the box is in BOXLY's custody or in transit coordinated by BOXLY",
+  },
+  protectionItem4: {
+    es: "Para presentar una reclamación, el cliente debe notificar a BOXLY dentro de los 5 días naturales posteriores a la entrega (o a la fecha estimada de entrega, en caso de pérdida)",
+    en: "To file a claim, the customer must notify BOXLY within 5 calendar days of delivery (or of the estimated delivery date, in the case of loss)",
+  },
+  protectionItem5: {
+    es: "La reclamación requiere: comprobante de compra que muestre el monto pagado, el valor declarado registrado en la orden, y evidencia fotográfica de la caja y su contenido cuando se alegue daño o manipulación. El cliente debe conservar el empaque hasta que la reclamación se resuelva",
+    en: "A claim requires: proof of purchase showing the amount paid, the declared value recorded on the order, and photographic evidence of the box and its contents where damage or tampering is alleged. The customer must keep the packaging until the claim is resolved",
+  },
+  protectionItem6: {
+    es: "El reembolso se realiza en pesos mexicanos y cubre únicamente el valor de la mercancía. No incluye el costo del envío, impuestos, IVA ni la tarifa de Boxly Protection. La tarifa no es reembolsable una vez que la caja ha sido enviada",
+    en: "Reimbursement is made in Mexican pesos and covers only the value of the goods. It does not include shipping cost, duties, VAT, or the Boxly Protection fee itself. The fee is non-refundable once the box has shipped",
+  },
+  protectionExclusionsTitle: {
+    es: "Boxly Protection no cubre:",
+    en: "Boxly Protection does not cover:",
+  },
+  protectionExclusion1: {
+    es: "Artículos prohibidos o restringidos según la sección 6 de estos Términos",
+    en: "Prohibited or restricted items under section 6 of these Terms",
+  },
+  protectionExclusion2: {
+    es: "Artículos cuyo valor fue declarado por debajo de su valor real de compra",
+    en: "Items whose value was declared below their actual purchase value",
+  },
+  protectionExclusion3: {
+    es: "Daños derivados del empaque deficiente del vendedor original, defectos de fábrica o desgaste normal",
+    en: "Damage resulting from inadequate packaging by the original seller, manufacturing defects, or normal wear",
+  },
+  protectionExclusion4: {
+    es: "Daños indirectos o consecuenciales, incluyendo lucro cesante, pérdida de oportunidad o perjuicios por retrasos",
+    en: "Indirect or consequential damages, including lost profit, lost opportunity, or losses caused by delays",
+  },
+  protectionExclusion5: {
+    es: "Reclamaciones sin comprobante de compra, presentadas fuera del plazo de 5 días, o sobre contenido que nunca fue declarado en la orden",
+    en: "Claims without proof of purchase, filed outside the 5-day window, or concerning contents that were never declared on the order",
+  },
+  protectionNote: {
+    es: "La tarifa de Boxly Protection es la vigente al momento de contratarla y se muestra en la factura de la orden. BOXLY puede modificarla para órdenes futuras sin afectar las ya facturadas.",
+    en: "The Boxly Protection fee is the one in effect at the time of purchase and is shown on the order invoice. BOXLY may change it for future orders without affecting those already invoiced.",
   },
   customsTitle: {
     es: "Aduanas y Regulaciones de Importación",

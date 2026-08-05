@@ -26,6 +26,9 @@
     <!-- Box price table (reuses the landing pricing component) -->
     <BoxPricing />
 
+    <!-- Optional per-box theft/damage protection -->
+    <ProtectionCard />
+
     <!-- Funnel CTA — the whole pipeline: search with the AI or create an account -->
     <section class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-16 pt-4">
       <div class="bg-gradient-to-br from-primary-600 to-primary-500 text-white rounded-3xl p-8 sm:p-10 text-center shadow-xl">
@@ -49,6 +52,7 @@
 
 <script setup>
 import BoxPricing from '~/components/BoxPricing.vue'
+import ProtectionCard from '~/components/ProtectionCard.vue'
 import FooterSection from '~/components/Landing/FooterSection.vue'
 
 const { t: createTranslations } = useLanguage()
