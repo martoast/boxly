@@ -203,14 +203,14 @@
           "BOXLY se compromete a manejar los paquetes con cuidado razonable durante su recepción y proceso de consolidación en sus instalaciones. Sin embargo, BOXLY no garantiza la integridad absoluta del contenido, ni asume responsabilidad por daños, faltantes o incidencias derivadas de empaques deficientes por parte del proveedor o condiciones previas a la recepción.",
           "Una vez que los envíos son entregados a terceros para su cruce, transporte o entrega (incluyendo paqueterías y proveedores logísticos), la responsabilidad recae exclusivamente en dichos terceros.",
           "BOXLY no ofrece garantías de entrega, tiempos de tránsito ni resultados del servicio, ya que estos pueden verse afectados por factores externos como procesos aduanales, inspecciones, retrasos logísticos o causas fuera de su control.",
-          "BOXLY no incluye seguro en sus servicios. El cliente podrá contratar cobertura adicional directamente con la paquetería correspondiente (como DHL o Estafeta), bajo sus propios términos y condiciones.",
+          "El servicio no incluye cobertura por defecto. El cliente puede contratar Boxly Protection por caja, y/o cobertura adicional directamente con la paquetería correspondiente (como FedEx), bajo sus propios términos y condiciones.",
         ],
         en: [
           "BOXLY offers a reception, consolidation, and international shipping logistics coordination service.",
           "BOXLY commits to handling packages with reasonable care during their reception and consolidation process at its facilities. However, BOXLY does not guarantee the absolute integrity of contents, nor assumes responsibility for damage, shortages, or incidents resulting from inadequate packaging by the supplier or conditions prior to reception.",
           "Once shipments are handed to third parties for crossing, transport, or delivery (including carriers and logistics providers), responsibility falls exclusively on those third parties.",
           "BOXLY does not offer delivery guarantees, transit times, or service outcome guarantees, as these may be affected by external factors such as customs processes, inspections, logistics delays, or causes beyond its control.",
-          "BOXLY does not include insurance in its services. The customer may purchase additional coverage directly with the corresponding carrier (such as DHL or Estafeta), under their own terms and conditions.",
+          "The service does not include coverage by default. The customer may purchase Boxly Protection per box, and/or additional coverage directly with the corresponding carrier (such as FedEx), under their own terms and conditions.",
         ],
       },
     },
@@ -418,14 +418,14 @@
       answer: {
         es: [
           "BOXLY actúa exclusivamente como intermediario logístico y no como transportista ni aseguradora.",
-          "BOXLY no ofrece seguro. Ofrecemos Boxly Protection, una protección opcional que se contrata por caja y reembolsa el valor documentado de la mercancía en caso de robo, pérdida o daño verificados. El cliente también puede contratar un seguro adicional directamente con la paquetería correspondiente (como DHL o Estafeta), sujeto a los términos de dicha paquetería.",
+          "BOXLY no ofrece seguro. Ofrecemos Boxly Protection, una protección opcional que se contrata por caja y reembolsa el valor documentado de la mercancía en caso de robo, pérdida o daño verificados. El cliente también puede contratar un seguro adicional directamente con la paquetería correspondiente (como FedEx), sujeto a los términos de dicha paquetería.",
           "Una vez que el paquete es entregado a la paquetería para su envío, la responsabilidad sobre el transporte, manejo y entrega recae exclusivamente en la paquetería seleccionada.",
           "En caso de daño, pérdida o retraso, BOXLY podrá brindar apoyo administrativo en el proceso de seguimiento o reclamación; sin embargo, la resolución, tiempos de respuesta y cualquier compensación dependerán exclusivamente de la paquetería o aseguradora.",
           "Sin Boxly Protection ni seguro de la paquetería, el cliente asume el riesgo total del envío. BOXLY no será responsable por pérdidas, daños o incidencias ocurridas durante el transporte.",
         ],
         en: [
           "BOXLY acts exclusively as a logistics intermediary and not as a carrier or insurer.",
-          "BOXLY does not offer insurance. We offer Boxly Protection, an optional protection contracted per box that reimburses the documented value of goods in the event of verified theft, loss, or damage. The customer may also purchase additional insurance directly with the corresponding carrier (such as DHL or Estafeta), subject to that carrier's terms.",
+          "BOXLY does not offer insurance. We offer Boxly Protection, an optional protection contracted per box that reimburses the documented value of goods in the event of verified theft, loss, or damage. The customer may also purchase additional insurance directly with the corresponding carrier (such as FedEx), subject to that carrier's terms.",
           "Once the package is handed to the carrier for shipment, responsibility for transport, handling, and delivery falls exclusively on the selected carrier.",
           "In case of damage, loss, or delay, BOXLY may provide administrative support in the tracking or claims process; however, resolution, response times, and any compensation will depend exclusively on the carrier or insurer.",
           "Without Boxly Protection or carrier insurance, the customer assumes the full risk of the shipment. BOXLY will not be responsible for losses, damages, or incidents occurring during transport.",

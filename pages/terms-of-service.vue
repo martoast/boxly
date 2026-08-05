@@ -458,8 +458,8 @@ const translations = {
     en: "Full payment (100%) of the total cost is required before your package is processed and shipped",
   },
   pricingItem5: {
-    es: "El pago cubre los costos de consolidación, documentación aduanal y envío nacional vía Estafeta o DHL",
-    en: "Payment covers consolidation, customs documentation, and domestic shipping via Estafeta or DHL",
+    es: "El pago cubre los costos de consolidación, documentación aduanal y envío nacional vía FedEx",
+    en: "Payment covers consolidation, customs documentation, and domestic shipping via FedEx",
   },
   pricingItem6: {
     es: "Una vez realizado el pago y generada la guía de envío, no se aceptan reembolsos",
@@ -474,8 +474,8 @@ const translations = {
     en: "Important Note:",
   },
   depositNote: {
-    es: "El pago completo del 100% es obligatorio antes de procesar y enviar su paquete. Este pago no es reembolsable una vez que el envío ha sido procesado y se ha generado la guía de Estafeta o DHL. El pago cubre consolidación, documentación aduanal, cruce de frontera por Tijuana, y envío nacional.",
-    en: "Full 100% payment is mandatory before processing and shipping your package. This payment is non-refundable once the shipment has been processed and the Estafeta or DHL tracking number has been generated. Payment covers consolidation, customs documentation, border crossing through Tijuana, and domestic shipping.",
+    es: "El pago completo del 100% es obligatorio antes de procesar y enviar su paquete. Este pago no es reembolsable una vez que el envío ha sido procesado y se ha generado la guía de FedEx. El pago cubre consolidación, documentación aduanal, cruce de frontera por Tijuana, y envío nacional.",
+    en: "Full 100% payment is mandatory before processing and shipping your package. This payment is non-refundable once the shipment has been processed and the FedEx tracking number has been generated. Payment covers consolidation, customs documentation, border crossing through Tijuana, and domestic shipping.",
   },
   ivaNote: {
     es: "Todos los precios están sujetos a IVA (Impuesto al Valor Agregado) del 16% según lo establecido por las leyes fiscales mexicanas. El IVA se agregará al costo total del servicio y se reflejará en su factura final.",
@@ -490,28 +490,28 @@ const translations = {
     en: "Shipping and delivery terms:",
   },
   shippingItem1: {
-    es: "Los tiempos de entrega estimados son de 3-5 días hábiles desde que se procesa su envío a través de Estafeta o DHL",
-    en: "Estimated delivery times are 3-5 business days from when your shipment is processed via Estafeta or DHL",
+    es: "Los tiempos de entrega estimados son de 3-5 días hábiles desde que se procesa su envío a través de FedEx",
+    en: "Estimated delivery times are 3-5 business days from when your shipment is processed via FedEx",
   },
   shippingItem2: {
-    es: "Boxly actúa como intermediario de envío y utiliza Estafeta o DHL como transportistas. Una vez que Boxly genera y proporciona el número de guía (tracking), y el paquete es entregado al transportista, cualquier retraso, pérdida, daño o problema de entrega es responsabilidad exclusiva del transportista (Estafeta o DHL). Boxly NO es responsable por paquetes perdidos, dañados o retrasados una vez entregados al transportista.",
-    en: "Boxly acts as a shipping intermediary and uses Estafeta or DHL as carriers. Once Boxly generates and provides the tracking number (guía), and the package is handed to the carrier, any delays, loss, damage, or delivery issues are the sole responsibility of the carrier (Estafeta or DHL). Boxly is NOT responsible for packages lost, damaged, or delayed once handed to the carrier.",
+    es: "Boxly actúa como intermediario de envío y utiliza FedEx como transportista. Una vez que Boxly genera y proporciona el número de guía (tracking), y el paquete es entregado al transportista, cualquier retraso, pérdida, daño o problema de entrega es responsabilidad exclusiva del transportista (FedEx). Boxly NO es responsable por paquetes perdidos, dañados o retrasados una vez entregados al transportista.",
+    en: "Boxly acts as a shipping intermediary and uses FedEx as its carrier. Once Boxly generates and provides the tracking number (guía), and the package is handed to the carrier, any delays, loss, damage, or delivery issues are the sole responsibility of the carrier (FedEx). Boxly is NOT responsible for packages lost, damaged, or delayed once handed to the carrier.",
   },
   shippingItem3: {
-    es: "Usted es responsable de proporcionar una dirección de entrega completa, precisa y válida en México. Boxly y el transportista (Estafeta/DHL) no son responsables de entregas fallidas debido a direcciones incorrectas, incompletas o inválidas proporcionadas por el cliente",
-    en: "You are responsible for providing a complete, accurate, and valid delivery address in Mexico. Boxly and the carrier (Estafeta/DHL) are not responsible for failed deliveries due to incorrect, incomplete, or invalid addresses provided by the customer",
+    es: "Usted es responsable de proporcionar una dirección de entrega completa, precisa y válida en México. Boxly y el transportista (FedEx) no son responsables de entregas fallidas debido a direcciones incorrectas, incompletas o inválidas proporcionadas por el cliente",
+    en: "You are responsible for providing a complete, accurate, and valid delivery address in Mexico. Boxly and the carrier (FedEx) are not responsible for failed deliveries due to incorrect, incomplete, or invalid addresses provided by the customer",
   },
   shippingItem4: {
     es: "Boxly no es responsable de retrasos causados por aduanas, condiciones climáticas, desastres naturales, huelgas, pandemias, restricciones gubernamentales, o cualquier otra circunstancia de fuerza mayor fuera de nuestro control",
     en: "Boxly is not responsible for delays caused by customs, weather conditions, natural disasters, strikes, pandemics, government restrictions, or any other force majeure circumstances beyond our control",
   },
   shippingItem5: {
-    es: "Una vez que el transportista (Estafeta/DHL) marca su paquete como 'entregado', Boxly no tiene responsabilidad sobre reclamos de no recepción. Cualquier disputa de entrega debe manejarse directamente con el transportista",
-    en: "Once the carrier (Estafeta/DHL) marks your package as 'delivered', Boxly has no liability for claims of non-receipt. Any delivery disputes must be handled directly with the carrier",
+    es: "Una vez que el transportista (FedEx) marca su paquete como 'entregado', Boxly no tiene responsabilidad sobre reclamos de no recepción. Cualquier disputa de entrega debe manejarse directamente con el transportista",
+    en: "Once the carrier (FedEx) marks your package as 'delivered', Boxly has no liability for claims of non-receipt. Any delivery disputes must be handled directly with the carrier",
   },
   shippingItem6: {
-    es: "Boxly proporcionará el número de guía (tracking) de Estafeta o DHL una vez que el paquete sea enviado. Es su responsabilidad rastrear su paquete y estar disponible para recibirlo",
-    en: "Boxly will provide the Estafeta or DHL tracking number (guía) once the package is shipped. It is your responsibility to track your package and be available to receive it",
+    es: "Boxly proporcionará el número de guía (tracking) de FedEx una vez que el paquete sea enviado. Es su responsabilidad rastrear su paquete y estar disponible para recibirlo",
+    en: "Boxly will provide the FedEx tracking number (guía) once the package is shipped. It is your responsibility to track your package and be available to receive it",
   },
   shippingItem7: {
     es: "Si el transportista no puede entregar su paquete debido a dirección incorrecta, ausencia del destinatario, o rechazo de entrega, usted será responsable de cualquier cargo adicional de reenvío o almacenamiento",
@@ -534,8 +534,8 @@ const translations = {
     en: "BOXLY acts exclusively as a logistics intermediary and not as a carrier or insurer",
   },
   carrierClaimsItem2: {
-    es: "BOXLY no ofrece seguro directo sobre los envíos. El cliente puede contratar un seguro adicional directamente con la paquetería correspondiente (como DHL o Estafeta), sujeto a los términos y condiciones de dicha paquetería",
-    en: "BOXLY does not offer direct insurance on shipments. The customer may purchase additional insurance directly with the corresponding carrier (such as DHL or Estafeta), subject to that carrier's terms and conditions",
+    es: "BOXLY no ofrece seguro directo sobre los envíos. El cliente puede contratar un seguro adicional directamente con la paquetería correspondiente (como FedEx), sujeto a los términos y condiciones de dicha paquetería",
+    en: "BOXLY does not offer direct insurance on shipments. The customer may purchase additional insurance directly with the corresponding carrier (such as FedEx), subject to that carrier's terms and conditions",
   },
   carrierClaimsItem3: {
     es: "Una vez que el paquete es entregado a la paquetería para su envío, la responsabilidad sobre el transporte, manejo y entrega recae exclusivamente en la paquetería seleccionada",
@@ -618,8 +618,8 @@ const translations = {
     en: "BOXLY does not offer delivery guarantees, transit times, or service outcome guarantees, as these may be affected by external factors such as customs processes, inspections, logistics delays, or causes beyond its control",
   },
   liabilityItem4: {
-    es: "El servicio no incluye cobertura por defecto. El cliente puede contratar Boxly Protection por caja (sección 7.1), y/o cobertura adicional directamente con la paquetería correspondiente (como DHL o Estafeta), bajo sus propios términos y condiciones",
-    en: "The service does not include coverage by default. The customer may purchase Boxly Protection per box (section 7.1), and/or additional coverage directly with the corresponding carrier (such as DHL or Estafeta), under their own terms and conditions",
+    es: "El servicio no incluye cobertura por defecto. El cliente puede contratar Boxly Protection por caja (sección 7.1), y/o cobertura adicional directamente con la paquetería correspondiente (como FedEx), bajo sus propios términos y condiciones",
+    en: "The service does not include coverage by default. The customer may purchase Boxly Protection per box (section 7.1), and/or additional coverage directly with the corresponding carrier (such as FedEx), under their own terms and conditions",
   },
   protectionTitle: {
     es: "Boxly Protection (protección opcional)",
@@ -726,8 +726,8 @@ const translations = {
     en: "You may cancel a shipping order ONLY before payment is processed and the shipping label is generated",
   },
   cancellationItem2: {
-    es: "Una vez que se ha realizado el pago y se ha generado la guía (tracking) de Estafeta o DHL, NO se pueden realizar reembolsos bajo ninguna circunstancia",
-    en: "Once payment has been made and the Estafeta or DHL tracking number (guía) has been generated, NO refunds can be made under any circumstances",
+    es: "Una vez que se ha realizado el pago y se ha generado la guía (tracking) de FedEx, NO se pueden realizar reembolsos bajo ninguna circunstancia",
+    en: "Once payment has been made and the FedEx tracking number (guía) has been generated, NO refunds can be made under any circumstances",
   },
   cancellationItem3: {
     es: "Los reembolsos solo aplican para órdenes canceladas antes del procesamiento del pago y se procesarán dentro de 7-10 días hábiles",

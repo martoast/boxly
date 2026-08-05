@@ -181,7 +181,7 @@ const generateMessage = () => {
   const phone = props.order?.user?.phone || ''
   const address = getFullAddress()
   const boxDetails = getBoxDetails()
-  const shipping = shippingType.value === 'air' ? 'Avión Estafeta' : 'Terrestre Estafeta'
+  const shipping = shippingType.value === 'air' ? 'Avión FedEx' : 'Terrestre FedEx'
 
   let message = `Nombre: ${name}\n`
   if (phone) message += `    •    Teléfono: ${phone}\n`
