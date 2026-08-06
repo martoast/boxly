@@ -707,7 +707,7 @@ const goToPreviousStep = () => {
 const goToNextStep = async () => {
   // Final phone validation before moving to step 2
   if (currentStep.value === 1) {
-    if (phoneInputRef.value && !phoneInputRef.value.validate()) {
+    if (phoneInputRef.value && !(await phoneInputRef.value.validate())) {
       return
     }
   }
@@ -737,7 +737,7 @@ const handleNext = async () => {
 
 const handleRegister = async () => {
   // Final phone validation before submit
-  if (phoneInputRef.value && !phoneInputRef.value.validate()) {
+  if (phoneInputRef.value && !(await phoneInputRef.value.validate())) {
     return
   }
 

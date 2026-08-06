@@ -365,7 +365,7 @@ const translations = {
 const t = createTranslations(translations)
 
 // Phone validation and formatting
-const validatePhone = () => {
+const validatePhone = async () => {
   if (!phoneInput.value.trim()) {
     phoneValidationState.value = 'neutral'
     phoneErrorMessage.value = ''
@@ -380,22 +380,22 @@ const validatePhone = () => {
     // If phone doesn't start with +, try adding default country code (MX)
     if (!phoneToValidate.startsWith('+')) {
       // Try parsing with MX as default country
-      if ($phone.isValid(phoneToValidate, 'MX')) {
-        const phoneNumber = $phone.parse(phoneToValidate, 'MX')
+      if (await $phone.isValid(phoneToValidate, 'MX')) {
+        const phoneNumber = await $phone.parse(phoneToValidate, 'MX')
         form.value.phone = phoneNumber.format('E.164')
         formattedPhoneDisplay.value = phoneNumber.formatInternational()
         phoneValidationState.value = 'valid'
         phoneErrorMessage.value = ''
         return true
       }
-      
+
       // If still invalid, try adding + and parsing again
       phoneToValidate = '+' + phoneToValidate.replace(/\D/g, '')
     }
-    
+
     // Validate the phone number
-    if ($phone.isValid(phoneToValidate)) {
-      const phoneNumber = $phone.parse(phoneToValidate)
+    if (await $phone.isValid(phoneToValidate)) {
+      const phoneNumber = await $phone.parse(phoneToValidate)
       form.value.phone = phoneNumber.format('E.164')
       formattedPhoneDisplay.value = phoneNumber.formatInternational()
       phoneValidationState.value = 'valid'
@@ -473,7 +473,7 @@ const clearErrors = () => {
 
 const handleSubmit = async () => {
   // Final phone validation before submit (if phone is provided)
-  if (phoneInput.value && !validatePhone()) {
+  if (phoneInput.value && !(await validatePhone())) {
     phoneValidationState.value = 'invalid'
     phoneErrorMessage.value = t.value.phoneInvalid
     return

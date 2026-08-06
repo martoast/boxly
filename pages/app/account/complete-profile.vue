@@ -263,7 +263,7 @@ const clearErrors = () => {
 
 const handleSubmit = async () => {
   // Trigger validation on the phone component
-  if (phoneInputRef.value && !phoneInputRef.value.validate()) {
+  if (phoneInputRef.value && !(await phoneInputRef.value.validate())) {
     return;
   }
 

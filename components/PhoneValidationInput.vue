@@ -142,7 +142,7 @@
   }, { immediate: true })
   
   // 🔥 Phone validation WITHOUT auto-country assumption
-  const validatePhone = () => {
+  const validatePhone = async () => {
     if (!phoneInput.value.trim()) {
       validationState.value = 'neutral'
       errorMessage.value = ''
@@ -152,10 +152,10 @@
       emit('validation-change', { isValid: false, e164Phone: '', formattedPhone: '' })
       return false
     }
-  
+
     try {
       let phoneToValidate = phoneInput.value.trim()
-      
+
       // ✅ MUST start with + (has country code)
       if (!phoneToValidate.startsWith('+')) {
         validationState.value = 'invalid'
@@ -166,10 +166,10 @@
         emit('validation-change', { isValid: false, e164Phone: '', formattedPhone: '' })
         return false
       }
-      
+
       // Validate the phone number with country code
-      if ($phone.isValid(phoneToValidate)) {
-        const phoneNumber = $phone.parse(phoneToValidate)
+      if (await $phone.isValid(phoneToValidate)) {
+        const phoneNumber = await $phone.parse(phoneToValidate)
         const formatted = phoneNumber.formatInternational()
         const e164 = phoneNumber.format('E.164')
         

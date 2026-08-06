@@ -125,7 +125,7 @@
                   <button @click="receiptSuccess = null" class="text-[12px] font-semibold text-gray-500 hover:text-gray-700">Registrar otro</button>
                 </div>
               </div>
-              <ReceiptPreviewCard
+              <LazyReceiptPreviewCard
                 v-else-if="pendingReceipt"
                 :items="pendingReceipt.items"
                 :store="pendingReceipt.store"
@@ -135,7 +135,7 @@
                 @confirm="submitReceipt"
                 @cancel="cancelReceipt"
               />
-              <UploadDropzone v-else :busy="receiptBusy" @file="onReceiptFile" />
+              <LazyUploadDropzone v-else :busy="receiptBusy" @file="onReceiptFile" />
               <p v-if="!pendingReceipt && !receiptSuccess" class="text-[12px] text-gray-400 text-center mt-3">…o escribe arriba qué compraste y lo registro contigo.</p>
             </div>
 
@@ -246,6 +246,7 @@
                 >
                   <span class="absolute inset-0 grid place-items-center text-[84px] select-none transition-[opacity,transform] duration-300 group-hover:scale-105" :class="cardLoading(suggestions[0]) ? 'opacity-60' : 'opacity-90'">{{ suggestions[0].emoji }}</span>
                   <img v-if="showCardImg(suggestions[0])" :src="cardImg(suggestions[0])" @load="onCardImgLoad(cardImg(suggestions[0]))" @error="onCardImgError(suggestions[0])" referrerpolicy="no-referrer"
+                       decoding="async"
                        :class="loadedImgs.has(cardImg(suggestions[0])) ? 'opacity-100' : 'opacity-0'"
                        class="absolute inset-0 w-full h-full object-cover transition-[opacity,transform] duration-500 group-hover:scale-105" />
                   <span v-if="cardLoading(suggestions[0])" class="absolute top-3 right-3 grid place-items-center w-7 h-7 rounded-full bg-black/25 backdrop-blur-sm pointer-events-none">
@@ -267,6 +268,7 @@
                   >
                     <span class="absolute inset-0 grid place-items-center text-[72px] select-none transition-[opacity,transform] duration-300 group-hover:scale-105" :class="cardLoading(s) ? 'opacity-60' : 'opacity-90'">{{ s.emoji }}</span>
                     <img v-if="showCardImg(s)" :src="cardImg(s)" @load="onCardImgLoad(cardImg(s))" @error="onCardImgError(s)" referrerpolicy="no-referrer"
+                         decoding="async" loading="lazy" fetchpriority="low"
                          :class="loadedImgs.has(cardImg(s)) ? 'opacity-100' : 'opacity-0'"
                          class="absolute inset-0 w-full h-full object-cover transition-[opacity,transform] duration-500 group-hover:scale-105" />
                     <span v-if="cardLoading(s)" class="absolute top-2.5 right-2.5 grid place-items-center w-6 h-6 rounded-full bg-black/25 backdrop-blur-sm pointer-events-none">
@@ -312,14 +314,14 @@
                 <template v-else>
                   <!-- 1) Gallery (+ its loading / no-results states) on top -->
                   <template v-for="(part, i) in m.parts" :key="'g' + i">
-                    <ProductGallery v-if="isGalleryTool(part) && part.state === 'output-available' && part.output?.products?.length" :products="part.output.products" @open="openProduct" />
+                    <LazyProductGallery v-if="isGalleryTool(part) && part.state === 'output-available' && part.output?.products?.length" :products="part.output.products" @open="openProduct" />
                     <!-- Search/browse finished but found nothing — clean message, not an empty
                          carousel. Suppress it if ANOTHER search in this turn did find options. -->
                     <div v-else-if="showNoResults(m, part)" class="text-[13px] text-gray-500 bg-white border border-gray-100 rounded-2xl px-4 py-3 shadow-sm">No encontré opciones para eso ahora. ¿Probamos con otra marca o término?</div>
 
-                    <SearchLoader v-else-if="part.type === 'tool-search_products' && part.state !== 'output-available'" />
+                    <LazySearchLoader v-else-if="part.type === 'tool-search_products' && part.state !== 'output-available'" />
 
-                    <SearchLoader
+                    <LazySearchLoader
                       v-else-if="(part.type === 'tool-browse_store' || part.type === 'tool-browse_stores') && part.state !== 'output-available'"
                       :messages="['Revisando tiendas…', 'Abriendo el catálogo…', 'Trayendo lo mejor de la tienda…']"
                     />
@@ -331,8 +333,8 @@
 
                     <!-- Order tracking (hub): a single order's status timeline OR a tappable list. -->
                     <template v-else-if="part.type === 'tool-show_orders' && part.state === 'output-available'">
-                      <OrderStatusTimeline v-if="part.output?.order" :order="part.output.order" />
-                      <OrderList v-else-if="part.output?.orders" :orders="part.output.orders" @track="trackOrder" />
+                      <LazyOrderStatusTimeline v-if="part.output?.order" :order="part.output.order" />
+                      <LazyOrderList v-else-if="part.output?.orders" :orders="part.output.orders" @track="trackOrder" />
                     </template>
                     <div v-else-if="part.type === 'tool-show_orders' && part.state !== 'output-available'" class="flex items-center gap-2 text-xs text-gray-400 pl-1">
                       <svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
@@ -341,8 +343,8 @@
 
                     <!-- In-person planner (Las Americas) → create PR + deposit checkout. -->
                     <template v-else-if="part.type === 'tool-plan_in_person' && part.state === 'output-available'">
-                      <DepositCheckoutCard v-if="inPersonResult" :checkout-url="inPersonResult.checkoutUrl" :deposit="inPersonResult.deposit" :request-number="inPersonResult.requestNumber" />
-                      <InPersonPlanner v-else :plan="part.output" :loading="inPersonLoading" :error="inPersonError" @confirm="submitInPerson" />
+                      <LazyDepositCheckoutCard v-if="inPersonResult" :checkout-url="inPersonResult.checkoutUrl" :deposit="inPersonResult.deposit" :request-number="inPersonResult.requestNumber" />
+                      <LazyInPersonPlanner v-else :plan="part.output" :loading="inPersonLoading" :error="inPersonError" @confirm="submitInPerson" />
                     </template>
                     <div v-else-if="part.type === 'tool-plan_in_person' && part.state !== 'output-available'" class="flex items-center gap-2 text-xs text-gray-400 pl-1">
                       <svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
@@ -351,11 +353,11 @@
                   </template>
 
                   <!-- 2) The AI's reply, UNDERNEATH the gallery -->
-                  <div v-if="msgText(m)" class="bg-white border border-gray-100 rounded-3xl rounded-bl-lg px-4 py-3 shadow-sm text-[15px]"><MarkdownText :text="msgText(m)" /></div>
+                  <div v-if="msgText(m)" class="bg-white border border-gray-100 rounded-3xl rounded-bl-lg px-4 py-3 shadow-sm text-[15px]"><LazyMarkdownText :text="msgText(m)" /></div>
 
                   <!-- 3) Action widgets + follow-ups after the reply -->
                   <template v-for="(part, i) in m.parts" :key="'w' + i">
-                    <ShipmentCard v-if="part.type === 'tool-show_shipment' && part.state === 'output-available'" :shipment="part.output" @order="onFinalizeShipment" @add="onAddMore" />
+                    <LazyShipmentCard v-if="part.type === 'tool-show_shipment' && part.state === 'output-available'" :shipment="part.output" @order="onFinalizeShipment" @add="onAddMore" />
 
                     <template v-else-if="part.type === 'tool-show_assisted_summary' && part.state === 'output-available'">
                       <!-- Once the request is actually created (deterministically, on
@@ -376,7 +378,7 @@
                       <AssistedPurchaseCard v-else :summary="part.output" :loading="assistedCreatingId === part.toolCallId" :error="assistedErrors[part.toolCallId] || ''" @confirm="confirmAssisted(part)" @edit="editAssisted" />
                     </template>
 
-                    <BoxGuide v-else-if="part.type === 'tool-show_box_guide' && part.state === 'output-available'" :boxes="part.output?.boxes || []" />
+                    <LazyBoxGuide v-else-if="part.type === 'tool-show_box_guide' && part.state === 'output-available'" :boxes="part.output?.boxes || []" />
 
                     <div v-else-if="part.type === 'tool-create_purchase_request' && part.state === 'output-available' && part.output?.request_number" class="bg-green-50 border border-green-200 rounded-2xl p-4 max-w-sm">
                       <p class="text-sm font-bold text-green-800 flex items-center gap-1.5"><svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 011.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z" clip-rule="evenodd"/></svg> Listo — nosotros nos encargamos 🎉</p>
@@ -520,7 +522,7 @@
     </main>
 
     <!-- Full-screen product detail modal -->
-    <ProductModal :product="selectedProduct" @close="selectedProduct = null" @assisted="onModalAssisted" />
+    <LazyProductModal v-if="selectedProduct" :product="selectedProduct" @close="selectedProduct = null" @assisted="onModalAssisted" />
 
     <!-- Shopping-profile (assistant memory): bottom sheet on mobile, centered
          dialog on desktop. Teleported to <body> so it's never clipped by the
@@ -537,7 +539,7 @@
               <div class="overflow-y-auto bg-white rounded-t-3xl md:rounded-3xl shadow-2xl pb-[max(1rem,env(safe-area-inset-bottom))] md:pb-0 md:w-[32rem] max-w-full">
                 <!-- grab handle (mobile only) -->
                 <div class="md:hidden pt-3 pb-1 flex justify-center"><span class="w-10 h-1.5 rounded-full bg-gray-300"></span></div>
-                <ShoppingProfileCard bare />
+                <LazyShoppingProfileCard bare />
               </div>
             </div>
           </Transition>
@@ -1050,6 +1052,18 @@ async function submitReceipt({ items, address }) {
 // `imgq` product-photo lookup; `imgq` resolves a representative photo otherwise.
 const GRAD_PALETTE = ['from-fuchsia-500 to-purple-800', 'from-emerald-500 to-teal-800', 'from-sky-500 to-indigo-800', 'from-orange-500 to-rose-800']
 const serverPrompts = ref([])
+const STARTER_PROMPTS_KEY = 'boxly_starter_prompts'
+// Stale-while-revalidate: paint instantly from the last snapshot, then
+// refresh from the network and overwrite once it lands.
+function loadStarterPromptsSnapshot() {
+  try {
+    const raw = localStorage.getItem(STARTER_PROMPTS_KEY)
+    if (raw) serverPrompts.value = JSON.parse(raw) || []
+  } catch { /* ignore */ }
+}
+function saveStarterPromptsSnapshot() {
+  try { localStorage.setItem(STARTER_PROMPTS_KEY, JSON.stringify(serverPrompts.value)) } catch { /* ignore */ }
+}
 async function loadStarterPrompts() {
   try {
     const rows = (await $customFetch('/starter-prompts'))?.data
@@ -1059,9 +1073,13 @@ async function loadStarterPrompts() {
       title: r.title,
       grad: GRAD_PALETTE[i % GRAD_PALETTE.length],
       imgq: r.image_query || '',
-      img: r.image_url || null,
+      // `image` is resolved once at admin-save time (image_url ?? resolved_image_url)
+      // — stable and fast. image_url alone is kept as a fallback for prompts an
+      // older API build hasn't computed it for yet.
+      img: r.image || r.image_url || null,
     }))
-  } catch { serverPrompts.value = [] }
+    saveStarterPromptsSnapshot()
+  } catch { if (!serverPrompts.value.length) serverPrompts.value = [] }
 }
 const suggestions = computed(() => serverPrompts.value)
 
@@ -1108,7 +1126,12 @@ function cardLoading(s) {
 // stream in per-card. The grid is interactive the whole time.
 const promptsReady = ref(false)
 async function prepareStarterCards() {
-  await loadStarterPrompts()
+  loadStarterPromptsSnapshot()
+  if (serverPrompts.value.length) {
+    promptsReady.value = true // instant paint from the last snapshot
+    ensureCardImages(suggestions.value)
+  }
+  await loadStarterPrompts() // refresh from the network, overwrites the snapshot
   promptsReady.value = true // paint the cards NOW — don't wait on any image
   ensureCardImages(suggestions.value) // fire-and-forget; each card fills in as it resolves
 }
@@ -1270,8 +1293,8 @@ onMounted(() => {
 async function initLoggedIn() {
   if (inited) return
   inited = true
-  await Promise.all([loadConversations(), loadProfile()])
   ensureChatToken()
+  await Promise.all([loadConversations(), loadProfile()])
   // Just came back from register/Google sign-in mid-purchase? Restore + continue.
   if (await maybeResumeGuest()) return
   // Arrived from the landing hero with ?q=... → fire that search as the first message.
@@ -1342,8 +1365,9 @@ async function onComposerSend({ files } = {}) {
   // re-uploads what they already dropped in chat. Persists across follow-up turns
   // (attach receipt → "what did I buy?" → "register it") until an order is created.
   if (files && files.length) lastComposerFile.value = files[0]
-  await ensureChatToken() // authed tools need the token ready on the FIRST send
-  await ensureConversation(text) // await so the conversation id rides on turn 1 (analytics linking)
+  // Token + conversation are independent — mint both in parallel instead of
+  // serially. Still awaited so the conversation id rides on turn 1 (analytics linking).
+  await Promise.all([ensureChatToken(), ensureConversation(text)])
   chat.sendMessage({ text: text || undefined, files: files || undefined })
   clearPipeline() // the routing hint was for this turn only
   scrollDown()
@@ -1485,8 +1509,9 @@ const composerRef = ref(null)
 async function pickSuggestion(text) {
   if (isBusy.value || !text) return
   input.value = ''
-  await ensureChatToken() // ensure the authed tools (orders, PRs) have a token on the FIRST send
-  await ensureConversation(text) // await so the conversation id rides on turn 1 (analytics linking)
+  // Token + conversation are independent — mint both in parallel instead of
+  // serially. Still awaited so the conversation id rides on turn 1 (analytics linking).
+  await Promise.all([ensureChatToken(), ensureConversation(text)])
   chat.sendMessage({ text })
   clearPipeline()
   scrollDown()
@@ -1517,7 +1542,7 @@ function productTail(p) {
   const urlPart = p.url && !isGoogle ? ` — ${p.url}` : ''
   return { store, price, urlPart }
 }
-// "Boxly lo compra" — assisted purchase → the AI creates a Purchase Request (+10%).
+// "Boxly lo compra" — assisted purchase → the AI creates a Purchase Request (+15%).
 function onAssistedProduct(p) {
   ensureChatToken()
   if (isBusy.value) { pendingPick.value = { p, assisted: true }; return }
