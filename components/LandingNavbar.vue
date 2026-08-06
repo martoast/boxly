@@ -30,9 +30,9 @@
           <!-- Boxly AI search — supplementary pipeline, styled distinct so it
                reads as the exciting new option. -->
           <NuxtLink
-            to="/search"
+            to="/app/search"
             class="inline-flex items-center gap-1.5 font-semibold transition-colors duration-200"
-            :class="isActiveRoute('/search') ? 'text-primary-600' : 'text-gray-700 hover:text-primary-600'"
+            :class="isActiveRoute('/app/search') ? 'text-primary-600' : 'text-gray-700 hover:text-primary-600'"
           >
             <svg class="w-4 h-4 text-primary-500" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 5.1L19 9l-5.1 1.9L12 16l-1.9-5.1L5 9l5.1-1.9L12 2z"/></svg>
             {{ t.searchAI }}
@@ -217,10 +217,10 @@
           </NuxtLink>
 
           <NuxtLink
-            to="/search"
+            to="/app/search"
             @click="mobileMenuOpen = false"
             class="flex items-center gap-2 px-3 py-2 rounded-md text-base font-semibold"
-            :class="isActiveRoute('/search') ? 'bg-primary-50 text-primary-600' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'"
+            :class="isActiveRoute('/app/search') ? 'bg-primary-50 text-primary-600' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'"
           >
             <svg class="w-4 h-4 text-primary-500" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 5.1L19 9l-5.1 1.9L12 16l-1.9-5.1L5 9l5.1-1.9L12 2z"/></svg>
             {{ t.searchAI }}

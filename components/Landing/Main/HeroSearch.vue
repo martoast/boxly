@@ -1,6 +1,6 @@
 <template>
   <!-- Landing-hero entry point into the BOXLY concierge. It does NOT chat here —
-       it hands off to /search?q=... which auto-fires the query as the first
+       it hands off to /app/search?q=... which auto-fires the query as the first
        message (works for guests; the account gate happens at purchase). Framed as
        a conversation with an AI, not a product search box. -->
   <div class="w-full max-w-2xl mx-auto">
@@ -102,10 +102,10 @@ onMounted(async () => {
 function go(text) {
   warmSearch() // no-op if already warmed; covers chip taps that skip input focus
   const query = (text ?? q.value).toString().trim()
-  navigateTo(query ? `/search?q=${encodeURIComponent(query)}` : '/search')
+  navigateTo(query ? `/app/search?q=${encodeURIComponent(query)}` : '/app/search')
 }
 
-// We KNOW the next step is /search, so warm the path ahead of the navigation:
+// We KNOW the next step is /app/search, so warm the path ahead of the navigation:
 //  1) preload its JS chunks (the ~1.7MB AI-SDK/ShoppingAssistant bundle) so the
 //     page mounts instantly with no download, and
 //  2) ping the Nitro server function so the first /api/assistant call isn't a
@@ -114,7 +114,7 @@ let warmed = false
 function warmSearch() {
   if (warmed) return
   warmed = true
-  preloadRouteComponents('/search')
+  preloadRouteComponents('/app/search')
   $fetch('/api/ping').catch(() => {})
 }
 onNuxtReady(() => { requestIdleCallbackSafe(warmSearch) })

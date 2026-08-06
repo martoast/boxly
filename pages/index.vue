@@ -20,7 +20,7 @@
     <ProtectionCard />
 
     <!-- AI search — supplementary optional pipeline, promoted here and in the
-         navbar; hands off to /search. The hero stays the proven funnel. -->
+         navbar; hands off to /app/search. The hero stays the proven funnel. -->
     <AiSearchPromo />
 
     <!-- Wedge CTA — "send us the link": the unlimited-access promise. -->

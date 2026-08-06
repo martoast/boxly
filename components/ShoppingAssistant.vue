@@ -574,7 +574,8 @@ const props = defineProps({
   // When true (in-app page), go full-screen on mobile since the site navbar is
   // hidden there — the chat's own header is the single top bar.
   fullscreenMobile: { type: Boolean, default: false },
-  // When true (public /search page), there is NO site navbar at all: take the
+  // When true (the old standalone /search page, now folded into /app/search),
+  // there is NO site navbar at all: take the
   // full viewport height, show the sidebar even for guests, and put the profile
   // (login/logout) in the sidebar's bottom-left (ChatGPT-style).
   standalone: { type: Boolean, default: false },
@@ -612,7 +613,7 @@ async function logout() {
   try { await $customFetch('/auth/logout', { method: 'POST' }) } catch { /* ignore */ }
   user.value = null
   const csrf = useCookie('XSRF-TOKEN'); csrf.value = null
-  window.location.href = standalone.value ? '/search' : '/login'
+  window.location.href = standalone.value ? '/app/search' : '/login'
 }
 
 // Reflect the active conversation in the URL as a QUERY param (?c=<id>) — NOT a
@@ -634,7 +635,7 @@ function syncUrl(id) {
   router.replace({ query: q })
 }
 
-// Hand-off from the landing hero (or any deep link): /search?q=... auto-sends the
+// Hand-off from the landing hero (or any deep link): /app/search?q=... auto-sends the
 // query as the first message. Reuses pickSuggestion (token + conversation + send).
 // Works for guests too. Guarded so it fires exactly once per mount (a guest fires
 // it in setup for an instant first paint; authed fires it after the chat token is
@@ -1244,7 +1245,7 @@ const chatError = ref('')
 // go through initLoggedIn instead (their token must be minted before sending).
 if (import.meta.client && !user.value) sendInitialQuery()
 
-// Warm the Nitro server function the moment the chat mounts (direct /search loads
+// Warm the Nitro server function the moment the chat mounts (direct /app/search loads
 // don't come through the hero's warm-up), so the first /api/assistant call skips
 // the serverless cold start. Cheap, fire-and-forget, client-only.
 if (import.meta.client) $fetch('/api/ping').catch(() => {})
@@ -1283,7 +1284,7 @@ onMounted(() => {
   // After the first reveal, keep filling images if the personalized set changes.
   watch(suggestions, (list) => { if (promptsReady.value) ensureCardImages(list) })
   // Restore the saved sidebar collapsed/expanded preference (default collapsed).
-  // On the public /search page always start CLOSED (landing-style) — don't reopen
+  // In standalone mode always start CLOSED (landing-style) — don't reopen
   // from a stored preference.
   if (!standalone.value) {
     try { const v = localStorage.getItem(SIDEBAR_KEY); if (v !== null) sidebarCollapsed.value = v === '1' } catch { /* ignore */ }
@@ -1764,7 +1765,7 @@ function stashGuestChat() {
   try { localStorage.setItem(GUEST_RESUME_KEY, JSON.stringify({ messages, intent, ts: Date.now() })) } catch { /* ignore */ }
   pendingAccount.value = null
 }
-const RESUME_REDIRECT = encodeURIComponent('/search?resume=1')
+const RESUME_REDIRECT = encodeURIComponent('/app/search?resume=1')
 function goRegister() { stashGuestChat(); navigateTo(`/register?redirect=${RESUME_REDIRECT}`) }
 function goLogin() { stashGuestChat(); navigateTo(`/login?redirect=${RESUME_REDIRECT}`) }
 

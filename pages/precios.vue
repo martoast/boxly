@@ -35,7 +35,7 @@
         <h2 class="text-2xl sm:text-3xl font-extrabold tracking-tight">{{ t.ctaTitle }}</h2>
         <p class="text-white/85 mt-2 max-w-xl mx-auto">{{ t.ctaSubtitle }}</p>
         <div class="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
-          <NuxtLink to="/search" class="inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-white text-primary-700 font-bold rounded-full shadow-md hover:bg-gray-100 transition-colors">
+          <NuxtLink to="/app/search" class="inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-white text-primary-700 font-bold rounded-full shadow-md hover:bg-gray-100 transition-colors">
             {{ t.ctaSearch }}
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
           </NuxtLink>

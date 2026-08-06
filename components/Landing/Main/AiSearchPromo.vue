@@ -1,8 +1,8 @@
 <template>
   <!-- Supplementary pipeline ad: Boxly AI search. The hero stays the proven
        register/login funnel; THIS section promotes the optional AI concierge and
-       hands off to /search. The real HeroSearch box is embedded so it both
-       advertises and works as the call-to-action (type → /search?q=…). -->
+       hands off to /app/search. The real HeroSearch box is embedded so it both
+       advertises and works as the call-to-action (type → /app/search?q=…). -->
   <section class="relative overflow-hidden bg-gray-900 py-16 sm:py-20">
     <!-- Brand glow backdrop -->
     <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_60%_at_50%_30%,rgba(254,205,4,0.14),transparent_70%)]"></div>
@@ -20,7 +20,7 @@
         {{ t.subtitle }}
       </p>
 
-      <!-- The working CTA: typing/submitting hands off to /search. -->
+      <!-- The working CTA: typing/submitting hands off to /app/search. -->
       <div class="mt-7">
         <HeroSearch />
       </div>

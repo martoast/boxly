@@ -129,7 +129,7 @@ const props = defineProps({
 defineEmits(['new', 'open', 'delete', 'memory', 'toggle', 'logout'])
 
 const menuOpen = ref(false)
-const back = encodeURIComponent('/search')
+const back = encodeURIComponent('/app/search')
 const loginTo = `/login?redirect=${back}`
 const registerTo = `/register?redirect=${back}`
 

@@ -24,18 +24,23 @@ export default defineNuxtConfig({
   routeRules: {
     '/login':    { ssr: false },
     '/register': { ssr: false },
-    // The BOXLY Concierge lives at the PUBLIC /search (standalone, no navbar,
-    // guest-friendly via auth-soft). SSR is ON here (default) so social share
-    // previews + search crawlers get the server-rendered <head> meta and a
-    // crawlable hero; the heavy interactive chat is wrapped in <ClientOnly>
-    // in the page, so only the lightweight shell renders on the server.
-    // /app/search is the authed in-app AI shopping assistant (reached from the
-    // dashboard "Buscar y cotizar con IA" card); it's client-rendered under
-    // /app/** above. /search stays public (guest-friendly landing funnel).
+    // ONE search surface: /app/search. Everything else redirects to it.
+    //
+    // /search used to be a second copy of the same <ShoppingAssistant /> with a
+    // different layout, and the comment that used to live here claimed it was
+    // public and guest-friendly — it was not, the page carried middleware:['auth']
+    // and bounced guests to /login. Two authed pages rendering one component is a
+    // duplicate, not a funnel, so it is gone.
+    //
+    // The redirects stay for bookmarks, old share links and anything still
+    // pointing at the previous paths; every internal link now targets
+    // /app/search directly, so nothing depends on a redirect preserving ?q=.
     '/assistant':     { redirect: '/app/search' },
     '/app/assistant': { redirect: '/app/search' },
     '/buscar':        { redirect: '/app/search' },
     '/buscar/**':     { redirect: '/app/search' },
+    '/search':        { redirect: '/app/search' },
+    '/search/**':     { redirect: '/app/search' },
     // The product page is auth-gated (token-expensive) — client-rendered so the
     // auth middleware resolves the user reliably.
     '/producto':          { ssr: false },
