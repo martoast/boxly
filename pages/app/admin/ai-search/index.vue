@@ -39,26 +39,21 @@
           </div>
         </div>
 
-        <!-- Intent map (the hero) -->
-        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-6">
-          <div class="flex items-center justify-between mb-1">
-            <h2 class="text-lg font-bold text-gray-900">Mapa de intención</h2>
-            <button @click="loadIntent" :disabled="intentLoading" class="text-xs font-semibold text-gray-400 hover:text-primary-600 disabled:opacity-50">Recalcular</button>
-          </div>
-          <p class="text-xs text-gray-400 mb-3">La IA agrupa cada consulta por lo que la persona realmente quiere. Toca un tema para ver las consultas reales.</p>
-          <div v-if="intentLoading" class="py-16 text-center text-gray-400">
-            <svg class="inline-block w-8 h-8 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-            <p class="text-xs mt-2">Analizando la intención…</p>
-          </div>
-          <AdminIntentMap v-else :clusters="intentMap.clusters" />
-        </div>
-
         <!-- Recent activity (everything, chronological) + stores shown -->
         <div class="grid lg:grid-cols-3 gap-6">
           <div class="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <h2 class="text-lg font-bold text-gray-900 mb-1">Actividad reciente</h2>
+            <div class="flex items-start justify-between gap-3 mb-1">
+              <h2 class="text-lg font-bold text-gray-900">Actividad reciente</h2>
+              <span v-if="feedTotal" class="shrink-0 text-xs font-semibold text-gray-400 mt-1">{{ fmt(feedTotal) }} en total</span>
+            </div>
             <p class="text-xs text-gray-400 mb-3">Búsquedas y preguntas, tal como entraron</p>
-            <div v-if="recentFeed.length" class="divide-y divide-gray-100">
+
+            <!-- Its own spinner: paging must never blank the cards or the stores
+                 panel beside it, so this block loads independently of `stats`. -->
+            <div v-if="feedLoading" class="py-16 text-center text-gray-400">
+              <svg class="inline-block w-8 h-8 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+            </div>
+            <div v-else-if="recentFeed.length" class="divide-y divide-gray-100">
               <div v-for="(r, i) in recentFeed" :key="i"
                    :class="['py-2.5 -mx-2 px-2 rounded-lg transition', r.conversation_id ? 'cursor-pointer hover:bg-primary-50/60' : '']"
                    @click="openThread(r)">
@@ -86,6 +81,21 @@
               </div>
             </div>
             <p v-else class="text-sm text-gray-400 py-6 text-center">Aún sin actividad en este periodo.</p>
+
+            <!-- Pager. Hidden entirely when everything fits on one page. -->
+            <div v-if="feedPages > 1" class="flex items-center justify-between gap-3 pt-3 mt-1 border-t border-gray-100">
+              <button @click="goFeed(feedPage - 1)" :disabled="feedPage <= 1 || feedLoading"
+                      class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:hover:bg-transparent transition">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                Anteriores
+              </button>
+              <span class="text-xs font-semibold text-gray-400">Página {{ fmt(feedPage) }} de {{ fmt(feedPages) }}</span>
+              <button @click="goFeed(feedPage + 1)" :disabled="feedPage >= feedPages || feedLoading"
+                      class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:hover:bg-transparent transition">
+                Siguientes
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+              </button>
+            </div>
           </div>
 
           <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
@@ -206,8 +216,19 @@ const days = ref(30)
 const stats = ref(null)
 const loading = ref(true)
 const downloading = ref(false)
-const intentMap = ref({ clusters: [], total: 0 })
-const intentLoading = ref(true)
+
+// ── Activity feed: paginated SERVER-side ─────────────────────────────────────
+// It used to be derived from `stats.recent_searches` + `recent_questions`, which
+// meant every page load pulled 70 rows with their full answers — 35 KB of a
+// 42 KB response — just to render 40 of them. Now it pages through
+// /admin/ai-search/events (already paginated) and `stats` is asked for the
+// light payload it actually draws.
+const FEED_PER_PAGE = 15
+const feedRows = ref([])
+const feedTotal = ref(0)
+const feedPages = ref(1)
+const feedPage = ref(1)
+const feedLoading = ref(true)
 
 async function downloadCsv() {
   downloading.value = true
@@ -243,15 +264,45 @@ const cards = computed(() => {
   ]
 })
 
-// One chronological stream of everything (searches + questions).
-const recentFeed = computed(() => {
-  const s = stats.value || {}
-  const searches = (s.recent_searches || []).map((r) => ({ kind: 'search', query: r.query, results: r.results, stores: r.stores, guest: r.guest, user: r.user, conversation_id: r.conversation_id, created_at: r.created_at }))
-  const questions = (s.recent_questions || []).map((r) => ({ kind: 'question', query: r.query, answer: r.answer, guest: r.guest, user: r.user, conversation_id: r.conversation_id, created_at: r.created_at }))
-  return [...searches, ...questions]
-    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-    .slice(0, 40)
-})
+// One chronological stream of searches + questions, already ordered and paged
+// by the API (`type=search,question` leaves product views out).
+const recentFeed = computed(() => (feedRows.value || []).map((r) => ({
+  kind: r.type === 'question' ? 'question' : 'search',
+  query: r.query,
+  results: r.results,
+  stores: r.stores,
+  answer: r.answer,
+  guest: r.guest,
+  user: r.user,
+  conversation_id: r.conversation_id,
+  created_at: r.created_at,
+})))
+
+async function loadFeed(page = 1) {
+  feedLoading.value = true
+  try {
+    const res = await $customFetch('/admin/ai-search/events', {
+      params: { type: 'search,question', days: days.value, per_page: FEED_PER_PAGE, page },
+    })
+    const d = res.data || {}
+    feedRows.value = d.data || []
+    feedTotal.value = d.total || 0
+    feedPages.value = d.last_page || 1
+    feedPage.value = d.current_page || page
+  } catch (e) {
+    console.error(e)
+    feedRows.value = []
+    feedTotal.value = 0
+    feedPages.value = 1
+  } finally {
+    feedLoading.value = false
+  }
+}
+
+function goFeed(page) {
+  if (page < 1 || page > feedPages.value || feedLoading.value) return
+  loadFeed(page)
+}
 
 // ── Thread drawer: click a search/question → the full chat behind it ──────────
 const threadOpen = ref(false)
@@ -346,29 +397,19 @@ function fmtDate(d) {
 
 function fmt(n) { return new Intl.NumberFormat('es-MX').format(Number(n) || 0) }
 
-async function loadIntent() {
-  intentLoading.value = true
-  try {
-    intentMap.value = await $fetch('/api/intent-map', { method: 'POST', body: { days: days.value } })
-  } catch (e) {
-    console.error(e)
-    intentMap.value = { clusters: [], total: 0 }
-  } finally {
-    intentLoading.value = false
-  }
-}
-
+// Both requests go out TOGETHER. The old version awaited `stats` before it even
+// started the second call, so the two round-trips were serial for no reason.
 async function load() {
   loading.value = true
-  try {
-    stats.value = (await $customFetch('/admin/ai-search/stats', { params: { days: days.value } })).data
-  } catch (e) {
-    console.error(e)
-    stats.value = { days: days.value, total_searches: 0, total_product_views: 0, total_questions: 0, view_rate: 0, recent_questions: [], recent_searches: [], top_result_stores: [] }
-  } finally {
-    loading.value = false
-  }
-  loadIntent()
+  const stats$ = $customFetch('/admin/ai-search/stats', { params: { days: days.value, light: 1 } })
+    .then((r) => { stats.value = r.data })
+    .catch((e) => {
+      console.error(e)
+      stats.value = { days: days.value, total_searches: 0, total_product_views: 0, total_questions: 0, view_rate: 0, top_result_stores: [] }
+    })
+    .finally(() => { loading.value = false })
+
+  await Promise.all([stats$, loadFeed(1)])
 }
 onMounted(load)
 </script>
