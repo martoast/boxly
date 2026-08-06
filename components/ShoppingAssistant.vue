@@ -314,7 +314,10 @@
                 <template v-else>
                   <!-- 1) Gallery (+ its loading / no-results states) on top -->
                   <template v-for="(part, i) in m.parts" :key="'g' + i">
-                    <LazyProductGallery v-if="isGalleryTool(part) && part.state === 'output-available' && part.output?.products?.length" :products="part.output.products" @open="openProduct" />
+                    <!-- Only the RICHEST gallery in this message renders — see
+                         primaryGalleryIndex(): a model that fires two gallery
+                         tools in one step must not draw two carousels. -->
+                    <LazyProductGallery v-if="isGalleryTool(part) && part.state === 'output-available' && part.output?.products?.length && i === primaryGalleryIndex(m)" :products="part.output.products" @open="openProduct" />
                     <!-- Search/browse finished but found nothing — clean message, not an empty
                          carousel. Suppress it if ANOTHER search in this turn did find options. -->
                     <div v-else-if="showNoResults(m, part)" class="text-[13px] text-gray-500 bg-white border border-gray-100 rounded-2xl px-4 py-3 shadow-sm">No encontré opciones para eso ahora. ¿Probamos con otra marca o término?</div>
@@ -1164,6 +1167,34 @@ function msgText(m) { return (m.parts || []).filter((p) => p.type === 'text' && 
 // Did ANY gallery tool in this message return products? Used to suppress a stray
 // "no results" message when another search in the same turn did find options.
 function hasProducts(m) { return (m.parts || []).some((p) => isGalleryTool(p) && p.state === 'output-available' && p.output?.products?.length) }
+
+/**
+ * ONE gallery per assistant message — enforced HERE as well as on the server.
+ *
+ * The server's "one gallery per reply" guard is a prepareStep() that strips the
+ * gallery tools once one has returned products, so it only runs BETWEEN steps.
+ * Gemini does parallel function calling and emits two gallery calls in a SINGLE
+ * step, which that guard cannot see. Observed in conversation 301:
+ *
+ *   browse_store    q="men"          ->  1 product  (store: null)
+ *   search_products q="men clothing" -> 16 products (YoungLA)
+ *
+ * Both rendered, which reads as "it showed me a junk result, then the real
+ * ones". Note the fix is NOT "keep the first" — the first was the junk one.
+ * Keep the RICHEST result and drop the rest.
+ *
+ * Returns the index of the part to render, or -1 when there is no gallery.
+ */
+function primaryGalleryIndex(m) {
+  let best = -1
+  let bestCount = 0
+  ;(m?.parts || []).forEach((p, i) => {
+    if (!isGalleryTool(p) || p.state !== 'output-available') return
+    const n = p.output?.products?.length || 0
+    if (n > bestCount) { bestCount = n; best = i }
+  })
+  return best
+}
 // Show the "no results" line ONLY once the turn has fully settled — never while the
 // current message is still streaming (a second search may still be loading), which
 // caused a false "no encontré opciones" to flash before the real results arrived.
