@@ -21,10 +21,10 @@
     <!-- price breakdown -->
     <div class="mt-3 pt-3 border-t border-primary-100 space-y-1 text-[12.5px]">
       <div class="flex items-center justify-between text-gray-600"><span>Productos (ref.)</span><span class="font-semibold text-gray-800">${{ subtotal.toFixed(2) }} USD</span></div>
-      <div class="flex items-center justify-between text-gray-600"><span>Comisión Boxly (10%)</span><span class="font-semibold text-gray-800">${{ commission.toFixed(2) }} USD</span></div>
+      <div class="flex items-center justify-between text-gray-600"><span>Comisión Boxly (15%)</span><span class="font-semibold text-gray-800">${{ commission.toFixed(2) }} USD</span></div>
       <div class="flex items-center justify-between text-gray-400"><span>Caja / envío a México</span><span>se cotiza aparte</span></div>
     </div>
-    <p class="mt-2 text-[11px] text-gray-400 leading-snug">El 10% se calcula sobre el total final al hacer checkout en la tienda (producto + envío que cobre la tienda). Este es un estimado — el total exacto va en tu cotización, no pagas nada todavía.</p>
+    <p class="mt-2 text-[11px] text-gray-400 leading-snug">El 15% se calcula sobre el total final al hacer checkout en la tienda (producto + envío que cobre la tienda). Este es un estimado — el total exacto va en tu cotización, no pagas nada todavía.</p>
 
     <!-- The request is created AUTOMATICALLY the moment this card appears (the
          customer already asked Boxly to buy it) — no extra "Continuar" tap. On
@@ -58,5 +58,5 @@ const items = computed(() => (props.summary?.items || []).map((it) => ({
   image: it.image || it.product_image_url || null,
 })))
 const subtotal = computed(() => items.value.reduce((s, it) => s + it.price * it.quantity, 0))
-const commission = computed(() => subtotal.value * 0.10)
+const commission = computed(() => subtotal.value * 0.15)
 </script>

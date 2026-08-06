@@ -28,7 +28,7 @@
 
     <div class="mt-3 rounded-xl bg-gray-50 border border-gray-100 px-3 py-2 text-[10.5px] text-gray-500 leading-snug space-y-1">
       <p><span class="font-semibold text-gray-700">Si tú compras tus productos</span> y solo los envías con Boxly: pagas <span class="font-semibold">solo la caja</span> (sin comisión).</p>
-      <p><span class="font-semibold text-gray-700">Si Boxly compra por ti</span> (compra asistida): se suma el producto + <span class="font-semibold">10% de comisión</span>.</p>
+      <p><span class="font-semibold text-gray-700">Si Boxly compra por ti</span> (compra asistida): se suma el producto + <span class="font-semibold">15% de comisión</span>.</p>
     </div>
     <p class="mt-2 text-[10px] text-gray-400 leading-tight">Las cantidades son una referencia para ropa doblada (no incluye cajas de zapatos) y varían según el volumen de cada artículo. Te conviene la caja más chica que te quede y juntar varios productos. Confirmamos el tamaño final al empacar.</p>
   </div>

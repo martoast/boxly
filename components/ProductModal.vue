@@ -129,7 +129,7 @@
                     <svg class="w-4 h-4 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
                     Boxly lo compra
                   </span>
-                  <span class="text-[11.5px] text-primary-700/80 leading-snug">Precio total al checkout + 10%</span>
+                  <span class="text-[11.5px] text-primary-700/80 leading-snug">Precio total al checkout + 15%</span>
                   <span class="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-primary-600">Crear solicitud</span>
                 </button>
               </div>
@@ -283,7 +283,7 @@ async function loadDetails(p) {
 }
 
 // "Boxly lo compra" — hand the product to the chat so the assistant creates a
-// Purchase Request (assisted purchase, +10%). Pass the resolved merchant link.
+// Purchase Request (assisted purchase, +15%). Pass the resolved merchant link.
 function assisted() {
   emit('assisted', {
     ...props.product,
