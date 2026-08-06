@@ -5,12 +5,23 @@ export default defineNuxtConfig({
   // SSR is on by default so public marketing/storefront pages get
   // proper server-rendered HTML — required for social share previews
   // (WhatsApp / Facebook / Twitter / iMessage all read the initial
-  // HTML, never the JS-injected meta) and clean SEO. Private
-  // dashboards under /app/** opt out via routeRules below — they're
-  // JS-heavy auth-gated screens with no SEO need, no upside from SSR.
+  // HTML, never the JS-injected meta) and clean SEO. /app/** used to
+  // opt out here, but that forced every authed dashboard load through
+  // a blank shell + client-side auth round-trip before first paint.
+  // SSR is now on there too — plugins/$fetch.ts forwards the request's
+  // session cookie server-side so the auth middleware resolves the
+  // user during the server render instead.
   ssr: true,
+  // Backs the Nuxt instance with AsyncLocalStorage on the server. Without
+  // it, any composable (useState, useCookie, useRequestHeaders...) called
+  // after an `await` throws "a composable that requires access to the Nuxt
+  // instance was called outside of a plugin..." — the client silently gets
+  // away with it via a global-instance fallback, the server has none. That
+  // never bit us while /app/** was ssr:false; turning SSR on there means
+  // the auth middleware -> $retriveUser -> $customFetch chain now runs on
+  // the server, and every hop of it reads a composable post-await.
+  experimental: { asyncContext: true },
   routeRules: {
-    '/app/**':   { ssr: false },
     '/login':    { ssr: false },
     '/register': { ssr: false },
     // The BOXLY Concierge lives at the PUBLIC /search (standalone, no navbar,
@@ -33,6 +44,12 @@ export default defineNuxtConfig({
     head: {
       charset: 'utf-8',
       viewport: 'width=device-width, initial-scale=1',
+      // Warms the connection to the API host ahead of the client-side
+      // calls that follow hydration (conversations, starter-prompts,
+      // chat token) — those still hit the API separately from SSR.
+      link: [
+        { rel: 'preconnect', href: 'https://api.boxly.mx', crossorigin: 'use-credentials' }
+      ],
       // <html lang="es"> — primary audience is Mexican Spanish, and
       // setting it satisfies the WCAG 3.1.1 a11y rule. Frontend has
       // a language toggle that swaps copy strings client-side; the
