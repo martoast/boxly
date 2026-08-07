@@ -322,6 +322,15 @@
                          carousel. Suppress it if ANOTHER search in this turn did find options. -->
                     <div v-else-if="showNoResults(m, part)" class="text-[13px] text-gray-500 bg-white border border-gray-100 rounded-2xl px-4 py-3 shadow-sm">No encontré opciones para eso ahora. ¿Probamos con otra marca o término?</div>
 
+                    <!-- TERMINAL failure. Must come BEFORE the loaders below: a tool
+                         that errored or was cut off mid-stream is never getting a
+                         result, and rendering a spinner for it hangs the chat
+                         forever with no way out. See toolFailed(). -->
+                    <div v-else-if="TOOLS_WITH_LOADER.has(part.type) && toolFailed(m, part)" class="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[13px] text-gray-500 bg-white border border-gray-100 rounded-2xl px-4 py-3 shadow-sm">
+                      <span>Se interrumpió la búsqueda. Puede pasar cuando una tienda tarda demasiado.</span>
+                      <button @click="retryLastTurn" class="font-semibold text-primary-600 hover:text-primary-700">Reintentar</button>
+                    </div>
+
                     <LazySearchLoader v-else-if="part.type === 'tool-search_products' && part.state !== 'output-available'" />
 
                     <LazySearchLoader
@@ -1227,6 +1236,40 @@ const showTyping = computed(() => {
     TOOLS_WITH_LOADER.has(lastPart.type)
   return !loadingWithOwnUi
 })
+/**
+ * Is this tool call DEAD — no result is ever arriving?
+ *
+ * Two states used to read as "still loading" forever, because every loader below
+ * only asked `state !== 'output-available'`:
+ *
+ *   output-error     the tool threw. There is no result coming.
+ *   input-available  the stream was CUT OFF mid-turn. The host gives a request
+ *                    ~30s; a turn that overruns it dies with HTTP 200 and no
+ *                    finish frame, so the part freezes here and nothing ever
+ *                    completes it. (Measured on prod: 29.6s finished, 30.3s did
+ *                    not.) onFinish never runs either, so the turn isn't saved.
+ *
+ * showTyping already excluded output-error, which is why the bottom typing dots
+ * stopped while the inline loader kept spinning — the tell that these two had
+ * drifted apart. A tool is only genuinely pending while the turn is still live.
+ */
+function toolFailed(m, part) {
+  if (!part || part.state === 'output-available') return false
+  if (part.state === 'output-error') return true
+  const isCurrent = m.id === chat.messages[chat.messages.length - 1]?.id
+  return !(isBusy.value && isCurrent) // unfinished, but nothing is running
+}
+
+// Re-send the last thing the user asked. The failed turn stays in the transcript
+// (it's what the retry button is attached to); this just asks again.
+function retryLastTurn() {
+  if (isBusy.value) return
+  const lastUser = [...chat.messages].reverse().find((x) => x.role === 'user')
+  const text = lastUser ? (lastUser.parts || []).filter((p) => p.type === 'text').map((p) => p.text).join(' ').trim() : ''
+  if (!text) return
+  chat.sendMessage({ text })
+  scrollDown()
+}
 const activeTitle = computed(() => conversations.value.find((c) => c.id === activeId.value)?.title || 'Asistente')
 
 const chat = new Chat({

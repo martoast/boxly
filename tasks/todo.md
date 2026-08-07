@@ -1,53 +1,98 @@
-# AI Campaign Studio — /app/admin/campaigns
+# AI search — "stuck loading forever"
 
-Goal: one-button AI that RESEARCHES current sales + reads the knowledge base + past
-campaigns, proposes grounded campaign ideas, then narrows (pick → expand → variations
-→ refine with comments) to a finished email draft saved into the real campaign system.
+## Symptom
+`/app/search`: one product card renders, then "Comparando precios en tiendas de
+USA…" spins indefinitely. The conversation row ends up with `messages: []`.
 
-## Grounding (what makes ideas real, not generic)
-- **Today's date** + a MX/US retail calendar (Prime Day, Hot Sale, Buen Fin, BF/CM,
-  back-to-school, Navidad, Día de las Madres…) → knows what's timely.
-- **Live web research** (SerpAPI) for current deals at the stores people shop.
-- **Knowledge base** (`GET /knowledge`) → what Boxly is, policies, stores.
-- **Past campaigns** (`GET /admin/campaigns`, fetched client-side, passed in) → voice
-  + what got opens/clicks.
+## Root cause (measured 2026-08-07, production)
 
-## Style (boxly-campaigns skill)
-Plain text, Mexican Spanish informal "tú", subject ≤50 chars, body 3–5 sentences
-(<~80 words), single CTA (2–4 words + one URL), no fluff/emojis, 2–3 hero items max.
+Direct `curl` to `https://boxly.mx/api/assistant`, no browser:
 
-## Build
-- [ ] `server/api/campaigns/ideas.post.ts` — research (SerpAPI) + date/calendar + KB +
-      past campaigns → generateObject → 4–6 grounded ideas + the detected "moment".
-- [ ] `server/api/campaigns/draft.post.ts` — mode: expand (idea→draft) | variations
-      (→3) | refine (draft+comment→draft). Output: {name, subject, body, cta_text,
-      cta_url, audience}. Enforces the style rules.
-- [ ] `pages/app/admin/campaigns/studio.vue` — the Studio: generate → moment banner +
-      idea cards → pick → email-preview draft → variations / comment-refine → audience
-      + size preview → "Guardar como borrador" (POST /admin/campaigns) → open it.
-- [ ] Entry button on `pages/app/admin/campaigns/index.vue` → Studio.
+| query | time | result |
+|---|---|---|
+| Alo Yoga sudaderas | 29.6s | ✓ `finish` event |
+| Gymshark joggers | **30.3s** | ✗ **no finish — stream truncated, HTTP 200** |
+| YoungLA promociones | 7.2s | ✓ `finish` event |
 
-## Notes
-- Server fetches public `/knowledge` + `/products/web-search` (both public). Client
-  passes past campaigns (admin-authed). Save via `$customFetch('/admin/campaigns')`.
-- Never auto-send. Save as DRAFT; sending stays the deliberate existing step.
+**Turns that cross ~30s get their response stream cut mid-flight.** The status is
+still 200, so nothing looks like an error; the stream simply stops.
 
-## Brian Chesky loop
-Headless screenshot each state → design-critic review → iterate.
+Driver: `POST /products/search` takes **~26s on its own** (measured 25.8s prod,
+26.7s local). Add model time and a turn tips past the limit. Whether any given
+query survives depends on search latency, which is why it's intermittent.
 
-## Review — built (uncommitted), backend verified
-- `server/api/campaigns/ideas.post.ts` ✓ — verified live: detected "Post-4 de julio, antesala
-  de Prime Day + back-to-school — 13 jul 2026" and returned 5 grounded ideas across audiences
-  (research = 4 SerpAPI queries + KB + past campaigns + date/calendar).
-- `server/api/campaigns/draft.post.ts` ✓ — expand/variations/refine; verified expand returns
-  clean plain-text es-MX, ≤50 subject, single CTA.
-- `pages/app/admin/campaigns/studio.vue` → thin wrapper over `components/CampaignStudio.vue`
-  (extracted so a dev preview can render it). Studio flow: generate → moment banner + idea
-  cards → pick → email editor + live preview → refine-comment / 3 variaciones → audience+size
-  → "Guardar como borrador" (POST /admin/campaigns). Never auto-sends.
-- Entry buttons added to campaigns index (desktop + mobile).
-- `pages/campaign-studio-preview.vue` — DEV-ONLY public preview (mock data, ?state=ideas|draft)
-  for screenshots. **Do not commit / not for prod.**
-- Screenshots reviewed: ideas + draft states look premium & on-vision. Brian Chesky pass: pending.
+**NOT the SSR change** — reproduces via curl with no browser or hydration.
 
-Test live (you're admin): /app/admin/campaigns/studio
+### Secondary bug (independent, makes it look worse)
+`ShoppingAssistant.vue` lines 325/328/332/342/352 gate loaders on
+`part.state !== 'output-available'`, which is also true for `output-error`. Any
+tool failure therefore renders an eternal spinner. Line 1226 already excludes
+`output-error` when computing `isBusy`, so the bottom typing dots stop while the
+inline loader keeps going — the terminal state was known, these were missed.
+
+## Plan — pick a scope
+
+### A. Make failure terminal in the UI — DONE
+- [x] Treat `output-error` as terminal in all five loader branches; render a
+      short error line instead of a spinner.
+- [x] Detect a truncated stream client-side (stream ends with a tool part still
+      pending) and surface the same terminal state.
+- [x] Give it a "Reintentar" affordance so the turn isn't a dead end.
+
+Fixes the *stuck forever* experience permanently, whatever the backend does.
+Does not make any search succeed that doesn't succeed today.
+
+### B. Get `/products/search` under ~10s — DONE (0.6s cold, 0.02s warm)
+- [x] Profile the endpoint — where do the 26s go? (Google Shopping upstream?
+      per-product enrichment? image fetching? serial calls that could be
+      parallel?)
+- [x] Cache by (query, store) — repeat searches shouldn't pay full price.
+- [ ] (not needed) Consider returning the gallery on a first fast pass and enriching after.
+
+This is the only fix that makes slow turns actually work.
+
+### C. Stop losing the turn when the stream dies
+- [ ] Confirm the exact ~30s limit and where it comes from (Netlify function
+      timeout — there is no `netlify.toml`, so it's whatever the default is).
+      Raise it if configurable.
+- [ ] Persist the turn even on truncation so history isn't lost (today
+      `onFinish` never runs and the conversation is left empty).
+- [ ] Consider a heartbeat/keepalive frame during long tool calls.
+
+## Recommendation
+**A now** (it's contained and stops the worst symptom), then **B** — 26s for a
+product search is the real defect and it will keep causing this. C is the
+belt-and-braces once B lands.
+
+## Review
+
+### What changed
+
+**`api/` — ProductExtractController** (commit 501fbca)
+The 26s was `brandOwnCatalog()` → `shopifyProducts()` → `fetch()`, routing a
+PUBLIC Shopify `products.json` through ScraperAPI. The cheap pool times out at
+12s on these stores, then ultra-premium runs. That endpoint answers a plain GET
+in under a second and never needed a proxy.
+- Added `fetchDirect()` — plain unproxied GET, 8s cap, null on failure.
+  `shopifyProducts` tries it first, proxy only if the store actually blocks us.
+- Cached `brandOwnCatalog` per store+limit (30 min; 10 min for an empty result
+  so a non-Shopify store doesn't re-pay the lookup on every search).
+
+Measured: Gymshark 26.1s → **0.63s** cold, **0.02s** warm. YoungLA → 0.49s.
+Identical results (16 products, correct store).
+
+**`app/` — ShoppingAssistant.vue**
+- `toolFailed(m, part)` — a tool is dead if it errored OR is unfinished while
+  nothing is running (the truncated-stream case, where the part freezes at
+  `input-available` and no frame ever completes it).
+- A terminal error row with **Reintentar**, placed BEFORE the loader branches so
+  it wins. `retryLastTurn()` re-sends the last user message.
+- The five loaders previously gated on `state !== 'output-available'`, which is
+  also true for `output-error`. `showTyping` already excluded `output-error` —
+  so the bottom dots stopped while the inline loader spun forever. That
+  divergence was the tell.
+
+### Note on C
+Not needed once B landed — turns no longer approach the ~30s ceiling. The limit
+still exists, so A is what keeps a future overrun from hanging the chat. Left
+undone deliberately: persisting a truncated turn, and a stream keepalive.
