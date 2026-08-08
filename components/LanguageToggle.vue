@@ -7,13 +7,16 @@
       title="Español"
       aria-label="Cambiar a Español"
     >
-      <img
-        src="https://upload.wikimedia.org/wikipedia/commons/f/fc/Flag_of_Mexico.svg"
-        alt="Bandera de México"
-        width="24" height="24"
-        loading="lazy" decoding="async"
-        class="w-6 h-6 rounded-full shadow-sm object-cover"
-      >
+      <!-- Inline, not an <img>. These were hotlinked from upload.wikimedia.org:
+           the Mexican flag alone is a 46 KB SVG (full coat of arms) fetched over
+           a separate DNS+TLS handshake to a third party — to paint a 24px circle
+           that clips all of that detail away. This toggle sits in the navbar, so
+           every page paid it. Inline costs nothing and can't fail. -->
+      <svg viewBox="0 0 3 2" class="w-6 h-6 rounded-full shadow-sm" role="img" aria-label="Bandera de México">
+        <rect width="1" height="2" x="0" fill="#006847" />
+        <rect width="1" height="2" x="1" fill="#fff" />
+        <rect width="1" height="2" x="2" fill="#ce1126" />
+      </svg>
     </button>
     <button
       @click="handleLanguageSwitch('en')"
@@ -21,13 +24,19 @@
       title="English"
       aria-label="Switch to English"
     >
-      <img
-        src="https://upload.wikimedia.org/wikipedia/commons/a/a4/Flag_of_the_United_States.svg"
-        alt="United States Flag"
-        width="24" height="24"
-        loading="lazy" decoding="async"
-        class="w-6 h-6 rounded-full shadow-sm object-cover"
-      >
+      <svg viewBox="0 0 19 10" class="w-6 h-6 rounded-full shadow-sm" role="img" aria-label="United States Flag">
+        <rect width="19" height="10" fill="#fff" />
+        <g fill="#b22234">
+          <rect width="19" height="0.77" y="0" />
+          <rect width="19" height="0.77" y="1.54" />
+          <rect width="19" height="0.77" y="3.08" />
+          <rect width="19" height="0.77" y="4.62" />
+          <rect width="19" height="0.77" y="6.15" />
+          <rect width="19" height="0.77" y="7.69" />
+          <rect width="19" height="0.77" y="9.23" />
+        </g>
+        <rect width="7.6" height="5.38" fill="#3c3b6e" />
+      </svg>
     </button>
   </div>
 </template>
