@@ -21,8 +21,14 @@
           class="group block bg-white rounded-2xl overflow-hidden border border-gray-200/80 hover:border-gray-300 transition-all shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)]"
         >
           <div class="relative aspect-[4/3] overflow-hidden bg-gray-100">
+            <!-- These render in a ~340px-wide card on a phone, so serving the
+                 1200px desktop file there is pure waste on the 3G connections
+                 our customers actually use. srcset lets the browser take the
+                 768px variant instead — roughly half the bytes, same picture. -->
             <img
               :src="lane.image"
+              :srcset="`${lane.image.replace('.webp', '-mobile.webp')} 768w, ${lane.image} 1200w`"
+              sizes="(max-width: 640px) 100vw, 380px"
               :alt="lane.imageAlt"
               loading="lazy"
               decoding="async"
@@ -110,7 +116,7 @@ const lanes = computed(() => [
   {
     key: 'casillero',
     href: '/how-it-works/casillero',
-    image: '/images/lane-casillero.png',
+    image: '/images/lane-casillero.webp',
     imageAlt: t.value.casilleroImageAlt,
     badge: null,
     title: t.value.casilleroTitle,
@@ -120,7 +126,7 @@ const lanes = computed(() => [
   {
     key: 'online',
     href: '/how-it-works/online',
-    image: '/images/lane-online.png',
+    image: '/images/lane-online.webp',
     imageAlt: t.value.onlineImageAlt,
     badge: null,
     title: t.value.onlineTitle,
@@ -130,7 +136,7 @@ const lanes = computed(() => [
   {
     key: 'in_person',
     href: '/how-it-works/in-person',
-    image: '/images/lane-in-person.png',
+    image: '/images/lane-in-person.webp',
     imageAlt: t.value.inPersonImageAlt,
     badge: t.value.inPersonBadge,
     title: t.value.inPersonTitle,

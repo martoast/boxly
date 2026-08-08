@@ -7,8 +7,8 @@
        signed-in users see a "Mi cuenta" shortcut instead. -->
   <header class="relative w-full overflow-hidden bg-gray-900">
     <picture>
-      <source media="(max-width: 768px)" :srcset="mobileImageSrc" type="image/png" />
-      <source :srcset="desktopImageSrc" type="image/png" />
+      <source media="(max-width: 768px)" :srcset="mobileImageSrc" type="image/webp" />
+      <source :srcset="desktopImageSrc" type="image/webp" />
       <img
         :src="desktopImageSrc"
         :alt="t.imageAlt"
@@ -98,11 +98,14 @@ import { computed } from 'vue'
 const { t: createTranslations } = useLanguage()
 const user = useUser()
 
-// Image swap: hero-candidate.png is the new generation; falls back to the
-// existing hero1/mobilehero1 if you ever want to revert. Same files used
-// for mobile + desktop since the new hero already accounts for both.
-const desktopImageSrc = '/images/hero-shopper.png'
-const mobileImageSrc  = '/images/hero-shopper.png'
+// The LCP element. It was a 781 KB PNG served identically to phones and
+// desktops, which is most of why Lighthouse measured LCP at 10.6s on a
+// throttled Moto G. Now WebP, with a 768px-wide variant for phones — the
+// audience that complains about this is on 3G, and they were downloading a
+// 1376px desktop hero to paint a ~400px-wide box.
+//   PNG 781K  ->  desktop WebP 176K  ->  mobile WebP 65K
+const desktopImageSrc = '/images/hero-shopper.webp'
+const mobileImageSrc  = '/images/hero-shopper-mobile.webp'
 
 const t = createTranslations({
   title:          { es: 'Compra en USA como si vivieras allá', en: 'Shop in the US like you live there' },

@@ -30,7 +30,7 @@
             <div class="relative max-w-lg mx-auto lg:max-w-none">
               <div class="relative rounded-2xl overflow-hidden shadow-2xl">
                 <img
-                  src="/images/step-inperson-1-schedule.png"
+                  src="/images/step-inperson-1-schedule.webp"
                   :alt="t.step1Alt"
                   width="1408" height="1056"
                   loading="lazy" decoding="async"
@@ -53,7 +53,7 @@
             <div class="relative max-w-lg mx-auto lg:max-w-none">
               <div class="relative rounded-2xl overflow-hidden shadow-2xl">
                 <img
-                  src="/images/step-inperson-2-shopping.png"
+                  src="/images/step-inperson-2-shopping.webp"
                   :alt="t.step2Alt"
                   width="1408" height="1056"
                   loading="lazy" decoding="async"
@@ -102,7 +102,7 @@
             <div class="relative max-w-lg mx-auto lg:max-w-none">
               <div class="relative rounded-2xl overflow-hidden shadow-2xl">
                 <img
-                  src="/images/step-inperson-3-delivery.png"
+                  src="/images/step-inperson-3-delivery.webp"
                   :alt="t.step3Alt"
                   width="1408" height="1056"
                   loading="lazy" decoding="async"

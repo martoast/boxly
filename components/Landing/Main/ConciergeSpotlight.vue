@@ -39,7 +39,7 @@
                stays nice on tall mobile + wide desktop. -->
           <div class="relative min-h-[280px] lg:min-h-[480px]">
             <img
-              src="/images/concierge-spotlight.png"
+              src="/images/concierge-spotlight.webp"
               :alt="t.imageAlt"
               loading="lazy"
               decoding="async"

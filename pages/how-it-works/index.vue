@@ -67,7 +67,7 @@ const lanes = computed(() => [
   {
     key: 'online',
     href: '/how-it-works/online',
-    image: '/images/lane-online.png',
+    image: '/images/lane-online.webp',
     imageAlt: 'Send us the link',
     title: t.value.onlineTitle,
     desc: t.value.onlineDesc,
@@ -75,7 +75,7 @@ const lanes = computed(() => [
   {
     key: 'in-person',
     href: '/how-it-works/in-person',
-    image: '/images/lane-in-person.png',
+    image: '/images/lane-in-person.webp',
     imageAlt: 'In-person shopping',
     title: t.value.inPersonTitle,
     desc: t.value.inPersonDesc,
@@ -83,7 +83,7 @@ const lanes = computed(() => [
   {
     key: 'casillero',
     href: '/how-it-works/casillero',
-    image: '/images/lane-casillero.png',
+    image: '/images/lane-casillero.webp',
     imageAlt: 'Your US locker',
     title: t.value.casilleroTitle,
     desc: t.value.casilleroDesc,
