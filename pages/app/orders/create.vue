@@ -646,7 +646,9 @@ const user = useUser().value;
 const { t: createTranslations, language } = useLanguage();
 
 const loading = ref(false);
-const loadingProfile = ref(true);
+// Starts false: the profile is resolved during SSR (see applyProfile below),
+// so there is no loading window to cover on this page any more.
+const loadingProfile = ref(false);
 const errorMessage = ref("");
 const hasLoadedSavedAddress = ref(false);
 // Default to the easy paste mode (Google Maps link or the address as it appears on
@@ -977,12 +979,29 @@ const translations = {
 
 const t = createTranslations(translations);
 
-const fetchUserProfile = async () => {
-  loadingProfile.value = true;
-  try {
-    const response = await $customFetch("/profile");
+/**
+ * Fetched during SSR, not in onMounted.
+ *
+ * This used to be a client-side round trip fired after hydration, so the
+ * customer watched a spinner where the delivery address should be while the
+ * browser talked to the API — on the 3G connections these reports come from,
+ * that request was most of the page's perceived wait, and it could only START
+ * once ~138 KB of JS had downloaded and executed.
+ *
+ * useAsyncData runs it on the server (the Origin fix in 56bff09 is what makes
+ * that authenticate) and ships the result in the payload, so the address is
+ * already filled in on first paint and the browser makes no request at all.
+ * .catch keeps a failed profile lookup non-fatal — applyProfile falls back to
+ * the address on the user record, exactly as the old catch block did.
+ */
+const { data: profileResponse } = await useAsyncData(
+  "order-create-profile",
+  () => $customFetch("/profile").catch(() => null)
+);
 
-    if (response.success && response.data) {
+const applyProfile = (response) => {
+  try {
+    if (response && response.success && response.data) {
       const profileData = response.data;
 
       // Check if user has individual address fields
@@ -1038,29 +1057,47 @@ const fetchUserProfile = async () => {
         }
         form.value.save_address = true;
       }
+    } else {
+      // No usable profile came back (the request failed, or returned nothing).
+      // Previously this case could only be reached by the fetch THROWING, so it
+      // lived in the catch below; now the fetch is caught upstream and hands us
+      // null instead, and the fallback has to be reachable from here too —
+      // otherwise a failed profile lookup leaves the address blank instead of
+      // pre-filling from the user record.
+      applyUserFallback();
     }
   } catch (error) {
-    console.error("Error fetching user profile:", error);
-    if (user) {
-      form.value.delivery_address = {
-        street: user.street || "",
-        exterior_number: user.exterior_number || "",
-        interior_number: user.interior_number || "",
-        colonia: user.colonia || "",
-        municipio: user.municipio || "",
-        estado: user.estado || "",
-        postal_code: user.postal_code || "",
-        referencias: "",
-        full_address: user.full_address || "",
-      };
-      if (user.full_address && !user.street) {
-        useFullAddress.value = true;
-      }
-    }
+    console.error("Error applying user profile:", error);
+    applyUserFallback();
   } finally {
     loadingProfile.value = false;
   }
 };
+
+// The address we already hold on the user record — used whenever /profile can't
+// give us a better one.
+function applyUserFallback() {
+  if (!user) return;
+  form.value.delivery_address = {
+    street: user.street || "",
+    exterior_number: user.exterior_number || "",
+    interior_number: user.interior_number || "",
+    colonia: user.colonia || "",
+    municipio: user.municipio || "",
+    estado: user.estado || "",
+    postal_code: user.postal_code || "",
+    referencias: "",
+    full_address: user.full_address || "",
+  };
+  if (user.full_address && !user.street) {
+    useFullAddress.value = true;
+  }
+}
+
+// Runs synchronously in setup on BOTH server and client — on the client it maps
+// the payload that came down with the HTML, so the form is populated before
+// first paint rather than after a fetch.
+applyProfile(profileResponse.value);
 
 const handleCreateOrder = async () => {
   if (!isFormValid.value) return;
@@ -1159,9 +1196,7 @@ const handleCreateOrder = async () => {
   }
 };
 
-onMounted(() => {
-  fetchUserProfile();
-});
+
 </script>
 
 <style scoped>
