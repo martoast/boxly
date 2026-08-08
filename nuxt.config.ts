@@ -22,8 +22,21 @@ export default defineNuxtConfig({
   // the server, and every hop of it reads a composable post-await.
   experimental: { asyncContext: true },
   routeRules: {
-    '/login':    { ssr: false },
-    '/register': { ssr: false },
+    // /login and /register used to be listed here as { ssr: false }. That was
+    // never a decision about these pages — 9f9f568 flipped the whole app from
+    // ssr:false to ssr:true and carved out everything that was already SPA, and
+    // /app/** has since been brought back in. The cost was severe on the exact
+    // page a first-time visitor lands on: the server sent an empty shell (0
+    // characters of visible text) plus ~154 KB of inlined CSS, and nothing could
+    // paint until ~109 KB of JS downloaded and executed — about 5.3s of 3G
+    // before the form appeared.
+    //
+    // Both pages are SSR-safe: the only browser APIs they touch
+    // (document.querySelector, window.location for the OAuth hand-off) are
+    // inside onMounted or click handlers, never at setup scope. Their `loggedin`
+    // middleware now resolves properly on the server too, since plugins/$fetch
+    // forwards Origin so Sanctum treats the render as stateful — without that
+    // it would 401 and bounce logged-in users to a login page they don't need.
     // ONE search surface: /app/search. Everything else redirects to it.
     //
     // /search used to be a second copy of the same <ShoppingAssistant /> with a
