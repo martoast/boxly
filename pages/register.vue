@@ -401,7 +401,7 @@ definePageMeta({
 })
 
 // Nuxt imports
-const { $customFetch, $fbq } = useNuxtApp()
+const { $customFetch } = useNuxtApp()
 const route = useRoute()
 const runtimeConfig = useRuntimeConfig()
 
@@ -777,10 +777,6 @@ const handleRegister = async () => {
       body: payload
     })
 
-    if ($fbq) {
-      $fbq('track', 'CompleteRegistration')
-    }
-    
     // Success - redirect
     if (redirectTo && typeof redirectTo === 'string') {
       if (redirectTo.startsWith('/')) {

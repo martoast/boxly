@@ -295,12 +295,6 @@ const handleSubmit = async () => {
       body: updateData,
     });
 
-    // Track completed registration with Meta Pixel
-    const { $fbq } = useNuxtApp();
-    if ($fbq) {
-      $fbq("track", "CompleteRegistration");
-    }
-
     // Refresh user data
     await $retriveUser();
 

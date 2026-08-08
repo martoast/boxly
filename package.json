@@ -32,7 +32,6 @@
     "mapbox-gl": "^3.24.0",
     "marked": "^18.0.5",
     "nuxt": "^3.17.6",
-    "nuxt-meta-pixel": "^2.0.2",
     "pdf-lib": "^1.17.1",
     "pinia": "^3.0.3",
     "unpdf": "^1.6.2",
