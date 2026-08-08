@@ -82,11 +82,18 @@ useSeoMeta({
 // TCP + TLS); dns-prefetch is the cheap fallback for browsers that
 // throttle preconnect counts. Both are a no-op once the browser is
 // already connected — safe to include on every page.
+// NOTE: api.boxly.mx is preconnected ONCE, in nuxt.config, with
+// crossorigin="use-credentials" — which is what our API calls actually use
+// (credentials: "include"). A second preconnect to the same origin with a
+// different crossorigin value does not dedupe; it opens a SECOND connection
+// and wastes the handshake it was meant to save. Lighthouse listed both.
+//
+// The Spaces CDN gets dns-prefetch only. It's the image origin for product
+// photos, which the marketing pages never request — Lighthouse flagged the
+// preconnect as unused there, and an unused preconnect holds a connection
+// open for nothing. dns-prefetch keeps the DNS win at effectively no cost.
 useHead({
   link: [
-    { rel: 'preconnect', href: 'https://api.boxly.mx', crossorigin: '' },
-    { rel: 'preconnect', href: 'https://envioscomercialestj.sfo3.digitaloceanspaces.com', crossorigin: '' },
-    { rel: 'dns-prefetch', href: 'https://api.boxly.mx' },
     { rel: 'dns-prefetch', href: 'https://envioscomercialestj.sfo3.digitaloceanspaces.com' },
   ],
 })
