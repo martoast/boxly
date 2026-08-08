@@ -29,18 +29,34 @@ export default defineNuxtPlugin(async (nuxtApp) => {
       // request-scoped (this plugin instantiates per request on the
       // server), so nothing leaks across users.
       if (import.meta.server) {
-        const { cookie } = useRequestHeaders(["cookie"]);
-        if (cookie) {
-          let headers = (options.headers ||= {});
+        const setHeader = (name: string, value: string) => {
+          const headers = (options.headers ||= {});
+          if (Array.isArray(headers)) headers.push([name, value]);
+          else if (headers instanceof Headers) headers.set(name, value);
+          else (headers as Record<string, string>)[name] = value;
+        };
 
-          if (Array.isArray(headers)) {
-            headers.push(["cookie", cookie]);
-          } else if (headers instanceof Headers) {
-            headers.set("cookie", cookie);
-          } else {
-            headers["cookie"] = cookie;
-          }
-        }
+        const { cookie } = useRequestHeaders(["cookie"]);
+        if (cookie) setHeader("cookie", cookie);
+
+        // Origin is NOT optional here. Sanctum decides whether to authenticate a
+        // request from the session cookie purely by matching Referer/Origin
+        // against SANCTUM_STATEFUL_DOMAINS — and
+        // EnsureFrontendRequestsAreStateful::fromFrontend() returns false
+        // outright when BOTH headers are absent, which is exactly what Nitro
+        // sends. So forwarding the cookie above did nothing on its own: /user
+        // 401'd even for a valid session, the auth middleware concluded "guest",
+        // and a logged-in user hard-loading /app got bounced to /login and then
+        // bounced back by the client — a wasted round trip and a visible flash
+        // on every hard load.
+        //
+        // Verified against prod: with Origin the API replies Set-Cookie
+        // XSRF-TOKEN + boxly_session (session started, request is stateful);
+        // without it, only Cloudflare's __cf_bm.
+        //
+        // Safe for CSRF: Laravel only validates CSRF on state-changing methods,
+        // and X-XSRF-TOKEN is already forwarded above for those.
+        setHeader("origin", useRequestURL().origin);
       }
     },
     async onResponseError({ response }) {
