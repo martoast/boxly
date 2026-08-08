@@ -83,7 +83,7 @@
 import { ref, computed, onMounted } from 'vue'
 
 definePageMeta({
- layout: 'default',
+ layout: 'app',
  middleware: ['auth', 'customer', 'complete-profile'],
 })
 
