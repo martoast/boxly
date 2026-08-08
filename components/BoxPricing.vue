@@ -7,7 +7,7 @@
         <p class="mt-3 text-lg sm:text-xl text-gray-500">{{ t.pricingSubtitle }}</p>
         <div class="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-1.5 text-[13px] text-gray-500">
           <span v-for="tr in TRUST" :key="tr.key" class="inline-flex items-center gap-1.5">
-            <svg class="w-3.5 h-3.5 shrink-0 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :stroke-width="tr.key === 'plane' ? 1.8 : 2.5" :d="tr.key === 'plane' ? ICON_PLANE : ICON_CHECK" /></svg>
+            <svg class="w-3.5 h-3.5 shrink-0 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :stroke-width="tr.key === 'plane' ? 1.8 : 2.5" :d="tr.key === 'plane' ? ICON_PLANE : ICON_CHECK" /></svg>
             {{ t[tr.key] }}
           </span>
         </div>
@@ -23,19 +23,19 @@
           <div class="flex items-center justify-between h-5">
             <p class="text-[17px] font-semibold text-gray-900">{{ t.boxLabel }} {{ box.size }}</p>
             <span v-if="box.popular" class="text-[10.5px] font-semibold uppercase tracking-wide text-primary-600">{{ t.popularBadge }}</span>
-            <span v-else-if="box.bestValue" class="text-[10.5px] font-semibold uppercase tracking-wide text-emerald-600">{{ t.bestValueBadge }}</span>
+            <span v-else-if="box.bestValue" class="text-[10.5px] font-semibold uppercase tracking-wide text-emerald-700">{{ t.bestValueBadge }}</span>
           </div>
 
           <!-- price — FIXED per box size -->
           <div class="mt-5">
-            <p class="text-[11.5px] text-gray-400">{{ t.boxPrice }}</p>
-            <p class="mt-1 text-[30px] font-semibold tracking-tight text-gray-900 leading-none">${{ box.price.toLocaleString('en-US') }}<span class="text-[13px] font-medium text-gray-400 ml-1">MXN</span></p>
+            <p class="text-[11.5px] text-gray-500">{{ t.boxPrice }}</p>
+            <p class="mt-1 text-[30px] font-semibold tracking-tight text-gray-900 leading-none">${{ box.price.toLocaleString('en-US') }}<span class="text-[13px] font-medium text-gray-500 ml-1">MXN</span></p>
             <p class="mt-1.5 text-[12.5px] text-gray-500">≈ ${{ box.perItem }} {{ t.perItem }}</p>
           </div>
 
           <!-- capacity — approximate examples of what fits -->
           <div class="mt-5 border-t border-gray-100 pt-4">
-            <p class="text-[11px] text-gray-400 mb-2.5">{{ t.fits }}</p>
+            <p class="text-[11px] text-gray-500 mb-2.5">{{ t.fits }}</p>
             <ul class="space-y-2.5 text-[13.5px]">
               <li class="flex items-center justify-between"><span class="text-gray-500">{{ t.garments }}</span><span class="font-medium text-gray-900">~{{ box.garments }}</span></li>
               <li class="flex items-center justify-between"><span class="text-gray-500">{{ t.pairs }}</span><span class="font-medium text-gray-900">~{{ box.pairs }}</span></li>
@@ -47,7 +47,7 @@
             <NuxtLink :to="ctaLink" class="w-full inline-flex items-center justify-center px-4 py-2.5 rounded-full text-[14px] font-semibold transition-colors active:scale-[.98]" :class="box.popular ? 'bg-primary-600 hover:bg-primary-700 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-900'">
               {{ t.choose }}
             </NuxtLink>
-            <button @click="specsOpen[box.size] = !specsOpen[box.size]" class="mt-3 w-full text-[12px] text-gray-400 hover:text-gray-600 transition-colors">
+            <button @click="specsOpen[box.size] = !specsOpen[box.size]" class="mt-3 w-full text-[12px] text-gray-500 hover:text-gray-700 transition-colors">
               {{ specsOpen[box.size] ? box.dimensions[language] : t.seeDimensions }}
             </button>
           </div>
@@ -61,7 +61,7 @@
           {{ t[f] }}
         </span>
       </div>
-      <p class="mt-3 text-center text-[12px] text-gray-400 max-w-lg mx-auto">{{ t.approxNote }}</p>
+      <p class="mt-3 text-center text-[12px] text-gray-500 max-w-lg mx-auto">{{ t.approxNote }}</p>
 
       <!-- Main CTA -->
       <div class="mt-8 text-center">

@@ -14,7 +14,7 @@
         <p class="mt-3 text-lg sm:text-xl text-gray-500">Una caja. Un envío. Pagas cuando está lista.</p>
         <div class="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-1.5 text-[13px] text-gray-500">
           <span v-for="tr in TRUST" :key="tr.label" class="inline-flex items-center gap-1.5">
-            <svg :class="['w-3.5 h-3.5 shrink-0 text-gray-400']" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :stroke-width="tr.icon === 'plane' ? 1.8 : 2.5" :d="tr.icon === 'plane' ? ICONS.plane : ICONS.check" /></svg>
+            <svg :class="['w-3.5 h-3.5 shrink-0 text-gray-500']" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :stroke-width="tr.icon === 'plane' ? 1.8 : 2.5" :d="tr.icon === 'plane' ? ICONS.plane : ICONS.check" /></svg>
             {{ tr.label }}
           </span>
         </div>
@@ -29,19 +29,19 @@
         >
           <div class="flex items-center justify-between h-5">
             <p class="text-[17px] font-semibold text-gray-900">{{ b.name }}</p>
-            <span v-if="b.tag" :class="['text-[10.5px] font-semibold uppercase tracking-wide', b.popular ? 'text-primary-600' : 'text-emerald-600']">{{ b.tag }}</span>
+            <span v-if="b.tag" :class="['text-[10.5px] font-semibold uppercase tracking-wide', b.popular ? 'text-primary-600' : 'text-emerald-700']">{{ b.tag }}</span>
           </div>
 
           <!-- price — FIXED per box size -->
           <div class="mt-5">
-            <p class="text-[11.5px] text-gray-400">Precio de la caja</p>
-            <p class="mt-1 text-[30px] font-semibold tracking-tight text-gray-900 leading-none">${{ b.price.toLocaleString('en-US') }}<span class="text-[13px] font-medium text-gray-400 ml-1">MXN</span></p>
+            <p class="text-[11.5px] text-gray-500">Precio de la caja</p>
+            <p class="mt-1 text-[30px] font-semibold tracking-tight text-gray-900 leading-none">${{ b.price.toLocaleString('en-US') }}<span class="text-[13px] font-medium text-gray-500 ml-1">MXN</span></p>
             <p class="mt-1.5 text-[12.5px] text-gray-500">≈ ${{ b.perItem }} por artículo</p>
           </div>
 
           <!-- capacity — APPROXIMATE examples of what fits (this is what varies) -->
           <div class="mt-5 border-t border-gray-100 pt-4">
-            <p class="text-[11px] text-gray-400 mb-2.5">Cuánto le cabe (aprox.)</p>
+            <p class="text-[11px] text-gray-500 mb-2.5">Cuánto le cabe (aprox.)</p>
             <ul class="space-y-2.5 text-[13.5px]">
               <li class="flex items-center justify-between"><span class="text-gray-500">Prendas</span><span class="font-medium text-gray-900">~{{ b.garments }}</span></li>
               <li class="flex items-center justify-between"><span class="text-gray-500">Pares de tenis</span><span class="font-medium text-gray-900">~{{ b.pairs }}</span></li>
@@ -53,7 +53,7 @@
             <NuxtLink to="/app/orders/create" class="w-full inline-flex items-center justify-center px-4 py-2.5 rounded-full text-[14px] font-semibold transition-colors active:scale-[.98]" :class="b.popular ? 'bg-primary-600 hover:bg-primary-700 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-900'">
               Elegir
             </NuxtLink>
-            <button @click="specsOpen[b.key] = !specsOpen[b.key]" class="mt-3 w-full text-[12px] text-gray-400 hover:text-gray-600 transition-colors">
+            <button @click="specsOpen[b.key] = !specsOpen[b.key]" class="mt-3 w-full text-[12px] text-gray-500 hover:text-gray-700 transition-colors">
               {{ specsOpen[b.key] ? b.dims : 'Ver medidas' }}
             </button>
           </div>
@@ -61,7 +61,7 @@
       </div>
 
       <!-- consolidation note, quiet -->
-      <p class="mt-5 text-center text-[12.5px] text-gray-400 max-w-xl mx-auto">
+      <p class="mt-5 text-center text-[12.5px] text-gray-500 max-w-xl mx-auto">
         El límite de cada caja es por <span class="text-gray-500">volumen o peso</span> — lo que se alcance primero. Las cantidades son aproximadas.
       </p>
 
@@ -75,23 +75,23 @@
 
       <!-- Footer — how it works + one concise disclaimer, scrunched into a footer -->
       <div class="mt-14 sm:mt-16 pt-9 border-t border-gray-100 max-w-4xl mx-auto">
-        <p class="text-center text-[12px] font-semibold text-gray-400 uppercase tracking-[0.2em] mb-8">Cómo funciona</p>
+        <p class="text-center text-[12px] font-semibold text-gray-500 uppercase tracking-[0.2em] mb-8">Cómo funciona</p>
         <div class="relative flex flex-col md:flex-row md:justify-between gap-6 md:gap-0">
           <div class="hidden md:block absolute top-5 left-[8%] right-[8%] h-px bg-gray-200"></div>
           <template v-for="(s, i) in STEPS" :key="s.title">
             <div class="relative flex md:flex-col md:items-center md:text-center gap-3.5 md:gap-0 md:flex-1">
-              <span :class="['grid place-items-center w-10 h-10 rounded-full shrink-0 bg-white ring-1', s.trust ? 'ring-primary-300 text-primary-600' : 'ring-gray-200 text-gray-400']">
+              <span :class="['grid place-items-center w-10 h-10 rounded-full shrink-0 bg-white ring-1', s.trust ? 'ring-primary-300 text-primary-600' : 'ring-gray-200 text-gray-500']">
                 <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" :d="ICONS[s.icon]" /></svg>
               </span>
               <div class="md:mt-3 md:px-1">
                 <p class="text-[13px] font-medium text-gray-900 leading-tight">{{ s.title }}</p>
-                <p v-if="s.sub" class="text-[11.5px] text-gray-400 mt-0.5 leading-snug">{{ s.sub }}</p>
+                <p v-if="s.sub" class="text-[11.5px] text-gray-500 mt-0.5 leading-snug">{{ s.sub }}</p>
               </div>
             </div>
             <div v-if="i < STEPS.length - 1" class="md:hidden ml-5 my-0.5 h-4 border-l border-gray-200"></div>
           </template>
         </div>
-        <p class="mt-9 text-[11.5px] text-gray-400 text-center">Precio fijo por caja · Consolida hasta 60 días · Los pares de tenis se consideran sin caja.</p>
+        <p class="mt-9 text-[11.5px] text-gray-500 text-center">Precio fijo por caja · Consolida hasta 60 días · Los pares de tenis se consideran sin caja.</p>
       </div>
     </div>
   </section>

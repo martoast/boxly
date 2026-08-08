@@ -30,7 +30,7 @@
         </div>
       </div>
 
-      <p class="text-center text-xs sm:text-sm text-gray-400 mt-14 max-w-xl mx-auto">
+      <p class="text-center text-xs sm:text-sm text-gray-500 mt-14 max-w-xl mx-auto">
         {{ t.disclaimer }}
       </p>
     </div>
