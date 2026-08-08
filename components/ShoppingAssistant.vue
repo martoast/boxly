@@ -317,7 +317,7 @@
                     <!-- Only the RICHEST gallery in this message renders — see
                          primaryGalleryIndex(): a model that fires two gallery
                          tools in one step must not draw two carousels. -->
-                    <LazyProductGallery v-if="isGalleryTool(part) && part.state === 'output-available' && part.output?.products?.length && i === primaryGalleryIndex(m)" :products="part.output.products" @open="openProduct" />
+                    <LazyProductGallery v-if="isGalleryTool(part) && part.state === 'output-available' && part.output?.products?.length && i === primaryGalleryIndex(m) && !galleryPending(m)" :products="part.output.products" @open="openProduct" />
                     <!-- Search/browse finished but found nothing — clean message, not an empty
                          carousel. Suppress it if ANOTHER search in this turn did find options. -->
                     <div v-else-if="showNoResults(m, part)" class="text-[13px] text-gray-500 bg-white border border-gray-100 rounded-2xl px-4 py-3 shadow-sm">No encontré opciones para eso ahora. ¿Probamos con otra marca o término?</div>
@@ -1194,6 +1194,25 @@ function hasProducts(m) { return (m.parts || []).some((p) => isGalleryTool(p) &&
  *
  * Returns the index of the part to render, or -1 when there is no gallery.
  */
+/**
+ * Is another gallery tool in this message STILL RUNNING?
+ *
+ * primaryGalleryIndex() keeps the richest gallery, but it can only choose among
+ * the ones that have arrived — and the fast one is routinely the junk one.
+ * Measured against prod for the YoungLA starter prompt:
+ *
+ *   browse_store(query:"men")  ->  1 product  in 0.95s  ("1067 Stage Shorts")
+ *   search_products(...)       -> 16 products in 6-24s
+ *
+ * So a lone unrelated product flashed up, sat there for the whole load, then got
+ * swapped out. It reads like a stale cache — it isn't, it's just the only result
+ * that had landed yet. Hold the gallery until every gallery tool in the turn has
+ * settled; the SearchLoader already covers that window.
+ */
+function galleryPending(m) {
+  return (m?.parts || []).some((p) => isGalleryTool(p) && p.state !== 'output-available' && !toolFailed(m, p))
+}
+
 function primaryGalleryIndex(m) {
   let best = -1
   let bestCount = 0
