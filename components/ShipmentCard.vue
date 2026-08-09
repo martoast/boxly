@@ -30,16 +30,27 @@
     </p>
 
     <!-- actions -->
+    <!-- Once the purchase request exists, "Confirmar mi envío" is a dead end: the
+         green card above already says the request was created, and tapping it just
+         gets "no es necesario realizar ninguna otra confirmación adicional". It
+         reads as an unfinished step and makes people think the order didn't go
+         through. "Agregar más" stays — that one still does something, and a
+         half-empty box is exactly when we want to invite more items. -->
     <div class="mt-3 flex items-center gap-2">
-      <button type="button" @click="$emit('order')" class="flex-1 py-2 rounded-xl bg-primary-500 hover:bg-primary-600 active:scale-[.97] text-white text-[12.5px] font-bold shadow-sm shadow-primary-500/20 transition-all">Confirmar mi envío</button>
-      <button type="button" @click="$emit('add')" class="px-3 py-2 rounded-xl border border-primary-200 text-primary-700 text-[12.5px] font-semibold hover:bg-primary-50 active:scale-[.97] transition-all">Agregar más</button>
+      <button v-if="!requested" type="button" @click="$emit('order')" class="flex-1 py-2 rounded-xl bg-primary-500 hover:bg-primary-600 active:scale-[.97] text-white text-[12.5px] font-bold shadow-sm shadow-primary-500/20 transition-all">Confirmar mi envío</button>
+      <button type="button" @click="$emit('add')" :class="requested ? 'flex-1 py-2 rounded-xl bg-primary-500 hover:bg-primary-600 active:scale-[.97] text-white text-[12.5px] font-bold shadow-sm shadow-primary-500/20 transition-all' : 'px-3 py-2 rounded-xl border border-primary-200 text-primary-700 text-[12.5px] font-semibold hover:bg-primary-50 active:scale-[.97] transition-all'">Agregar más</button>
     </div>
     <p class="mt-2 text-[10px] text-gray-400 leading-tight">Estimado para que veas cómo se llena tu caja. El tamaño y el costo final se confirman en tu cotización.</p>
   </div>
 </template>
 
 <script setup>
-const props = defineProps({ shipment: { type: Object, default: () => ({}) } })
+const props = defineProps({
+  shipment: { type: Object, default: () => ({}) },
+  // True once a purchase request already exists for this chat — hides the
+  // now-meaningless "Confirmar mi envío" action.
+  requested: { type: Boolean, default: false },
+})
 defineEmits(['order', 'add'])
 
 const s = computed(() => ({
