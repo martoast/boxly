@@ -699,7 +699,28 @@ export default defineEventHandler(async (event) => {
     ],
     // Once a gallery has rendered, only non-gallery tools remain available — the
     // model can write its closing line and add follow-ups, but can't draw a 2nd gallery.
-    prepareStep: () => (galleryShown ? { activeTools: NON_GALLERY_TOOLS } : undefined),
+    //
+    // ALSO cap gallery-tool attempts at 2, even when nothing has rendered. The
+    // prompt tells the model to retry once with a broader query and then stop,
+    // but it does not reliably obey: conversation 331 (a real customer asking for
+    // Kipling bags, while SerpAPI's shopping engine was down and every search
+    // returned nothing) shows it emitting "Encontré varias bolsas Kipling en
+    // oferta" and searching again, six times over. stepCountIs(10) was the only
+    // brake, and ten steps of searching is far past the ~30s the host allows a
+    // request — so the stream was cut, onFinish never ran, the turn was never
+    // saved, and the customer sat on a spinner and got nothing.
+    //
+    // Two attempts is the same budget the prompt asks for. After that the gallery
+    // tools go away and the model has to answer in text, which is a real reply
+    // ("no encontré, ¿probamos otra marca?") instead of a hang.
+    prepareStep: ({ steps }: any) => {
+      if (galleryShown) return { activeTools: NON_GALLERY_TOOLS }
+      const galleryAttempts = (steps || []).reduce(
+        (n: number, s: any) => n + (s.toolCalls || []).filter((c: any) => GALLERY_TOOLS.includes(c.toolName)).length,
+        0
+      )
+      return galleryAttempts >= 2 ? { activeTools: NON_GALLERY_TOOLS } : undefined
+    },
     onError: ({ error }) => console.error('[assistant] error:', error instanceof Error ? error.message : error),
     onFinish: async ({ text, steps }) => {
       // A turn that used a product tool is a SEARCH (logged server-side by
