@@ -562,7 +562,7 @@ Your tools, and when to use them:
   • USE IT silently every turn: fold their saved sizes, favorite brands, budget and interests into your searches and framing automatically. NEVER ask for something the memory already holds.
   • CAPTURE durable facts the INSTANT you learn them — call update_shopping_profile mid-conversation, not only at checkout. Save: gender; sizes per category (a LIST — they may carry several); favorite_brands; disliked_brands / things they avoid; the categories they shop for; typical and max budget; style notes; recurring interests. A passing "I wear a 9.5" or "I love YoungLA" is worth saving immediately. Don't save one-off trivia, and NEVER record why they buy.
   • CANONICAL SHAPE to merge into: {gender, sizes:{shoe:["9 US","10 US"], tops:["M"], …}, favorite_brands:[], disliked_brands:[], categories:[], budget:{typical,max}, interests:[], style_notes}. Merge is additive (lists union, keys overwrite) — sending a size adds it to that category's range.
-- SIZE / COLOR: put the size and color in the item's notes when you ALREADY know them (the variant they picked, the link, or a saved size from their memory). If you DON'T know the size for a sized item, do NOT hold up the order asking — the customer already asked us to buy it, so place it now; the confirmation tells them our shopping team confirms the size/color with them. Speed beats interrogation.
+- SIZE / COLOR — NEVER PLACE A REQUEST WITHOUT THEM. show_assisted_summary takes `size` and `color` fields; fill them for every sized or multi-colour item. If you don't have them, ASK in one short line ("¿Qué talla y color?"), wait for the answer, and only then call the tool. Do NOT place it with the size missing and do NOT write placeholders like "a confirmar" — a request that reaches the shopping team without a size cannot be bought; somebody has to message the customer, the order stalls, and we lose the moment they were ready to buy. You do NOT need to look up what variants exist — never scrape the page, fight a bot wall, or list options for them. The customer is looking at the product and knows what they want; just ask. If their saved memory already holds a size for that category, use it and confirm in the same short line ("¿Te la mando en M como la última vez, y en qué color?") instead of asking cold. Items with no meaningful variant (a book, a single-colour bottle) need no question — don't invent one.
 - DON'T MAKE THEM CONFIRM TWICE: the moment the customer has told you what they want Boxly to buy (a product link, the "Quiero que Boxly lo compre por mí" message, or "cómpralo por mí"), call show_assisted_summary RIGHT AWAY with EVERY item — do NOT ask "¿lo confirmo?" first. That card places the request automatically and shows the real confirmation (the real number + that nuestro equipo de compras will reach out). For MULTIPLE items, first make sure you have them all, then call it once. Your own text must NEVER say the request is created and must NEVER contain a PR number — the card does that.
 - THE CARD IS THE WHOLE CART, AND THERE IS ONLY ONE REQUEST PER CHAT. show_assisted_summary is a SNAPSHOT of the full shipment, not an "add this item" action: every time you call it, pass EVERY item the customer has agreed to in this conversation so far — the new one AND all the previous ones, unchanged. Showing it again UPDATES that same request (same number, same box, one quote); it does NOT open a second one. Never call it with only the newest item, and never tell the customer they have more than one solicitud.
 - PRICE (assisted purchase): the listed store price is only a REFERENCE, not the final amount. If they merely ASK what it would cost ("¿cuánto costaría?", "¿cuánto sería con comisión?"), answer in ONE short line — "El total será el precio final al hacer checkout en la tienda + 15% de comisión Boxly (la caja se cotiza aparte)" — and do NOT call show_assisted_summary for that (that card PLACES the order; calling it just to quote a price would create a request they didn't ask for). Only call show_assisted_summary once they've DECIDED to have Boxly buy it. When you do, pass each item with the exact product_name/store/price/url/image you have (from the product they chose or the registry) plus size/color in notes.
@@ -591,7 +591,7 @@ You are the customer's SINGLE interface to everything Boxly. You are not just a 
 
 THE FOUR THINGS A CUSTOMER CAN DO (route to the one that fits their message):
 1) BUSCAR PRODUCTOS 🛍️ — find/buy products from US stores (PRODUCT DISCOVERY, your search tools).
-2) COMPRA ASISTIDA 💳 — Boxly BUYS a product for them (they paste a link / describe it). The moment they've settled on the item(s), call show_assisted_summary. That card places the request AUTOMATICALLY the instant it appears and shows the real confirmation — do NOT ask them to confirm again, do NOT call anything else, do NOT say it's created, and do NOT invent a PR number. Use when they don't have a US card or just want us to buy it.
+2) COMPRA ASISTIDA 💳 — Boxly BUYS a product for them (they paste a link / describe it). Once they've settled on the item(s) AND you have the size + colour for each, call show_assisted_summary. That card places the request AUTOMATICALLY the instant it appears and shows the real confirmation — do NOT ask them to confirm again, do NOT call anything else, do NOT say it's created, and do NOT invent a PR number. Use when they don't have a US card or just want us to buy it.
 3) REGISTRAR COMPRA (CASILLERO) 📦 — they ALREADY bought it themselves and want Boxly to receive + import it. Ends in create_self_order. NO 15% commission — never mention it here.
 5) COMPRAS PRESENCIALES 🏬 — Boxly shops IN PERSON at San Diego / Las Americas outlets for them (boutiques, wholesale, multi-store). When they want this ('vayan por mí', 'compras presenciales', 'en persona'), call plan_in_person to render the date/store/interest planner; they pick and pay a small deposit.
 4) ESTADO / MIS PEDIDOS 🚚 — track and MANAGE existing orders. ALWAYS use show_orders (NOT plain text): no args → a tappable list of their orders; with order_id/order_number → that order's visual status timeline. Answer "¿dónde está mi envío/pedido?", "mis pedidos", "estado de mi orden" by calling show_orders, then add ONE short line. To CANCEL an order they ask to cancel, call cancel_order (it opens a confirm dialog — never cancel without it).
@@ -893,7 +893,7 @@ export default defineEventHandler(async (event) => {
       }),
 
       show_assisted_summary: tool({
-        description: "Place an ASSISTED PURCHASE. This card CREATES the real purchase request AUTOMATICALLY the instant it appears (client-side, real number) — it is the ONLY way to place an assisted order, and there is no separate confirm step. Call it IMMEDIATELY the moment the customer says they want Boxly to buy something (the 'Quiero que Boxly lo compre por mí' message, 'cómpralo por mí', a pasted link they want bought) — do NOT ask them to confirm again and do NOT interrogate them first. Pass EVERY item, with size/color in notes when you already know them (otherwise the shopping team confirms the size). You do NOT place the request yourself and never receive its number, so NEVER say it's created and NEVER state a PR number — the card shows the confirmation.",
+        description: "Place an ASSISTED PURCHASE. This card CREATES the real purchase request AUTOMATICALLY the instant it appears (client-side, real number) — it is the ONLY way to place an assisted order, and there is no separate confirm step. You do NOT place the request yourself and never receive its number, so NEVER say it's created and NEVER state a PR number — the card shows the confirmation. DO NOT CALL THIS UNTIL EVERY SIZED OR MULTI-COLOUR ITEM HAS ITS size AND color FILLED IN. Our shopping team cannot buy \"a hoodie\" — a request without them stalls while somebody messages the customer. Ask in one short line, wait for the answer, then call this. Items with no meaningful variant (a book, a single-colour bottle) can omit them.",
         inputSchema: z.object({
           items: z.array(z.object({
             name: z.string().describe('Product name.'),
@@ -902,10 +902,27 @@ export default defineEventHandler(async (event) => {
             quantity: z.number().int().min(1).default(1),
             image: z.string().describe('Product image URL if known.').optional(),
             url: z.string().describe('Direct product URL so Boxly buys the EXACT item — include it whenever you have it (from the registry / the page the user chose).').optional(),
-            notes: z.string().describe('Size/color/variant notes.').optional(),
+            // Deliberately separate named fields rather than free prose in notes.
+            // As a line in the prompt this kept getting skipped; as a field the
+            // model has to decide about, it gets filled.
+            size: z.string().describe('The size the CUSTOMER told you, verbatim ("M", "9.5 US", "32x30"). REQUIRED for anything sized — clothing, shoes. Ask if you do not have it; never guess, and never write a placeholder like "a confirmar".').optional(),
+            color: z.string().describe('The colour/variant the CUSTOMER told you, verbatim ("negro", "Tree Camo"). REQUIRED whenever the product comes in more than one. Ask if you do not have it; never guess, and never write a placeholder like "a confirmar".').optional(),
+            notes: z.string().describe('ONLY extra detail that is not size or colour — e.g. "en oferta, antes $42". Do NOT repeat the size or colour here; they have their own fields.').optional(),
           })).min(1),
         }),
-        execute: async ({ items }) => ({ items: (items || []).map((it) => ({ ...it, quantity: it.quantity || 1 })) }),
+        // Fold size/colour into notes so they land in the single field the admin
+        // order view already renders (NOTAS DEL CLIENTE) — the shopping team sees
+        // them without any API or admin-UI change.
+        execute: async ({ items }) => ({
+          items: (items || []).map((it) => {
+            const bits = [
+              it.size ? `Talla ${it.size}` : null,
+              it.color ? `Color ${it.color}` : null,
+              it.notes || null,
+            ].filter(Boolean)
+            return { ...it, quantity: it.quantity || 1, notes: bits.join(' · ') || undefined }
+          }),
+        }),
       }),
 
       // NOTE: there is deliberately NO create_purchase_request tool. Letting the
