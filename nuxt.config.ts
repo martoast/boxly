@@ -54,6 +54,22 @@ export default defineNuxtConfig({
     '/buscar/**':     { redirect: '/app/search' },
     '/search':        { redirect: '/app/search' },
     '/search/**':     { redirect: '/app/search' },
+    // /shop was the Boxly Store, since removed — every one of those URLs 404s
+    // today. Search Console still shows /shop at position 2.3 with 351
+    // impressions over 12 months, plus the product pages beneath it
+    // (/shop/9060 126 impr, /shop/define-jacket-nulu-1 130 impr), so Google is
+    // still sending people to a dead end and the authority is being thrown away.
+    //
+    // Redirect to the homepage rather than /app/search: the search surface is
+    // behind auth, and dropping organic visitors onto a login wall converts
+    // worse than a 404. The landing hero carries the concierge search box, so
+    // someone who arrived wanting to browse products can do exactly that.
+    // 301, not Nuxt's default 307. A temporary redirect tells Google to keep
+    // the old URL indexed and check back; a permanent one transfers the
+    // authority to the homepage and drops /shop from the index, which is the
+    // whole point of doing this.
+    '/shop':              { redirect: { to: '/', statusCode: 301 } },
+    '/shop/**':           { redirect: { to: '/', statusCode: 301 } },
     // The product page is auth-gated (token-expensive) — client-rendered so the
     // auth middleware resolves the user reliably.
     '/producto':          { ssr: false },

@@ -345,7 +345,8 @@
       {
         name: 'description',
         content: 'Navega fácilmente por todas las páginas de Boxly. Encuentra información sobre servicios, ayuda, y más.'
-      }
+      },
+      { name: 'robots', content: 'noindex, follow' },
     ]
   })
   </script>

@@ -352,6 +352,21 @@
 </template>
 
 <script setup>
+
+// noindex. Search Console (12mo) had this utility page ranking in the top
+// three and drawing impressions that belong to the pages that actually sell
+// something — /sitemap 431 impr, /terms-of-service 450, /privacy-policy 171,
+// between them ~1,050 impressions and 6 clicks. It has no search value and
+// competing with our own commercial pages for brand queries is a real cost.
+// "follow" so the links on it still pass equity; it stays fully reachable for
+// anyone who wants to read it.
+useHead({
+  title: 'Términos de Servicio - Boxly',
+  meta: [
+    { name: 'robots', content: 'noindex, follow' },
+  ],
+})
+
 const { t: createTranslations } = useLanguage();
 
 const currentDate = new Date().toLocaleDateString("es-MX", {
