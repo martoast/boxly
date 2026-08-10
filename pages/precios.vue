@@ -70,7 +70,7 @@ const t = createTranslations({
 
   asistidaTitle:  { es: 'Boxly lo compra (compra asistida)', en: 'Boxly buys it (assisted purchase)' },
   asistidaDesc:   { es: 'Ideal si no tienes una tarjeta aceptada en USA. Nosotros compramos el producto por ti, lo importamos y lo entregamos.', en: 'Ideal if you don\'t have a US-accepted card. We buy the product for you, import it, and deliver it.' },
-  asistidaPrice:  { es: 'Producto + 10% de comisión (sobre el total al checkout) + la caja.', en: 'Product + 10% commission (on the checkout total) + the box.' },
+  asistidaPrice:  { es: 'Producto + 15% de comisión (sobre el total al checkout) + la caja.', en: 'Product + 15% commission (on the checkout total) + the box.' },
 
   ctaTitle:       { es: '¿Listo para comprar de Estados Unidos?', en: 'Ready to shop from the US?' },
   ctaSubtitle:    { es: 'Dile a Boxly AI qué quieres comprar, o crea tu cuenta gratis para empezar.', en: 'Tell Boxly AI what you want to buy, or create your free account to start.' },
@@ -80,7 +80,7 @@ const t = createTranslations({
 
 useSeoMeta({
   title: 'Precios de envío USA → México | Boxly',
-  description: 'Tarifas de envío de Estados Unidos a México: precio fijo por caja (XS a XL), sin costos ocultos. Casillero (solo la caja) o compra asistida (producto + 10% + caja). Consolida y ahorra.',
+  description: 'Tarifas de envío de Estados Unidos a México: precio fijo por caja (XS a XL), sin costos ocultos. Casillero (solo la caja) o compra asistida (producto + 15% + caja). Consolida y ahorra.',
   ogTitle: 'Precios de envío USA → México | Boxly',
   ogDescription: 'Precio fijo por caja, sin costos ocultos. Casillero o compra asistida. Consolida tus compras de USA en una sola caja a México.',
   ogType: 'website',

@@ -340,7 +340,7 @@ const translations = {
   budgetLabel:      { es: 'Presupuesto mínimo', en: 'Minimum budget' },
   notesLabel:       { es: 'Notas para el equipo', en: 'Notes for the team' },
   wishlistLabel:    { es: 'Lista de deseos', en: 'Wishlist' },
-  inPersonWhatsNext:{ es: 'Después de la visita revisamos lo que conseguimos y te enviamos una cotización final con la mercancía, el envío al almacén y el 10% de servicio. La reserva ya está cubierta.', en: 'After the trip we review what we found and send you a final quote with the merchandise, warehouse shipping, and 10% service fee. The deposit is already covered.' },
+  inPersonWhatsNext:{ es: 'Después de la visita revisamos lo que conseguimos y te enviamos una cotización final con la mercancía, el envío al almacén y el 15% de servicio. La reserva ya está cubierta.', en: 'After the trip we review what we found and send you a final quote with the merchandise, warehouse shipping, and 15% service fee. The deposit is already covered.' },
 
   // Online layout labels
   editRequest:   { es: 'Editar', en: 'Edit' },

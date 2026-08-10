@@ -146,7 +146,7 @@ const t = createTranslations({
   step1Title:        { es: 'Reserva tu visita y elige las tiendas', en: 'Book your visit and pick the stores' },
   step1Desc:         { es: 'Elige la fecha en que vamos a Las Américas Outlets o a las tiendas que tú decidas en San Diego. Selecciona qué tiendas visitar, marca categorías y deja una lista de deseos.', en: 'Pick the date we visit Las Americas Outlets or whichever stores you choose in San Diego. Select which stores, tag the categories that interest you, and leave a wishlist.' },
   step1CalloutTitle: { es: 'Reservas con $10 USD por tienda', en: 'Reserve with $10 USD per store' },
-  step1CalloutDesc:  { es: 'El resto se paga al final: total de las compras realizadas + 10% de comisión de servicio calculada sobre el valor total de la mercancía adquirida.', en: 'The rest is paid at the end: total of the purchases made + 10% service fee calculated on the total value of the merchandise acquired.' },
+  step1CalloutDesc:  { es: 'El resto se paga al final: total de las compras realizadas + 15% de comisión de servicio calculada sobre el valor total de la mercancía adquirida.', en: 'The rest is paid at the end: total of the purchases made + 15% service fee calculated on the total value of the merchandise acquired.' },
   step1Alt:          { es: 'Reserva tu visita desde tu celular', en: 'Book your visit from your phone' },
   step1BadgeTitle:   { es: 'Fecha disponible', en: 'Available date' },
   step1BadgeDesc:    { es: 'En minutos', en: 'In minutes' },
