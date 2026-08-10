@@ -396,6 +396,22 @@
 </template>
 
 <script setup>
+
+// SEO. Without this the page inherited the GLOBAL title/description from
+// nuxt.config, so Google showed the same "Compra en cualquier tienda del
+// mundo" snippet for five different pages. Search Console (12mo) had this
+// page ranking well and almost nobody clicking — the ranking was never the
+// problem, the snippet was. Title stays under ~60 chars and description
+// under ~155 so neither gets truncated in results.
+useHead({
+  title: 'Programa de afiliados Boxly: gana por cada referido',
+  meta: [
+    { name: 'description', content: 'Recomienda Boxly y gana comisión por cada persona que envíe con nosotros. Sin costo y sin mínimos — regístrate y empieza a ganar.' },
+    { property: 'og:title', content: 'Programa de afiliados Boxly: gana por cada referido' },
+    { property: 'og:description', content: 'Recomienda Boxly y gana comisión por cada persona que envíe con nosotros. Sin costo y sin mínimos — regístrate y empieza a ganar.' },
+  ],
+})
+
 import { ref, computed } from 'vue'
 import FooterSection from "~/components/Landing/FooterSection.vue"
 

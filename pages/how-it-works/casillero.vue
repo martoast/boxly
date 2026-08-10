@@ -177,6 +177,22 @@
 </template>
 
 <script setup>
+
+// SEO. Without this the page inherited the GLOBAL title/description from
+// nuxt.config, so Google showed the same "Compra en cualquier tienda del
+// mundo" snippet for five different pages. Search Console (12mo) had this
+// page ranking well and almost nobody clicking — the ranking was never the
+// problem, the snippet was. Title stays under ~60 chars and description
+// under ~155 so neither gets truncated in results.
+useHead({
+  title: 'Casillero en Estados Unidos gratis | Dirección en San Diego',
+  meta: [
+    { name: 'description', content: 'Tu propia dirección en San Ysidro, California. Compra en cualquier tienda de EE. UU. y nosotros consolidamos todo en una caja hasta tu puerta.' },
+    { property: 'og:title', content: 'Casillero en Estados Unidos gratis | Dirección en San Diego' },
+    { property: 'og:description', content: 'Tu propia dirección en San Ysidro, California. Compra en cualquier tienda de EE. UU. y nosotros consolidamos todo en una caja hasta tu puerta.' },
+  ],
+})
+
 import { ref } from "vue";
 import FooterSection from "~/components/Landing/FooterSection.vue";
 import MainFAQSection from "~/components/Landing/Main/FAQSection.vue";
