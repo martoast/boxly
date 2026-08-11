@@ -161,7 +161,7 @@
             <div class="px-6 py-4 border-b border-gray-100 bg-gray-50 flex flex-wrap justify-between items-center gap-3">
               <h3 class="font-semibold text-gray-900">{{ t.items }} ({{ request.items?.length || 0 }})</h3>
               <div class="flex items-center gap-3">
-                <span v-if="request.status !== 'pending_review'" class="text-sm text-gray-500">{{ t.estMerchandise }}: ${{ itemsSubtotalUsd.toFixed(2) }} USD</span>
+                <span v-if="request.status !== 'pending_review'" class="text-sm text-gray-500">{{ headerTotal.label }}: ${{ headerTotal.amount.toFixed(2) }} USD</span>
                 <span v-else class="text-xs text-gray-500">{{ t.unavailableExcluded }}</span>
                 <button
                   v-if="canEditItems"
@@ -369,12 +369,14 @@
                   <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg">$</span>
                   <input
                     v-model.number="quoteForm.amount_spent"
+                    @input="amountTouched = true"
                     type="number" step="0.01" min="0"
                     class="w-full text-lg font-mono pl-8 pr-3 py-3 rounded-lg border-2 border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                     placeholder="0.00"
                   />
                 </div>
                 <p class="mt-1.5 text-xs text-gray-500 leading-snug">{{ t.amountSpentHint }}</p>
+                <p v-if="prefillNote" class="mt-1 text-xs text-amber-700 leading-snug">{{ prefillNote }}</p>
               </div>
               <div>
                 <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">{{ t.serviceFee }} (%)</label>
@@ -635,6 +637,7 @@ const translations = {
   confirmPaymentReceived: { es: 'Confirmar Pago Recibido', en: 'Confirm Payment Received' },
   items: { es: 'Artículos', en: 'Items' },
   estMerchandise: { es: 'Total', en: 'Total' },
+  billedTotal: { es: 'Cobrado al cliente', en: 'Billed to customer' },
   qty: { es: 'Cant', en: 'Qty' },
   price: { es: 'Precio', en: 'Price' },
   subtotal: { es: 'Subtotal', en: 'Subtotal' },
@@ -701,6 +704,14 @@ const translations = {
     en: 'The exact sum of every receipt — products, shipping and tax across all stores. One number.',
   },
   itemsListReference: { es: 'Ref. precios de la lista', en: 'Ref. list prices' },
+  prefillFromBreakdown: {
+    es: 'Prellenado con lo que ya se había capturado (productos + envío + impuestos). Verifícalo contra tus recibos.',
+    en: 'Prefilled from what was already captured (products + shipping + tax). Check it against your receipts.',
+  },
+  prefillFromList: {
+    es: 'Prellenado con los precios de la lista. Cámbialo por lo que realmente gastaste.',
+    en: 'Prefilled from the list prices. Replace it with what you actually spent.',
+  },
   amountSpentRequired: { es: 'Escribe cuánto gastaste para enviar la cotización.', en: 'Enter what you spent to send the quote.' },
   serviceFee: { es: 'Comisión Boxly', en: 'Boxly commission' },
   adminNotes: { es: 'Notas para el cliente', en: 'Notes to customer' },
@@ -893,6 +904,45 @@ const groupSubtotalUsd = (group) =>
 const itemsSubtotalUsd = computed(() =>
   itemGroups.value.reduce((s, g) => s + groupSubtotalUsd(g), 0),
 );
+
+// Costs this PR already recorded under the old split-fields flow — per-store
+// shipping + tax, or the legacy PR-level pair. A request that was mid-quote
+// when we switched keeps the real total that was already worked out.
+const savedStoreCostsUsd = computed(() => {
+  const pr = request.value || {};
+  const perStore = Object.values(pr.store_costs || {});
+  if (perStore.length) {
+    return perStore.reduce(
+      (s, c) => s + (Number(c?.shipping) || 0) + (Number(c?.tax) || 0), 0,
+    );
+  }
+  return (Number(pr.shipping_cost) || 0) + (Number(pr.sales_tax) || 0);
+});
+
+// The amount starts filled in from everything the PR already knows, and
+// follows item edits — until the admin types their own number, which is the
+// receipts talking and always wins.
+const amountTouched = ref(false);
+watch([itemsSubtotalUsd, savedStoreCostsUsd], ([items, saved]) => {
+  if (amountTouched.value || request.value?.status !== 'pending_review') return;
+  quoteForm.value.amount_spent = Math.round((items + saved) * 100) / 100;
+}, { immediate: true });
+
+const prefillNote = computed(() => {
+  if (amountTouched.value || request.value?.status !== 'pending_review') return '';
+  return savedStoreCostsUsd.value > 0 ? t.value.prefillFromBreakdown : t.value.prefillFromList;
+});
+
+// Once a PR has been quoted the header shows what the customer was actually
+// billed — PRs quoted under the old split-field math included, since that
+// number is stored on the PR. Never quoted (rejected, cancelled): fall back
+// to the sum of the list prices.
+const headerTotal = computed(() => {
+  const billed = Number(request.value?.total_amount) || 0;
+  return billed > 0
+    ? { label: t.value.billedTotal, amount: billed }
+    : { label: t.value.estMerchandise, amount: itemsSubtotalUsd.value };
+});
 
 // Invoice math — the whole of it. What we spent, plus commission on it.
 const amountSpentUsd = computed(() =>
