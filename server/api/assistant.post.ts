@@ -522,7 +522,8 @@ CRITICAL — search_products / browse_store / browse_stores ALREADY render their
 You are a SHOPPING COMPANION and DEAL FINDER. Deals are your HEADLINE, not a filter: every search already puts on-sale items first (flagged on_sale with a was price), so a normal search shows the full selection WITH the deals on top. Call out the deals, but always show a rich set of options — never reduce results to just the discounted ones (a one-item result is a bad experience). Only filter to sale-ONLY (sale:true) if the user explicitly says "solo ofertas / only what's on sale", and if that comes back sparse, show the full catalog instead. Show options from DIFFERENT stores side by side, point out the deals, then dive deeper. Conversational — suggest, compare, narrow, pivot.
 
 Your tools, and when to use them:
-- search_products(query, store?) — YOUR DEFAULT for finding products from any store NOT in the directory (Hollister, Gymshark, Nike, Adidas, Lululemon, Zara…) AND for open/cross-store discovery. It's UNIVERSAL — it covers EVERY US brand and store, so NEVER tell the customer you don't have a way to search a specific store (e.g. Adidas); you always do — just call search_products with that brand as store. It's FAST and reliable, returning a rich gallery (often 12-16 items) with images, prices, and the store each is from. ALWAYS put the brand in store (e.g. {query:"men clothing", store:"Adidas"}), and keep the query SHORT (2-3 core words) — long phrases like "adidas men clothing hoodie tracksuit" can return nothing. If a call returns NO products, RETRY ONCE with a shorter/broader query (just the brand + one word, e.g. {query:"clothing", store:"Adidas"} or {query:"adidas"}) BEFORE ever using web_search. Only use web_search + show_products as a last resort, and never present a store homepage as a product.
+- search_products(query, store?) — YOUR DEFAULT for finding products from any store NOT in the directory (Hollister, Gymshark, Nike, Adidas, Lululemon, Zara…) AND for open/cross-store discovery. It's UNIVERSAL — it covers EVERY US brand and store, so NEVER tell the customer you don't have a way to search a specific store (e.g. Adidas); you always do — just call search_products with that brand as store. It's FAST and reliable, returning a rich gallery (often 12-16 items) with images, prices, and the store each is from. ALWAYS put the brand in store (e.g. {query:"men clothing", store:"Adidas"}), and DON'T repeat the brand inside query — put it in store ONLY ({query:"men clothing", store:"Adidas"}, never {query:"Adidas men clothing", store:"Adidas"}). Keep the query SHORT (2-3 core words) — long phrases like "adidas men clothing hoodie tracksuit" can return nothing. If a call returns NO products, RETRY ONCE with a shorter/broader query (just the brand + one word, e.g. {query:"clothing", store:"Adidas"} or {query:"adidas"}) BEFORE ever using web_search. Only use web_search + show_products as a last resort, and never present a store homepage as a product.
+  CRITICAL — "broadened": true in the result means YOUR QUERY MATCHED NOTHING and these are the store's GENERAL catalog items, NOT what the customer asked for. NEVER present them as matches ("Encontré varias opciones de X" is a LIE when broadened is true — a customer who asked for PINK promos was shown Victoria's Secret bras that way). Say plainly what happened and offer the catalog: "No encontré [lo que pidió] específicamente, pero aquí está lo que hay en [tienda] ahora 👇 — ¿quieres que busque algo más concreto?". If the customer named a specific collection/print/model, ALSO offer to take a link: "si me pasas el link de lo que viste, te lo cotizo". When broadened is true and web_search returned real product names + prices for what they asked, TELL THEM those (name + price, from the snippet) instead of pretending the catalog answered.
 - REFINING / FILTERING (CRITICAL): whenever the user narrows what they want, run a NEW search_products call carrying ALL active filters (keep the ones from before and add the new one). Map each kind of filter correctly:
   • color, size, gender (men/women/kids), fit/style ("wide-leg", "oversized", "slim"), material, category → put them in the QUERY text (e.g. {query:"black wide-leg jeans women size 30", store:"American Eagle"}). Google matches these from text; there are no separate params for them.
   • budget / price ("menos de $50", "between $20 and $40", "barato") → use max_price / min_price (e.g. max_price:50).
@@ -789,24 +790,25 @@ export default defineEventHandler(async (event) => {
           sale: z.boolean().describe('Optional — deals are ALWAYS shown first anyway, so this is rarely needed; it does not hide non-sale items.').optional(),
         }),
         execute: async ({ query, store, min_price, max_price, sale }) => {
-          let r: any = await callApi('/products/search', { method: 'POST', body: { query, store: store || undefined, min_price, max_price, sale: sale || undefined, limit: 16, conversation_id: conversationId }, token, timeoutMs: 50000 })
           // Google Shopping returns 0 for some multi-word phrasings ("adidas clothing
-          // men") even though the brand alone ("adidas") returns plenty. If the
-          // specific query is empty, broaden ONCE to the store (or the first word) so
-          // the customer sees options instead of a dead-end fallback.
-          if (!r || !Array.isArray(r.products) || r.products.length === 0) {
-            const broad = (store || query.trim().split(/\s+/)[0] || '').trim()
-            if (broad && broad.toLowerCase() !== query.trim().toLowerCase()) {
-              const r2: any = await callApi('/products/search', { method: 'POST', body: { query: broad, store: store || undefined, min_price, max_price, limit: 16, conversation_id: conversationId }, token, timeoutMs: 50000 })
-              if (r2 && Array.isArray(r2.products) && r2.products.length) r = r2
-            }
-          }
+          // men") even though the brand alone ("adidas") returns plenty, so a failed
+          // query is broadened to the store (or the first word). That retry now lives
+          // ENTIRELY in the API: doing it here meant a second HTTP round-trip and a
+          // phantom analytics row per broadened search, and — worse — the broadening
+          // was invisible, so a search for "PINK promos" came back as generic
+          // Victoria's Secret bras and this tool reported them as matches.
+          // `r.broadened` is the API saying "these are catalog items, not matches".
+          const r: any = await callApi('/products/search', { method: 'POST', body: { query, store: store || undefined, min_price, max_price, sale: sale || undefined, limit: 16, conversation_id: conversationId }, token, timeoutMs: 50000 })
           // Store/brand lookup ("Rhode", "Gymshark") → show the catalog INSTANTLY:
           // just float the brand's own listings first (deterministic, no model call).
           // Attribute search ("owala rosa", "black jeans size 30") → run the one smart
           // pass (relevance + color/attribute + trust) and then float the store.
           if (r && Array.isArray(r.products)) {
-            r.products = isPureStoreQuery(query, store)
+            // A broadened result set is the store's catalog, so there is nothing
+            // to rank against `query` — curating on a query these items were
+            // never matched to just burns a model call. Float the store instead,
+            // same as a plain store lookup.
+            r.products = (r.broadened || isPureStoreQuery(query, store))
               ? floatRequestedStore(r.products, store)
               : await curateProducts(query, r.products, { store })
           }
@@ -861,6 +863,19 @@ export default defineEventHandler(async (event) => {
           // verify, return empty so nothing renders — better than broken cards
           // (the model likely already showed a good gallery via search_products).
           const verified = enriched.filter((p) => p.ok).map(({ ok, ...p }) => p)
+          // Say WHY it's empty. Returning a bare [] read as "nothing exists", so
+          // the model apologised and handed the customer a link to the store —
+          // while the web_search snippet it already had listed the real items and
+          // prices. An explicit failure tells it to use what it has.
+          const failed = enriched.filter((p) => !p.ok).map((p) => p.url)
+          if (!verified.length) {
+            return {
+              products: [],
+              error: 'no_product_page_resolved',
+              failed_urls: failed,
+              note: 'None of these URLs resolved to a real product page (invented slugs and category/homepage URLs both fail). Do NOT tell the customer you could not load the catalog and do NOT just hand them a store link. Retry show_products with product URLs copied VERBATIM from web_search results, or — if you have none — name the specific items and prices from the web_search snippets in your reply and offer to quote whichever one they pick.',
+            }
+          }
           return markGallery({ products: verified })
         },
         toModelOutput: galleryModelOutput,

@@ -31,11 +31,12 @@
         </div>
 
         <!-- Stat cards (intent-framed) -->
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <div v-for="c in cards" :key="c.label" class="rounded-2xl border bg-white border-gray-100 shadow-sm p-5">
-            <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">{{ c.label }}</p>
-            <p class="text-3xl font-extrabold mt-1 text-gray-900">{{ c.value }}</p>
-            <p v-if="c.sub" class="text-xs mt-1 text-gray-400">{{ c.sub }}</p>
+        <div class="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+          <div v-for="c in cards" :key="c.label"
+               :class="['rounded-2xl border shadow-sm p-5', c.alert ? 'bg-amber-50 border-amber-200' : 'bg-white border-gray-100']">
+            <p :class="['text-xs font-semibold uppercase tracking-wide', c.alert ? 'text-amber-700' : 'text-gray-400']">{{ c.label }}</p>
+            <p :class="['text-3xl font-extrabold mt-1', c.alert ? 'text-amber-900' : 'text-gray-900']">{{ c.value }}</p>
+            <p v-if="c.sub" :class="['text-xs mt-1', c.alert ? 'text-amber-700/80' : 'text-gray-400']">{{ c.sub }}</p>
           </div>
         </div>
 
@@ -63,7 +64,10 @@
                     <span class="font-semibold text-gray-900 min-w-0 truncate">“{{ r.query }}”</span>
                   </span>
                   <span class="shrink-0 flex items-center gap-2">
-                    <span class="text-xs font-bold text-gray-400">{{ r.kind === 'search' ? (r.results + ' result.') : '' }}</span>
+                    <span v-if="r.kind === 'search'"
+                          :class="['text-xs font-bold', r.broadened ? 'text-amber-600' : (r.results ? 'text-gray-400' : 'text-red-500')]">
+                      {{ r.results }} result.<template v-if="r.broadened"> genéricos</template>
+                    </span>
                     <svg v-if="r.conversation_id" class="w-3.5 h-3.5 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" title="Ver conversación"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12a9 9 0 11-3.6-7.2L21 3v6h-6"/></svg>
                   </span>
                 </div>
@@ -75,6 +79,12 @@
                   <span v-else-if="!r.user" class="text-amber-600 font-semibold">Invitado</span>
                   <span class="text-gray-300">· {{ fmtDateTime(r.created_at) }}</span>
                   <span v-if="r.conversation_id" class="text-primary-500 font-semibold">· ver chat →</span>
+                </p>
+                <!-- Spell out the substitution: these results answer a DIFFERENT
+                     query than the one shown above, which is exactly what used to
+                     be impossible to see from this feed. -->
+                <p v-if="r.kind === 'search' && r.broadened" class="text-xs text-amber-700 font-semibold mt-0.5 ml-[4.5rem] truncate">
+                  ⚠ No encontramos esto — mostramos el catálogo de “{{ r.served_query || 'la tienda' }}”
                 </p>
                 <p v-if="r.kind === 'search' && (r.stores || []).length" class="text-xs text-gray-500 mt-0.5 ml-[4.5rem] truncate">{{ (r.stores || []).join(' · ') }}</p>
                 <p v-else-if="r.kind === 'question' && r.answer" class="text-xs text-gray-500 mt-0.5 ml-[4.5rem] line-clamp-2">{{ r.answer }}</p>
@@ -256,11 +266,24 @@ const cards = computed(() => {
   const questions = Number(s.total_questions) || 0
   const total = searches + questions
   const pct = (n) => (total ? Math.round((n / total) * 100) : 0)
+  // "Sin lo que pidieron" is the only honest quality number: a search that
+  // returned 0 AND a search we answered with the store's generic catalog both
+  // mean the customer didn't get what they asked for. The broadened half used
+  // to be invisible here — it looked like a 16-result hit.
+  const unmatched = Number(s.unmatched_searches) || 0
+  const zero = Number(s.zero_result_searches) || 0
+  const broad = Number(s.broadened_searches) || 0
   return [
     { label: 'Interacciones', value: fmt(total), sub: `${fmt(searches)} búsquedas · ${fmt(questions)} preguntas` },
     { label: 'Intención de compra', value: fmt(searches), sub: `${pct(searches)}% del total` },
     { label: 'Intención de aprender', value: fmt(questions), sub: `${pct(questions)}% del total` },
     { label: 'Productos vistos', value: fmt(s.total_product_views), sub: `${s.view_rate ?? 0}% de las búsquedas` },
+    {
+      label: 'Sin lo que pidieron',
+      value: `${s.unmatched_rate ?? 0}%`,
+      sub: `${fmt(zero)} sin resultados · ${fmt(broad)} catálogo genérico`,
+      alert: unmatched > 0,
+    },
   ]
 })
 
@@ -270,6 +293,9 @@ const recentFeed = computed(() => (feedRows.value || []).map((r) => ({
   kind: r.type === 'question' ? 'question' : 'search',
   query: r.query,
   results: r.results,
+  // The query matched nothing and we served the store's catalog instead.
+  broadened: !!r.broadened,
+  served_query: r.served_query,
   stores: r.stores,
   answer: r.answer,
   guest: r.guest,
