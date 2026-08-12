@@ -7,16 +7,22 @@
       title="Español"
       aria-label="Cambiar a Español"
     >
-      <!-- Inline, not an <img>. These were hotlinked from upload.wikimedia.org:
-           the Mexican flag alone is a 46 KB SVG (full coat of arms) fetched over
-           a separate DNS+TLS handshake to a third party — to paint a 24px circle
-           that clips all of that detail away. This toggle sits in the navbar, so
-           every page paid it. Inline costs nothing and can't fail. -->
-      <svg viewBox="0 0 3 2" class="w-6 h-6 rounded-full shadow-sm" role="img" aria-label="Bandera de México">
-        <rect width="1" height="2" x="0" fill="#006847" />
-        <rect width="1" height="2" x="1" fill="#fff" />
-        <rect width="1" height="2" x="2" fill="#ce1126" />
-      </svg>
+      <!-- The real flag, escudo and all, from flag-icons (MIT; the flags
+           themselves are public domain). It was previously drawn inline as
+           three bare stripes to avoid the weight of the coat of arms — but
+           green/white/red with nothing in the middle IS the flag of Italy,
+           which is exactly what it read as.
+
+           Served from /public, not hotlinked to upload.wikimedia.org as it
+           once was: no third-party DNS+TLS on every page, cached by the CDN,
+           and it can't break when someone else's URL moves. -->
+      <img
+        src="/flags/mx.svg"
+        alt="Bandera de México"
+        width="24"
+        height="24"
+        class="w-6 h-6 rounded-full object-cover shadow-sm"
+      />
     </button>
     <button
       @click="handleLanguageSwitch('en')"
@@ -24,19 +30,14 @@
       title="English"
       aria-label="Switch to English"
     >
-      <svg viewBox="0 0 19 10" class="w-6 h-6 rounded-full shadow-sm" role="img" aria-label="United States Flag">
-        <rect width="19" height="10" fill="#fff" />
-        <g fill="#b22234">
-          <rect width="19" height="0.77" y="0" />
-          <rect width="19" height="0.77" y="1.54" />
-          <rect width="19" height="0.77" y="3.08" />
-          <rect width="19" height="0.77" y="4.62" />
-          <rect width="19" height="0.77" y="6.15" />
-          <rect width="19" height="0.77" y="7.69" />
-          <rect width="19" height="0.77" y="9.23" />
-        </g>
-        <rect width="7.6" height="5.38" fill="#3c3b6e" />
-      </svg>
+      <!-- Same source, so the two sit at matching size and detail. -->
+      <img
+        src="/flags/us.svg"
+        alt="United States flag"
+        width="24"
+        height="24"
+        class="w-6 h-6 rounded-full object-cover shadow-sm"
+      />
     </button>
   </div>
 </template>
