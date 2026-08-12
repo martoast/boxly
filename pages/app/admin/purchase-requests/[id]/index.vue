@@ -485,10 +485,49 @@
           </div>
         </div>
 
-        <!-- Sidebar: Customer Info (Finanzas card removed — the
-             "Crear cotización" action lives in the page header above
-             and the quote totals are persisted on the PR itself). -->
+        <!-- Sidebar: what this request made us, then who it's for. -->
         <div class="lg:col-span-1 space-y-6">
+          <!-- Finanzas — appears once the PR has actually been quoted. The
+               page could show what the customer was billed but never what
+               we earned on it, which is the number that matters here. -->
+          <div v-if="financials" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h3 class="font-semibold text-gray-900 mb-4 border-b pb-2">{{ t.financials }}</h3>
+            <div class="space-y-2.5 text-sm">
+              <div class="flex justify-between items-baseline">
+                <span class="text-gray-500">{{ t.billedTotal }}</span>
+                <span class="font-mono font-semibold text-gray-900">${{ financials.billed.toFixed(2) }}</span>
+              </div>
+              <div class="flex justify-between items-baseline">
+                <span class="text-gray-500">{{ t.purchaseCost }}</span>
+                <span class="font-mono text-gray-700">${{ financials.cost.toFixed(2) }}</span>
+              </div>
+              <!-- Broken out only on PRs quoted under the old split-field
+                   flow; new quotes carry one all-in cost. -->
+              <template v-if="financials.split">
+                <div class="flex justify-between items-baseline pl-3 text-xs">
+                  <span class="text-gray-400">{{ t.costProducts }}</span>
+                  <span class="font-mono text-gray-500">${{ financials.merchandise.toFixed(2) }}</span>
+                </div>
+                <div v-if="financials.shipping > 0" class="flex justify-between items-baseline pl-3 text-xs">
+                  <span class="text-gray-400">{{ t.costShipping }}</span>
+                  <span class="font-mono text-gray-500">${{ financials.shipping.toFixed(2) }}</span>
+                </div>
+                <div v-if="financials.tax > 0" class="flex justify-between items-baseline pl-3 text-xs">
+                  <span class="text-gray-400">{{ t.costTax }}</span>
+                  <span class="font-mono text-gray-500">${{ financials.tax.toFixed(2) }}</span>
+                </div>
+              </template>
+              <div class="pt-2.5 border-t border-gray-200 flex justify-between items-baseline gap-2">
+                <span class="font-semibold text-gray-900">
+                  {{ t.boxlyEarnings }}<span v-if="financials.percent" class="font-normal text-gray-500"> ({{ financials.percent }}%)</span>
+                </span>
+                <span class="font-mono font-bold text-lg text-green-700">${{ financials.earnings.toFixed(2) }}</span>
+              </div>
+            </div>
+            <p v-if="financials.mismatch" class="mt-3 text-xs text-amber-700 leading-snug">{{ t.financialsMismatch }}</p>
+            <p class="mt-3 text-xs text-gray-400 leading-snug">{{ t.financialsNote }}</p>
+          </div>
+
           <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
              <h3 class="font-semibold text-gray-900 mb-4 border-b pb-2">{{ t.customerInfo }}</h3>
              <div class="space-y-2 text-sm">
@@ -699,6 +738,20 @@ const translations = {
   items: { es: 'Artículos', en: 'Items' },
   estMerchandise: { es: 'Total', en: 'Total' },
   billedTotal: { es: 'Cobrado al cliente', en: 'Billed to customer' },
+  financials: { es: 'Finanzas', en: 'Financials' },
+  purchaseCost: { es: 'Costo de compra', en: 'Purchase cost' },
+  costProducts: { es: 'Productos', en: 'Products' },
+  costShipping: { es: 'Envío en tiendas', en: 'Store shipping' },
+  costTax: { es: 'Impuestos', en: 'Sales tax' },
+  boxlyEarnings: { es: 'Ganancia Boxly', en: 'Boxly earnings' },
+  financialsNote: {
+    es: 'La comisión es la ganancia de esta solicitud. El envío de la caja a México se cobra y se gana aparte.',
+    en: 'The commission is what this request earned. Shipping the box to Mexico is billed and earned separately.',
+  },
+  financialsMismatch: {
+    es: 'Costo + comisión no cuadra con lo cobrado — la factura se modificó en Stripe.',
+    en: "Cost + commission doesn't match what was billed — the invoice was edited in Stripe.",
+  },
   qty: { es: 'Cant', en: 'Qty' },
   price: { es: 'Precio', en: 'Price' },
   subtotal: { es: 'Subtotal', en: 'Subtotal' },
@@ -1010,6 +1063,28 @@ watch([itemsSubtotalUsd, savedStoreCostsUsd], ([items, saved]) => {
 const prefillNote = computed(() => {
   if (amountTouched.value || request.value?.status !== 'pending_review') return '';
   return savedStoreCostsUsd.value > 0 ? t.value.prefillFromBreakdown : t.value.prefillFromList;
+});
+
+// What this request actually earned, read off what the quote wrote to the PR.
+// Old PRs kept merchandise, shipping and tax in three columns; new ones fold
+// the lot into items_total, so summing all three is the cost either way.
+const financials = computed(() => {
+  const pr = request.value || {};
+  const billed = Number(pr.total_amount) || 0;
+  if (billed <= 0) return null;
+  const merchandise = Number(pr.items_total) || 0;
+  const shipping = Number(pr.shipping_cost) || 0;
+  const tax = Number(pr.sales_tax) || 0;
+  const cost = Math.round((merchandise + shipping + tax) * 100) / 100;
+  const earnings = Math.round((Number(pr.processing_fee) || 0) * 100) / 100;
+  return {
+    billed, merchandise, shipping, tax, cost, earnings,
+    split: shipping > 0 || tax > 0,
+    percent: cost > 0 ? (earnings / cost * 100).toFixed(1).replace(/\.0$/, '') : null,
+    // Cost + commission should BE the invoice. If it isn't, the invoice was
+    // edited in Stripe after the fact and these numbers aren't the whole story.
+    mismatch: Math.abs(billed - cost - earnings) > 0.01,
+  };
 });
 
 // Once a PR has been quoted the header shows what the customer was actually
