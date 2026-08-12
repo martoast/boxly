@@ -222,7 +222,7 @@
             <div class="px-6 py-4 border-b border-gray-100 bg-gray-50 flex flex-wrap justify-between items-center gap-3">
               <h3 class="font-semibold text-gray-900">{{ t.items }} ({{ request.items?.length || 0 }})</h3>
               <div class="flex items-center gap-3">
-                <span v-if="request.status !== 'pending_review'" class="text-sm text-gray-500">{{ t.estMerchandise }}: ${{ itemsSubtotalUsd.toFixed(2) }} USD</span>
+                <span v-if="request.status !== 'pending_review'" class="text-sm text-gray-500">{{ headerTotal.label }}: ${{ headerTotal.amount.toFixed(2) }} USD</span>
                 <span v-else class="text-xs text-gray-500">{{ t.unavailableExcluded }}</span>
                 <button
                   v-if="canEditItems"
@@ -410,41 +410,6 @@
                   </div>
                 </div>
 
-                <!-- Per-store shipping + tax (pending_review only). One row
-                     per group — what Velonie pays at this specific store's
-                     checkout. Saved on blur to PR.store_costs. -->
-                <div v-if="request.status === 'pending_review'" class="px-6 py-4 border-t border-gray-100 bg-gray-50/40 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label class="block text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">{{ t.shippingUsa }} — {{ group.domain }} (USD)</label>
-                    <div class="relative">
-                      <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
-                      <input
-                        type="number" step="0.01" min="0"
-                        :value="storeCost(group.domain, 'shipping')"
-                        @input="setStoreCost(group.domain, 'shipping', $event.target.value)"
-                        @blur="persistStoreCosts"
-                        @keydown.enter.prevent="$event.target.blur()"
-                        class="w-full text-sm pl-6 pr-2 py-1.5 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                        placeholder="0.00"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label class="block text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">{{ t.salesTax }} — {{ group.domain }} (USD)</label>
-                    <div class="relative">
-                      <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
-                      <input
-                        type="number" step="0.01" min="0"
-                        :value="storeCost(group.domain, 'tax')"
-                        @input="setStoreCost(group.domain, 'tax', $event.target.value)"
-                        @blur="persistStoreCosts"
-                        @keydown.enter.prevent="$event.target.blur()"
-                        class="w-full text-sm pl-6 pr-2 py-1.5 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                        placeholder="0.00"
-                      />
-                    </div>
-                  </div>
-                </div>
               </div>
             </div>
           </div>
@@ -457,12 +422,27 @@
             </div>
 
             <div class="p-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <!-- THE number. Everything the receipts add up to, across every
+                   store — products, store shipping, sales tax, all of it. -->
+              <div class="sm:col-span-2">
+                <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">{{ t.amountSpent }} (USD)</label>
+                <div class="relative">
+                  <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg">$</span>
+                  <input
+                    v-model.number="quoteForm.amount_spent"
+                    @input="amountTouched = true"
+                    type="number" step="0.01" min="0"
+                    class="w-full text-lg font-mono pl-8 pr-3 py-3 rounded-lg border-2 border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    placeholder="0.00"
+                  />
+                </div>
+                <p class="mt-1.5 text-xs text-gray-500 leading-snug">{{ t.amountSpentHint }}</p>
+                <p v-if="prefillNote" class="mt-1 text-xs text-amber-700 leading-snug">{{ prefillNote }}</p>
+              </div>
               <div>
                 <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">{{ t.serviceFee }} (%)</label>
-                <input v-model.number="quoteForm.processing_fee_percent" type="number" step="0.1" min="0" max="100" class="w-full text-sm px-2 py-2 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-500" />
-              </div>
-              <div class="sm:col-span-2 flex items-end">
-                <p class="text-xs text-gray-500 leading-snug">{{ t.shippingTaxPerStoreHint }}</p>
+                <input v-model.number="quoteForm.processing_fee_percent" type="number" step="0.1" min="0" max="100" class="w-full text-lg font-mono px-3 py-3 rounded-lg border-2 border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
+                <p class="mt-1.5 text-xs text-gray-500 leading-snug">{{ t.itemsListReference }}: ${{ itemsSubtotalUsd.toFixed(2) }}</p>
               </div>
               <div class="sm:col-span-3">
                 <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">{{ t.adminNotes }} <span class="font-normal lowercase text-gray-400">— {{ t.optional }}</span></label>
@@ -474,19 +454,11 @@
             <div class="px-6 pb-6">
               <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-2 text-sm">
                 <div class="flex justify-between text-gray-700">
-                  <span>{{ t.itemsSubtotal }} ({{ billableCount }} {{ t.items.toLowerCase() }})</span>
-                  <span class="font-mono">${{ itemsSubtotalUsd.toFixed(2) }} USD</span>
+                  <span>{{ t.amountSpent }}</span>
+                  <span class="font-mono">${{ amountSpentUsd.toFixed(2) }} USD</span>
                 </div>
-                <div v-if="aggregateShipping > 0" class="flex justify-between text-gray-700">
-                  <span>+ {{ t.shippingUsa }} ({{ itemGroups.length }} {{ itemGroups.length === 1 ? t.storeOne : t.storeMany }})</span>
-                  <span class="font-mono">${{ aggregateShipping.toFixed(2) }} USD</span>
-                </div>
-                <div v-if="aggregateTax > 0" class="flex justify-between text-gray-700">
-                  <span>+ {{ t.salesTax }}</span>
-                  <span class="font-mono">${{ aggregateTax.toFixed(2) }} USD</span>
-                </div>
-                <div v-if="(quoteForm.processing_fee_percent || 0) > 0" class="flex justify-between text-gray-700">
-                  <span>+ {{ t.serviceFee }} ({{ Number(quoteForm.processing_fee_percent).toFixed(1) }}%)</span>
+                <div class="flex justify-between text-gray-700">
+                  <span>+ {{ t.serviceFee }} ({{ Number(quoteForm.processing_fee_percent || 0).toFixed(1) }}%)</span>
                   <span class="font-mono">${{ feeUsd.toFixed(2) }} USD</span>
                 </div>
                 <div class="pt-2 border-t border-gray-200 flex justify-between font-semibold text-gray-900">
@@ -513,10 +485,49 @@
           </div>
         </div>
 
-        <!-- Sidebar: Customer Info (Finanzas card removed — the
-             "Crear cotización" action lives in the page header above
-             and the quote totals are persisted on the PR itself). -->
+        <!-- Sidebar: what this request made us, then who it's for. -->
         <div class="lg:col-span-1 space-y-6">
+          <!-- Finanzas — appears once the PR has actually been quoted. The
+               page could show what the customer was billed but never what
+               we earned on it, which is the number that matters here. -->
+          <div v-if="financials" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h3 class="font-semibold text-gray-900 mb-4 border-b pb-2">{{ t.financials }}</h3>
+            <div class="space-y-2.5 text-sm">
+              <div class="flex justify-between items-baseline">
+                <span class="text-gray-500">{{ t.billedTotal }}</span>
+                <span class="font-mono font-semibold text-gray-900">${{ financials.billed.toFixed(2) }}</span>
+              </div>
+              <div class="flex justify-between items-baseline">
+                <span class="text-gray-500">{{ t.purchaseCost }}</span>
+                <span class="font-mono text-gray-700">${{ financials.cost.toFixed(2) }}</span>
+              </div>
+              <!-- Broken out only on PRs quoted under the old split-field
+                   flow; new quotes carry one all-in cost. -->
+              <template v-if="financials.split">
+                <div class="flex justify-between items-baseline pl-3 text-xs">
+                  <span class="text-gray-400">{{ t.costProducts }}</span>
+                  <span class="font-mono text-gray-500">${{ financials.merchandise.toFixed(2) }}</span>
+                </div>
+                <div v-if="financials.shipping > 0" class="flex justify-between items-baseline pl-3 text-xs">
+                  <span class="text-gray-400">{{ t.costShipping }}</span>
+                  <span class="font-mono text-gray-500">${{ financials.shipping.toFixed(2) }}</span>
+                </div>
+                <div v-if="financials.tax > 0" class="flex justify-between items-baseline pl-3 text-xs">
+                  <span class="text-gray-400">{{ t.costTax }}</span>
+                  <span class="font-mono text-gray-500">${{ financials.tax.toFixed(2) }}</span>
+                </div>
+              </template>
+              <div class="pt-2.5 border-t border-gray-200 flex justify-between items-baseline gap-2">
+                <span class="font-semibold text-gray-900">
+                  {{ t.boxlyEarnings }}<span v-if="financials.percent" class="font-normal text-gray-500"> ({{ financials.percent }}%)</span>
+                </span>
+                <span class="font-mono font-bold text-lg text-green-700">${{ financials.earnings.toFixed(2) }}</span>
+              </div>
+            </div>
+            <p v-if="financials.mismatch" class="mt-3 text-xs text-amber-700 leading-snug">{{ t.financialsMismatch }}</p>
+            <p class="mt-3 text-xs text-gray-400 leading-snug">{{ t.financialsNote }}</p>
+          </div>
+
           <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
              <h3 class="font-semibold text-gray-900 mb-4 border-b pb-2">{{ t.customerInfo }}</h3>
              <div class="space-y-2 text-sm">
@@ -726,6 +737,21 @@ const translations = {
   confirmPaymentReceived: { es: 'Confirmar Pago Recibido', en: 'Confirm Payment Received' },
   items: { es: 'Artículos', en: 'Items' },
   estMerchandise: { es: 'Total', en: 'Total' },
+  billedTotal: { es: 'Cobrado al cliente', en: 'Billed to customer' },
+  financials: { es: 'Finanzas', en: 'Financials' },
+  purchaseCost: { es: 'Costo de compra', en: 'Purchase cost' },
+  costProducts: { es: 'Productos', en: 'Products' },
+  costShipping: { es: 'Envío en tiendas', en: 'Store shipping' },
+  costTax: { es: 'Impuestos', en: 'Sales tax' },
+  boxlyEarnings: { es: 'Ganancia Boxly', en: 'Boxly earnings' },
+  financialsNote: {
+    es: 'La comisión es la ganancia de esta solicitud. El envío de la caja a México se cobra y se gana aparte.',
+    en: 'The commission is what this request earned. Shipping the box to Mexico is billed and earned separately.',
+  },
+  financialsMismatch: {
+    es: 'Costo + comisión no cuadra con lo cobrado — la factura se modificó en Stripe.',
+    en: "Cost + commission doesn't match what was billed — the invoice was edited in Stripe.",
+  },
   qty: { es: 'Cant', en: 'Qty' },
   price: { es: 'Precio', en: 'Price' },
   subtotal: { es: 'Subtotal', en: 'Subtotal' },
@@ -793,18 +819,27 @@ const translations = {
   noItems: { es: 'No hay artículos en esta solicitud', en: 'No items in this request' },
   unavailableExcluded: { es: 'Artículos no disponibles se excluyen del total', en: 'Unavailable items are excluded from the total' },
   quoteSettings: { es: 'Configurar Cotización', en: 'Quote Settings' },
-  quoteSettingsDesc: { es: 'Se cobra al cliente en una sola línea en Stripe — el desglose por tienda queda guardado para tu referencia.', en: 'Customer is billed as a single Stripe line — the per-store breakdown is saved for your reference.' },
-  shippingTaxPerStoreHint: { es: 'El envío y los impuestos se ingresan por tienda arriba — Velonie compra cada tienda por separado.', en: 'Shipping and tax are entered per store above — Velonie checks out at each store separately.' },
-  storeOne: { es: 'tienda', en: 'store' },
-  storeMany: { es: 'tiendas', en: 'stores' },
-  shippingUsa: { es: 'Envío a USA', en: 'Shipping to USA' },
-  salesTax: { es: 'Impuestos USA', en: 'US Sales Tax' },
-  serviceFee: { es: 'Tarifa de servicio', en: 'Service fee' },
+  quoteSettingsDesc: { es: 'Pon lo que gastaste en total. Boxly le suma la comisión y eso es lo que se le cobra al cliente.', en: 'Enter what you spent in total. Boxly adds the commission on top — that is what the customer is billed.' },
+  amountSpent: { es: 'Total gastado en las tiendas', en: 'Total spent at the stores' },
+  amountSpentHint: {
+    es: 'La suma exacta de todos tus recibos — productos, envío e impuestos de todas las tiendas. Un solo número.',
+    en: 'The exact sum of every receipt — products, shipping and tax across all stores. One number.',
+  },
+  itemsListReference: { es: 'Ref. precios de la lista', en: 'Ref. list prices' },
+  prefillFromBreakdown: {
+    es: 'Prellenado con lo que ya se había capturado (productos + envío + impuestos). Verifícalo contra tus recibos.',
+    en: 'Prefilled from what was already captured (products + shipping + tax). Check it against your receipts.',
+  },
+  prefillFromList: {
+    es: 'Prellenado con los precios de la lista. Cámbialo por lo que realmente gastaste.',
+    en: 'Prefilled from the list prices. Replace it with what you actually spent.',
+  },
+  amountSpentRequired: { es: 'Escribe cuánto gastaste para enviar la cotización.', en: 'Enter what you spent to send the quote.' },
+  serviceFee: { es: 'Comisión Boxly', en: 'Boxly commission' },
   adminNotes: { es: 'Notas para el cliente', en: 'Notes to customer' },
   adminNotesPlaceholder: { es: 'Aparecerá en el correo de cotización...', en: 'Will appear in the quote email...' },
   optional: { es: 'opcional', en: 'optional' },
-  itemsSubtotal: { es: 'Subtotal de artículos', en: 'Items subtotal' },
-  totalUsd: { es: 'Total', en: 'Total' },
+  totalUsd: { es: 'Total a cobrar', en: 'Total to bill' },
   usdInvoiceNote: {
     es: 'La factura se emite en USD. Stripe muestra el monto convertido a MXN al cliente y su banco hace la conversión al pagar.',
     en: 'Invoice is issued in USD. Stripe shows the MXN-converted amount to the customer; their bank handles conversion at payment time.',
@@ -846,17 +881,15 @@ const rejectReason = ref('');
 
 // Unified quote settings (filled in on the detail page, sent to /quote).
 //
-// Per-store cost capture: Velonie buys from each US store separately, so
-// shipping + sales tax are entered per domain (amazon.com, youngla.com …).
-// We sum across stores to produce the final invoice — the customer sees
-// one charge but the breakdown survives reloads via PR.store_costs.
+// One number: what we actually spent at the US stores — every receipt,
+// every store, products + shipping + tax included. Splitting it into
+// buckets by hand is what used to produce wrong invoices, so we don't.
 const quoteForm = ref({
-  store_costs: {},                // { 'amazon.com': { shipping: 0, tax: 0 } }
+  amount_spent: null,
   processing_fee_percent: 15,
   admin_notes: '',
 });
 const sendingQuote = ref(false);
-const persistingCosts = ref(false);
 
 // Per-item editing state — keyed by item.id
 const itemBusy = ref({});      // request in flight (delete, stock toggle, etc.)
@@ -1004,85 +1037,87 @@ const itemsSubtotalUsd = computed(() =>
   itemGroups.value.reduce((s, g) => s + groupSubtotalUsd(g), 0),
 );
 
-// Per-store cost helpers — keyed by domain in quoteForm.store_costs
-const storeCost = (domain, field) => {
-  const c = quoteForm.value.store_costs?.[domain];
-  return c?.[field] ?? 0;
-};
-const setStoreCost = (domain, field, value) => {
-  if (!quoteForm.value.store_costs[domain]) {
-    quoteForm.value.store_costs[domain] = { shipping: 0, tax: 0 };
+// Costs this PR already recorded under the old split-fields flow — per-store
+// shipping + tax, or the legacy PR-level pair. A request that was mid-quote
+// when we switched keeps the real total that was already worked out.
+const savedStoreCostsUsd = computed(() => {
+  const pr = request.value || {};
+  const perStore = Object.values(pr.store_costs || {});
+  if (perStore.length) {
+    return perStore.reduce(
+      (s, c) => s + (Number(c?.shipping) || 0) + (Number(c?.tax) || 0), 0,
+    );
   }
-  quoteForm.value.store_costs[domain][field] = Number(value) || 0;
-};
+  return (Number(pr.shipping_cost) || 0) + (Number(pr.sales_tax) || 0);
+});
 
-const aggregateShipping = computed(() =>
-  Object.values(quoteForm.value.store_costs || {}).reduce(
-    (s, c) => s + (Number(c?.shipping) || 0), 0,
-  ),
-);
-const aggregateTax = computed(() =>
-  Object.values(quoteForm.value.store_costs || {}).reduce(
-    (s, c) => s + (Number(c?.tax) || 0), 0,
-  ),
+// The amount starts filled in from everything the PR already knows, and
+// follows item edits — until the admin types their own number, which is the
+// receipts talking and always wins.
+const amountTouched = ref(false);
+watch([itemsSubtotalUsd, savedStoreCostsUsd], ([items, saved]) => {
+  if (amountTouched.value || request.value?.status !== 'pending_review') return;
+  quoteForm.value.amount_spent = Math.round((items + saved) * 100) / 100;
+}, { immediate: true });
+
+const prefillNote = computed(() => {
+  if (amountTouched.value || request.value?.status !== 'pending_review') return '';
+  return savedStoreCostsUsd.value > 0 ? t.value.prefillFromBreakdown : t.value.prefillFromList;
+});
+
+// What this request actually earned, read off what the quote wrote to the PR.
+// Old PRs kept merchandise, shipping and tax in three columns; new ones fold
+// the lot into items_total, so summing all three is the cost either way.
+const financials = computed(() => {
+  const pr = request.value || {};
+  const billed = Number(pr.total_amount) || 0;
+  if (billed <= 0) return null;
+  const merchandise = Number(pr.items_total) || 0;
+  const shipping = Number(pr.shipping_cost) || 0;
+  const tax = Number(pr.sales_tax) || 0;
+  const cost = Math.round((merchandise + shipping + tax) * 100) / 100;
+  const earnings = Math.round((Number(pr.processing_fee) || 0) * 100) / 100;
+  return {
+    billed, merchandise, shipping, tax, cost, earnings,
+    split: shipping > 0 || tax > 0,
+    percent: cost > 0 ? (earnings / cost * 100).toFixed(1).replace(/\.0$/, '') : null,
+    // Cost + commission should BE the invoice. If it isn't, the invoice was
+    // edited in Stripe after the fact and these numbers aren't the whole story.
+    mismatch: Math.abs(billed - cost - earnings) > 0.01,
+  };
+});
+
+// Once a PR has been quoted the header shows what the customer was actually
+// billed — PRs quoted under the old split-field math included, since that
+// number is stored on the PR. Never quoted (rejected, cancelled): fall back
+// to the sum of the list prices.
+const headerTotal = computed(() => {
+  const billed = Number(request.value?.total_amount) || 0;
+  return billed > 0
+    ? { label: t.value.billedTotal, amount: billed }
+    : { label: t.value.estMerchandise, amount: itemsSubtotalUsd.value };
+});
+
+// Invoice math — the whole of it. What we spent, plus commission on it.
+const amountSpentUsd = computed(() =>
+  Math.round((Number(quoteForm.value.amount_spent) || 0) * 100) / 100,
 );
 
 const feeUsd = computed(() => {
-  const pre = itemsSubtotalUsd.value + aggregateShipping.value + aggregateTax.value;
   const pct = Number(quoteForm.value.processing_fee_percent) || 0;
-  return Math.round(pre * (pct / 100) * 100) / 100;
+  return Math.round(amountSpentUsd.value * (pct / 100) * 100) / 100;
 });
 
-const totalUsd = computed(() => {
-  const pre = itemsSubtotalUsd.value + aggregateShipping.value + aggregateTax.value;
-  return Math.round((pre + feeUsd.value) * 100) / 100;
+const totalUsd = computed(() =>
+  Math.round((amountSpentUsd.value + feeUsd.value) * 100) / 100,
+);
+
+const canSendQuote = computed(() => billableCount.value > 0 && amountSpentUsd.value > 0);
+const noBillableMessage = computed(() => {
+  if (billableCount.value === 0) return t.value.noBillableItems;
+  if (amountSpentUsd.value <= 0) return t.value.amountSpentRequired;
+  return '';
 });
-
-// Strip empty entries before persisting — saves a sparse object to the PR.
-const cleanStoreCosts = () => {
-  const clean = {};
-  for (const [domain, c] of Object.entries(quoteForm.value.store_costs || {})) {
-    const ship = Number(c?.shipping) || 0;
-    const tax = Number(c?.tax) || 0;
-    if (ship > 0 || tax > 0) clean[domain] = { shipping: ship, tax };
-  }
-  return clean;
-};
-
-// Save per-store costs to the PR on blur so reloads stay in sync.
-const persistStoreCosts = async () => {
-  if (persistingCosts.value) return;
-  persistingCosts.value = true;
-  try {
-    await $customFetch(`${apiNs.value}/purchase-requests/${request.value.id}`, {
-      method: 'PUT',
-      body: { store_costs: cleanStoreCosts() },
-    });
-  } catch (e) {
-    console.error(e);
-  } finally {
-    persistingCosts.value = false;
-  }
-};
-
-// Seed quoteForm.store_costs from the PR (or empty per-domain rows on first
-// load) once item groups are known. Watch domain list — adds missing rows
-// without clobbering admin edits-in-progress.
-watch(itemGroups, (groups) => {
-  const existing = quoteForm.value.store_costs || {};
-  const seeded = request.value?.store_costs || {};
-  const next = { ...existing };
-  for (const g of groups) {
-    if (next[g.domain]) continue;
-    next[g.domain] = seeded[g.domain]
-      ? { shipping: Number(seeded[g.domain].shipping) || 0, tax: Number(seeded[g.domain].tax) || 0 }
-      : { shipping: 0, tax: 0 };
-  }
-  quoteForm.value.store_costs = next;
-}, { immediate: true });
-
-const canSendQuote = computed(() => billableCount.value > 0);
-const noBillableMessage = computed(() => canSendQuote.value ? '' : t.value.noBillableItems);
 
 // Commit a draft (price or qty) to the backend on blur
 const commitItemEdit = async (item) => {
@@ -1206,7 +1241,7 @@ const onSendQuote = async () => {
     const resp = await $customFetch(`${apiNs.value}/purchase-requests/${request.value.id}/quote`, {
       method: 'POST',
       body: {
-        store_costs: cleanStoreCosts(),
+        amount_spent: amountSpentUsd.value,
         processing_fee_percent: Number(quoteForm.value.processing_fee_percent) || 0,
         admin_notes: quoteForm.value.admin_notes || null,
       },
