@@ -602,7 +602,7 @@
                       <span class="text-sm">
                         <span class="font-medium text-gray-900">🛡️ {{ t.protection }}</span>
                         <span class="text-gray-500">
-                          +${{ formatNumber(protectionProduct.price) }}{{ (box.quantity || 1) > 1 ? ` × ${box.quantity}` : '' }}
+                          +${{ formatNumber(protectionProduct.price) }} {{ String(protectionProduct.currency || '').toUpperCase() }}{{ (box.quantity || 1) > 1 ? ` × ${box.quantity}` : '' }}
                         </span>
                         <span v-if="order?.paid_at" class="block text-xs text-amber-600 mt-0.5">
                           {{ t.protectionPaidWarning }}
@@ -1550,7 +1550,7 @@
                 />
                 <span class="text-sm">
                   <span class="font-medium text-gray-900">🛡️ {{ t.protection }}</span>
-                  <span class="text-gray-500"> +${{ formatNumber(protectionProduct.price) }}</span>
+                  <span class="text-gray-500"> +${{ formatNumber(protectionProduct.price) }} {{ String(protectionProduct.currency || '').toUpperCase() }}</span>
                   <span class="block text-xs text-gray-500 mt-0.5">{{ t.protectionHelp }}</span>
                 </span>
               </label>
@@ -1882,7 +1882,18 @@ const calculatedTotalBoxPrice = computed(() => {
 });
 
 // Boxly Protection, priced live from Stripe (flagged by the API).
-const protectionProduct = computed(() => products.value.find((p) => p.is_protection));
+// Stripe carries protection in more than one currency (200 MXN and 11.60 USD).
+// A bare find() took whichever Stripe listed first — the USD one — and rendered
+// "+$11.60" beside a $4,400 MXN box. The API now filters to the billing
+// currency; this keeps the guard client-side too, because the wrong number here
+// is indistinguishable from a cheap one.
+const protectionProduct = computed(() => {
+  const matches = products.value.filter((p) => p.is_protection);
+  const want = (order.value?.currency || "mxn").toUpperCase();
+  const inCurrency = matches.filter((p) => String(p.currency).toUpperCase() === want);
+  // Highest is the list price — same rule the box price table follows.
+  return [...inCurrency].sort((a, b) => (parseFloat(b.price) || 0) - (parseFloat(a.price) || 0))[0];
+});
 
 const protectedBoxCount = computed(() =>
   (form.value.boxes || []).reduce((n, box) => n + (box.has_protection ? (box.quantity || 1) : 0), 0)

@@ -532,8 +532,19 @@ const totalBoxPrice = computed(() => {
   }, 0)
 })
 
-// Boxly Protection, priced live from Stripe like every box price.
-const protectionProduct = computed(() => products.value.find(p => p.is_protection))
+// Boxly Protection, priced live from Stripe like every box price — but the
+// product carries prices in more than one currency (200 MXN and 11.60 USD), and
+// a bare find() returned whichever Stripe listed first. Here that fed
+// protectionTotal, so the consolidation total an admin approves could be built
+// from a USD figure. Only the currency this order bills in can go on its
+// invoice, so only that one counts.
+const protectionProduct = computed(() => {
+  const matches = products.value.filter(p => p.is_protection)
+  const want = String(props.order?.currency || 'mxn').toUpperCase()
+  const inCurrency = matches.filter(p => String(p.currency).toUpperCase() === want)
+  // Highest is the list price — same rule the box price table follows.
+  return [...inCurrency].sort((a, b) => (parseFloat(b.price) || 0) - (parseFloat(a.price) || 0))[0]
+})
 
 const protectedBoxCount = computed(() =>
   form.value.boxes.reduce((n, box) => n + (box.has_protection ? (box.quantity || 1) : 0), 0)
