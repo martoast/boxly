@@ -611,6 +611,43 @@
                     </label>
                   </div>
 
+                  <!-- What the courier charged for THIS box, and what's left of
+                       the box price once it's paid. Courier spend is ~69% of all
+                       expenses and until now lived only as per-run lump sums, so
+                       margin per size was unmeasurable. Typed off the Estafeta
+                       invoice, once per box, right where the guía already is. -->
+                  <div v-if="!isCrossing" class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-gray-200">
+                    <div>
+                      <label class="block text-xs font-medium text-gray-600 mb-1">{{ t.shippingCostLabel }}</label>
+                      <div class="relative">
+                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                        <input
+                          v-model.number="box.shipping_cost"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          placeholder="0.00"
+                          class="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        />
+                      </div>
+                      <p class="mt-1 text-xs text-gray-500">{{ t.shippingCostHint }}</p>
+                    </div>
+                    <div class="flex flex-col justify-center">
+                      <span class="text-xs font-medium text-gray-600">{{ t.boxMarginLabel }}</span>
+                      <template v-if="boxMargin(box) !== null">
+                        <span
+                          class="font-mono font-bold text-lg"
+                          :class="boxMargin(box) >= 0 ? 'text-green-700' : 'text-red-600'"
+                        >
+                          ${{ formatNumber(boxMargin(box)) }}
+                          <span class="text-sm font-normal text-gray-500">({{ boxMarginPercent(box) }}%)</span>
+                        </span>
+                        <span class="text-xs text-gray-500">{{ t.boxMarginHint }}</span>
+                      </template>
+                      <span v-else class="text-sm text-gray-400 italic">{{ t.boxMarginUnknown }}</span>
+                    </div>
+                  </div>
+
                   <!-- Shipping Details (Guia & GIA) - Only for shipping orders -->
                   <div v-if="!isCrossing" class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-gray-200">
                     <!-- Guia Number -->
@@ -1736,6 +1773,14 @@ const translations = {
   widthLabel: { es: "Ancho", en: "Width" },
   heightLabel: { es: "Alto", en: "Height" },
   weightLabel: { es: "Peso (kg)", en: "Weight (kg)" },
+  shippingCostLabel: { es: "Costo de Envío (Jesús/Paco)", en: "Courier Cost (Jesús/Paco)" },
+  shippingCostHint: {
+    es: "Lo que el mensajero nos cobró por ESTA caja, en MXN. Déjalo vacío si aún no lo sabes.",
+    en: "What the courier charged us for THIS box, in MXN. Leave empty if not known yet.",
+  },
+  boxMarginLabel: { es: "Margen de esta caja", en: "Margin on this box" },
+  boxMarginHint: { es: "Precio de la caja − costo del mensajero", en: "Box price − courier cost" },
+  boxMarginUnknown: { es: "Captura el costo para ver el margen", en: "Enter the cost to see margin" },
   weightSectionLabel: { es: "Peso del Envío", en: "Shipment Weight" },
   totalBoxWeightLabel: { es: "Peso Cajas", en: "Box Weight" },
   autoCalculated: { es: "Auto-calculado", en: "Auto-calculated" },
@@ -1929,6 +1974,23 @@ const findProductByProductId = (productId) => {
 const formatNumber = (value) => {
   const num = parseFloat(value) || 0;
   return num.toFixed(2);
+};
+
+// Direct margin on a single box: what the customer paid for it, minus what the
+// courier charged to move it. Null — not zero — until a cost is entered, so an
+// unknown never renders as a healthy 100% margin.
+const boxMargin = (box) => {
+  if (box?.shipping_cost === null || box?.shipping_cost === undefined || box.shipping_cost === '') return null;
+  const revenue = (parseFloat(box.box_price) || 0) * (parseInt(box.quantity, 10) || 1);
+  return revenue - (parseFloat(box.shipping_cost) || 0);
+};
+
+const boxMarginPercent = (box) => {
+  const margin = boxMargin(box);
+  if (margin === null) return null;
+  const revenue = (parseFloat(box.box_price) || 0) * (parseInt(box.quantity, 10) || 1);
+  if (revenue <= 0) return '0';
+  return ((margin / revenue) * 100).toFixed(1);
 };
 
 const getStatusColor = (status) => {
@@ -2157,6 +2219,9 @@ const fetchOrder = async () => {
         width: box.width || null,
         height: box.height || null,
         weight: box.weight || null,
+        // ?? not || — a real 0 must survive, and an unset cost must stay null
+        // rather than becoming 0 (that's "free", not "unknown").
+        shipping_cost: box.shipping_cost ?? null,
       }));
     } else if (order.value.box_size && order.value.stripe_price_id) {
       const matchingProduct = findProductByPriceId(order.value.stripe_price_id) 
@@ -2381,6 +2446,10 @@ const handleSubmit = async () => {
           if (box.width != null) formData.append(`boxes[${index}][width]`, box.width);
           if (box.height != null) formData.append(`boxes[${index}][height]`, box.height);
           if (box.weight != null) formData.append(`boxes[${index}][weight]`, box.weight);
+          // Always sent, even empty: that's how the courier cost gets CLEARED
+          // back to unknown. Skipping it on empty would make a mistyped cost
+          // impossible to undo from this page.
+          formData.append(`boxes[${index}][shipping_cost]`, box.shipping_cost ?? '');
         });
       }
     }
