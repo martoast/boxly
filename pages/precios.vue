@@ -80,7 +80,7 @@ const t = createTranslations({
 
 useSeoMeta({
   title: 'Precios de envío USA → México | Boxly',
-  description: 'Tarifas de envío de Estados Unidos a México: precio fijo por caja (XS a XL), sin costos ocultos. Casillero (solo la caja) o compra asistida (producto + 15% + caja). Consolida y ahorra.',
+  description: 'Tarifas de envío de Estados Unidos a México: precio fijo por caja (S a XL), sin costos ocultos. Casillero (solo la caja) o compra asistida (producto + 15% + caja). Consolida y ahorra.',
   ogTitle: 'Precios de envío USA → México | Boxly',
   ogDescription: 'Precio fijo por caja, sin costos ocultos. Casillero o compra asistida. Consolida tus compras de USA en una sola caja a México.',
   ogType: 'website',

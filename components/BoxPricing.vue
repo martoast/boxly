@@ -14,7 +14,7 @@
       </div>
 
       <!-- Pricing cards -->
-      <div class="mt-12 sm:mt-16 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div class="mt-12 sm:mt-16 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div
           v-for="box in boxes"
           :key="box.size"
@@ -106,7 +106,6 @@ const FACTS = ["factPrice", "factShipping", "factConsolidate"];
 // it comes from Stripe via useBoxPrices() so a price change goes live without a
 // deploy (these used to be hardcoded and silently went stale).
 const BOXES = [
-  { size: "XS", garments: 5,   pairs: 2,  weightLimit: 8,  dimensions: { es: "32 × 24 × 13 cm", en: "32 × 24 × 13 cm" } },
   { size: "S",  garments: 20,  pairs: 5,  weightLimit: 15, dimensions: { es: "42 × 27 × 32 cm", en: "42 × 27 × 32 cm" } },
   { size: "M",  garments: 40,  pairs: 10, weightLimit: 25, dimensions: { es: "42 × 52 × 40 cm", en: "42 × 52 × 40 cm" }, popular: true },
   { size: "L",  garments: 60,  pairs: 20, weightLimit: 35, dimensions: { es: "52 × 42 × 40 cm", en: "52 × 42 × 40 cm" } },

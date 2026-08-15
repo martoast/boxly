@@ -21,7 +21,7 @@
       </div>
 
       <!-- Pricing cards — lead with the offer -->
-      <div id="cajas" class="mt-12 sm:mt-16 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div id="cajas" class="mt-12 sm:mt-16 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div
           v-for="b in BOXES"
           :key="b.key"
@@ -148,7 +148,6 @@ const ICONS = {
 // Prices are NOT here — they come from Stripe via useBoxPrices(), so raising a
 // price in Stripe updates this page without a deploy.
 const BOX_SPECS = [
-  { key: 'XS', name: 'Caja XS', garments: 5,   pairs: 2,  bags: null, dims: '32 × 24 × 13 cm', maxKg: 8 },
   { key: 'S',  name: 'Caja S',  garments: 20,  pairs: 5,  bags: null, dims: '42 × 27 × 32 cm', maxKg: 15 },
   { key: 'M',  name: 'Caja M',  garments: 40,  pairs: 10, bags: 8,  tag: 'Más Popular', popular: true, dims: '42 × 52 × 40 cm', maxKg: 25 },
   { key: 'L',  name: 'Caja L',  garments: 60,  pairs: 20, bags: 15, dims: '52 × 42 × 40 cm', maxKg: 35 },
