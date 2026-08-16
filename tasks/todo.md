@@ -1,21 +1,44 @@
-# Remove XS box from public listings
+# Give Velonie (employee + team=shopping) access to the AI search page
 
-- [x] Drop XS from `components/BoxPricing.vue` box table (shared by landing `/` and `/precios`)
-- [x] Change that grid from `lg:grid-cols-5` → `lg:grid-cols-4`
-- [x] Drop XS from `pages/app/pricing/index.vue` `BOX_SPECS` + same grid fix
-- [x] Update `/precios` SEO description: "precio fijo por caja (XS a XL)" → "(S a XL)"
+Approved approach: mirror it under `/app/shopping/ai-search`, the same pattern
+her campaigns / stores / categories already use. Full scope — stats, feed,
+thread drawer, CSV export.
+
+- [x] API: mount the four `ai-search` routes the page uses in the `shopping`
+      middleware group (`routes/api.php`), pointing at the same
+      `SearchEventController`
+- [x] App: extract the dashboard from `pages/app/admin/ai-search/index.vue` into
+      `components/admin/AiSearchDashboard.vue`, with an `apiBase` prop
+- [x] App: `pages/app/admin/ai-search/index.vue` → thin page, admin layout +
+      `['auth','admin']`, `api-base="/admin"`
+- [x] App: new `pages/app/shopping/ai-search/index.vue` → shopping layout +
+      `['auth','shopping']`, `api-base="/shopping"`
+- [x] App: nav item added to `components/ShoppingSidebar.vue`
+- [x] Verify: `nuxi build` passes, route present in the built manifest, no
+      hardcoded `/admin/ai-search` left in the shared component
 
 ## Review
 
-XS is no longer listed anywhere on the landing page or either pricing page. Four
-cards (S / M / L / XL) now fill the grid evenly on desktop.
+Velonie now reaches the dashboard at **`/app/shopping/ai-search`**, in her own
+sidebar. `/app/admin/ai-search` is byte-for-byte the same view and stays
+admin-only.
 
-Nothing else was touched — prices still come live from Stripe via `useBoxPrices()`,
-and the XS price/price_id is untouched in Stripe, the API, the CLI and the order
-flow, so existing XS boxes and any admin-side XS selection keep working.
+**API** (`routes/api.php`) — added `stats`, `events`, `export`, and
+`thread/{conversation}` under the existing `Route::middleware('shopping')
+->prefix('shopping')` group, hitting the same `SearchEventController`. Only the
+four the page actually calls; `queries` and `conversations` stay admin-only.
+`ShoppingEmployeeMiddleware` → `User::canManageShopping()` = admin OR
+employee+shopping, so admins keep working through either namespace. The
+controller has no admin-specific branching and every one of these endpoints is
+a GET, so there is nothing to write from her side.
 
-Left alone deliberately (out of scope, flag if you want them changed):
-- `components/Landing/Main/ShippingCalculatorModal.vue` — the shipping calculator
-  on `/how-it-works/casillero` can still recommend an XS box for a small item.
-- `server/api/assistant.post.ts` / `server/utils/boxMath.ts` — the AI concierge
-  still quotes XS.
+**App** — the 448-line page body moved into
+`components/admin/AiSearchDashboard.vue` with one `apiBase` prop (`/admin` or
+`/shopping`) feeding all four fetch calls. Both pages are now ~10 lines that
+just set layout + middleware and render it, so the two views cannot drift.
+
+Verified with `npx nuxi build`: clean, and `app/shopping/ai-search` is in the
+built route manifest.
+
+Not deployed — waiting on the go-ahead. API must ship before the app, since the
+page 403s until `/shopping/ai-search/*` exists in production.
