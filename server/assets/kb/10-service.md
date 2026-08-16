@@ -58,13 +58,16 @@ Includes consolidation in San Diego and air shipping to anywhere in Mexico.
 
 | Size | Dimensions      | Max weight | Price (MXN) |
 |------|-----------------|------------|-------------|
-| XS   | 32 × 24 × 13 cm | 8 kg       | $1,300      |
 | S    | 42 × 27 × 32 cm | 15 kg      | $2,400      |
 | M    | 42 × 52 × 40 cm | 25 kg      | $4,400      |
 | L    | 52 × 42 × 40 cm | 35 kg      | $5,600      |
 | XL   | 52 × 62 × 53 cm | 50 kg      | $6,900      |
 
 For voice, spell prices in words ("cuatro mil cuatrocientos pesos", not "$4,400").
+
+There is no XS / "extra chica" box. It was retired on 2026-08-16 — **S is the
+smallest box we sell**. Never quote an extra-chica box or a $1,300 price, not
+even for a tiny order: a set that fits in a shoebox still ships in an S.
 
 ## WHAT IS INCLUDED
 - Receiving packages in the U.S.
@@ -148,7 +151,7 @@ recibimos y consolidamos, te compartimos la cotización, pagas, y enviamos
 tu caja a México con guía de rastreo."
 
 ### Best default for "how much?"
-"Manejamos precios fijos por tamaño de caja. La extra chica cuesta mil
-doscientos pesos y la extra grande seis mil doscientos cincuenta. Depende
+"Manejamos precios fijos por tamaño de caja. La chica cuesta dos mil
+cuatrocientos pesos y la extra grande seis mil novecientos. Depende
 del espacio que ocupen tus productos y del peso. Crea tu cuenta gratis en
 boxly.mx y sube tus productos para ver qué caja te conviene."

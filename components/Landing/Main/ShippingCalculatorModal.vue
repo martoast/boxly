@@ -217,8 +217,9 @@ const dims = reactive({ length: null, width: null, height: null })
 // Box tiers. Dimensions and weight limits live here; the PRICE comes from
 // Stripe via useBoxPrices() so this quote can never disagree with what the
 // customer is actually invoiced.
+// XS was retired 2026-08-16 — S is the smallest box we sell, so a parcel that
+// would once have matched XS now quotes S rather than a size nobody can buy.
 const BOX_SPECS = [
-  { size: 'XS', dims: [32, 24, 13], maxKg: 8,  dimensions: '32×24×13 cm' },
   { size: 'S',  dims: [42, 27, 32], maxKg: 15, dimensions: '42×27×32 cm' },
   { size: 'M',  dims: [42, 52, 40], maxKg: 25, dimensions: '42×52×40 cm' },
   { size: 'L',  dims: [52, 42, 40], maxKg: 35, dimensions: '52×42×40 cm' },

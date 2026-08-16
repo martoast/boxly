@@ -359,7 +359,7 @@ function interleave(arrays: any[][]) {
 // an ESTIMATE — the real box is confirmed when Boxly receives and packs the items.
 //
 // Calibration (updated 2026-06-29 to the new box capacities). Folded-clothes
-// capacity per box: XS ~5–7, S ~10–15, M ~24–34, L ~38–48, XL ~52–72 prendas, at
+// capacity per box: S ~10–15, M ~24–34, L ~38–48, XL ~52–72 prendas, at
 // flat_soft = 0.30 shoe-units/garment. VOLUME, not count: 10 small sanitizers
 // barely move the bar; one thick coat fills more than many shirts. Shoes are boxed
 // pairs and are NOT part of the prenda capacity.
@@ -378,8 +378,12 @@ const ARCH_LABEL: Record<string, string> = {
 }
 // usable = volume at which the box is full (in shoe-units), calibrated so the
 // flat_soft prenda counts above land on the right box.
+//
+// The XS box is DISCONTINUED (2026-08-16) — Chica is the floor. A tiny shipment
+// now reads "S, barely full" instead of quoting a box we no longer sell; the
+// concierge told a customer a set shipped "en una caja Extra Chica" for $1,300
+// while the site had already stopped listing it.
 const BOXES = [
-  { key: 'XS', label: 'Extra chica', usable: 2.0 },
   { key: 'S', label: 'Chica', usable: 4.5 },
   { key: 'M', label: 'Mediana', usable: 10 },
   { key: 'L', label: 'Grande', usable: 14.5 },
@@ -414,7 +418,7 @@ function buildShipment(items: any[]) {
   })
   const total = norm.reduce((s, i) => s + i.units, 0)
   // Smallest box that holds it, allowing ~15% overflow so a near-full box reads
-  // "XS lleno" instead of jumping to "S 30%". This prevents the bad tier jumps.
+  // "S llena" instead of jumping to "M 30%". This prevents the bad tier jumps.
   const box = BOXES.find((b) => total <= b.usable * 1.15) || BOXES[BOXES.length - 1]
   const usedPct = Math.max(3, Math.min(100, Math.round((total / box.usable) * 100)))
   return {
@@ -431,7 +435,6 @@ function buildShipment(items: any[]) {
 // Stripe by boxGuide() below — these values are only the offline fallback, so
 // the concierge can never quote a price the customer won't actually be charged.
 const BOX_GUIDE = [
-  { key: 'XS', label: 'Extra chica', price_mxn: 1300, dims: '32×24×13 cm', max_kg: 8, fits: '~5–7 prendas dobladas' },
   { key: 'S', label: 'Chica', price_mxn: 2400, dims: '42×27×32 cm', max_kg: 15, fits: '~10–15 prendas dobladas' },
   { key: 'M', label: 'Mediana', price_mxn: 4400, dims: '42×52×40 cm', max_kg: 25, fits: '~24–34 prendas dobladas', popular: true },
   { key: 'L', label: 'Grande', price_mxn: 5600, dims: '52×42×40 cm', max_kg: 35, fits: '~38–48 prendas dobladas' },
@@ -444,8 +447,11 @@ const BOX_GUIDE = [
 // cheaper ones are the in-between amounts used for odd shipments and must never
 // be quoted as the public price. shipping=false is the border-pickup "Crossing"
 // catalog, a different service entirely.
+// "Extra Small Box" is deliberately absent: it still exists in Stripe for boxes
+// already in flight, and mapping it here would put a retired size back in the
+// table the concierge quotes from.
 const BOX_SIZE_BY_NAME: Record<string, string> = {
-  'extra small box': 'XS', 'small box': 'S', 'medium box': 'M', 'large box': 'L', 'extra large box': 'XL',
+  'small box': 'S', 'medium box': 'M', 'large box': 'L', 'extra large box': 'XL',
 }
 let boxPriceCache: { at: number; prices: Record<string, number> } | null = null
 async function boxGuide() {

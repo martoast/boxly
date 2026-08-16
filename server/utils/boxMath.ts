@@ -3,8 +3,8 @@
  *
  * Boxly prices shipping per BOX at a fixed rate, so the cost of any single item
  * is meaningless on its own. A MX$1,590 shirt bought in the US for MX$1,118
- * looks like a 30% win until you add the MX$1,300 an XS box costs, at which
- * point the shopper has paid 52% MORE than if they'd bought it at home.
+ * looks like a 30% win until you add the MX$2,400 the smallest box costs, at
+ * which point the shopper has paid 121% MORE than if they'd bought it at home.
  *
  * The shopper panel quoted that half-price for its entire life. This module
  * exists so it can't happen again, and so the chat and the panel can never
@@ -32,16 +32,19 @@ export const ARCH_LABEL: Record<string, string> = {
 }
 
 /** `usable` = volume at which the box is full, in shoe-units. */
+//
+// The XS box is DISCONTINUED (2026-08-16): Chica is the smallest thing we sell,
+// so it is the floor of the ladder. XS survives in Stripe and in the admin order
+// flow for boxes already in flight — it must simply never be QUOTED again.
 export const BOX_TIERS = [
-  { key: 'XS', label: 'Extra chica', usable: 2.0 },
   { key: 'S', label: 'Chica', usable: 4.5 },
   // ── The half sizes ────────────────────────────────────────────────────────
   //
-  // Boxly ships EIGHT box sizes, not five. Between each of the big ones sits a
-  // midpoint box that was never listed on the site and never modelled here:
+  // Boxly ships SEVEN box sizes, not four. Between each of the listed ones sits
+  // a midpoint box that was never shown on the site and never modelled here:
   //
-  //     1300 · 2400 · 3300 · 4400 · 5100 · 5600 · 6250 · 6900
-  //      XS     S     SM      M     ML      L    LXL     XL
+  //     2400 · 3300 · 4400 · 5100 · 5600 · 6250 · 6900
+  //      S     SM      M     ML      L    LXL     XL
   //
   // They were invisible for a precise reason. Stripe carries each one as a
   // SECOND PRICE on its larger neighbour's product — SM on Medium, ML on Large,
@@ -140,8 +143,8 @@ export function boxEconomics(
   if (!Number.isFinite(soloPrice)) return null
 
   // How many fit in that same box — the number the shopper is being asked for.
-  // Capped: by volume alone 45 perfumes "fit" an XS, which is true of the space
-  // and false of the 8 kg limit — and one unbelievable number discredits every
+  // Capped: by volume alone 100 perfumes "fit" an S, which is true of the space
+  // and false of the 15 kg limit — and one unbelievable number discredits every
   // honest one beside it.
   const FITS_CAP = 20
   const fits = Math.min(FITS_CAP, Math.max(1, Math.floor((solo.usable * 1.15) / units)))
@@ -150,7 +153,7 @@ export function boxEconomics(
 
   // Break-even: n items save n × saving, and cost whichever box they need. The
   // box can grow as n does, so walk it rather than dividing — dividing quietly
-  // assumes the XS holds an unlimited number of shirts.
+  // assumes the S holds an unlimited number of shirts.
   let breakeven: number | null = null
   if (savingPerItemMxn > 0) {
     for (let n = 1; n <= 80; n++) {
@@ -162,8 +165,8 @@ export function boxEconomics(
   }
 
   // The box worth describing is the one the shopper would actually END UP in,
-  // not the one a single item ships in. A pair of shoes fits alone in an XS, but
-  // break-even is 3 pairs — which is an S. Quoting "fill the XS" there would
+  // not the one a single item ships in. A pair of shoes fits alone in an S, but
+  // if break-even is 4 pairs that is an SM. Quoting "fill the S" there would
   // promise a full box that still loses money.
   let fullBox: { items: number; saving_mxn: number } | null = null
   if (savingPerItemMxn > 0 && breakeven) {
@@ -197,11 +200,13 @@ export function boxEconomics(
  * directly — a stale box price is a broken promise at checkout.
  */
 const FALLBACK_PRICES: Record<string, number> = {
-  XS: 1300, S: 2400, SM: 3300, M: 4400, ML: 5100, L: 5600, LXL: 6250, XL: 6900,
+  S: 2400, SM: 3300, M: 4400, ML: 5100, L: 5600, LXL: 6250, XL: 6900,
 }
 
+// "Extra Small Box" is deliberately unmapped — the size is retired, and mapping
+// it would let a price we no longer sell back into the quote table.
 const SIZE_BY_NAME: Record<string, string> = {
-  'extra small box': 'XS', 'small box': 'S', 'medium box': 'M',
+  'small box': 'S', 'medium box': 'M',
   'large box': 'L', 'extra large box': 'XL',
 }
 

@@ -91,8 +91,9 @@ tienda de Estados Unidos. Cuando lleguen tus cosas, las juntamos en una
 caja y te las mandamos a México. ¿Qué tipo de cosas quieres traerte?"
 
 Visitor: "¿Cuánto cuesta enviar una caja mediana?"
-You: "Cuatro mil pesos. Incluye consolidación y envío aéreo a cualquier
-parte de México, hasta veinticinco kilos. ¿Te alcanza con ese tamaño?"
+You: "Cuatro mil cuatrocientos pesos. Incluye consolidación y envío aéreo a
+cualquier parte de México, hasta veinticinco kilos. ¿Te alcanza con ese
+tamaño?"
 
 Visitor: "Mi paquete no ha llegado, ya pasaron dos semanas."
 You: "Eso ya es para que nuestro equipo lo revise directo. Mándales un
