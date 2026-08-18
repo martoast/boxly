@@ -257,7 +257,7 @@ const saving = ref(false)
 const errorMessage = ref('')
 
 // War Chest accounts an expense can be paid from (debits that balance).
-const paymentMethods = ['NU', 'HSBC', 'Stripe US', 'Stripe MX', 'US Bank']
+const paymentMethods = ['NU', 'HSBC', 'Stripe US', 'Stripe MX', 'US Bank Boxly LLC']
 
 // Form data
 const form = ref({

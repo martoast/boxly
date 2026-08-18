@@ -221,7 +221,7 @@
   const { $customFetch, $toast } = useNuxtApp()
   const { t: createTranslations } = useLanguage()
   const { categoryOptionsForScope } = useExpenseCategories()
-  const paymentMethods = ['NU', 'HSBC', 'Stripe US', 'Stripe MX', 'US Bank']
+  const paymentMethods = ['NU', 'HSBC', 'Stripe US', 'Stripe MX', 'US Bank Boxly LLC']
 
   // State
   const loading = ref(true)
