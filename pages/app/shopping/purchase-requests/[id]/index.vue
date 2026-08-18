@@ -113,6 +113,68 @@
         </div>
       </div>
 
+      <!-- In-person step 1: the $10/store reservation. Lives above the quote
+           banner because it comes first — the trip isn't secured until this
+           clears, and until then the link is the only thing to act on. -->
+      <div
+        v-if="request.source === 'in_person' && !request.deposit_paid_at"
+        class="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-4"
+      >
+        <div class="w-12 h-12 bg-white rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm border border-amber-100">
+          <svg class="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="font-semibold text-amber-900">{{ t.depositPending }}</p>
+          <p class="text-sm text-amber-700 mt-0.5">
+            {{ t.depositPendingDesc }}
+            <span class="font-medium">
+              {{ request.in_person_store_count }} × ${{ perStoreFeeLabel }} = ${{ Number(request.deposit_amount_usd || 0).toFixed(2) }} USD
+            </span>
+          </p>
+
+          <div v-if="request.deposit_payment_link" class="mt-3 flex items-stretch gap-2">
+            <a
+              :href="request.deposit_payment_link"
+              target="_blank"
+              rel="noopener"
+              class="flex-1 min-w-0 truncate px-3 py-2 rounded-lg bg-white border border-amber-100 text-xs text-amber-800 font-mono hover:underline self-stretch flex items-center"
+              :title="request.deposit_payment_link"
+            >{{ request.deposit_payment_link }}</a>
+            <button
+              type="button"
+              @click="copyDepositLink"
+              class="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-amber-200 hover:bg-amber-100 text-amber-800 text-sm font-medium rounded-lg transition-colors flex-shrink-0"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+              {{ t.copy }}
+            </button>
+          </div>
+
+          <button
+            type="button"
+            @click="remintDepositLink"
+            :disabled="remintingDeposit"
+            class="mt-2 text-xs font-medium text-amber-800 hover:text-amber-900 underline disabled:opacity-50"
+          >
+            {{ remintingDeposit ? t.processing : (request.deposit_payment_link ? t.remintDepositLink : t.createDepositLink) }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Same visit, deposit cleared — a one-line receipt so it's obvious the
+           trip is secured and what's still owed is the goods themselves. -->
+      <div
+        v-else-if="request.source === 'in_person' && request.deposit_paid_at"
+        class="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 flex items-center gap-3"
+      >
+        <svg class="w-5 h-5 text-emerald-600 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+        <p class="text-sm text-emerald-800">
+          {{ t.depositPaid }}
+          <span class="font-medium">${{ Number(request.deposit_amount_usd || 0).toFixed(2) }} USD</span>
+          · {{ request.in_person_store_count }} {{ request.in_person_store_count === 1 ? t.storeSingular : t.storePlural }}
+        </p>
+      </div>
+
       <!-- Stripe payment link banner — once a Stripe invoice has been
            created, surface the link here so the operator can re-share
            it or open it to verify the invoice on Stripe's hosted page. -->
@@ -710,6 +772,17 @@ const translations = {
   openLink: { es: 'Abrir', en: 'Open' },
   copy: { es: 'Copiar', en: 'Copy' },
   copied: { es: 'Copiado', en: 'Copied' },
+  depositPending: { es: 'Reserva de la visita sin pagar', en: 'Visit reservation unpaid' },
+  depositPendingDesc: {
+    es: 'La visita se aparta cuando el cliente pague este link. En cuanto lo haga, la solicitud pasa sola a revisión pendiente.',
+    en: 'The visit is secured once the customer pays this link. When they do, the request moves itself to pending review.',
+  },
+  depositPaid: { es: 'Reserva de la visita pagada:', en: 'Visit reservation paid:' },
+  remintDepositLink: { es: 'Generar un link nuevo', en: 'Generate a new link' },
+  createDepositLink: { es: 'Generar link de reserva', en: 'Generate reservation link' },
+  storeSingular: { es: 'tienda', en: 'store' },
+  storePlural: { es: 'tiendas', en: 'stores' },
+  depositLinkGenerated: { es: 'Link generado', en: 'Link generated' },
   customerInfo: { es: 'Cliente', en: 'Customer Info' },
   name: { es: 'Nombre', en: 'Name' },
   email: { es: 'Email', en: 'Email' },
@@ -1185,6 +1258,45 @@ const copyPaymentLink = async () => {
     $toast.success(t.value.copied);
   } catch (e) {
     $toast.error('No se pudo copiar');
+  }
+};
+
+// ---- In-person reservation (step 1 of the two-step in-person flow) ----
+
+const remintingDeposit = ref(false);
+
+// Derived from what this PR was actually booked at rather than a constant
+// here, so a rate change never makes the breakdown contradict the total.
+const perStoreFeeLabel = computed(() => {
+  const count = Number(request.value?.in_person_store_count) || 0;
+  const total = Number(request.value?.deposit_amount_usd) || 0;
+  if (!count || !total) return '—';
+  return (total / count).toFixed(2).replace(/\.00$/, '');
+});
+
+const copyDepositLink = async () => {
+  const link = request.value?.deposit_payment_link;
+  if (!link) return;
+  try {
+    await navigator.clipboard.writeText(link);
+    $toast.success(t.value.copied);
+  } catch (e) {
+    $toast.error('No se pudo copiar');
+  }
+};
+
+const remintDepositLink = async () => {
+  remintingDeposit.value = true;
+  try {
+    await $customFetch(`${apiNs.value}/purchase-requests/${request.value.id}/deposit-link`, {
+      method: 'POST',
+    });
+    await fetchRequest();
+    $toast.success(t.value.depositLinkGenerated);
+  } catch (e) {
+    $toast.error(e?.data?.message || 'No se pudo generar el link');
+  } finally {
+    remintingDeposit.value = false;
   }
 };
 

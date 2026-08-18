@@ -22,7 +22,21 @@
             </span>
           </div>
 
-          <!-- Right: Create Button -->
+          <!-- Right: Create Buttons -->
+          <div class="flex items-center gap-2">
+          <!-- Step 1 of the in-person flow: reserve the visit. Sits beside the
+               online create button because it's a different kind of request,
+               not a variant of one. -->
+          <NuxtLink
+            to="/app/shopping/purchase-requests/create-in-person"
+            class="inline-flex items-center justify-center px-4 py-2 bg-white border border-gray-300 text-gray-800 text-sm font-medium rounded-lg hover:bg-gray-50 shadow-sm transition-all hover:-translate-y-0.5"
+          >
+            <svg class="w-5 h-5 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21h18M5 21V7l7-4 7 4v14M9 9h.01M15 9h.01M9 13h.01M15 13h.01M10 21v-4h4v4" />
+            </svg>
+            <span class="hidden sm:inline">{{ t.newInPersonVisit }}</span>
+          </NuxtLink>
+
           <NuxtLink
             to="/app/shopping/purchase-requests/create"
             class="inline-flex items-center justify-center px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 shadow-sm transition-all hover:-translate-y-0.5"
@@ -42,6 +56,7 @@
             </svg>
             <span class="hidden sm:inline">{{ t.createRequest }}</span>
           </NuxtLink>
+          </div>
         </div>
       </div>
     </div>
@@ -211,6 +226,7 @@
               class="w-full sm:w-48 px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             >
               <option value="">{{ t.allStatuses }}</option>
+              <option value="awaiting_deposit">{{ t.awaitingDeposit }}</option>
               <option value="pending_review">{{ t.pendingReview }}</option>
               <option value="quoted">{{ t.quoted }}</option>
               <option value="paid">{{ t.paid }}</option>
@@ -226,6 +242,7 @@
               <option value="">{{ t.allSources }}</option>
               <option value="store">{{ t.sourceStore }}</option>
               <option value="assisted">{{ t.sourceAssisted }}</option>
+              <option value="in_person">{{ t.sourceInPerson }}</option>
             </select>
           </div>
         </div>
@@ -339,9 +356,21 @@
                   >
                     {{ getStatusLabel(req.status) }}
                   </span>
+                  <!-- In-person visit that hasn't been paid for yet: the link
+                       is the whole job, so put it one click away. -->
+                  <button
+                    v-if="req.status === 'awaiting_deposit' && req.deposit_payment_link"
+                    @click.stop="copyDepositLink(req)"
+                    class="ml-2 px-2 py-0.5 rounded-full text-xs font-medium border border-gray-300 text-gray-600 hover:bg-gray-100 transition-colors"
+                  >
+                    {{ copiedLinkId === req.id ? t.copied : t.copyDepositLink }}
+                  </button>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {{ req.items?.length || 0 }}
+                  <span v-if="req.source === 'in_person'">
+                    {{ req.in_person_store_count || 0 }} {{ req.in_person_store_count === 1 ? 'tienda' : 'tiendas' }}
+                  </span>
+                  <span v-else>{{ req.items?.length || 0 }}</span>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   {{ formatDate(req.created_at) }}
@@ -693,6 +722,12 @@ const t = createTranslations({
   allSources: { es: "Todos los orígenes", en: "All sources" },
   sourceStore: { es: "Tienda Boxly", en: "Boxly Store" },
   sourceAssisted: { es: "Asistido", en: "Assisted" },
+  sourceInPerson: { es: "En persona", en: "In person" },
+  awaitingDeposit: { es: "Esperando reserva", en: "Awaiting deposit" },
+  newInPersonVisit: { es: "Nueva visita en persona", en: "New in-person visit" },
+  depositPending: { es: "Reserva sin pagar", en: "Deposit unpaid" },
+  copyDepositLink: { es: "Copiar link", en: "Copy link" },
+  copied: { es: "Copiado", en: "Copied" },
 });
 const requests = ref([]);
 const loading = ref(true);
@@ -774,11 +809,28 @@ const getStatusColor = (status) => {
     paid: "bg-primary-100 text-primary-800 border-primary-200",
     purchased: "bg-green-100 text-green-800 border-green-200",
     rejected: "bg-red-100 text-red-800 border-red-200",
+    awaiting_deposit: "bg-orange-100 text-orange-800 border-orange-200",
   };
   return map[status] || "bg-gray-100 text-gray-800";
 };
 
-const getStatusLabel = (status) => status?.replace("_", " ").toUpperCase();
+// replace() only swaps the first underscore, so multi-word statuses need /g.
+const getStatusLabel = (status) => status?.replace(/_/g, " ").toUpperCase();
+
+// Copy an unpaid in-person reservation link straight off the list — the most
+// common follow-up is "resend it", and that shouldn't need a detail page.
+const copiedLinkId = ref(null);
+const copyDepositLink = async (req) => {
+  try {
+    await navigator.clipboard.writeText(req.deposit_payment_link);
+    copiedLinkId.value = req.id;
+    setTimeout(() => {
+      if (copiedLinkId.value === req.id) copiedLinkId.value = null;
+    }, 2000);
+  } catch (e) {
+    console.error(e);
+  }
+};
 const formatDate = (date) => new Date(date).toLocaleDateString();
 const navigateTo = (path) => router.push(path);
 
