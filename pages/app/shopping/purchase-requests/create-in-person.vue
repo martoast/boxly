@@ -1,8 +1,8 @@
 <template>
   <section class="min-h-screen bg-gray-50 pb-20">
     <!-- Sticky Header -->
-    <div class="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
-      <div class="max-w-3xl mx-auto px-4 py-4">
+    <div class="bg-white border-b border-gray-200 sticky top-14 md:top-0 z-30 shadow-sm">
+      <div class="max-w-3xl mx-auto px-4 py-3 sm:py-4">
         <div class="flex items-center gap-3">
           <NuxtLink to="/app/shopping/purchase-requests" class="p-2 -ml-2 hover:bg-gray-100 rounded-lg transition-colors">
             <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>

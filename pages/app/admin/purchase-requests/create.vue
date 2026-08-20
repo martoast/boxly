@@ -1,8 +1,8 @@
 <template>
     <section class="min-h-screen bg-gray-50 pb-20">
       <!-- Sticky Header -->
-      <div class="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
-        <div class="max-w-4xl mx-auto px-4 py-4">
+      <div class="bg-white border-b border-gray-200 sticky top-14 md:top-0 z-30 shadow-sm">
+        <div class="max-w-4xl mx-auto px-4 py-3 sm:py-4">
           <div class="flex items-center gap-3">
             <NuxtLink
               to="/app/admin/purchase-requests"
@@ -179,7 +179,7 @@
           <div class="fixed inset-0 z-10 overflow-y-auto">
             <div class="flex min-h-full items-end justify-center sm:items-center p-0 sm:p-4">
               <TransitionChild as="template" enter="ease-out duration-300" enter-from="opacity-0 translate-y-full sm:translate-y-0 sm:scale-95" enter-to="opacity-100 translate-y-0 sm:scale-100" leave="ease-in duration-200" leave-from="opacity-100 translate-y-0 sm:scale-100" leave-to="opacity-0 translate-y-full sm:translate-y-0 sm:scale-95">
-                <DialogPanel class="w-full max-w-lg bg-white rounded-2xl shadow-xl overflow-hidden">
+                <DialogPanel class="w-full max-w-lg bg-white rounded-2xl shadow-xl overflow-hidden my-4 max-h-[90vh] overflow-y-auto">
                   <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50">
                     <h3 class="text-lg font-bold text-gray-900">{{ isEditing ? t.editItem : t.addItem }}</h3>
                     <button @click="closeModal" class="p-1 rounded-full hover:bg-gray-200 transition-colors text-gray-500">

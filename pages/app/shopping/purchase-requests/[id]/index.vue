@@ -1,17 +1,17 @@
 <template>
   <section class="min-h-screen bg-gray-50 pb-20">
     <!-- Header -->
-    <div class="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-30">
-      <div class="max-w-6xl mx-auto px-4 sm:px-6 py-4">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div class="flex items-center gap-4">
+    <div class="bg-white border-b border-gray-200 shadow-sm sticky top-14 md:top-0 z-30">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6 py-3 sm:py-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+          <div class="flex items-center gap-2.5 sm:gap-4 min-w-0">
             <NuxtLink to="/app/shopping/purchase-requests" class="p-2 -ml-2 hover:bg-gray-100 rounded-lg transition-colors">
               <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
               </svg>
             </NuxtLink>
-            <div>
-              <h1 class="text-xl font-bold text-gray-900 flex items-center gap-3">
+            <div class="min-w-0 flex-1">
+              <h1 class="text-lg sm:text-xl font-bold text-gray-900 flex flex-wrap items-center gap-x-2 gap-y-1">
                 {{ request?.request_number }}
                 <span v-if="request" :class="['px-2.5 py-0.5 rounded-full text-xs font-medium border', getStatusColor(request.status)]">
                   {{ getStatusLabel(request.status) }}
@@ -21,12 +21,14 @@
                   {{ request.currency.toUpperCase() }}
                 </span>
               </h1>
-              <p class="text-sm text-gray-500">{{ request?.user?.name }} ({{ request?.user?.email }})</p>
+              <p class="text-[13px] sm:text-sm text-gray-500 truncate">{{ request?.user?.name }}</p>
+              <p class="text-[12px] text-gray-400 truncate sm:hidden">{{ request?.user?.email }}</p>
+              <p class="hidden sm:block text-sm text-gray-500 truncate">{{ request?.user?.email }}</p>
             </div>
           </div>
           
           <!-- Actions based on Status -->
-          <div v-if="request" class="flex items-center gap-3">
+          <div v-if="request" class="flex items-center gap-2 sm:gap-3 [&>button]:flex-1 sm:[&>button]:flex-none">
             <!-- Pending Review -> Reject -->
             <button
               v-if="request.status === 'pending_review'"

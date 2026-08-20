@@ -181,3 +181,52 @@ backfill path has the same untested Eloquent half as the rest.
 Note: record mode still makes one **read-only** Stripe call (the price lookup)
 to default the deposit amount — no object is created. Passing
 `deposit_amount_usd` skips even that.
+
+---
+
+## Mobile pass on the purchase-request pages (iPhone Safari)
+
+Applied to BOTH namespaces — `/app/admin/purchase-requests/*` and
+`/app/shopping/purchase-requests/*` — since they are near-duplicate files.
+
+### The three real defects
+
+1. **Sticky headers slid under the mobile bar.** The sidebar renders a
+   `fixed h-14 z-40` top bar on phones; every PR page header was
+   `sticky top-0 z-30` inside the scrolling `<main>`. Scroll down and the
+   header — back button, request number, actions — disappeared behind the
+   logo. Now `sticky top-14 md:top-0 z-30` on all seven headers.
+
+2. **iOS zoomed the page on every field tap.** Safari zooms when a focused
+   input is under 16px and never zooms back. These forms use `text-sm`
+   (14px) throughout, which is what made the layout "pop" off the side of
+   the screen. Fixed in both layouts with a coarse-pointer media query, so
+   desktop density is untouched.
+
+3. **The list was a six-column table in an `overflow-x-auto`.** It didn't
+   break the page, it did something worse — you had to drag a row sideways
+   to see a request's status. Replaced below `md` with
+   `components/admin/PurchaseRequestMobileList.vue`: one card per request,
+   who + status always visible, whole card is the tap target, checkbox has a
+   44pt hit area, and unpaid in-person reservations get a copy-link button
+   inline. Status now reads "Por revisar" rather than "PENDING_REVIEW".
+
+### Also
+
+- Header/title blocks get `min-w-0` + `truncate` so a long customer email
+  stops pushing the row sideways; name and email stack on phones.
+- Bulk action bar stacks; its buttons go full-width on phones.
+- Pagination stacks; pager buttons went from 26px tall to a real target.
+- Modals get a gutter and `max-h-[90vh]` so the keyboard can't strand them.
+
+### Verified / not verified
+
+- `nuxi build` clean; component present in the built output.
+- Caught before shipping: the tag was written `<PurchaseRequestMobileList>`
+  but Nuxt auto-imports it as `AdminPurchaseRequestMobileList` — Vue renders
+  an unknown tag as a native element and the build says nothing, so the
+  mobile list would have silently rendered as an empty box. Now an explicit
+  import, matching how `ExpenseModal` is used.
+- **Not seen on a real device.** The browser tooling would not give me a
+  true mobile viewport, so this is reasoned from the markup and Tailwind
+  breakpoints, not observed. Worth a look on an actual iPhone.

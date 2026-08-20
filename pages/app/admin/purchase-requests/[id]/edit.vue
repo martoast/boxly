@@ -1,10 +1,10 @@
 <template>
   <section class="min-h-screen bg-gradient-to-br from-gray-50 via-white to-primary-50/20">
     <!-- Header -->
-    <div class="bg-white/90 backdrop-blur-sm shadow-sm border-b border-gray-100 sticky top-0 z-30">
-      <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-4">
+    <div class="bg-white/90 backdrop-blur-sm shadow-sm border-b border-gray-100 sticky top-14 md:top-0 z-30">
+      <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 sm:py-6">
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex items-center gap-2.5 sm:gap-4 min-w-0">
             <NuxtLink 
               :to="`/app/admin/purchase-requests/${requestId}`" 
               class="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -14,7 +14,7 @@
               </svg>
             </NuxtLink>
             <div>
-              <h1 class="text-2xl sm:text-3xl font-extrabold text-gray-900">{{ t.editRequest }}</h1>
+              <h1 class="text-xl sm:text-3xl font-extrabold text-gray-900 truncate">{{ t.editRequest }}</h1>
               <p class="text-sm text-gray-600 mt-1">{{ request?.request_number }} - {{ request?.user?.name }}</p>
             </div>
           </div>

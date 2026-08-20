@@ -6,10 +6,10 @@
     <div
       class="bg-white/90 backdrop-blur-sm shadow-sm border-b border-gray-100"
     >
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
-        <div class="flex items-center justify-between">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 sm:py-6">
+        <div class="flex items-center justify-between gap-3">
           <!-- Left: Title & Count -->
-          <div class="flex items-center gap-3 sm:gap-4">
+          <div class="flex items-center gap-2 sm:gap-4 min-w-0">
             <h1
               class="text-lg sm:text-2xl font-extrabold text-gray-900 truncate"
             >
@@ -56,7 +56,7 @@
           <!-- Bulk Actions Bar -->
           <div
             v-if="selectedRequests.length > 0"
-            class="flex items-center justify-between p-3 bg-primary-50 border border-primary-200 rounded-xl"
+            class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 bg-primary-50 border border-primary-200 rounded-xl"
           >
             <div class="flex items-center gap-3">
               <span class="text-sm font-medium text-primary-900">
@@ -69,7 +69,7 @@
                 {{ t.clearSelection }}
               </button>
             </div>
-            <div class="flex flex-wrap items-center gap-2">
+            <div class="flex flex-wrap items-center gap-2 [&>*]:flex-1 sm:[&>*]:flex-none">
             <!-- Bulk Status Dropdown -->
             <select
               v-model="bulkStatusTarget"
@@ -273,7 +273,15 @@
         class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden animate-fadeIn"
         style="animation-delay: 0.1s"
       >
-        <div class="overflow-x-auto">
+        <!-- Phones get a purpose-built card list; the table needs ~800px. -->
+        <AdminPurchaseRequestMobileList
+          v-model="selectedRequests"
+          :requests="requests"
+          base-path="/app/admin/purchase-requests"
+          class="md:hidden"
+        />
+
+        <div class="hidden md:block overflow-x-auto">
           <table class="w-full">
             <thead class="bg-gray-50 border-b border-gray-100">
               <tr>
@@ -373,9 +381,9 @@
         <!-- Pagination -->
         <div
           v-if="pagination.lastPage > 1"
-          class="px-6 py-4 border-t border-gray-100 flex items-center justify-between"
+          class="px-4 sm:px-6 py-4 border-t border-gray-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
         >
-          <div class="text-sm text-gray-500">
+          <div class="text-[13px] sm:text-sm text-gray-500">
             {{ t.showing }} {{ pagination.from }} {{ t.to }}
             {{ pagination.to }} {{ t.of }} {{ pagination.total }}
           </div>
@@ -383,14 +391,14 @@
             <button
               @click="changePage(pagination.currentPage - 1)"
               :disabled="pagination.currentPage === 1"
-              class="px-3 py-1 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 text-sm transition-colors"
+              class="flex-1 sm:flex-none px-4 py-2.5 sm:py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 text-sm font-medium transition-colors"
             >
               {{ t.previous }}
             </button>
             <button
               @click="changePage(pagination.currentPage + 1)"
               :disabled="pagination.currentPage === pagination.lastPage"
-              class="px-3 py-1 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 text-sm transition-colors"
+              class="flex-1 sm:flex-none px-4 py-2.5 sm:py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 text-sm font-medium transition-colors"
             >
               {{ t.next }}
             </button>
@@ -610,6 +618,7 @@
 </template>
 
 <script setup>
+import AdminPurchaseRequestMobileList from '~/components/admin/PurchaseRequestMobileList.vue';
 import { ref, onMounted, watch, computed } from "vue";
 
 definePageMeta({
