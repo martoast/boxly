@@ -26,15 +26,15 @@
           <thead class="bg-gray-50 border-b border-gray-100">
             <tr class="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
               <th class="px-4 py-3">Tienda</th>
-              <th class="px-4 py-3">Slug</th>
+              <th class="hidden sm:table-cell px-4 py-3">Slug</th>
               <th class="px-4 py-3">Estado</th>
               <th class="px-4 py-3"></th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-100">
             <tr v-for="s in stores" :key="s.id" class="hover:bg-gray-50">
-              <td class="px-4 py-3">
-                <div class="flex items-center gap-3">
+              <td class="px-3 sm:px-4 py-3">
+                <div class="flex items-center gap-3 min-w-0">
                   <div class="w-10 h-10 rounded-lg bg-gray-100 overflow-hidden shrink-0 flex items-center justify-center text-xs text-gray-400">
                     <img v-if="s.logo_url" :src="s.logo_url" :alt="s.name" class="w-full h-full object-cover" />
                     <span v-else>{{ s.name.charAt(0) }}</span>
@@ -44,14 +44,14 @@
                   </div>
                 </div>
               </td>
-              <td class="px-4 py-3 text-gray-500 font-mono text-xs">{{ s.slug }}</td>
+              <td class="hidden sm:table-cell px-4 py-3 text-gray-500 font-mono text-xs">{{ s.slug }}</td>
               <td class="px-4 py-3">
                 <span :class="s.is_active ? 'bg-green-50 text-green-700 border-green-100' : 'bg-gray-50 text-gray-500 border-gray-100'" class="inline-flex px-2 py-0.5 rounded-full text-xs font-semibold border">
                   {{ s.is_active ? 'Activa' : 'Inactiva' }}
                 </span>
               </td>
               <td class="px-4 py-3 text-right">
-                <NuxtLink :to="`${editBasePath}/${s.id}/edit`" class="text-primary-600 font-medium hover:text-primary-700 text-sm">Editar</NuxtLink>
+                <NuxtLink :to="`${editBasePath}/${s.id}/edit`" class="inline-flex items-center justify-center -my-1 px-3 py-2 rounded-lg text-primary-600 font-medium hover:bg-primary-50 text-sm">Editar</NuxtLink>
               </td>
             </tr>
           </tbody>

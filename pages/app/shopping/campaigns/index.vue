@@ -93,16 +93,16 @@
             <NuxtLink v-for="campaign in campaigns" :key="campaign.id"
               :to="`/app/shopping/campaigns/${campaign.id}`"
               class="block p-4 hover:bg-gray-50 transition-colors">
-              <div class="flex items-start justify-between mb-3">
-                <div>
-                  <p class="font-semibold text-gray-900">{{ campaign.name }}</p>
-                  <p class="text-sm text-gray-500">{{ getAudienceLabel(campaign.audience) }}</p>
+              <div class="flex items-start justify-between gap-2 mb-3">
+                <div class="min-w-0 flex-1">
+                  <p class="font-semibold text-gray-900 truncate">{{ campaign.name }}</p>
+                  <p class="text-sm text-gray-500 truncate">{{ getAudienceLabel(campaign.audience) }}</p>
                 </div>
-                <span :class="getStatusBadgeClass(campaign.status)" class="text-xs px-2 py-1 rounded-full font-medium">
+                <span :class="getStatusBadgeClass(campaign.status)" class="shrink-0 text-xs px-2 py-1 rounded-full font-medium">
                   {{ getStatusLabel(campaign.status) }}
                 </span>
               </div>
-              <div class="grid grid-cols-4 gap-2 text-center text-sm">
+              <div class="grid grid-cols-4 gap-1.5 text-center text-sm">
                 <div>
                   <p class="font-semibold text-gray-900">{{ campaign.total_recipients }}</p>
                   <p class="text-xs text-gray-500">{{ t.recipients }}</p>
