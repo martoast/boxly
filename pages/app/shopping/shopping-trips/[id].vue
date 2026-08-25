@@ -1,9 +1,9 @@
 <template>
-  <ShoppingTripDetail api-base="/admin" />
+  <ShoppingTripDetail api-base="/shopping" />
 </template>
 
 <script setup>
 import ShoppingTripDetail from '~/components/admin/ShoppingTripDetail.vue'
 
-definePageMeta({ layout: 'admin', middleware: ['auth', 'admin'] })
+definePageMeta({ layout: 'shopping', middleware: ['auth', 'shopping'] })
 </script>

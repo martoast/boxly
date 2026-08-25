@@ -215,6 +215,7 @@ import {
   ArrowRightOnRectangleIcon,
   PhotoIcon,
   MagnifyingGlassIcon,
+  CalendarDaysIcon,
 } from '@heroicons/vue/24/outline';
 
 const { $customFetch } = useNuxtApp();
@@ -230,6 +231,7 @@ const t = createTranslations({
   storeCategories:  { es: 'Categorías (presencial)', en: 'Categories (in-person)' },
   campaigns:        { es: 'Campañas',               en: 'Campaigns' },
   aiSearch:         { es: 'Búsqueda con IA',        en: 'AI Search' },
+  shoppingTrips:    { es: 'Visitas en Persona',     en: 'In-Person Trips' },
   shoppingRole:     { es: 'Compras',                en: 'Shopping' },
   logout:           { es: 'Cerrar Sesión',          en: 'Sign out' },
 });
@@ -239,6 +241,7 @@ const navItems = computed(() => [
   { route: '/app/shopping/purchased-products', icon: ShoppingBagIcon,        label: t.value.purchasedProducts },
   { route: '/app/shopping/stores',            icon: BuildingStorefrontIcon,  label: t.value.storeBrands },
   { route: '/app/shopping/categories',        icon: TagIcon,                 label: t.value.storeCategories },
+  { route: '/app/shopping/shopping-trips',    icon: CalendarDaysIcon,        label: t.value.shoppingTrips },
   { route: '/app/shopping/campaigns',         icon: MegaphoneIcon,           label: t.value.campaigns },
   { route: '/app/shopping/ai-search',         icon: MagnifyingGlassIcon,     label: t.value.aiSearch },
 ]);
