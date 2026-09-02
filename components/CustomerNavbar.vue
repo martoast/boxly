@@ -275,10 +275,10 @@
             <Menu as="div" class="relative ml-3">
               <div>
                 <MenuButton
+                  aria-label="Abrir menú de cuenta"
                   class="relative flex items-center gap-2 rounded-full bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 px-3 py-2 hover:bg-gray-50 border border-gray-200"
                 >
                   <span class="absolute -inset-1.5" />
-                  <span class="sr-only">Open user menu</span>
                   <div class="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center">
                     <span class="text-primary-600 font-medium">{{ userInitials }}</span>
                   </div>
@@ -354,16 +354,17 @@
                  
                   <div class="border-t border-gray-100"></div>
                   <MenuItem v-slot="{ active }">
-                    <a
-                      href="#"
-                      @click.prevent="handleLogout"
+                    <button
+                      type="button"
+                      aria-label="Cerrar sesión"
+                      @click="handleLogout"
                       :class="[
                         active ? 'bg-gray-100' : '',
-                        'block px-4 py-2 text-sm text-gray-700',
+                        'block w-full px-4 py-2 text-left text-sm text-gray-700',
                       ]"
                     >
                       {{ t.logout }}
-                    </a>
+                    </button>
                   </MenuItem>
                 </MenuItems>
               </transition>
@@ -678,7 +679,7 @@ const handleCreateOrder = async () => {
 const handleLogout = async () => {
   try {
     await $customFetch("/auth/logout", { method: "POST" });
-    useState("user", () => null);
+    useState("user").value = null;
     const csrfCookie = useCookie("XSRF-TOKEN");
     csrfCookie.value = null;
     window.location.href = "/login";

@@ -194,10 +194,8 @@ function formatReviews(n) {
 }
 
 
-// --- Lazily fetched product detail: extra images, description, and the REAL
-//     merchant link (resolves a Google view link → the actual store) via
-//     /products/page. No variant/size scraping — the customer picks options on
-//     the store's own page (or Boxly handles it on an assisted purchase).
+// Live-verified products already carry authoritative image, price, availability,
+// and merchant URL fields. No secondary scraping/detail request is performed.
 const fetchedImages = ref([])
 const fetchedDesc = ref(null)
 const fetchedLink = ref(null)
@@ -262,26 +260,6 @@ async function openLightbox(idx) {
 }
 function closeLightbox() { lightboxOpen.value = false }
 
-async function loadDetails(p) {
-  loadingDetail.value = true
-  try {
-    // Bound the wait: some stores (Cloudflare-protected SPAs like Sephora / Victoria's
-    // Secret) can't be scraped and the backend cascade takes a while before giving up.
-    // Cap it so the spinner never hangs — we degrade to the search-card image/price.
-    const r = await $customFetch('/products/page', { method: 'POST', timeout: 15000, body: { url: p?.url || null, token: p?.token || null, store: p?.store || null, title: p?.title || null } })
-    const d = r.data || {}
-    if (Array.isArray(d.images) && d.images.length) fetchedImages.value = d.images
-    if (d.description) fetchedDesc.value = d.description
-    if (d.buy_url) fetchedLink.value = d.buy_url
-    if (d.price != null) fetchedPrice.value = d.price
-    if (d.was != null) fetchedWas.value = d.was
-    if (typeof d.on_sale === 'boolean') fetchedOnSale.value = d.on_sale
-    if (typeof d.available === 'boolean') available.value = d.available
-  } catch { /* keep the single thumbnail */ } finally {
-    loadingDetail.value = false
-  }
-}
-
 // "Boxly lo compra" — hand the product to the chat so the assistant creates a
 // Purchase Request (assisted purchase, +15%). Pass the resolved merchant link.
 function assisted() {
@@ -307,7 +285,6 @@ watch(() => props.product, (p) => {
   imgIndex.value = 0
   lightboxOpen.value = false
   if (imgTrack.value) imgTrack.value.scrollLeft = 0
-  if (p?.url || p?.token) loadDetails(p)
 })
 
 // --- Swipe down to close (only when the sheet is scrolled to the top) ---

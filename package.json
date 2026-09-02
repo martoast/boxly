@@ -8,12 +8,17 @@
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
-    "test:ebay": "node --experimental-strip-types server/utils/ebay.test.mjs",
-    "test:feeds": "node --experimental-strip-types server/utils/ebay.test.mjs && node --experimental-strip-types server/utils/bestbuy.test.mjs"
+    "test:ai-provider": "node --experimental-strip-types server/utils/aiProvider.test.mjs",
+    "test:live": "node --experimental-strip-types utils/liveShopping.test.mjs && node --experimental-strip-types composables/liveShopping.harness.test.mjs && node --experimental-strip-types utils/livePanelKey.test.mjs && node --experimental-strip-types components/liveShoppingPanel.dom.test.mjs",
+    "start:local": "node scripts/serve-local.mjs",
+    "test:env": "node --experimental-strip-types scripts/localEnvContract.test.mjs",
+    "test:live-observation": "node --experimental-strip-types scripts/liveObservation.test.mjs && node --experimental-strip-types scripts/liveObservation.integration.test.mjs"
+    ,"test:cross-store": "node --experimental-strip-types scripts/crossStoreHarness.test.mjs && node scripts/crossStoreHarness.integration.test.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.84",
     "@ai-sdk/google": "^3.0.86",
+    "@ai-sdk/openai": "^3.0.84",
     "@ai-sdk/vue": "^3.0.206",
     "@headlessui/vue": "^1.7.23",
     "@heroicons/vue": "^2.2.0",

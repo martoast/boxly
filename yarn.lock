@@ -27,6 +27,14 @@
     "@ai-sdk/provider" "3.0.12"
     "@ai-sdk/provider-utils" "4.0.33"
 
+"@ai-sdk/openai@^3.0.84":
+  version "3.0.105"
+  resolved "https://registry.yarnpkg.com/@ai-sdk/openai/-/openai-3.0.105.tgz#5fbcef185bd3984a089184d1560d78fed253d86c"
+  integrity sha512-umx95F8gqGuhPdoW+4ofq83fuSN6aMHwISxvY6dZU51Iix5ZKId0FNru+0FQeu+xfFUrVNmf3vYQNc2FLN85xA==
+  dependencies:
+    "@ai-sdk/provider" "3.0.15"
+    "@ai-sdk/provider-utils" "4.0.50"
+
 "@ai-sdk/provider-utils@4.0.29":
   version "4.0.29"
   resolved "https://registry.npmjs.org/@ai-sdk/provider-utils/-/provider-utils-4.0.29.tgz"
@@ -45,6 +53,16 @@
     "@standard-schema/spec" "^1.1.0"
     eventsource-parser "^3.0.8"
 
+"@ai-sdk/provider-utils@4.0.50":
+  version "4.0.50"
+  resolved "https://registry.yarnpkg.com/@ai-sdk/provider-utils/-/provider-utils-4.0.50.tgz#f21061a898a3fd98a3254914a06199926cf99183"
+  integrity sha512-YAcB+7M1JhAYsHorTrWyldCyZihjCKr/QRXH2vFrara/+lwqNE7q5KzoucKLZ7ktFiUonhnhFhRoiymsq/2K2Q==
+  dependencies:
+    "@ai-sdk/provider" "3.0.15"
+    "@standard-schema/spec" "^1.1.0"
+    eventsource-parser "^3.0.8"
+    undici "^6.28.0"
+
 "@ai-sdk/provider@3.0.10":
   version "3.0.10"
   resolved "https://registry.npmjs.org/@ai-sdk/provider/-/provider-3.0.10.tgz"
@@ -56,6 +74,13 @@
   version "3.0.12"
   resolved "https://registry.npmjs.org/@ai-sdk/provider/-/provider-3.0.12.tgz"
   integrity sha512-sj9DWTJ2Ze0WR9qsiOPqoqzNx3OxL6iMxHImbhvoe9qOspekbzxNDMiJ4TIGfYHYh9w4OmBjz3prvqhzTi96+Q==
+  dependencies:
+    json-schema "^0.4.0"
+
+"@ai-sdk/provider@3.0.15":
+  version "3.0.15"
+  resolved "https://registry.yarnpkg.com/@ai-sdk/provider/-/provider-3.0.15.tgz#baada1bc3783e2b8ebcff0cd5ce8b1db4425a96d"
+  integrity sha512-XeZW1CcDF2GMbH4wejW6xBRI2QCOgnkVYUnxoeDadB1mf85riL2bMUeDoh+6gJ/r4mjNfzUPW8OjLjvwTP0u1Q==
   dependencies:
     json-schema "^0.4.0"
 
@@ -6850,6 +6875,11 @@ undici-types@~7.8.0:
   version "7.8.0"
   resolved "https://registry.npmjs.org/undici-types/-/undici-types-7.8.0.tgz"
   integrity sha512-9UJ2xGDvQ43tYyVMpuHlsgApydB8ZKfVYTsLDhXkFL/6gfkp+U8xTGdh8pMJv1SpZna0zxG1DwsKZsreLbXBxw==
+
+undici@^6.28.0:
+  version "6.28.0"
+  resolved "https://registry.yarnpkg.com/undici/-/undici-6.28.0.tgz#9f0e385744fef5021d6596c5bccd783f61193c1c"
+  integrity sha512-LIY910g9TI13YS95lrMFrs8Rm/u/irgHeTWoKCoteeJ04CUJ92eEfj0rVn+7VKMPBpUPiUoBKfhNyLI23EE/KA==
 
 unenv@^2.0.0-rc.18:
   version "2.0.0-rc.18"

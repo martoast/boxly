@@ -360,7 +360,9 @@ function closeThread() { threadOpen.value = false }
 // and compact chips for tool calls (search, gallery, order, etc.).
 // Tool calls whose output is a product GALLERY — we render the actual products the
 // customer saw, not just a "16 result" chip, so an admin can review the real chat.
-const GALLERY_TOOLS = new Set(['search_products', 'browse_store', 'browse_stores', 'show_products', 'show_saved_products', 'show_orders'])
+// Legacy names remain only for read-only rendering of persisted historical
+// conversation analytics; no current assistant tool exposes them.
+const GALLERY_TOOLS = new Set(['show_saved_products', 'show_orders', 'live_results'])
 function messageBits(m) {
   const parts = (m?.content?.parts) || (Array.isArray(m?.content) ? m.content : [])
   const bits = []

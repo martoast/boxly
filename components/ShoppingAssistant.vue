@@ -1,8 +1,12 @@
 <template>
-  <div class="flex bg-gray-50 overflow-hidden relative" :class="standalone ? 'h-[100dvh]' : (fullscreenMobile ? 'h-[100dvh] md:h-[calc(100dvh-4rem)]' : 'h-[calc(100dvh-4rem)]')">
+  <div class="flex bg-gray-50 overflow-hidden relative" :aria-busy="loadingChat ? 'true' : undefined" :class="standalone ? 'h-[100dvh]' : (fullscreenMobile ? 'h-[100dvh] md:h-[calc(100dvh-4rem)]' : 'h-[calc(100dvh-4rem)]')">
+    <!-- THE assistant surface's single hidden announcer (role=status, atomic).
+         Polite lifecycle transitions only — failures are announced by the
+         visible role=alert surfaces below, never duplicated here. -->
+    <div class="sr-only" role="status" aria-atomic="true">{{ srAnnouncement }}</div>
     <!-- Error toast (e.g. a failed send) — otherwise a failure looks like silence -->
     <Transition name="pop">
-      <div v-if="chatError" class="absolute bottom-24 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-2 rounded-xl bg-red-600 text-white text-sm font-semibold px-4 py-2.5 shadow-lg">
+      <div v-if="chatError" role="alert" class="absolute bottom-24 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-2 rounded-xl bg-red-600 text-white text-sm font-semibold px-4 py-2.5 shadow-lg">
         <span>{{ chatError }}</span>
         <button type="button" @click="chatError = ''" class="ml-1 opacity-80 hover:opacity-100" aria-label="Cerrar">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -44,7 +48,8 @@
 
       <!-- ===== LOADING A CONVERSATION (from history) ===== -->
       <div v-if="loadingChat" class="flex-1 overflow-hidden px-3 md:px-4 py-5">
-        <div class="max-w-2xl mx-auto space-y-4 animate-pulse">
+        <!-- Decorative skeleton: the hidden status announcer speaks the load state. -->
+        <div aria-hidden="true" class="max-w-2xl mx-auto space-y-4 animate-pulse">
           <div class="flex justify-end"><div class="h-9 w-40 rounded-3xl rounded-br-lg bg-primary-200/60"></div></div>
           <div class="flex justify-start"><div class="h-24 w-3/4 rounded-3xl rounded-bl-lg bg-gray-200"></div></div>
           <div class="flex justify-end"><div class="h-9 w-28 rounded-3xl rounded-br-lg bg-primary-200/60"></div></div>
@@ -286,8 +291,10 @@
 
       <!-- ===== CHAT STATE ===== -->
       <template v-if="!loadingChat && (chat.messages.length || activeId)">
-        <div ref="scroller" @scroll.passive="onScroll" class="flex-1 overflow-y-auto overscroll-contain px-3 md:px-4 py-5 scroll-smooth">
-          <div v-if="loadingOlder" class="flex justify-center pb-3">
+        <div ref="scroller" @scroll.passive="onScroll" role="region" aria-label="Conversación" :aria-busy="isBusy || loadingOlder ? 'true' : undefined" class="flex-1 overflow-y-auto overscroll-contain px-3 md:px-4 py-5 scroll-smooth">
+          <!-- Decorative spinner: the surface's single announcer owns the
+               bounded older-message load start/completion labels. -->
+          <div v-if="loadingOlder" aria-hidden="true" class="flex justify-center pb-3">
             <svg class="w-5 h-5 animate-spin text-gray-300" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
           </div>
           <TransitionGroup tag="div" name="msg" class="max-w-2xl mx-auto space-y-4">
@@ -317,6 +324,9 @@
                     <!-- Only the RICHEST gallery in this message renders — see
                          primaryGalleryIndex(): a model that fires two gallery
                          tools in one step must not draw two carousels. -->
+                    <!-- A persisted live gallery whose products MISS a requested constraint
+                         (engine caveat partial_match) says so above the cards. -->
+                    <p v-if="isGalleryTool(part) && part.state === 'output-available' && part.output?.products?.length && liveResultsCaveat(part.output)" class="text-[12px] text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 max-w-md">{{ liveResultsCaveat(part.output) }}</p>
                     <LazyProductGallery v-if="isGalleryTool(part) && part.state === 'output-available' && part.output?.products?.length && i === primaryGalleryIndex(m) && !galleryPending(m)" :products="part.output.products" @open="openProduct" />
                     <!-- Search/browse finished but found nothing — clean message, not an empty
                          carousel. Suppress it if ANOTHER search in this turn did find options. -->
@@ -326,21 +336,9 @@
                          that errored or was cut off mid-stream is never getting a
                          result, and rendering a spinner for it hangs the chat
                          forever with no way out. See toolFailed(). -->
-                    <div v-else-if="TOOLS_WITH_LOADER.has(part.type) && toolFailed(m, part)" class="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[13px] text-gray-500 bg-white border border-gray-100 rounded-2xl px-4 py-3 shadow-sm">
+                    <div v-else-if="part.type !== 'tool-live_verify' && TOOLS_WITH_LOADER.has(part.type) && toolFailed(m, part)" role="alert" class="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[13px] text-gray-500 bg-white border border-gray-100 rounded-2xl px-4 py-3 shadow-sm">
                       <span>Se interrumpió la búsqueda. Puede pasar cuando una tienda tarda demasiado.</span>
                       <button @click="retryLastTurn" class="font-semibold text-primary-600 hover:text-primary-700">Reintentar</button>
-                    </div>
-
-                    <LazySearchLoader v-else-if="part.type === 'tool-search_products' && part.state !== 'output-available'" />
-
-                    <LazySearchLoader
-                      v-else-if="(part.type === 'tool-browse_store' || part.type === 'tool-browse_stores') && part.state !== 'output-available'"
-                      :messages="['Revisando tiendas…', 'Abriendo el catálogo…', 'Trayendo lo mejor de la tienda…']"
-                    />
-
-                    <div v-else-if="part.type === 'tool-web_search' && part.state !== 'output-available'" class="flex items-center gap-2 text-xs text-gray-400 pl-1">
-                      <svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
-                      Buscando información…
                     </div>
 
                     <!-- Order tracking (hub): a single order's status timeline OR a tappable list. -->
@@ -368,7 +366,7 @@
                   <div v-if="msgText(m)" class="bg-white border border-gray-100 rounded-3xl rounded-bl-lg px-4 py-3 shadow-sm text-[15px]"><LazyMarkdownText :text="msgText(m)" /></div>
 
                   <!-- 3) Action widgets + follow-ups after the reply -->
-                  <template v-for="(part, i) in m.parts" :key="'w' + i">
+                  <template v-for="(part, i) in m.parts" :key="partKey(part, i)">
                     <LazyShipmentCard v-if="part.type === 'tool-show_shipment' && part.state === 'output-available'" :shipment="part.output" :requested="!!assistedPr" @order="onFinalizeShipment" @add="onAddMore" />
 
                     <template v-else-if="part.type === 'tool-show_assisted_summary' && part.state === 'output-available'">
@@ -391,6 +389,23 @@
                     </template>
 
                     <LazyBoxGuide v-else-if="part.type === 'tool-show_box_guide' && part.state === 'output-available'" :boxes="part.output?.boxes || []" />
+
+                    <!-- Live shopping session (tool-live_verify carries ONLY the
+                         session handle {localSessionId, engineSessionId, status} —
+                         the panel does its own ticket + SSE + WHEP; terminal results
+                         persist separately as tool-live_results). -->
+                    <template v-else-if="part.type === 'tool-live_verify'">
+                      <LazyLiveShoppingPanel v-if="part.state === 'output-available' && validLiveSession(part)" :session="part.output" @terminal="liveRefresh.onTerminal" />
+                      <!-- Explicit failure card: a create that returned {ok:false}
+                           (or garbage) must say so, never render blank. -->
+                      <div v-else-if="part.state === 'output-available' || toolFailed(m, part)" role="alert" class="bg-red-50 border border-red-200 rounded-xl px-3 py-2.5 text-xs text-red-700 max-w-sm">
+                        {{ liveFailureCopy(part.output) }}
+                      </div>
+                      <div v-else class="flex items-center gap-2 text-xs text-gray-400 pl-1">
+                        <svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
+                        Iniciando sesión en vivo…
+                      </div>
+                    </template>
 
                     <div v-else-if="part.type === 'tool-create_purchase_request' && part.state === 'output-available' && part.output?.request_number" class="bg-green-50 border border-green-200 rounded-2xl p-4 max-w-sm">
                       <p class="text-sm font-bold text-green-800 flex items-center gap-1.5"><svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 011.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z" clip-rule="evenodd"/></svg> Listo — nosotros nos encargamos 🎉</p>
@@ -438,7 +453,8 @@
             </div>
           </TransitionGroup>
 
-          <div v-if="showTyping" class="max-w-2xl mx-auto mt-4 flex justify-start">
+          <!-- Decorative: the hidden status announcer speaks "Respondiendo…". -->
+          <div v-if="showTyping" aria-hidden="true" class="max-w-2xl mx-auto mt-4 flex justify-start">
             <div class="bg-white border border-gray-100 rounded-3xl rounded-bl-lg px-4 py-3.5 shadow-sm">
               <span class="typing"><i></i><i></i><i></i></span>
             </div>
@@ -564,9 +580,12 @@
 <script setup>
 import { Chat } from '@ai-sdk/vue'
 import { DefaultChatTransport } from 'ai'
+import { assistantAnnouncement, createAnnouncementScheduler } from '../utils/asyncAnnouncements'
+import { createProjectionRefresh } from '../utils/liveConversation'
+import { liveFailureCopy, liveResultsCaveat } from '../utils/liveShopping'
 
 // Auto-continue ONLY for the client-side create_account tool once it has a
-// result. Server tools (search_products/browse_store/…) are fully resolved
+// result. Live-shopping tools are fully resolved
 // server-side; auto-sending after them re-runs the model and duplicates the
 // reply (the "message sent twice" bug).
 const CLIENT_TOOLS = new Set(['tool-create_account', 'tool-create_self_order', 'tool-cancel_order'])
@@ -624,6 +643,9 @@ const showSidebar = computed(() => !hub.value && (standalone.value || !!user.val
 async function logout() {
   try { await $customFetch('/auth/logout', { method: 'POST' }) } catch { /* ignore */ }
   user.value = null
+  // Session teardown: forget every live-shopping terminal this document
+  // remembered (utils/liveShopping.ts terminal memory) before the next user.
+  forgetLiveTerminals()
   const csrf = useCookie('XSRF-TOKEN'); csrf.value = null
   window.location.href = standalone.value ? '/app/search' : '/login'
 }
@@ -694,7 +716,10 @@ const showMemory = ref(false)
 function closeMemory() { showMemory.value = false; loadProfile() }
 let openSeq = 0
 let hubPhraseTimer = null
-onBeforeUnmount(() => { if (hubPhraseTimer) clearInterval(hubPhraseTimer) })
+onBeforeUnmount(() => {
+  if (hubPhraseTimer) clearInterval(hubPhraseTimer)
+  cancelLiveRefresh()
+})
 // In-memory cache of opened conversations (id -> { messages, oldestId, hasMore,
 // products }) for instant re-open. Pagination state for the ACTIVE thread:
 const msgCache = new Map()
@@ -744,6 +769,7 @@ function registerFromMessages() {
 const oldestLoadedId = ref(null)
 const hasMoreOlder = ref(false)
 const loadingOlder = ref(false)
+const chatError = ref('')
 
 const PAGE = 30
 function mapMsg(m) {
@@ -1061,8 +1087,7 @@ async function submitReceipt({ items, address }) {
 // ChatGPT-style picture cards — ENTIRELY admin-managed. Whatever active starter
 // prompts exist in the backend is exactly what shows (no hardcoded defaults, no
 // personalized injections). No cards created → no cards shown.
-// `grad` is the card background; `img` is an uploaded photo that wins over the
-// `imgq` product-photo lookup; `imgq` resolves a representative photo otherwise.
+// `grad` is the card background; `img` is an admin-provided photo.
 const GRAD_PALETTE = ['from-fuchsia-500 to-purple-800', 'from-emerald-500 to-teal-800', 'from-sky-500 to-indigo-800', 'from-orange-500 to-rose-800']
 const serverPrompts = ref([])
 const STARTER_PROMPTS_KEY = 'boxly_starter_prompts'
@@ -1085,10 +1110,7 @@ async function loadStarterPrompts() {
       text: r.prompt_text,
       title: r.title,
       grad: GRAD_PALETTE[i % GRAD_PALETTE.length],
-      imgq: r.image_query || '',
-      // `image` is resolved once at admin-save time (image_url ?? resolved_image_url)
-      // — stable and fast. image_url alone is kept as a fallback for prompts an
-      // older API build hasn't computed it for yet.
+      // `image` is resolved once at admin-save time.
       img: r.image || r.image_url || null,
     }))
     saveStarterPromptsSnapshot()
@@ -1096,23 +1118,7 @@ async function loadStarterPrompts() {
 }
 const suggestions = computed(() => serverPrompts.value)
 
-// --- Card images: resolve a representative product photo per card, cached in
-//     localStorage so each query is fetched at most once per browser. ---
-const cardImages = ref({})  // imgq -> url ('' = fetched, none found)
-const fetchingImg = new Set()
-const CARD_IMG_KEY = 'boxly_card_images'
-function loadCardImageCache() {
-  try { const raw = localStorage.getItem(CARD_IMG_KEY); if (raw) cardImages.value = JSON.parse(raw) || {} } catch { /* ignore */ }
-}
-// Persist ONLY successful URLs — failures/'' stay in-memory for the session so a
-// transient miss or a dead image URL refetches on the next load.
-function saveCardImageCache() {
-  try {
-    const ok = Object.fromEntries(Object.entries(cardImages.value).filter(([, v]) => v))
-    localStorage.setItem(CARD_IMG_KEY, JSON.stringify(ok))
-  } catch { /* ignore */ }
-}
-function cardImg(s) { return s?.img || cardImages.value[s?.imgq] || null }
+function cardImg(s) { return s?.img || null }
 
 // Per-card image state so each card can show its OWN loading → photo transition
 // instead of blocking the whole grid behind one spinner.
@@ -1122,15 +1128,12 @@ function onCardImgLoad(url) { if (url && !loadedImgs.value.has(url)) loadedImgs.
 function onCardImgError(s) {
   const url = cardImg(s)
   if (url) failedImgs.value = new Set(failedImgs.value).add(url)
-  // Remember an imgq miss so we don't keep retrying it (uploaded s.img stays as-is).
-  if (s?.imgq && !s?.img) { cardImages.value = { ...cardImages.value, [s.imgq]: '' }; saveCardImageCache() }
 }
 // Render the photo only once we have a URL that hasn't errored.
 function showCardImg(s) { const u = cardImg(s); return !!u && !failedImgs.value.has(u) }
 // True while a card is still working out / decoding its picture — drives the
 // per-card spinner. Emoji shows underneath the whole time.
 function cardLoading(s) {
-  if (!s?.img && s?.imgq && cardImages.value[s.imgq] === undefined) return true // query in flight
   const u = cardImg(s)
   return !!u && !failedImgs.value.has(u) && !loadedImgs.value.has(u) // URL known, still decoding
 }
@@ -1142,33 +1145,18 @@ async function prepareStarterCards() {
   loadStarterPromptsSnapshot()
   if (serverPrompts.value.length) {
     promptsReady.value = true // instant paint from the last snapshot
-    ensureCardImages(suggestions.value)
   }
   await loadStarterPrompts() // refresh from the network, overwrites the snapshot
   promptsReady.value = true // paint the cards NOW — don't wait on any image
-  ensureCardImages(suggestions.value) // fire-and-forget; each card fills in as it resolves
-}
-// Fetch every card photo IN PARALLEL (was a serial await loop) so all queries go
-// out at once and each card fills in the moment its own request returns.
-function ensureCardImages(list) {
-  return Promise.all((list || []).map(async (s) => {
-    const q = s?.imgq
-    if (!q || cardImages.value[q] !== undefined || fetchingImg.has(q)) return
-    fetchingImg.add(q)
-    try {
-      const r = await $fetch('/api/card-image', { params: { q } })
-      cardImages.value = { ...cardImages.value, [q]: r?.image || '' }
-      saveCardImageCache()
-    } catch {
-      cardImages.value = { ...cardImages.value, [q]: '' }
-    } finally {
-      fetchingImg.delete(q)
-    }
-  }))
 }
 
 const isBusy = computed(() => chat.status === 'streaming' || chat.status === 'submitted')
-const GALLERY_TOOLS = ['tool-show_products', 'tool-browse_store', 'tool-browse_stores', 'tool-search_products', 'tool-show_saved_products']
+
+// tool-live_results is the Laravel-persisted TERMINAL part of a live session
+// (webhook-appended; distinct type from the tool-live_verify session handle, so
+// a session handle and a product list never share a shape). It only appears on
+// an authoritative conversation load and renders as a normal gallery.
+const GALLERY_TOOLS = ['tool-show_saved_products', 'tool-live_results']
 function isGalleryTool(part) { return GALLERY_TOOLS.includes(part?.type) }
 // Merge ALL text parts of a message into one string so a multi-step reply renders
 // in ONE bubble instead of fragmenting into many (the "split bubbles" bug).
@@ -1185,8 +1173,6 @@ function hasProducts(m) { return (m.parts || []).some((p) => isGalleryTool(p) &&
  * Gemini does parallel function calling and emits two gallery calls in a SINGLE
  * step, which that guard cannot see. Observed in conversation 301:
  *
- *   browse_store    q="men"          ->  1 product  (store: null)
- *   search_products q="men clothing" -> 16 products (YoungLA)
  *
  * Both rendered, which reads as "it showed me a junk result, then the real
  * ones". Note the fix is NOT "keep the first" — the first was the junk one.
@@ -1201,8 +1187,6 @@ function hasProducts(m) { return (m.parts || []).some((p) => isGalleryTool(p) &&
  * the ones that have arrived — and the fast one is routinely the junk one.
  * Measured against prod for the YoungLA starter prompt:
  *
- *   browse_store(query:"men")  ->  1 product  in 0.95s  ("1067 Stage Shorts")
- *   search_products(...)       -> 16 products in 6-24s
  *
  * So a lone unrelated product flashed up, sat there for the whole load, then got
  * swapped out. It reads like a stale cache — it isn't, it's just the only result
@@ -1234,8 +1218,7 @@ function showNoResults(m, part) {
 // Tool calls that render their OWN in-place loader (spinner/SearchLoader) while
 // running — for these we don't also show the bottom dots (that'd double up).
 const TOOLS_WITH_LOADER = new Set([
-  'tool-search_products', 'tool-browse_store', 'tool-browse_stores',
-  'tool-web_search', 'tool-show_orders', 'tool-plan_in_person',
+  'tool-show_orders', 'tool-plan_in_person', 'tool-live_verify',
 ])
 // Keep a loading indicator visible WHENEVER the assistant is working, so the chat
 // never goes blank between steps (the "did my click do anything?" confusion). Hide
@@ -1277,6 +1260,29 @@ function toolFailed(m, part) {
   if (part.state === 'output-error') return true
   const isCurrent = m.id === chat.messages[chat.messages.length - 1]?.id
   return !(isBusy.value && isCurrent) // unfinished, but nothing is running
+}
+
+function validLiveSession(part) {
+  return !!validateSessionHandle(part?.output)
+}
+
+/**
+ * Stable identity for a part in the WIDGETS loop.
+ *
+ * That loop renders LiveShoppingPanel, which owns a live SSE connection, a
+ * ticket refresh schedule and an AbortController. Keying it by array INDEX means
+ * a part inserted or reordered ahead of it during a streaming turn shifts its
+ * key, and Vue unmounts and remounts the same live session — stopping the
+ * controller mid-stream, which is exactly the abort signature we chased. A
+ * stateful streaming component must never be keyed by position.
+ *
+ * toolCallId is present on tool parts both live and after persistence, so it is
+ * the natural identity. The index fallback (text and other stateless parts)
+ * lives in its own namespace so it can never collide with a toolCallId.
+ */
+function partKey(part, i) {
+  const id = part?.toolCallId
+  return typeof id === 'string' && id ? `w:tc:${id}` : `w:ix:${i}`
 }
 
 // Re-send the last thing the user asked. The failed turn stays in the transcript
@@ -1329,7 +1335,41 @@ const chat = new Chat({
     chatError.value = 'Algo salió mal al enviar tu mensaje. Intenta de nuevo.'
   },
 })
-const chatError = ref('')
+
+// ── The surface's SINGLE hidden status announcer (see template root). The
+// scheduler receives EVERY observed transition, including silent/error-owned
+// ones, so a pending "Respondiendo…" can never land after a visible alert.
+// loadingOlder shares this region with a closed start/completion label pair;
+// its visual spinner remains decorative.
+const srAnnouncement = ref('')
+let srPrev = null
+const currentAsyncAlert = computed(() => {
+  if (chatError.value) return true
+  const last = chat.messages[chat.messages.length - 1]
+  if (last?.role !== 'assistant') return false
+  return (last.parts || []).some((part) => {
+    if (part.type === 'tool-live_verify') {
+      return (part.state === 'output-available' && !validLiveSession(part)) || toolFailed(last, part)
+    }
+    return TOOLS_WITH_LOADER.has(part.type) && toolFailed(last, part)
+  })
+})
+const srScheduler = createAnnouncementScheduler({
+  onClear: () => { srAnnouncement.value = '' },
+  onAnnounce: (a) => { srAnnouncement.value = a.text },
+})
+watch([loadingChat, loadingOlder, () => chat.status, currentAsyncAlert], ([loading, older, status, alertVisible]) => {
+  const next = {
+    loading: !!loading,
+    loadingOlder: !!older,
+    alertVisible: !!alertVisible,
+    chatStatus: status === 'submitted' || status === 'streaming' || status === 'error' ? status : 'ready',
+  }
+  const a = assistantAnnouncement(srPrev, next)
+  srPrev = next
+  srScheduler.transition(a)
+}, { flush: 'post' })
+onBeforeUnmount(() => { srScheduler.cancel() })
 
 // INSTANT first paint for the landing-hero hand-off: a GUEST arriving with ?q=...
 // fires it synchronously HERE in setup (not onMounted), so the very first render
@@ -1355,10 +1395,7 @@ onMounted(() => {
   if (!user.value && !initialQuerySent && !sendInitialQuery()) maybeRestoreGuestChat()
   // Reflect the active chat in the URL as ?c=<id> (query, no remount).
   watch(activeId, (id) => syncUrl(id))
-  // Resolve a real product photo for each starter card (cached in localStorage).
-  loadCardImageCache()
-  // Load the admin cards, paint them immediately (emoji placeholders), then stream
-  // each photo in per-card. Safety: reveal the grid even if the list fetch hangs.
+  // Load admin cards. Safety: reveal the grid even if the list fetch hangs.
   prepareStarterCards()
   setTimeout(() => { promptsReady.value = true }, 6000)
   // Hub: rotate the inviting placeholder + detect an in-progress shipment.
@@ -1374,8 +1411,6 @@ onMounted(() => {
       }, 3200)
     }, 1200)
   }
-  // After the first reveal, keep filling images if the personalized set changes.
-  watch(suggestions, (list) => { if (promptsReady.value) ensureCardImages(list) })
   // Restore the saved sidebar collapsed/expanded preference (default collapsed).
   // In standalone mode always start CLOSED (landing-style) — don't reopen
   // from a stored preference.
@@ -1448,8 +1483,10 @@ async function loadConversations() {
   try { conversations.value = (await $customFetch('/conversations')).data } catch {}
 }
 
-async function onComposerSend({ files } = {}) {
-  const text = input.value.trim()
+async function onComposerSend({ text: payloadText, files } = {}) {
+  // The composer's payload text is its DOM snapshot at send time — the exact
+  // visible bytes. The ref is only a fallback for callers without a payload.
+  const text = (typeof payloadText === 'string' ? payloadText : input.value).trim()
   if (isBusy.value) return
   if (!text && !(files && files.length)) return
   input.value = ''
@@ -1961,6 +1998,7 @@ function bumpActiveToTop() {
 }
 
 function newChat() {
+  cancelLiveRefresh()
   openSeq++ // invalidate any in-flight openChat
   loadingChat.value = false
   chat.messages = []
@@ -1978,7 +2016,8 @@ function newChat() {
   try { localStorage.removeItem(GUEST_RESUME_KEY) } catch { /* ignore */ }
 }
 
-async function openChat(id) {
+async function openChat(id, options = {}) {
+  if (!options.preserveLiveRefresh) cancelLiveRefresh()
   // Normalize to a number so activeId is always the same type as the API's
   // conversation ids (the sidebar highlight + all `=== activeId` checks rely on
   // it). Route params arrive as strings, sidebar clicks as numbers.
@@ -2023,12 +2062,32 @@ async function openChat(id) {
   } catch (e) {
     console.error(e)
     // Bad/forbidden id (e.g. a stale or pasted link) — fall back to the
-    // new-chat view so the user isn't stranded on a broken URL.
-    if (seq === openSeq && activeId.value === id) { activeId.value = null }
+    // new-chat view so the user isn't stranded on a broken URL. The failure
+    // is TRUTHFUL, not silent: the visible role=alert toast announces it.
+    if (seq === openSeq && activeId.value === id) {
+      activeId.value = null
+      chatError.value = 'No se pudo cargar la conversación.'
+    }
   } finally {
     if (seq === openSeq) loadingChat.value = false
   }
 }
+
+// A terminal live session appends tool-live_results asynchronously through
+// Laravel. Refresh the active conversation in place so the verified gallery
+// appears immediately, even when the SSE/media transport never recovers. The
+// chain (one reload + three bounded retries) lives in utils/liveConversation
+// so it is deterministic under test; the panel's emitted status is a signal
+// only and never reaches the attempt counter (live regression, 2026-09-02).
+const liveRefresh = createProjectionRefresh({
+  activeId: () => activeId.value,
+  messages: () => chat.messages,
+  reload: async (id) => {
+    msgCache.delete(id)
+    await openChat(id, { preserveLiveRefresh: true })
+  },
+})
+function cancelLiveRefresh() { liveRefresh.cancel() }
 
 // Load the previous page of messages when the user scrolls near the top, keeping
 // the scroll position pinned so the view doesn't jump.
@@ -2057,7 +2116,10 @@ async function loadOlder() {
     } else {
       hasMoreOlder.value = false
     }
-  } catch (e) { console.error(e) } finally { loadingOlder.value = false }
+  } catch (e) {
+    console.error(e)
+    chatError.value = 'No se pudieron cargar los mensajes anteriores.'
+  } finally { loadingOlder.value = false }
 }
 
 function onScroll() {

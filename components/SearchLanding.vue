@@ -181,7 +181,7 @@ function persistChat() { try { sessionStorage.setItem(CHAT_KEY, JSON.stringify(m
 function scrollToBottom() { nextTick(() => { const el = threadEl.value; if (el) el.scrollTop = el.scrollHeight }) }
 
 function toResults(text) {
-  // Product search → the existing gallery flow (logged server-side in /products/search).
+  // Product discovery is handled by the authenticated live-shopping assistant.
   navigateTo({ path: '/buscar/resultados', query: { q: text } })
 }
 
