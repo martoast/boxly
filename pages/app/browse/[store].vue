@@ -17,8 +17,22 @@
       </span>
     </div>
 
-    <div class="mt-4 relative bg-gray-900 rounded-2xl overflow-hidden shadow-sm" :class="stage === 'ended' ? 'opacity-90' : ''" style="aspect-ratio: 16 / 9;">
+    <div ref="stageEl" class="mt-4 relative bg-gray-900 rounded-2xl overflow-hidden shadow-sm" :class="[stage === 'ended' ? 'opacity-90' : '', isFullscreen ? 'stage-fs' : '']" style="aspect-ratio: 16 / 9;">
       <video ref="videoEl" tabindex="0" autoplay playsinline muted class="w-full h-full object-contain outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-inset cursor-default select-none" :class="relay.state.value === 'open' && relay.controller.value === 'customer' ? 'cursor-pointer' : ''" aria-label="Tienda en vivo" />
+
+      <!-- Fullscreen toggle: fills the screen with the store so the customer can
+           navigate it comfortably. The overlay and loader live inside this same
+           element, so they come along and stay usable in fullscreen. -->
+      <button
+        v-if="fullscreenSupported && (stage === 'live' || isFullscreen)"
+        type="button"
+        class="absolute top-2 right-2 z-20 inline-flex items-center justify-center w-9 h-9 rounded-lg bg-black/45 hover:bg-black/65 text-white backdrop-blur transition-colors"
+        :aria-label="isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'"
+        @click="toggleFullscreen"
+      >
+        <svg v-if="!isFullscreen" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3m13-5v3a2 2 0 0 1-2 2h-3"/></svg>
+        <svg v-else class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3M3 16h3a2 2 0 0 1 2 2v3m13-5h-3a2 2 0 0 0-2 2v3"/></svg>
+      </button>
       <!-- Staged loader while the first frame is on its way: a browser-shaped
            skeleton with a moving sheen, the store's mark breathing in the middle,
            and three steps that tick off real signals (session, media, video). -->
@@ -126,6 +140,30 @@ const adding = ref(false)
 const added = ref(false)
 const addError = ref('')
 const videoEl = ref<HTMLVideoElement | null>(null)
+
+// Fullscreen: the whole stage element (video + overlay + loader) goes fullscreen,
+// so the add-to-cart popup and the loader stay inside it and usable. The relay
+// maps pointer coordinates from the video's live bounding rect, so it keeps
+// working at the fullscreen size with no other change.
+const stageEl = ref<HTMLElement | null>(null)
+const isFullscreen = ref(false)
+const fullscreenSupported = ref(false)
+const fsElement = () => (document.fullscreenElement || (document as any).webkitFullscreenElement || null)
+async function toggleFullscreen() {
+  const el = stageEl.value as any
+  if (!el) return
+  try {
+    if (fsElement()) {
+      await (document.exitFullscreen?.() || (document as any).webkitExitFullscreen?.())
+    } else {
+      await (el.requestFullscreen?.() || el.webkitRequestFullscreen?.())
+      // Keys must reach the store, so focus the video once we are fullscreen.
+      videoEl.value?.focus()
+    }
+  } catch { /* a browser may refuse (no user gesture, iOS); the button stays */ }
+}
+const onFullscreenChange = () => { isFullscreen.value = fsElement() === stageEl.value }
+
 // Diagnostic: where do pointer/key events land in this document? (tag.class of the target)
 const lastDocEvent = ref('none')
 const docTrace = (ev: Event) => { const t = ev.target as any; lastDocEvent.value = `${ev.type}:${t?.tagName || '?'}.${String(t?.className || '').slice(0, 40)}` }
@@ -199,6 +237,10 @@ function teardown() {
 async function restart() { teardown(); await createSession() }
 
 onMounted(async () => {
+  const el = stageEl.value as any
+  fullscreenSupported.value = typeof document !== 'undefined' && (document.fullscreenEnabled || (document as any).webkitFullscreenEnabled || !!(el && (el.requestFullscreen || el.webkitRequestFullscreen)))
+  document.addEventListener('fullscreenchange', onFullscreenChange)
+  document.addEventListener('webkitfullscreenchange', onFullscreenChange)
   for (const t of ['pointerdown', 'keydown', 'wheel']) document.addEventListener(t, docTrace, { capture: true, passive: true })
   try {
     const r: any = await $customFetch('/live-shopping/stores')
@@ -210,7 +252,12 @@ onMounted(async () => {
   if (videoEl.value) relay.bind(videoEl.value)
   await createSession()
 })
-onBeforeUnmount(() => { for (const t of ['pointerdown', 'keydown', 'wheel']) document.removeEventListener(t, docTrace, { capture: true } as any); relay.unbind(); teardown() })
+onBeforeUnmount(() => {
+  document.removeEventListener('fullscreenchange', onFullscreenChange)
+  document.removeEventListener('webkitfullscreenchange', onFullscreenChange)
+  for (const t of ['pointerdown', 'keydown', 'wheel']) document.removeEventListener(t, docTrace, { capture: true } as any)
+  relay.unbind(); teardown()
+})
 
 const overlayBusy = computed(() => stage.value === 'creating' || (stage.value === 'live' && (viewerState.value !== 'playing')))
 const loaderSteps = computed(() => loaderStepsFor({ stage: stage.value, mediaState: mediaState.value, viewerState: viewerState.value }, storeName.value))
@@ -259,4 +306,8 @@ async function addToBoxlyCart() {
 .ring-pulse-late { animation-delay: 1.1s; }
 @keyframes ring { 0% { transform: scale(.8); opacity: .9; } 100% { transform: scale(1.5); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .skeleton::after, .breathe, .ring-pulse { animation: none; } }
+/* Fullscreen: the browser sizes the element to the whole screen, so drop the
+   16:9 box and rounding and paint the letterbox black. object-contain keeps the
+   store centered and unstretched. */
+.stage-fs, .stage-fs:fullscreen, .stage-fs:-webkit-full-screen { aspect-ratio: auto !important; width: 100%; height: 100%; border-radius: 0; background: #000; }
 </style>
