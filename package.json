@@ -9,7 +9,7 @@
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "test:ai-provider": "node --experimental-strip-types server/utils/aiProvider.test.mjs",
-    "test:live": "node --experimental-strip-types utils/liveShopping.test.mjs && node --experimental-strip-types composables/liveShopping.harness.test.mjs && node --experimental-strip-types utils/livePanelKey.test.mjs && node --experimental-strip-types components/liveShoppingPanel.dom.test.mjs",
+    "test:live": "node --experimental-strip-types utils/liveShopping.test.mjs && node --experimental-strip-types utils/liveBrowse.test.mjs && node --experimental-strip-types composables/liveShopping.harness.test.mjs && node --experimental-strip-types utils/livePanelKey.test.mjs && node --experimental-strip-types components/liveShoppingPanel.dom.test.mjs",
     "start:local": "node scripts/serve-local.mjs",
     "test:env": "node --experimental-strip-types scripts/localEnvContract.test.mjs",
     "test:live-observation": "node --experimental-strip-types scripts/liveObservation.test.mjs && node --experimental-strip-types scripts/liveObservation.integration.test.mjs"

@@ -39,6 +39,14 @@
           </NuxtLink>
 
           <NuxtLink
+            to="/app/browse"
+            class="transition-colors duration-200"
+            :class="isActiveRoute('/app/browse') ? 'text-primary-600' : 'text-gray-700 hover:text-primary-600'"
+          >
+            {{ t.liveStores }}
+          </NuxtLink>
+
+          <NuxtLink
             to="/how-it-works"
             class="text-gray-700 hover:text-primary-600 transition-colors duration-200"
           >
@@ -227,6 +235,15 @@
           </NuxtLink>
 
           <NuxtLink
+            to="/app/browse"
+            @click="mobileMenuOpen = false"
+            class="block px-3 py-2 rounded-md text-base font-medium"
+            :class="isActiveRoute('/app/browse') ? 'bg-primary-50 text-primary-600' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'"
+          >
+            {{ t.liveStores }}
+          </NuxtLink>
+
+          <NuxtLink
             to="/how-it-works"
             @click="mobileMenuOpen = false"
             class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900"
@@ -385,6 +402,10 @@ const translations = {
   searchAI: {
     es: 'Buscar con IA',
     en: 'AI Search'
+  },
+  liveStores: {
+    es: 'Tiendas en vivo',
+    en: 'Live stores'
   },
   howItWorks: {
     es: 'Cómo Funciona',

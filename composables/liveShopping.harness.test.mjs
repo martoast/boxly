@@ -103,6 +103,7 @@ const rawTicket = (n = 1) => ({
     media_available: true,
     whep_url: 'https://engine.boxly.mx/whep',
     ice_servers: [{ urls: 'stun:stun.example.com' }],
+    input_url: null,
   },
 })
 // The SAME envelope from an engine with no publisher: events, no media plane.
@@ -115,6 +116,7 @@ const rawTicketNoMedia = (n = 1) => ({
     media_available: false,
     whep_url: null,
     ice_servers: [],
+    input_url: null,
   },
 })
 // Validated ViewerTicket shape — what getTicket/remintTicket deps hand the

@@ -307,7 +307,7 @@ export function availabilityText(a: any): string | null {
 
 export const EVENT_TYPES = [
   'session.created', 'worker.starting', 'worker.running', 'worker.progress',
-  'candidate', 'media.publishing', 'media.ready', 'media.failed',
+  'candidate', 'candidate.cleared', 'media.publishing', 'media.ready', 'media.failed',
   'session.completed', 'session.failed', 'session.cancelling', 'session.cancelled',
 ] as const
 
@@ -374,7 +374,8 @@ export function eventActivity(type: string): LiveActivity | null {
     case 'worker.starting': return 'starting'
     case 'worker.running':
     case 'worker.progress':
-    case 'candidate': return 'browsing'
+    case 'candidate':
+    case 'candidate.cleared': return 'browsing'
     case 'session.cancelling': return 'cancelling'
     case 'media.publishing': return 'media_publishing'
     case 'media.ready': return 'media_ready'
@@ -452,7 +453,7 @@ const CREATE_DATA_KEYS = ['id', 'status', 'engine_session_id', 'conversation_id'
 // L2 (multi-store, 2026-09-03): present() gains a tenth key, `stores` — one entry per
 // requested store. Optional here so the parser accepts the API before and after
 // that landing; any OTHER extra key is still a contract drift and is rejected.
-const CREATE_DATA_OPTIONAL_KEYS = ['stores'] as const
+const CREATE_DATA_OPTIONAL_KEYS = ['stores', 'kind'] as const // `kind` (agent|manual): remote store browser, 2026-09-03
 
 /** Laravel's present() sanitizer emits this shape or the literal 'failed'. */
 const ERROR_CODE_RE = /^[a-z0-9_]{1,40}$/
@@ -563,6 +564,7 @@ export interface ViewerTicket {
   iceServers: any[]
   /** Whether a viewer media plane exists for this session at all. */
   mediaAvailable: boolean
+  inputUrl: string | null
 }
 
 const ICE_URL_RE = /^(stun|stuns|turn|turns):/i
@@ -584,7 +586,9 @@ export function validateIceServers(list: any): any[] {
   return out
 }
 
-const TICKET_DATA_KEYS = ['ticket', 'expires_at', 'sse_url', 'media_available', 'whep_url', 'ice_servers'] as const
+// Remote store browser (2026-09-03): `input_url` is the seventh key — a wss URL
+// when the ticket carries input:write (manual sessions only), else exactly null.
+const TICKET_DATA_KEYS = ['ticket', 'expires_at', 'sse_url', 'media_available', 'whep_url', 'ice_servers', 'input_url'] as const
 
 /** Frozen v1 ticket contract: EXACTLY {ticket, expires_at, sse_url,
  *  media_available, whep_url, ice_servers} — no missing keys, no extras.
@@ -607,6 +611,13 @@ export function validateTicket(raw: any, nowMs: number = Date.now()): ViewerTick
   if (!Array.isArray(raw.ice_servers)) return null
   const { ticket, sse_url, whep_url, expires_at, media_available: mediaAvailable } = raw
   if (typeof mediaAvailable !== 'boolean') return null
+  // input_url: exactly null, or a wss URL with no credentials/fragment. Anything
+  // else is a boundary we do not understand — refuse the whole ticket.
+  let inputUrl: string | null = null
+  if (raw.input_url !== null) {
+    inputUrl = validateWssUrl(raw.input_url)
+    if (!inputUrl) return null
+  }
   if (typeof ticket !== 'string' || !ticket || ticket.length > MAX_TICKET_CHARS) return null
   const sseUrl = validateHttpsUrl(sse_url, { noHash: true })
   if (!sseUrl) return null
@@ -631,7 +642,16 @@ export function validateTicket(raw: any, nowMs: number = Date.now()): ViewerTick
   const expiresAtMs = exp < 1e12 ? exp * 1000 : exp // accept epoch-seconds or epoch-ms/ISO
   const ttl = expiresAtMs - nowMs
   if (ttl <= 0 || ttl > MAX_TICKET_TTL_MS) return null
-  return { ticket, expiresAtMs, sseUrl, whepUrl, iceServers, mediaAvailable }
+  return { ticket, expiresAtMs, sseUrl, whepUrl, iceServers, mediaAvailable, inputUrl }
+}
+
+/** wss-only URL validator for the input socket: no credentials, no fragment. */
+export function validateWssUrl(raw: any): string | null {
+  if (typeof raw !== 'string' || !raw || raw.length > MAX_URL_CHARS) return null
+  let u: URL
+  try { u = new URL(raw) } catch { return null }
+  if (u.protocol !== 'wss:' || u.username || u.password || u.hash) return null
+  return u.toString()
 }
 
 /** Refresh at half the remaining TTL; null when expired or too close to bother. */

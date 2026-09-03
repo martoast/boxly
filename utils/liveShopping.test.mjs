@@ -339,6 +339,7 @@ console.log('Ticket + refresh scheduling')
     media_available: true,
     whep_url: 'https://engine.boxly.mx/whep',
     ice_servers: [{ urls: 'stun:stun.example.com' }],
+    input_url: null,
     ...over,
   })
   const t = validateTicket(raw(), NOW)
@@ -382,6 +383,14 @@ console.log('Ticket + refresh scheduling')
   check('true + only malformed ice_servers REJECTED', validateTicket(raw({ ice_servers: [{ urls: 'https://not-ice' }] }), NOW) === null)
   check('false + whep_url present REJECTED', validateTicket(noMedia({ whep_url: 'https://engine.boxly.mx/whep' }), NOW) === null)
   check('false + non-empty ice_servers REJECTED', validateTicket(noMedia({ ice_servers: [{ urls: 'stun:x.example' }] }), NOW) === null)
+  // Remote store browser: input_url is the seventh key — null, or a wss URL.
+  check('input_url null accepted and exposed as inputUrl null', validateTicket(raw(), NOW)?.inputUrl === null)
+  check('input_url wss accepted (manual session ticket)', validateTicket(raw({ input_url: 'wss://engine.example.com/v1/sessions/abc/input' }), NOW)?.inputUrl === 'wss://engine.example.com/v1/sessions/abc/input')
+  check('input_url https REJECTED (socket must be wss)', validateTicket(raw({ input_url: 'https://engine.example.com/v1/sessions/abc/input' }), NOW) === null)
+  check('input_url with credentials REJECTED', validateTicket(raw({ input_url: 'wss://u:p@engine.example.com/input' }), NOW) === null)
+  check('input_url with fragment REJECTED', validateTicket(raw({ input_url: 'wss://engine.example.com/input#x' }), NOW) === null)
+  check('input_url undefined (older engine) REJECTED — the key is required', validateTicket(raw({ input_url: undefined }), NOW) === null)
+  check('missing input_url key REJECTED (exact key set)', (() => { const r = raw(); delete r.input_url; return validateTicket(r, NOW) === null })())
   check('false + undefined whep_url REJECTED (absent is not null)', validateTicket(noMedia({ whep_url: undefined }), NOW) === null)
   check('false + empty-string whep_url REJECTED', validateTicket(noMedia({ whep_url: '' }), NOW) === null)
   check('media-unavailable ticket still bound by the 60s TTL', validateTicket(noMedia({ expires_at: new Date(NOW + 61_000).toISOString() }), NOW) === null)

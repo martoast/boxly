@@ -53,7 +53,8 @@
           "username": "u1",
           "credential": "c1"
         }
-      ]
+      ],
+      "input_url": null
     }
   },
   "ticket_response_no_media": {
@@ -64,7 +65,8 @@
       "sse_url": "https://engine.boxly.mx/v1/sessions/eng_8f2c1a/events",
       "media_available": false,
       "whep_url": null,
-      "ice_servers": []
+      "ice_servers": [],
+      "input_url": null
     }
   },
   "session_state_response_failed": {
