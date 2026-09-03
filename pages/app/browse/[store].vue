@@ -103,7 +103,10 @@ async function createSession() {
     r = await $customFetch('/live-shopping/sessions', { method: 'POST', body: { kind: 'manual', store_id: storeId } })
   } catch (e: any) {
     const code = e?.data?.code
-    errorCopy.value = code === 'rate_limited' || code === 'engine_unavailable' || code === 'engine_refused' || code === 'not_configured'
+    const status = Number(e?.status || e?.statusCode || e?.response?.status || 0)
+    errorCopy.value = status === 409
+      ? 'Ya tienes una sesión en vivo abierta. Ciérrala o espera a que termine para abrir otra tienda.'
+      : code === 'rate_limited' || code === 'engine_unavailable' || code === 'engine_refused' || code === 'not_configured'
       ? 'Las tiendas en vivo no están disponibles en este momento. Intenta de nuevo en un rato.'
       : code === 'store_unsupported' ? 'Esta tienda no está disponible en vivo.' : 'No pudimos abrir la tienda en vivo.'
     stage.value = 'error'
