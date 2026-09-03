@@ -609,7 +609,13 @@ export default defineEventHandler(async (event) => {
   // Also requires a signed-in user: the session/ticket endpoints are Sanctum-scoped.
   // conversation_id is REQUIRED by the frozen create contract, so the tool only
   // exists once the chat has a claimed conversation.
-  const liveShoppingEnabled = ['1', 'true'].includes(String(process.env.LIVE_SHOPPING_ENABLED || '')) && !!token && !!conversationId
+  // AI-search hold (2026-09-03): the live verification tier is under active
+  // construction and real customers were reaching it from the chat, so the AI
+  // search stays on the classic SERP tools until LIVE_SHOPPING_AI_SEARCH is also
+  // set to 1/true. LIVE_SHOPPING_ENABLED alone keeps the rest of the live
+  // shopping surface (sessions, tickets, the store browser) available.
+  const onFlag = (name: string) => ['1', 'true'].includes(String(process.env[name] || ''))
+  const liveShoppingEnabled = onFlag('LIVE_SHOPPING_ENABLED') && onFlag('LIVE_SHOPPING_AI_SEARCH') && !!token && !!conversationId
   const liveStores: LiveStore[] = liveShoppingEnabled ? await fetchLiveStores(token as string) : []
   // live_verify stays usable AFTER a gallery has rendered — escalating "quiero
   // verlo en la tienda real" naturally follows a gallery, so it rides with the
