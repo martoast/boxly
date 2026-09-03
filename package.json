@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "test:live": "node --experimental-strip-types utils/liveShopping.test.mjs && node --experimental-strip-types utils/liveBrowse.test.mjs && node --experimental-strip-types utils/typingFlush.test.ts && node --experimental-strip-types composables/liveShopping.harness.test.mjs",
     "build": "nuxt build",
     "dev": "nuxt dev",
     "generate": "nuxt generate",

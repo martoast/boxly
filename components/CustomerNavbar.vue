@@ -65,6 +65,19 @@
               {{ t.aiSearch }}
             </button>
 
+            <!-- Live stores — the customer-driven streamed store browser -->
+            <button
+              @click="handleNavigation('/app/browse')"
+              :class="[
+                isActiveRoute('/app/browse')
+                  ? 'border-primary-500 text-gray-900'
+                  : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700',
+                'inline-flex items-center border-b-2 px-1 pt-1 text-sm font-medium transition-colors duration-200',
+              ]"
+            >
+              {{ t.liveStores }}
+            </button>
+
             <!-- Pricing -->
             <button
               @click="handleNavigation('/app/pricing')"
@@ -275,10 +288,10 @@
             <Menu as="div" class="relative ml-3">
               <div>
                 <MenuButton
+                  aria-label="Abrir menú de cuenta"
                   class="relative flex items-center gap-2 rounded-full bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 px-3 py-2 hover:bg-gray-50 border border-gray-200"
                 >
                   <span class="absolute -inset-1.5" />
-                  <span class="sr-only">Open user menu</span>
                   <div class="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center">
                     <span class="text-primary-600 font-medium">{{ userInitials }}</span>
                   </div>
@@ -354,16 +367,17 @@
                  
                   <div class="border-t border-gray-100"></div>
                   <MenuItem v-slot="{ active }">
-                    <a
-                      href="#"
-                      @click.prevent="handleLogout"
+                    <button
+                      type="button"
+                      aria-label="Cerrar sesión"
+                      @click="handleLogout"
                       :class="[
                         active ? 'bg-gray-100' : '',
-                        'block px-4 py-2 text-sm text-gray-700',
+                        'block w-full px-4 py-2 text-left text-sm text-gray-700',
                       ]"
                     >
                       {{ t.logout }}
-                    </a>
+                    </button>
                   </MenuItem>
                 </MenuItems>
               </transition>
@@ -412,6 +426,20 @@
             </svg>
             {{ t.aiSearch }}
           </div>
+        </DisclosureButton>
+
+        <!-- Live stores -->
+        <DisclosureButton
+          as="button"
+          @click="handleNavigation('/app/browse')"
+          :class="[
+            isActiveRoute('/app/browse')
+              ? 'bg-primary-50 border-primary-500 text-primary-700'
+              : 'border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300',
+            'block border-l-4 py-2 pl-3 pr-4 text-base font-medium sm:pl-5 sm:pr-6 w-full text-left',
+          ]"
+        >
+          {{ t.liveStores }}
         </DisclosureButton>
 
         <!-- Pricing -->
@@ -608,6 +636,7 @@ const translations = {
   appName: { es: 'Tu Casillero USA', en: 'Your USA Address' },
   dashboard: { es: 'Panel Principal', en: 'Dashboard' },
   aiSearch: { es: 'Buscar con IA', en: 'Search with AI' },
+  liveStores: { es: 'Tiendas en vivo', en: 'Live stores' },
   pricing: { es: 'Precios', en: 'Pricing' },
   assistant: { es: 'Asistente IA', en: 'AI Assistant' },
   orders: { es: 'Mis Envios', en: 'My Orders' },
@@ -678,7 +707,7 @@ const handleCreateOrder = async () => {
 const handleLogout = async () => {
   try {
     await $customFetch("/auth/logout", { method: "POST" });
-    useState("user", () => null);
+    useState("user").value = null;
     const csrfCookie = useCookie("XSRF-TOKEN");
     csrfCookie.value = null;
     window.location.href = "/login";
