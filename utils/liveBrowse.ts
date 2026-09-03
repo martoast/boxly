@@ -17,7 +17,7 @@ export type InputMessage =
   | { type: 'key.press'; key: string; modifiers: Array<'ctrl' | 'shift' | 'alt'> }
   | { type: 'text.type'; value: string }
 
-export const INPUT_REFUSAL_CODES = ['bad_message', 'out_of_bounds', 'key_refused', 'rate_limited', 'controller_busy', 'session_ended', 'unauthorized'] as const
+export const INPUT_REFUSAL_CODES = ['bad_message', 'out_of_bounds', 'key_refused', 'rate_limited', 'controller_busy', 'session_ended', 'unauthorized', 'no_media'] as const
 export type InputRefusalCode = typeof INPUT_REFUSAL_CODES[number]
 export type Controller = 'customer' | 'agent'
 export type RelayState = 'idle' | 'connecting' | 'open' | 'closed' | 'failed'
@@ -152,7 +152,7 @@ export function createInputRelayController(deps: RelayDeps) {
       if (m.type === 'state') { controller = m.controller; deps.onController?.(controller); setState(g, 'open'); return }
       refusedCount++
       deps.onRefused?.(m.code)
-      if (m.code === 'unauthorized' || m.code === 'session_ended') setState(g, 'failed')
+      if (m.code === 'unauthorized' || m.code === 'session_ended' || m.code === 'no_media') setState(g, 'failed')
     }
     s.onclose = () => { if (g !== generation) return; setState(g, state === 'failed' ? 'failed' : 'closed') }
     s.onerror = () => { if (g !== generation) return; setState(g, 'failed') }

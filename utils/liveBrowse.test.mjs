@@ -38,6 +38,7 @@ check('unknown button refused', boundMessage({ type: 'pointer.click', button: 'b
 check('state frame parses', parseInbound('{"type":"state","controller":"agent"}')?.controller === 'agent')
 check('refused frame parses', parseInbound('{"type":"refused","code":"rate_limited"}')?.code === 'rate_limited')
 check('unknown code ignored', parseInbound('{"type":"refused","code":"whatever"}') === null)
+check('no_media refusal parses', parseInbound('{"type":"refused","code":"no_media"}')?.code === 'no_media')
 check('garbage ignored', parseInbound('nope') === null)
 
 // controller with a fake socket
