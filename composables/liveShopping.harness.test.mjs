@@ -995,6 +995,72 @@ const coalesced = (seqA, seqB, code) =>
   check('zero timers left', timers.count() === 0, String(timers.count()))
 }
 
+// L1b (rev 32c, 2026-09-03). With the engine answering the create at durable
+// acceptance (BOXLY_ENGINE_CREATE_ACK=accepted), a worker that fails to start
+// arrives as worker.starting → session.failed{worker_start_failed} with NO
+// worker.running in between. That is an AUTHORITATIVE failed terminal with the
+// "service unavailable" story — never a connection story, never a hang.
+{
+  const timers = fakeTimers()
+  const stream = sseStream()
+  let reason = 'UNSET'
+  const statuses = []
+  const session = createLiveSessionController({
+    engineSessionId: SID,
+    mintTicket: async () => rawTicket(),
+    fetchImpl: async () => stream.response,
+    setTimeoutImpl: timers.set,
+    clearTimeoutImpl: timers.clear,
+    onStatus: (s) => statuses.push(s),
+    onTerminalReason: (c) => { reason = c },
+  })
+  session.start()
+  await flush()
+  stream.push(evSSE(`${SID}:1`, 1, 'worker.starting', {}))
+  await flush()
+  check('a starting worker is not terminal and not running', !['failed', 'completed', 'cancelled'].includes(session.getStatus()) && !statuses.includes('running'), session.getStatus())
+  stream.push(evSSE(`${SID}:2`, 2, 'session.failed', { error_code: 'worker_start_failed' }))
+  await flush()
+  check('pre-ready failure ⇒ failed terminal without any running state', session.getStatus() === 'failed' && !statuses.includes('running'), `${session.getStatus()} ${statuses.join(',')}`)
+  check('the reason is the closed code from the event', reason === 'worker_start_failed', String(reason))
+  check('the terminal is AUTHORITATIVE (the engine said so)', session.isTerminalAuthoritative() === true)
+  check('it renders the service story, never a connection one', /no está disponible/.test(terminalReasonText(reason)) && !/conexión/i.test(terminalReasonText(reason)))
+  check('zero timers left', timers.count() === 0, String(timers.count()))
+}
+
+// L1b (rev 32c, 2026-09-03). With the engine answering the create at durable
+// acceptance (BOXLY_ENGINE_CREATE_ACK=accepted), a worker that fails to start
+// arrives as worker.starting → session.failed{worker_start_failed} with NO
+// worker.running in between. That is an AUTHORITATIVE failed terminal with the
+// "service unavailable" story — never a connection story, never a hang.
+{
+  const timers = fakeTimers()
+  const stream = sseStream()
+  let reason = 'UNSET'
+  const statuses = []
+  const session = createLiveSessionController({
+    engineSessionId: SID,
+    mintTicket: async () => rawTicket(),
+    fetchImpl: async () => stream.response,
+    setTimeoutImpl: timers.set,
+    clearTimeoutImpl: timers.clear,
+    onStatus: (s) => statuses.push(s),
+    onTerminalReason: (c) => { reason = c },
+  })
+  session.start()
+  await flush()
+  stream.push(evSSE(`${SID}:1`, 1, 'worker.starting', {}))
+  await flush()
+  check('a starting worker is not terminal and not running', !['failed', 'completed', 'cancelled'].includes(session.getStatus()) && !statuses.includes('running'), session.getStatus())
+  stream.push(evSSE(`${SID}:2`, 2, 'session.failed', { error_code: 'worker_start_failed' }))
+  await flush()
+  check('pre-ready failure ⇒ failed terminal without any running state', session.getStatus() === 'failed' && !statuses.includes('running'), `${session.getStatus()} ${statuses.join(',')}`)
+  check('the reason is the closed code from the event', reason === 'worker_start_failed', String(reason))
+  check('the terminal is AUTHORITATIVE (the engine said so)', session.isTerminalAuthoritative() === true)
+  check('it renders the service story, never a connection one', /no está disponible/.test(terminalReasonText(reason)) && !/conexión/i.test(terminalReasonText(reason)))
+  check('zero timers left', timers.count() === 0, String(timers.count()))
+}
+
 // L2. terminal with no error_code: still authoritative, honest fallback text.
 {
   const timers = fakeTimers()
