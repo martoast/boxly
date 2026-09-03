@@ -25,7 +25,7 @@ import { liveResultsCaveat, liveFailureCopy,
   validateTicket, validateIceServers, ticketRefreshDelayMs,
   parseSessionStateResponse, terminalReasonText,
   reconnectDelayMs, MAX_RECONNECT_ATTEMPTS, RECONNECT_CAP_MS,
-  buildWhepRequest, whepResourceUrl, buildWhepDelete, validateSdpAnswer,
+  buildWhepRequest, whepResourceUrl, buildWhepDelete, validateSdpAnswer, ticketAuthOrigin,
   MAX_PRODUCTS_PER_EVENT, MAX_SDP_CHARS, MAX_OBSERVED_AT_FUTURE_MS,
 } from './liveShopping.ts'
 // GOLDEN cross-repo fixtures — the same bytes live in the engine and Laravel
@@ -419,8 +419,14 @@ console.log('Reconnect backoff')
 // ── WHEP builders ────────────────────────────────────────────────────────────
 console.log('WHEP request builders')
 {
-  const req = buildWhepRequest('https://engine.boxly.mx/whep', 'tk-123', 'v=0 offer')
-  check('POST with application/sdp + Bearer header', req.method === 'POST' && req.headers['Content-Type'] === 'application/sdp' && req.headers.Authorization === 'Bearer tk-123' && req.body === 'v=0 offer')
+  const ENGINE = 'https://engine.boxly.mx'
+  const req = buildWhepRequest('https://engine.boxly.mx/whep', 'tk-123', 'v=0 offer', ENGINE)
+  check('POST with application/sdp + Bearer header when the WHEP origin is the engine', req.method === 'POST' && req.headers['Content-Type'] === 'application/sdp' && req.headers.Authorization === 'Bearer tk-123' && req.body === 'v=0 offer')
+  const third = buildWhepRequest('https://customer-x.cloudflarestream.com/li/webRTC/play', 'tk-123', 'v=0 offer', ENGINE)
+  check('a third-party media edge gets NO Authorization key at all (exactly Content-Type)', JSON.stringify(Object.keys(third.headers)) === '["Content-Type"]' && !('Authorization' in third.headers) && third.body === 'v=0 offer')
+  check('no auth origin (unknown ticket origin) → no Authorization either (fail closed)', !('Authorization' in buildWhepRequest('https://engine.boxly.mx/whep', 'tk-123', 'v=0 offer').headers))
+  check('a same host on another scheme/port is another origin', !('Authorization' in buildWhepRequest('https://engine.boxly.mx:8443/whep', 'tk-123', 'v=0', ENGINE).headers))
+  check('ticketAuthOrigin is the sse_url origin, https only', ticketAuthOrigin({ sseUrl: 'https://engine.boxly.mx/v1/sessions/s/events' }) === ENGINE && ticketAuthOrigin({ sseUrl: 'http://engine.boxly.mx/x' }) === null && ticketAuthOrigin(null) === null)
   check('ticket is in the header, NEVER the URL', !req.url.includes('tk-123'))
   check('relative Location resolves same-origin', whepResourceUrl('https://engine.boxly.mx/whep', '/whep/res/9') === 'https://engine.boxly.mx/whep/res/9')
   check('same-origin absolute Location accepted', whepResourceUrl('https://engine.boxly.mx/whep', 'https://engine.boxly.mx/whep/res/9') !== null)
@@ -429,8 +435,10 @@ console.log('WHEP request builders')
   check('credentialed Location refused', whepResourceUrl('https://engine.boxly.mx/whep', 'https://u:p@engine.boxly.mx/r') === null)
   check('overlong Location refused', whepResourceUrl('https://engine.boxly.mx/whep', '/r/' + 'a'.repeat(3000)) === null)
   check('missing Location → null', whepResourceUrl('https://engine.boxly.mx/whep', null) === null)
-  const del = buildWhepDelete('https://engine.boxly.mx/whep/res/9', 'tk-123')
-  check('DELETE carries the Bearer header only', del.method === 'DELETE' && del.headers.Authorization === 'Bearer tk-123' && !del.url.includes('tk-123'))
+  const del = buildWhepDelete('https://engine.boxly.mx/whep/res/9', 'tk-123', ENGINE)
+  check('DELETE carries the Bearer header only (engine origin)', del.method === 'DELETE' && JSON.stringify(Object.keys(del.headers)) === '["Authorization"]' && del.headers.Authorization === 'Bearer tk-123' && !del.url.includes('tk-123'))
+  const delThird = buildWhepDelete('https://customer-x.cloudflarestream.com/li/webRTC/play/res-1', 'tk-123', ENGINE)
+  check('DELETE to a third-party edge carries no headers at all', delThird.method === 'DELETE' && JSON.stringify(delThird.headers) === '{}')
   check('SDP answer: sane accepted, junk/oversize refused', validateSdpAnswer('v=0\r\no=- 1 1 IN IP4 0.0.0.0') !== null && validateSdpAnswer('<html>nope</html>') === null && validateSdpAnswer('v=' + 'x'.repeat(MAX_SDP_CHARS + 10)) === null && validateSdpAnswer('v=0') === null)
 }
 

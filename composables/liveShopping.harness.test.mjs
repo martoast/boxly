@@ -1406,5 +1406,36 @@ console.log('Terminal-final lifecycle + terminal memory')
   check('after the document is gone the memory is inert again', !isBrowserDocument() && rememberedTerminal(SID) === null && pageTerminalMemory().size === 0)
 }
 
+// ── (iv) Bearer scoping: the engine ticket goes to the engine's origin only ───
+console.log('WHEP Bearer scoping by origin')
+{
+  const runViewer = async (whepUrl, location) => {
+    const log = []
+    const requests = []
+    const fetchImpl = async (url, init) => {
+      requests.push({ url, method: init?.method, headers: { ...(init?.headers || {}) } })
+      if (init?.method === 'DELETE') return { ok: true, status: 200 }
+      return { ok: true, status: 201, headers: { get: (k) => (k.toLowerCase() === 'location' ? location : null) }, text: async () => 'v=0\r\no=- fake answer 1 1' }
+    }
+    const ticket = { ...vTicket(), whepUrl }
+    const viewer = createWhepViewerController({ getTicket: () => ticket, remintTicket: async () => ticket, fetchImpl, createPeerConnection: () => fakePC(log, 'pc') })
+    viewer.start()
+    await flush()
+    const playing = viewer.getState() === 'playing'
+    viewer.stop()
+    await flush()
+    return { playing, requests }
+  }
+  const third = await runViewer('https://customer-x.cloudflarestream.com/li/webRTC/play', '/li/webRTC/play/res-1')
+  const post = third.requests.find((r) => r.method === 'POST'), del = third.requests.find((r) => r.method === 'DELETE')
+  check('third-party WHEP edge: the exchange plays', third.playing)
+  check('third-party WHEP edge: the offer carries exactly Content-Type, no Authorization', post && JSON.stringify(Object.keys(post.headers)) === '["Content-Type"]', JSON.stringify(post))
+  check('third-party WHEP edge: the DELETE goes to the same-origin resource with no headers at all', del && del.url === 'https://customer-x.cloudflarestream.com/li/webRTC/play/res-1' && JSON.stringify(del.headers) === '{}', JSON.stringify(del))
+  const own = await runViewer('https://engine.boxly.mx/whep', '/whep/res-1')
+  const ownPost = own.requests.find((r) => r.method === 'POST'), ownDel = own.requests.find((r) => r.method === 'DELETE')
+  check('engine WHEP: the offer still carries the Bearer ticket', own.playing && ownPost?.headers.Authorization === 'Bearer tk-1')
+  check('engine WHEP: the DELETE still carries the Bearer ticket', ownDel?.headers.Authorization === 'Bearer tk-1' && ownDel.url === 'https://engine.boxly.mx/whep/res-1')
+}
+
 console.log(`\n${pass} passed, ${fail} failed`)
 process.exit(fail ? 1 : 0)

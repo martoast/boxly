@@ -666,13 +666,23 @@ export function reconnectDelayMs(attempt: number): number {
 
 // ── WHEP request builders ────────────────────────────────────────────────────
 
-export function buildWhepRequest(whepUrl: string, ticket: string, sdp: string) {
-  return {
-    url: whepUrl,
-    method: 'POST' as const,
-    headers: { 'Content-Type': 'application/sdp', Authorization: `Bearer ${ticket}` },
-    body: sdp,
-  }
+/** The engine's 55 s bearer ticket is a credential for OUR engine only. It is
+ *  attached to a WHEP exchange exactly when the media URL's origin is the
+ *  engine's own origin (the ticket's sse_url origin); a third-party media edge
+ *  (e.g. Cloudflare Stream playback) gets no Authorization header at all. */
+export function ticketAuthOrigin(ticket: { sseUrl: string } | null | undefined): string | null {
+  try { const u = new URL(String(ticket?.sseUrl)); return u.protocol === 'https:' ? u.origin : null } catch { return null }
+}
+
+function sameOriginAs(url: string, authOrigin: string | null): boolean {
+  if (!authOrigin) return false
+  try { return new URL(url).origin === authOrigin } catch { return false }
+}
+
+export function buildWhepRequest(whepUrl: string, ticket: string, sdp: string, authOrigin: string | null = null) {
+  const headers: Record<string, string> = { 'Content-Type': 'application/sdp' }
+  if (sameOriginAs(whepUrl, authOrigin)) headers.Authorization = `Bearer ${ticket}`
+  return { url: whepUrl, method: 'POST' as const, headers, body: sdp }
 }
 
 /** Resolve the answer's Location header against the WHEP URL. The resource must
@@ -691,8 +701,10 @@ export function whepResourceUrl(whepUrl: string, location: string | null | undef
   return resolved.toString()
 }
 
-export function buildWhepDelete(resourceUrl: string, ticket: string) {
-  return { url: resourceUrl, method: 'DELETE' as const, headers: { Authorization: `Bearer ${ticket}` } }
+export function buildWhepDelete(resourceUrl: string, ticket: string, authOrigin: string | null = null) {
+  const headers: Record<string, string> = {}
+  if (sameOriginAs(resourceUrl, authOrigin)) headers.Authorization = `Bearer ${ticket}`
+  return { url: resourceUrl, method: 'DELETE' as const, headers }
 }
 
 /** Bounded, minimally-sane SDP answer. */
@@ -1258,6 +1270,7 @@ export function createWhepViewerController(deps: WhepDeps) {
   let pc: any = null
   let resourceUrl: string | null = null
   let resourceTicket: string | null = null
+  let resourceAuthOrigin: string | null = null
   let reconnected = false
   let recovering = false // single-flight guard
   let state: WhepState = 'idle'
@@ -1271,7 +1284,7 @@ export function createWhepViewerController(deps: WhepDeps) {
 
   const deleteResource = async (signal: any) => {
     if (!resourceUrl || !resourceTicket) return
-    const req = buildWhepDelete(resourceUrl, resourceTicket)
+    const req = buildWhepDelete(resourceUrl, resourceTicket, resourceAuthOrigin)
     resourceUrl = null
     try { await fetchImpl(req.url, { method: req.method, headers: req.headers, signal }) } catch {}
   }
@@ -1307,7 +1320,8 @@ export function createWhepViewerController(deps: WhepDeps) {
     if (!alive(g)) return
     await pc.setLocalDescription(offer)
     if (!alive(g)) return
-    const req = buildWhepRequest(t.whepUrl, t.ticket, offer.sdp)
+    const authOrigin = ticketAuthOrigin(t)
+    const req = buildWhepRequest(t.whepUrl, t.ticket, offer.sdp, authOrigin)
     const res = await fetchImpl(req.url, { method: req.method, headers: req.headers, body: req.body, signal: composeSignal(abort?.signal, WHEP_POST_TIMEOUT_MS) })
     if (!alive(g)) return
     if (!res.ok) throw new Error(`whep http ${res.status}`)
@@ -1320,6 +1334,7 @@ export function createWhepViewerController(deps: WhepDeps) {
       if (!ru) throw new Error('whep_location_rejected')
       resourceUrl = ru
       resourceTicket = t.ticket
+      resourceAuthOrigin = authOrigin
     } else {
       resourceUrl = null
       resourceTicket = null
@@ -1362,14 +1377,16 @@ export function createWhepViewerController(deps: WhepDeps) {
     pc = null
     const url = resourceUrl
     const tk = resourceTicket
+    const ao = resourceAuthOrigin
     resourceUrl = null
     resourceTicket = null
+    resourceAuthOrigin = null
     // Same discipline as live teardown: DELETE the resource, THEN close the PC.
     // The generation signal is already aborted, so this DELETE deterministically
     // retires on its own bounded timeout instead.
     const close = () => { try { oldPc?.close() } catch {} }
     if (url && tk) {
-      const req = buildWhepDelete(url, tk)
+      const req = buildWhepDelete(url, tk, ao)
       let p: any = null
       try { p = fetchImpl(req.url, { method: req.method, headers: req.headers, signal: composeSignal(null, WHEP_DELETE_TIMEOUT_MS) }) } catch {}
       Promise.resolve(p).then(close, close)
