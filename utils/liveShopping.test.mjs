@@ -504,5 +504,16 @@ console.log('Spike 1: media.ready timing payload is ignored by the reader')
   check('a non-object payload is still refused', parseEventV1(frame([1, 2]), 'sess-9') === null && parseEventV1(frame(null), 'sess-9') === null)
 }
 
+// ── worker.progress outcome events may carry the engine's bounded reason; the reader ignores payload keys ──
+console.log('outcome reason payload is ignored by the reader')
+{
+  const frame = (payload) => ({ id: 'sess-9:4', data: JSON.stringify({ schema_version: 1, id: 'sess-9:4', session_id: 'sess-9', seq: 4, type: 'worker.progress', occurred_at: '2026-09-03T09:40:00Z', payload }) })
+  const withReason = parseEventV1(frame({ phase: 'outcome', outcome: 'partial', reason: 'availability_unknown' }), 'sess-9')
+  check('an outcome event with a reason parses; the payload is carried, not interpreted', withReason !== null && withReason.payload.reason === 'availability_unknown' && eventActivity(withReason.type) === 'browsing')
+  const without = parseEventV1(frame({ phase: 'outcome', outcome: 'partial' }), 'sess-9')
+  check('an outcome event without a reason (older engine) parses the same', without !== null && eventActivity(without.type) === 'browsing')
+  check('an unknown extra key on worker.progress is ignored, never a parse failure', parseEventV1(frame({ phase: 'outcome', outcome: 'partial', reason: 'x', extra: { nested: true } }), 'sess-9') !== null)
+}
+
 console.log(`\n${pass} passed, ${fail} failed`)
 process.exit(fail ? 1 : 0)
