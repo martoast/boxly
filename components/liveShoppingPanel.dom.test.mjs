@@ -70,6 +70,7 @@ function buildComponent(sessionState) {
     status: Vue.ref(sessionState.status),
     candidates: Vue.ref(sessionState.candidates || []),
     ticket: Vue.ref(sessionState.ticket ?? null),
+    mediaState: Vue.ref(sessionState.mediaState ?? 'pending'),
     terminalReason: Vue.ref(sessionState.terminalReason ?? null),
     terminalAuthoritative: Vue.ref(!!sessionState.terminalAuthoritative),
     start() {}, stop() {}, retry() {}, getTicket: () => null, remintTicket: async () => null,
@@ -238,7 +239,13 @@ const render = async (sessionState, session) => {
     status: 'streaming',
     ticket: { ticket: 't', expiresAtMs: Date.now() + 50_000, sseUrl: 'https://e/x', whepUrl: null, iceServers: [], mediaAvailable: false },
   })
-  check('working session shows the calm no-video row', html.includes('Sin video en esta sesión'), html.slice(-400))
+  check('working session with a no-media ticket and no media verdict yet shows the PENDING copy, not the no-video row (Task C)', html.includes('Preparando el video en vivo…') && !html.includes('Sin video en esta sesión'), html.slice(-400))
+  const failed = await render({ status: 'streaming', mediaState: 'failed', ticket: { ticket: 't', expiresAtMs: Date.now() + 50_000, sseUrl: 'https://e/x', whepUrl: null, iceServers: [], mediaAvailable: false } })
+  check('after media.failed the calm no-video row is shown', failed.includes('Sin video en esta sesión') && !failed.includes('Preparando el video'), failed.slice(-400))
+  const noTicket = await render({ status: 'connecting', ticket: null })
+  check('no ticket yet: the pending copy, never "Sin video"', noTicket.includes('Preparando el video en vivo…') && !noTicket.includes('Sin video en esta sesión'), noTicket.slice(-400))
+  const withMedia = await render({ status: 'streaming', mediaState: 'ready', ticket: { ticket: 't', expiresAtMs: Date.now() + 50_000, sseUrl: 'https://e/x', whepUrl: 'https://cf.cloudflarestream.com/li/webRTC/play', iceServers: [{ urls: ['stun:stun.cloudflare.com:3478'] }], mediaAvailable: true } })
+  check('a ticket with the media plane renders the video element, no copy row', withMedia.includes('<video') && !withMedia.includes('Preparando el video') && !withMedia.includes('Sin video'), withMedia.slice(0, 300))
   check('working session shows no failure copy at all',
     !/conexión|bloqueó|terminó sin completar/i.test(html), html.slice(-400))
 }

@@ -78,10 +78,15 @@ const status = computed(() => (historyTerminal ? (remembered?.status ?? handle.s
 const mediaAvailable = computed(() => live.ticket.value?.mediaAvailable === true)
 const liveSession = computed(() => handle && !historyTerminal && !isTerminal(status.value))
 const showVideo = computed(() => liveSession.value && mediaAvailable.value)
-// The session is running normally, there is simply no video to show. This is a
-// capability state, NOT a failure: no alert role, no red, and the agent's status
-// badge and progressive candidates carry on exactly as they would with video.
-const showNoMedia = computed(() => liveSession.value && live.ticket.value != null && !mediaAvailable.value)
+// Task C: the first ticket predates the engine's stream (live a012b58b). While
+// the engine has not said media.ready or media.failed the plane is PENDING —
+// "preparing", never "no video". The calm no-video row is a capability state
+// reached only after media.failed or a terminal without media.ready: no alert
+// role, no red, and the agent's status badge and candidates carry on.
+const mediaState = computed(() => live.mediaState?.value ?? 'pending')
+const showPending = computed(() => liveSession.value && !mediaAvailable.value && mediaState.value !== 'failed')
+const showNoMedia = computed(() => liveSession.value && !mediaAvailable.value && mediaState.value === 'failed')
+const noMediaCopy = computed(() => (showNoMedia.value ? 'Sin video en esta sesión' : 'Preparando el video en vivo…'))
 const badge = computed(() => {
   if (viewer.state.value === 'reconnecting' || status.value === 'reconnecting') return 'Reconectando…'
   if (status.value === 'connecting') return 'Conectando…'
@@ -226,12 +231,12 @@ const cardRole = computed(() => (card.value && (card.value.tone === 'red' || car
          agent is working and its candidates keep arriving below — only the video
          is missing. The badge lives here too, so losing the video never costs the
          customer the status it was drawn on top of. -->
-    <div v-else-if="showNoMedia" class="flex items-center gap-2 rounded-xl bg-gray-50 border border-gray-100 px-3 py-2">
+    <div v-else-if="showPending || showNoMedia" class="flex items-center gap-2 rounded-xl bg-gray-50 border border-gray-100 px-3 py-2">
       <span aria-hidden="true" class="inline-flex items-center gap-1.5 text-gray-700 text-[11px] font-medium">
         <span class="w-1.5 h-1.5 rounded-full" :class="badge === 'Agente navegando' ? 'bg-green-400' : 'bg-amber-400 animate-pulse'" />
         {{ badge }}
       </span>
-      <span class="text-xs text-gray-500">· Sin video en esta sesión</span>
+      <span class="text-xs text-gray-500">· {{ noMediaCopy }}</span>
     </div>
 
     <!-- Progressive candidates from SSE — deduped and capped by the controller,

@@ -1437,5 +1437,85 @@ console.log('WHEP Bearer scoping by origin')
   check('engine WHEP: the DELETE still carries the Bearer ticket', ownDel?.headers.Authorization === 'Bearer tk-1' && ownDel.url === 'https://engine.boxly.mx/whep/res-1')
 }
 
+// ── Task C: media.ready on the stream re-mints ONE ticket so the viewer can start ──
+console.log('media.ready-driven remint')
+{
+  const build = ({ mintTicket, log }) => {
+    const timers = fakeTimers()
+    const stream = sseStream()
+    const media = []
+    let viewer
+    const session = createLiveSessionController({
+      engineSessionId: SID,
+      mintTicket,
+      fetchImpl: async () => stream.response,
+      setTimeoutImpl: timers.set,
+      clearTimeoutImpl: timers.clear,
+      onStatus: (s) => { if (['completed', 'failed', 'cancelled', 'expired'].includes(s)) viewer.stop() },
+      // Mirrors LiveShoppingPanel.vue's ticket watcher: a ticket with the media plane starts the viewer.
+      onTicket: (t) => { if (t.whepUrl && ['idle', 'closed', 'failed'].includes(viewer.getState())) viewer.start() },
+      onMedia: (m) => media.push(m),
+    })
+    viewer = createWhepViewerController({ getTicket: session.getTicket, remintTicket: session.remintTicket, fetchImpl: whepFetch(log), createPeerConnection: () => fakePC(log, 'pc') })
+    return { session, viewer, stream, timers, media }
+  }
+  const posts = (log) => log.filter((l) => l.startsWith('post:')).length
+  // (a) first ticket predates the stream; media.ready → exactly one extra mint → the viewer starts once
+  {
+    const log = []; let mintCalls = 0
+    const { session, viewer, stream, media } = build({ log, mintTicket: async () => { mintCalls++; return mintCalls === 1 ? rawTicketNoMedia(1) : rawTicket(mintCalls) } })
+    session.start(); await flush()
+    check('first ticket has no media plane; viewer idle; media pending', mintCalls === 1 && session.getTicket()?.whepUrl === null && viewer.getState() === 'idle' && session.getMediaState() === 'pending')
+    stream.push(evSSE('e1', 1, 'media.publishing', {}))
+    await flush()
+    check('media.publishing alone mints nothing', mintCalls === 1 && posts(log) === 0)
+    stream.push(evSSE('e2', 2, 'media.ready', { api_created_ms: 1, children_ms: 2, first_frame_ms: 3, connected_ms: 4 }))
+    await flush()
+    check('media.ready → exactly one extra mint and the new ticket carries whep_url', mintCalls === 2 && session.getTicket()?.whepUrl === 'https://engine.boxly.mx/whep', `mints=${mintCalls}`)
+    check('the viewer started once and is playing', posts(log) === 1 && viewer.getState() === 'playing', `posts=${posts(log)} state=${viewer.getState()}`)
+    check('media state reported ready', media.at(-1) === 'ready' && session.getMediaState() === 'ready')
+    stream.push(evSSE('e3', 3, 'media.ready', {}))
+    stream.push(evSSE('e2', 2, 'media.ready', {}))
+    await flush()
+    check('a second media.ready and a replayed duplicate frame mint nothing more', mintCalls === 2 && posts(log) === 1, `mints=${mintCalls} posts=${posts(log)}`)
+    viewer.stop(); session.stop()
+  }
+  // (b) media.failed → failed, no remint, viewer idle
+  {
+    const log = []; let mintCalls = 0
+    const { session, viewer, stream } = build({ log, mintTicket: async () => { mintCalls++; return rawTicketNoMedia(mintCalls) } })
+    session.start(); await flush()
+    stream.push(evSSE('e1', 1, 'media.failed', { error_code: 'capture_exited', reason: 'capture_exited', blocking_line: null }))
+    await flush()
+    check('media.failed → media state failed, no extra mint, viewer never started', session.getMediaState() === 'failed' && mintCalls === 1 && viewer.getState() === 'idle' && posts(log) === 0)
+    session.stop()
+  }
+  // (c) a terminal without media.ready → failed (the panel shows the calm no-video row, then the terminal card)
+  {
+    const log = []; let mintCalls = 0
+    const { session, stream } = build({ log, mintTicket: async () => { mintCalls++; return rawTicketNoMedia(mintCalls) } })
+    session.start(); await flush()
+    stream.push(evSSE('e1', 1, 'worker.running', {}))
+    stream.push(evSSE('e2', 2, 'session.completed', { outcome: 'completed', products: [], error_code: null }))
+    await flush()
+    check('terminal without media.ready → media state failed, one mint only', session.getMediaState() === 'failed' && session.getStatus() === 'completed' && mintCalls === 1)
+  }
+  // (d) ordering: a refresh mint already in flight when media.ready arrives → still exactly one extra mint, viewer started once
+  {
+    const log = []; let mintCalls = 0; let resolveSecond = null
+    const { session, viewer, stream, timers } = build({ log, mintTicket: () => { mintCalls++; if (mintCalls === 1) return Promise.resolve(rawTicketNoMedia(1)); return new Promise((r) => { resolveSecond = r }) } })
+    session.start(); await flush()
+    check('a refresh is scheduled after the first ticket', timers.count() === 1, `timers=${timers.count()}`)
+    timers.fireAll(); await flush()
+    check('the refresh mint is in flight (unresolved)', mintCalls === 2 && typeof resolveSecond === 'function' && session.getTicket()?.whepUrl === null)
+    stream.push(evSSE('e1', 1, 'media.ready', {}))
+    await flush()
+    check('media.ready waits for the in-flight mint instead of minting again', mintCalls === 2, `mints=${mintCalls}`)
+    resolveSecond(rawTicket(2)); await flush()
+    check('the in-flight mint returned the media plane: no third mint, viewer started once, playing', mintCalls === 2 && posts(log) === 1 && viewer.getState() === 'playing' && session.getMediaState() === 'ready', `mints=${mintCalls} posts=${posts(log)} state=${viewer.getState()}`)
+    viewer.stop(); session.stop()
+  }
+}
+
 console.log(`\n${pass} passed, ${fail} failed`)
 process.exit(fail ? 1 : 0)

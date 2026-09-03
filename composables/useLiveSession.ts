@@ -15,6 +15,7 @@ import {
   readHistoryTerminal,
   type Candidate,
   type EventV1,
+  type MediaPlaneState,
   type SessionHandle,
   type ViewerSessionState,
   type ViewerTicket,
@@ -43,6 +44,9 @@ export function useLiveSession(
   const status = ref<ViewerSessionState>('connecting')
   const candidates = ref<Candidate[]>([])
   const ticket = ref<ViewerTicket | null>(null)
+  // Task C: the media plane as the engine reports it on the stream; the panel
+  // shows "preparing" until media.ready/media.failed decides.
+  const mediaState = ref<MediaPlaneState>('pending')
   const terminalReason = ref<string | null>(null)
   // The session genuinely ENDED (server-confirmed), as opposed to us losing the
   // transport. Tracked separately because the server's terminal carries no
@@ -77,6 +81,7 @@ export function useLiveSession(
     },
     onCandidate: (c) => { candidates.value = [...candidates.value, c] },
     onTicket: (t) => { ticket.value = t },
+    onMedia: (s) => { mediaState.value = s },
     onEvent: opts.onEvent,
   })
   if (remembered) {
@@ -104,6 +109,7 @@ export function useLiveSession(
     status,
     candidates,
     ticket,
+    mediaState,
     terminalReason,
     terminalAuthoritative,
     /** True when this page had already seen this session end before mount. */

@@ -766,7 +766,14 @@ export interface LiveSessionDeps {
   onCandidate?: (c: Candidate) => void
   onTicket?: (t: ViewerTicket) => void
   onEvent?: (ev: EventV1) => void
+  /** Task C (2026-09-03): the session's media plane as the engine reports it —
+   *  'pending' until media.ready or media.failed arrives on the stream, 'ready'
+   *  after media.ready (the controller then re-mints ONE ticket so the viewer
+   *  gets whep_url), 'failed' after media.failed or a terminal with no media.ready. */
+  onMedia?: (s: MediaPlaneState) => void
 }
+
+export type MediaPlaneState = 'pending' | 'ready' | 'failed'
 
 // ── Page-lifetime terminal memory ────────────────────────────────────────────
 // Live Boxly Target conversation 33 (2026-09-02): after the terminal event the
@@ -895,6 +902,17 @@ export function createLiveSessionController(deps: LiveSessionDeps) {
   let candidatesDropped = 0
   let terminalReason: string | null = null
   let terminalAuthoritative = false
+  // Media plane (Task C): the first ticket is minted before the engine has a
+  // stream (live a012b58b: media.ready +10 s, first ticket at +0 s, next mint
+  // at +55 s — the whole session showed "no video"). media.ready on the
+  // stream is the trigger for exactly ONE extra mint; latched so a second
+  // media.ready, a duplicate frame or a replay never mints again, and ordered
+  // after any mint already in flight (which itself comes back with whep_url
+  // when it was minted after the engine's media.ready).
+  let mediaState: MediaPlaneState = 'pending'
+  let mediaRemintLatched = false
+  let mintInFlight: Promise<ViewerTicket | null> | null = null
+  const setMedia = (s: MediaPlaneState) => { if (mediaState === s) return; mediaState = s; deps.onMedia?.(s) }
   // TERMINAL LATCH: once an authoritative terminal is committed, every async
   // continuation (reconnect loop, backoff waits, authority recovery, a late
   // timer, retry()/start()) is dead for good — a terminal is final, whatever
@@ -927,17 +945,33 @@ export function createLiveSessionController(deps: LiveSessionDeps) {
   })
 
   const mint = async (gen: number): Promise<ViewerTicket | null> => {
-    let raw: any
-    try { raw = await deps.mintTicket() } catch { return null }
-    if (!alive(gen)) return null
-    // Exact public envelope: {success:true, data:{ticket…}}. success:false,
-    // missing data, or malformed data all fail here — no fallbacks.
-    const t = validateTicket(unwrapPublicEnvelope(raw), now())
-    if (!t) return null
-    ticket = t
-    deps.onTicket?.(t)
-    scheduleRefresh(gen, t)
-    return t
+    const run = (async () => {
+      let raw: any
+      try { raw = await deps.mintTicket() } catch { return null }
+      if (!alive(gen)) return null
+      // Exact public envelope: {success:true, data:{ticket…}}. success:false,
+      // missing data, or malformed data all fail here — no fallbacks.
+      const t = validateTicket(unwrapPublicEnvelope(raw), now())
+      if (!t) return null
+      ticket = t
+      deps.onTicket?.(t)
+      scheduleRefresh(gen, t)
+      return t
+    })()
+    mintInFlight = run
+    try { return await run } finally { if (mintInFlight === run) mintInFlight = null }
+  }
+
+  // media.ready → the viewer needs a ticket minted AFTER the engine's descriptor
+  // exists. Wait for any mint already in flight first: minted after the event,
+  // it already carries whep_url and no second mint is needed.
+  const remintForMedia = async (gen: number) => {
+    if (mediaRemintLatched) return
+    mediaRemintLatched = true
+    if (mintInFlight) { try { await mintInFlight } catch {} }
+    if (!alive(gen)) return
+    if (ticket?.whepUrl) return
+    await mint(gen)
   }
 
   const scheduleRefresh = (gen: number, t: ViewerTicket) => {
@@ -988,6 +1022,8 @@ export function createLiveSessionController(deps: LiveSessionDeps) {
     // Re-gated with the SAME bound as the hydration path: this string selects
     // customer-facing copy and arrives from outside.
     terminalReason = typeof rawCode === 'string' && ERROR_CODE_RE.test(rawCode) ? rawCode : null
+    // A session that ended without ever reporting a stream has no media plane.
+    if (mediaState === 'pending') setMedia('failed')
 
     // Only now does anything external run.
     deps.onTerminalReason?.(terminalReason)
@@ -1165,6 +1201,11 @@ export function createLiveSessionController(deps: LiveSessionDeps) {
               // authority that can declare the session terminal.
               void reconcileOutcome()
             }
+            // Task C: the media plane appears AFTER the first ticket; this event
+            // (accepted, not a duplicate or a replay) is the trigger for the one
+            // extra mint that lets the viewer start.
+            if (ev.type === 'media.ready') { setMedia('ready'); void remintForMedia(gen) }
+            else if (ev.type === 'media.failed') setMedia('failed')
             deps.onEvent?.(ev)
             if (ev.type === 'candidate') {
               for (const p of extractCandidates(ev, now())) {
@@ -1227,6 +1268,7 @@ export function createLiveSessionController(deps: LiveSessionDeps) {
     isTerminalAuthoritative: () => terminalAuthoritative,
     getCandidates: () => candidates.slice(),
     getTicket: () => ticket,
+    getMediaState: () => mediaState,
     getLastEventId: () => cursor,
     getDroppedCandidates: () => candidatesDropped,
     /** For the WHEP viewer's full-reconnect cycle. Throws if minting fails. */
