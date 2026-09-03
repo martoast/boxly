@@ -21,19 +21,17 @@
       class="grid grid-flow-col items-stretch auto-cols-[16rem] md:auto-cols-[17rem] gap-3 overflow-x-auto py-2 px-1 snap-x no-scrollbar grid-rows-[auto]"
     >
       <!-- Image-first card (OpenAI-style): the photo IS the card; title + price
-           are small captions below. A REAL product link for assistive tech and
-           native modified-click (new tab/copy link); a plain click/Enter still
-           opens the in-chat modal via onCardClick's preventDefault. -->
-      <a
+           are small captions below. Whole card opens the modal. -->
+      <div
         v-for="(p, i) in visible"
-        :key="cardKeys[i]"
-        :href="p.url"
-        target="_blank"
-        rel="noopener"
-        @click="onCardClick($event, p)"
+        :key="i"
+        @click="$emit('open', p)"
+        @keydown.enter="$emit('open', p)"
         @mouseenter="startCycle(i)"
         @mouseleave="stopCycle"
-        class="group snap-start text-left flex flex-col cursor-pointer no-underline transition-transform duration-200 hover:-translate-y-1"
+        role="button"
+        tabindex="0"
+        class="group snap-start text-left flex flex-col cursor-pointer transition-transform duration-200 hover:-translate-y-1"
       >
         <!-- The HERO image. Big, rounded; cycles on hover. We DON'T control the
              source images (varied crops/ratios/backgrounds), so use object-contain
@@ -42,7 +40,7 @@
         <div class="relative h-80 rounded-2xl overflow-hidden bg-white ring-1 ring-black/5 shadow-sm group-hover:shadow-xl transition-shadow duration-200">
           <img
             v-if="(p.image || p.images.length) && !p.broken"
-            :src="cycleSrc(p, cardKeys[i], cycle)"
+            :src="displaySrc(p, i)"
             :alt="p.title"
             loading="lazy"
             referrerpolicy="no-referrer"
@@ -60,8 +58,8 @@
           <span v-else-if="p.onSale" class="absolute top-2 right-2 px-1.5 py-0.5 rounded-md bg-red-500 text-white text-[10px] font-bold shadow-sm">OFERTA</span>
 
           <!-- Hover-cycle dots (Google-style), only while cycling >1 image. -->
-          <div v-if="cycle.key === cardKeys[i] && p.images.length > 1" class="absolute bottom-2 left-0 right-0 flex justify-center gap-1">
-            <span v-for="(img, d) in p.images" :key="d" class="h-1.5 rounded-full transition-all" :class="d === cycle.idx ? 'w-3 bg-gray-700' : 'w-1.5 bg-gray-300'"></span>
+          <div v-if="cyclingCard === i && p.images.length > 1" class="absolute bottom-2 left-0 right-0 flex justify-center gap-1">
+            <span v-for="(img, d) in p.images" :key="d" class="h-1.5 rounded-full transition-all" :class="d === cycleIdx ? 'w-3 bg-gray-700' : 'w-1.5 bg-gray-300'"></span>
           </div>
         </div>
 
@@ -73,17 +71,13 @@
             <span v-if="p.was" class="ml-1 text-[10px] font-medium text-gray-300 line-through">${{ p.was }}</span>
             <span class="text-gray-400 font-normal"> · Precio de tienda</span>
           </p>
-          <!-- Verified stock, only when a producer proved it (ProductV1
-               availability). Unknown stays silent — never claim stock. -->
-          <p v-if="p.stock === 'in_stock'" class="mt-1 text-[11px] font-semibold text-emerald-600 leading-none">Disponible</p>
-          <p v-else-if="p.stock === 'out_of_stock'" class="mt-1 text-[11px] font-semibold text-gray-400 leading-none">Agotado</p>
           <div v-if="p.rating" class="mt-1 flex items-center gap-1 text-[11px] text-gray-500">
             <svg class="w-3 h-3 text-amber-400" viewBox="0 0 20 20" fill="currentColor"><path d="M10 15l-5.878 3.09 1.123-6.545L.49 6.91l6.572-.955L10 0l2.938 5.955 6.572.955-4.755 4.635 1.123 6.545z"/></svg>
             <span class="font-semibold text-gray-700">{{ p.rating }}</span>
             <span v-if="p.reviews" class="text-gray-400">({{ formatReviews(p.reviews) }})</span>
           </div>
         </div>
-      </a>
+      </div>
     </div>
 
       <!-- Desktop arrow buttons: clickable scroll controls (hover devices only,
@@ -129,22 +123,10 @@
 </template>
 
 <script setup>
-import { galleryCardModel } from '../utils/galleryCard'
-import { productCardKeys, cycleSrc, startCycleState, stepCycleState, syncCycleState, IDLE_CYCLE } from '../utils/galleryCardCycle'
-
 const props = defineProps({ products: { type: Array, default: () => [] } })
-const emit = defineEmits(['open'])
+defineEmits(['open'])
 
 const activeStore = ref(null)
-
-// Plain click / keyboard Enter keep the in-chat modal exactly as before; a
-// MODIFIED click (ctrl/cmd/shift/alt) is left to the browser so the card's
-// real href works natively (new tab, new window, add to reading list).
-function onCardClick(e, p) {
-  if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
-  e.preventDefault()
-  emit('open', p)
-}
 
 function formatReviews(n) {
   const v = Number(n) || 0
@@ -153,32 +135,62 @@ function formatReviews(n) {
 
 // --- Hover-to-cycle images (Google-style). Only the hovered card cycles, and
 // only when it carries more than one photo. Cheap: images are already loaded
-// from the search payload — no extra network on hover.
-// State is addressed by CARD IDENTITY (utils/galleryCardCycle.ts), never by
-// index: `visible` is a filtered computed, so a store-tab switch shifts
-// different products under the same indices, and index-addressed hover state
-// would silently transfer to a product the customer never hovered. ---
-const cycle = ref(IDLE_CYCLE)
+// from the search payload — no extra network on hover. ---
+const cyclingCard = ref(null)
+const cycleIdx = ref(0)
 let cycleTimer = null
+function displaySrc(p, i) {
+  if (cyclingCard.value === i && p.images.length > 1) return p.images[cycleIdx.value % p.images.length]
+  return p.image || p.images[0] || null
+}
 function startCycle(i) {
   const p = visible.value[i]
+  if (!p || p.images.length < 2) return
   stopCycle()
-  const next = startCycleState(cardKeys.value[i], p?.images || [])
-  if (!next) return
-  cycle.value = next
+  cyclingCard.value = i
+  cycleIdx.value = 0
   // Preload the rest so the swap is instant, not a flash of loading.
   if (import.meta.client) p.images.slice(1).forEach((u) => { const im = new Image(); im.src = u })
-  cycleTimer = setInterval(() => { cycle.value = stepCycleState(cycle.value, p.images.length) }, 900)
+  cycleTimer = setInterval(() => { cycleIdx.value = (cycleIdx.value + 1) % p.images.length }, 900)
 }
 function stopCycle() {
   if (cycleTimer) { clearInterval(cycleTimer); cycleTimer = null }
-  cycle.value = IDLE_CYCLE
+  cyclingCard.value = null
+  cycleIdx.value = 0
 }
 
-// Field mapping lives in utils/galleryCard.ts (pure, tested): legacy scalar
-// shapes stay byte-identical; the engine's persisted ProductV1 money objects
-// and proven availability map additively (USD-only, unknown stock silent).
-const normalized = computed(() => (props.products || []).map(galleryCardModel))
+const normalized = computed(() =>
+  (props.products || []).map((p) => {
+    const title = p.title || p.name || 'Producto'
+    const image = p.image || p.image_url || null
+    // Multiple photos (store-feed catalogs carry them) → hover-cycle. Falls back
+    // to the single thumbnail for sources that only return one image.
+    const imgs = (Array.isArray(p.images) ? p.images : []).filter((u) => typeof u === 'string' && u)
+    const images = imgs.length ? imgs : (image ? [image] : [])
+    const price = p.price ?? p.price_usd ?? null
+    const was = p.was ?? null
+    const onSale = p.on_sale ?? p.onSale ?? false
+    // % off when we have both a was-price and a lower current price.
+    const discount = onSale && was && price && was > price ? Math.round(((was - price) / was) * 100) : null
+    return {
+      title,
+      url: p.url || p.product_url || p.source_url || '#',
+      image,
+      images,
+      price,
+      was,
+      onSale,
+      discount,
+      store: p.store || null,
+      note: p.note || p.reason || null,
+      snippet: p.snippet || null,
+      rating: p.rating ?? null,
+      reviews: p.reviews ?? null,
+      token: p.token || null,
+      broken: false,
+    }
+  })
+)
 
 // Distinct stores present (for the filter chips).
 const stores = computed(() => [...new Set(normalized.value.map((p) => p.store).filter(Boolean))])
@@ -189,17 +201,6 @@ watch(stores, (list) => { if (activeStore.value && !list.includes(activeStore.va
 const visible = computed(() =>
   activeStore.value ? normalized.value.filter((p) => p.store === activeStore.value) : normalized.value
 )
-
-// Stable per-card identities (URL-first, collision-suffixed) drive both :key
-// and the hover-cycle addressing above.
-const cardKeys = computed(() => productCardKeys(visible.value))
-
-// Filter/list change: cycling survives ONLY if the same product identity is
-// still visible; an identity that left the list resets (and stops its timer).
-watch(cardKeys, (keys) => {
-  const synced = syncCycleState(cycle.value, keys)
-  if (synced !== cycle.value) stopCycle()
-})
 
 // --- Swipe affordance: track scroll position to drive the progress bar,
 // edge fades, and "Desliza →" hint (native scrollbar is hidden on mobile). ---

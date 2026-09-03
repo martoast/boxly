@@ -180,7 +180,7 @@ async function runSearch({ imageData = null, useCache = true, updateUrl = true }
     if (r?.type === 'product' && r.product?.url) { goProduct({ url: r.product.url }); return }
     results.value = r?.products || []
     if (r?.query && !text) { q.value = r.query; syncUrl() } // image search fills the box + URL
-    // Product discovery is handled by the authenticated live-shopping assistant;
+    // Searches are logged server-side (with their results) in /products/search,
     // so no client logging needed here.
     writeCache()
   } catch {

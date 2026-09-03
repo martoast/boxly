@@ -3,15 +3,15 @@ import { createAnthropic } from '@ai-sdk/anthropic'
 import { extractText, getDocumentProxy } from 'unpdf'
 import { z } from 'zod'
 import { FALLBACK_KNOWLEDGE } from '../utils/boxlyKnowledge'
-import { chatModel, providerOptions, hasModelKey, modelConfigurationError, assistantProviderFeatures } from '../utils/aiProvider'
-import { parseSessionCreateResponse } from '../../utils/liveShopping'
-import { liveVerifyInputSchema, liveVerifyFailureLog, parseLiveStores, liveVerifyInputSchemaFor, liveStoreGuidance, liveVerifyRefusal, liveCapabilityUnavailable, liveVerifyExposed, type LiveStore } from '../utils/liveVerifyContract'
+import { curateProducts, floatRequestedStore } from '../utils/curate'
+import { chatModel, isGoogle, providerOptions, hasModelKey } from '../utils/aiProvider'
 
 /**
  * AI shopping-assistant chat backend (Phase 2).
  *
- * Streams the configured model with:
- *  - live_verify for computer-use product discovery and verification,
+ * Streams Claude with:
+ *  - web_search (native) for product discovery,
+ *  - extract_product (public API) to read a chosen product page,
  *  - authed tools (get_profile / list_orders /
  *    update_shopping_profile) that call the Boxly API with the user's bearer
  *    token, and
@@ -24,6 +24,11 @@ import { liveVerifyInputSchema, liveVerifyFailureLog, parseLiveStores, liveVerif
 const API_BASE = (process.env.API_URL || 'https://api.boxly.mx').replace(/\/$/, '')
 // Which model/provider runs this chat is decided centrally in ../utils/aiProvider
 // (chatModel()), so the whole app can switch between Gemini and Claude via env.
+
+// Gallery ranking now lives in one shared "smart curate" pass — see
+// server/utils/curate.ts (relevance + color/attribute match + trust in a single
+// model call, plus the deterministic requested-store float). Used below by
+// search_products.
 
 // Admin-managed knowledge wiki (Mode 1 — Expert). Cached briefly; falls back to a
 // built-in constant if the API is unreachable so the concierge never goes dark.
@@ -71,6 +76,41 @@ function lastUserText(messages: any[]): string {
   return ''
 }
 
+const PRODUCT_TOOLS = new Set(['search_products', 'browse_store', 'browse_stores', 'show_products', 'show_saved_products', 'extract_product', 'web_search'])
+
+// Is this search a PURE store/brand lookup (e.g. "Rhode", "Gymshark", "productos
+// de Nike") rather than an attribute search ("owala rosa", "black wide-leg jeans")?
+// A store-only search wants that brand's catalog shown INSTANTLY — the deterministic
+// store-float already puts the brand first, so we skip the AI relevance re-rank
+// (which can add up to ~3.5s). We only run curate when the shopper added real
+// descriptive terms to filter by. Signal: the `store` param is set, and stripping
+// the store words + generic filler from the query leaves nothing meaningful.
+const STORE_FILLER = new Set(['de', 'del', 'la', 'el', 'los', 'las', 'from', 'in', 'en', 'the', 'a', 'my', 'mi', 'productos', 'products', 'producto', 'product', 'tienda', 'store', 'marca', 'brand', 'all', 'todo', 'toda', 'todos', 'todas', 'cosas', 'articulos', 'articulo', 'items', 'item'])
+function isPureStoreQuery(query: string, store?: string): boolean {
+  if (!store || !store.trim()) return false
+  // NFD + strip non-alphanumerics: "café" → "cafe", so accents don't split tokens.
+  const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[^a-z0-9]+/g, ' ').trim()
+  const q = norm(query)
+  if (!q) return true
+  const storeTokens = new Set(norm(store).split(' ').filter(Boolean))
+  const remaining = q.split(' ').filter((t) => t && !storeTokens.has(t) && !STORE_FILLER.has(t))
+  return remaining.length === 0
+}
+
+// Tools that RENDER a product gallery on the client. We enforce "ONE gallery per
+// reply" in CODE, not just the prompt: once one of these returns products, a
+// per-request flag flips and prepareStep() removes ALL gallery tools from the
+// toolset for the rest of the turn — so the model physically cannot fire a second
+// (often empty) gallery. Claude obeyed the prompt rule; Gemini does not, calling a
+// gallery tool again in a later step and rendering a duplicate empty gallery.
+const GALLERY_TOOLS = ['search_products', 'browse_store', 'browse_stores', 'show_products', 'show_saved_products']
+// Everything the model may still use AFTER a gallery has rendered (write text, add
+// follow-ups, build the shipment, take the order) — i.e. all tools minus GALLERY_TOOLS.
+const NON_GALLERY_TOOLS = [
+  'web_search', 'extract_product', 'show_shipment', 'show_box_guide', 'suggest_followups',
+  'show_assisted_summary', 'get_profile', 'list_orders', 'show_orders',
+  'update_shopping_profile', 'create_self_order', 'cancel_order', 'plan_in_person', 'create_account',
+]
 
 // Token efficiency: a gallery tool returns rich product objects, but most of each
 // is DISPLAY-ONLY — the image URL, the buy/Google link, and especially the
@@ -97,7 +137,8 @@ function galleryModelOutput({ output }: { output: any }) {
   return { type: 'json' as const, value: output ?? null }
 }
 
-// Analytics: turns without a live-shopping tool are business questions. Log the
+// Analytics: a turn that used a product tool is a SEARCH (already logged server-side
+// by /products/search); a turn with no product tool is a business QUESTION. Log the
 // latter to /search-events, forwarding the user's identity so it's attributed.
 function logQuestion(question: string, answer: string, auth: { cookie?: string; origin?: string; token?: string }, conversationId?: number) {
   if (!question?.trim()) return
@@ -131,26 +172,6 @@ async function callApi(path: string, opts: { method?: string; body?: any; token?
   try { data = JSON.parse(text) } catch { data = { raw: text } }
   if (!res.ok) return { ok: false, status: res.status, ...(data || {}) }
   return data?.data ?? data
-}
-
-const PRODUCT_TOOLS = new Set(['live_verify', 'show_saved_products'])
-
-// The live store catalog (Laravel → engine), memoized briefly per process and
-// only on success, so the tool's store_id enum and the prompt always describe
-// stores the engine will actually accept. An empty list is honest, never a
-// guess: the tool then keeps its shape-only schema and the prompt says so.
-let liveStoresMemo: { at: number; stores: LiveStore[] } | null = null
-const LIVE_STORES_MEMO_MS = 60_000
-async function fetchLiveStores(token: string): Promise<LiveStore[]> {
-  if (liveStoresMemo && Date.now() - liveStoresMemo.at < LIVE_STORES_MEMO_MS) return liveStoresMemo.stores
-  try {
-    const r: any = await callApi('/live-shopping/stores', { token, timeoutMs: 4000 })
-    const stores = parseLiveStores(r)
-    if (stores.length) liveStoresMemo = { at: Date.now(), stores }
-    return stores
-  } catch {
-    return []
-  }
 }
 
 // ── AUTHORITATIVE server-side turn persistence ──────────────────────────────
@@ -321,6 +342,15 @@ function compactOrder(raw: any) {
   }
 }
 
+// Round-robin merge so a multi-store gallery alternates brands instead of
+// showing all of store A then all of store B.
+function interleave(arrays: any[][]) {
+  const out: any[] = []
+  const max = arrays.reduce((m, a) => Math.max(m, a.length), 0)
+  for (let i = 0; i < max; i++) for (const a of arrays) if (a[i]) out.push(a[i])
+  return out
+}
+
 // ── Live BOXLY shipment (consolidation box) PACKING ESTIMATE ──────────────────
 // Don't estimate by item COUNT — classify each item into a packing ARCHETYPE and
 // convert to a volume in "shoe-units" (1 = one boxed pair of shoes). Box tiers are
@@ -462,7 +492,7 @@ function shopperContext(loggedIn: boolean, shoppingProfile: any, savedProducts: 
   return (profileBlock + savedBlock).trim()
 }
 
-function systemPrompt(loggedIn: boolean, knowledge = '', liveStoreNote = '') {
+function systemPrompt(loggedIn: boolean, knowledge = '') {
   const knowledgeBlock = `\n\n=== BASE DE CONOCIMIENTO (Modo Experto — responde preguntas del negocio SOLO con esto, y CON SUS DATOS ESPECÍFICOS: repite los tiempos, días, números, condiciones y reglas EXACTOS que aparezcan aquí; nunca des una versión vaga o generalizada que omita esos detalles) ===\n${knowledge || 'No disponible ahora — si te preguntan algo del negocio que no sepas con certeza, dilo y ofrece WhatsApp.'}\n=== FIN BASE DE CONOCIMIENTO ===`
 
   return `You are the BOXLY CONCIERGE — a warm, expert guide who helps customers in Mexico buy from the United States. THE CONVERSATION IS THE PRODUCT: you help people like a top-performing sales rep would — answer their questions, build their confidence, help them find the right thing, and get it ordered. Product search is just ONE tool you reach for during that conversation (think Perplexity, not Google). Boxly's edge is the WHOLE job: you find U.S. products, BOXLY BUYS them for the customer, imports them to Mexico, and delivers to their door. No U.S. card, no VPN, no blocked stores.
@@ -473,7 +503,7 @@ MODE 1 — EXPERT (answer questions). Use the KNOWLEDGE BASE below to answer any
    USE THE SPECIFICS — THIS IS CRITICAL. When the knowledge base covers the question, answer with its EXACT details: the concrete timeframes, numbers, days, conditions, rules and steps it states — repeat them faithfully. Do NOT give a vague, generic, or "safe" paraphrase that drops the specifics (e.g. if the base says "el cruce tarda 2–3 días" and "los embarques aéreos salen solo de lunes a jueves", you MUST say exactly that — not just "no hay entrega el mismo día"). A correct answer includes the actual figures and conditions from the base, not a softened summary. Being concrete is more important than being short; only stay brief by trimming filler, never by dropping the real facts. If the base has a specific rule for the exact situation asked, lead with that rule. After answering, gently move forward ("¿Qué te gustaría comprar?").
    RESTRICTED / SPECIAL ITEMS — CHECK THE BASE FIRST. When the customer asks to buy or bring a specific KIND of item (alcohol/bebidas alcohólicas, perfumes, supplements, electronics, etc.), first check whether the knowledge base has a RULE or restriction for it. If it does, answer with THAT rule — do NOT run a product search instead, and do NOT state a policy that contradicts the base. Example: the base says alcoholic beverages "se manejan a riesgo del cliente, sin garantías" — so you say exactly that; you must NOT claim "Boxly no puede importar alcohol" (that contradicts the base) nor promise disponibilidad/aprobación/entrega. NEVER contradict the knowledge base: never say something is impossible/prohibited, or guaranteed, unless the base says so.
 
-MODE 2 — PRODUCT DISCOVERY (find things). When the customer wants to see/buy products, use the authenticated live_verify computer-use session. Ask one concise clarifying question when needed, then start a session for exactly one requested store and product constraints. Report only candidates and final verification actually observed by the session; never promise sale sorting, catalog filters, or a fabricated cross-store gallery. For multiple stores, offer separate live sessions per store.
+MODE 2 — PRODUCT DISCOVERY (find things). When the customer wants to see/buy products, use your search tools. Be CONSULTATIVE first: if one quick question sharpens the result, ask it (e.g. "unos tenis" → "¿para correr, gimnasio o uso diario?"), then search. The gallery renders INSIDE the chat and you can SEE the items returned — so answer follow-ups about them ("¿la primera trae popote?", "compara la 1 y la 3", "¿cuál es más barata?").
 
 MODE 3 — PURCHASE CONVERSION (close the sale — where the money is made). The moment you detect buying intent ("quiero ese", "cómpralo por mí", "lo pido"), switch to closing: confirm the exact product, collect size/color/variant and quantity, briefly reassure (Boxly compra, importa y entrega), create the account if they're a guest, and create the Purchase Request. This is your most important job.
 
@@ -485,21 +515,32 @@ YOUR VOICE — a U.S. BUYING CONCIERGE, not a shopping search engine and not a p
 
 BE A BOXLY INSIDER (your moat) when you genuinely know it — from the knowledge base or well-known facts — so you feel different from a generic assistant: which US stores don't ship to Mexico or reject Mexican cards (so Boxly is the only way to get it), what Boxly customers and resellers commonly buy, items people often consolidate together. NEVER invent specifics — if you're not sure, don't claim it.${knowledgeBlock}
 
-CRITICAL — NEVER invent products. You may ONLY show a product after the authenticated live_verify session returns it in THIS conversation. NEVER type a product from memory/training — it will be wrong.
+CRITICAL — NEVER invent products. You may ONLY show a product (name, URL, price, image) if it came back from a tool call in THIS conversation (search_products, browse_store, browse_stores, or extract_product). NEVER type a product from memory/training — it will be wrong. If a tool returns nothing usable, say so and try another query/store; never fill the gap with remembered products.
 
 CRITICAL — NEVER claim an order/request was created, and NEVER state or invent a request/order NUMBER (e.g. "PR-26-…"). You do NOT place orders by writing about them. For ASSISTED PURCHASE you have exactly ONE way to order: call show_assisted_summary — that card creates the real request AUTOMATICALLY the instant it appears and shows its real number itself. So your own text must NEVER say "listo/creada/registré tu solicitud" and must NEVER contain a PR number — the card handles the confirmation. Claiming a request exists (or inventing a number) when the card hasn't shown it is the single worst thing you can do — it silently loses the sale.
 
-CRITICAL — Shopping discovery uses the authenticated live_verify computer-use session. Start one session for a concrete product request, using the requested store slug and product constraints only. Do not claim a product, price, or availability until the session verifies it.${liveStoreNote ? ` ${liveStoreNote}` : ''}
+CRITICAL — ONE gallery per reply. Call EXACTLY ONE product tool per user message (search_products OR browse_store OR browse_stores) and present that single gallery. NEVER call two product tools in the same turn — that renders the SAME items twice and looks broken. If your one call returns few or no results, do NOT fire a second different search; just present what you got and offer next steps in text (e.g. "¿quieres ver el catálogo completo?"). (suggest_followups is NOT a product/gallery tool — it's fine, and expected, to call it in the same turn after your gallery.)
 
 CRITICAL — NEVER narrate or announce the gallery. The gallery renders by itself from the tool result. Do NOT write meta lines like "(aquí aparecería la galería)", "la galería aparece arriba/abajo", "a continuación te muestro", or "déjame buscar". Write ONE clean reply that talks about the products as if they're already on screen — never describe the act of showing them, and never repeat your reply twice.
 
-The live_verify session renders its own progressive panel and terminal verified-results gallery. Do not use legacy search, scraping, or URL-extraction tools.
+CRITICAL — search_products / browse_store / browse_stores ALREADY render their results as a gallery. Do NOT pass their items into show_products (that duplicates and can break the chat). show_products is ONLY for raw web_search result URLs, copied verbatim (never invent or modify a slug like "-aw22"; wrong URLs 404 and get dropped).
 
-You are a SHOPPING COMPANION. Live verification is the source of truth: describe only products, prices, availability, and variants returned by the authenticated session. Do not promise sale ordering, sale-only filtering, or side-by-side multi-store results. If the customer names multiple stores, explain that each store requires its own live session and offer to run them separately. Conversational — suggest, compare, narrow, pivot.
+You are a SHOPPING COMPANION and DEAL FINDER. Deals are your HEADLINE, not a filter: every search already puts on-sale items first (flagged on_sale with a was price), so a normal search shows the full selection WITH the deals on top. Call out the deals, but always show a rich set of options — never reduce results to just the discounted ones (a one-item result is a bad experience). Only filter to sale-ONLY (sale:true) if the user explicitly says "solo ofertas / only what's on sale", and if that comes back sparse, show the full catalog instead. Show options from DIFFERENT stores side by side, point out the deals, then dive deeper. Conversational — suggest, compare, narrow, pivot.
 
 Your tools, and when to use them:
-- Shopping discovery is exclusively the authenticated live_verify computer-use session. Start one session for the requested store and product constraints; do not use legacy catalog, web-search, scraping, or URL-extraction tools.
-- IMAGES & PDFs: for a product photo, describe the product constraints and use live_verify. For receipts/invoices, read the item details and use create_self_order; the receipt is already attached as proof.
+- search_products(query, store?) — YOUR DEFAULT for finding products from any store NOT in the directory (Hollister, Gymshark, Nike, Adidas, Lululemon, Zara…) AND for open/cross-store discovery. It's UNIVERSAL — it covers EVERY US brand and store, so NEVER tell the customer you don't have a way to search a specific store (e.g. Adidas); you always do — just call search_products with that brand as store. It's FAST and reliable, returning a rich gallery (often 12-16 items) with images, prices, and the store each is from. ALWAYS put the brand in store (e.g. {query:"men clothing", store:"Adidas"}), and DON'T repeat the brand inside query — put it in store ONLY ({query:"men clothing", store:"Adidas"}, never {query:"Adidas men clothing", store:"Adidas"}). Keep the query SHORT (2-3 core words) — long phrases like "adidas men clothing hoodie tracksuit" can return nothing. If a call returns NO products, RETRY ONCE with a shorter/broader query (just the brand + one word, e.g. {query:"clothing", store:"Adidas"} or {query:"adidas"}) BEFORE ever using web_search. Only use web_search + show_products as a last resort, and never present a store homepage as a product.
+  CRITICAL — "broadened": true in the result means YOUR QUERY MATCHED NOTHING and these are the store's GENERAL catalog items, NOT what the customer asked for. NEVER present them as matches ("Encontré varias opciones de X" is a LIE when broadened is true — a customer who asked for PINK promos was shown Victoria's Secret bras that way). Say plainly what happened and offer the catalog: "No encontré [lo que pidió] específicamente, pero aquí está lo que hay en [tienda] ahora 👇 — ¿quieres que busque algo más concreto?". If the customer named a specific collection/print/model, ALSO offer to take a link: "si me pasas el link de lo que viste, te lo cotizo". When broadened is true and web_search returned real product names + prices for what they asked, TELL THEM those (name + price, from the snippet) instead of pretending the catalog answered.
+- REFINING / FILTERING (CRITICAL): whenever the user narrows what they want, run a NEW search_products call carrying ALL active filters (keep the ones from before and add the new one). Map each kind of filter correctly:
+  • color, size, gender (men/women/kids), fit/style ("wide-leg", "oversized", "slim"), material, category → put them in the QUERY text (e.g. {query:"black wide-leg jeans women size 30", store:"American Eagle"}). Google matches these from text; there are no separate params for them.
+  • budget / price ("menos de $50", "between $20 and $40", "barato") → use max_price / min_price (e.g. max_price:50).
+  • "en oferta" / "on sale" / "deals" → do a NORMAL search (no sale flag): results already lead with the deals AND keep the full selection. Use sale:true ONLY if they say "SOLO ofertas / only on sale", and if that's sparse, fall back to the full result.
+  NEVER try to re-show or hand-pick a subset of the previous gallery (past search_products items can't be re-displayed — they all drop and you show an empty result, the #1 failure). Every change on screen = a fresh search_products call with the updated query/params.
+- web_search + show_products — the FALLBACK when search_products returns nothing, and the way to RESOLVE a real buy URL at order time. web_search the store + item, then pass 5-8 real product-page URLs (paths like /p/… or /products/…, copied verbatim — never category pages or invented slugs) to show_products, which pulls image + price from each page.
+- browse_store(store_url, query?) / browse_stores([...], query?, sale?) — for the verified Shopify DIRECTORY only. Richer than search for these: full latest-drop catalogs (on-sale items shown FIRST, with real compare_at was-prices) and in-store search. Prefer these for directory brands. For "ofertas en [directory store]" use a NORMAL browse_store — it already leads with the discounted items while keeping the full catalog. Only pass sale:true if they want SOLELY discounted items. browse_store search matches PRODUCT TITLES — use short category keywords ("shorts", "joggers", "hoodie"), NOT phrases/gender words; if thin, silently broaden. Many gym stores prefix women's items with "W" (e.g. "W2279…") and leave men's un-prefixed — use that to tell gender.
+  STORE DIRECTORY: Gym & activewear — YoungLA https://www.youngla.com (men+women) · Alphalete https://www.alphaleteathletics.com · NVGTN https://www.nvgtn.com (women) · Ryderwear https://www.ryderwear.com · DARC SPORT https://www.darcsport.com · Ten Thousand https://www.tenthousand.cc (men's training).
+- web_search (alone) — for general questions, finding a brand's official site, and RESOLVING the exact merchant buy URL when the user is ready to order an item that came from search_products (its link is a Google view, not a buy URL).
+- BUY URL: a picked item usually already carries its real merchant buy URL (the product modal resolves the direct seller link). If a chosen item only has a Google view link, web_search "{title} {store}" to find the real product page. Use extract_product ONLY to confirm the page/variant — do NOT let its price overwrite the price the customer already saw.
+- IMAGES & PDFs: the user can attach a photo OR a PDF (image = a product to find; PDF = usually a purchase receipt/invoice). For a product photo, describe what you see (brand, type, color, text/logos), then search_products for that exact product and show 1–3 candidates to confirm before proceeding. For a receipt/invoice (photo or PDF), READ it — pull out each item (name, quantity, price) and the store/total — and use it to register the customer's self-import order (create_self_order); don't ask them to re-type what's already on the receipt. The file they attached is AUTOMATICALLY saved as that order's proof of purchase, so NEVER ask them to upload the receipt again — just confirm the items and their delivery address.
 - ALWAYS present products through the gallery, NEVER as a plain text list or price table. The gallery shows each item's image, name, store and price — don't repeat individual items in text. After it, write ONE short line in a BUYING-CONCIERGE voice — you help people ACQUIRE US products, you are NOT reviewing or admiring them. Say how many options are available to buy via Boxly and invite the next step — e.g. "Encontré 12 opciones disponibles para comprar desde Estados Unidos con Boxly 🇺🇸➜🇲🇽. ¿Cuál agregamos a tu envío?". NEVER use product-reviewer language like "¡qué bonita colección!", "me encanta", "qué linda opción". Don't quote a per-product shipping/total. Always end pointing toward adding to their shipment.
 - PRICING: Show ONLY the store's original USD price, exactly as it comes from the store. Do NOT convert to MXN and do NOT invent or state a total. Make clear this is just the store price — the final total is quoted after the request. Never present any number as the final price.
 - PRICING — TWO DIFFERENT FLOWS, BE CRYSTAL CLEAR (never blur them):
@@ -575,9 +616,9 @@ This customer is ${loggedIn ? 'SIGNED IN — you can create orders/requests and 
 export default defineEventHandler(async (event) => {
   if (!hasModelKey()) {
     setResponseStatus(event, 503)
-    return { error: 'assistant_not_configured', message: modelConfigurationError() }
+    return { error: 'assistant_not_configured', message: 'Missing LLM provider API key on the server.' }
   }
-  const providerFeatures = assistantProviderFeatures()
+  const useGoogle = isGoogle()
 
   const body = await readBody(event)
   const messages = body?.messages ?? []
@@ -596,24 +637,23 @@ export default defineEventHandler(async (event) => {
 
   const knowledge = await getKnowledge()
 
+  // web_search: on Claude we use Anthropic's native server-side web search. On
+  // Gemini that built-in (google_search) can't coexist with our custom function
+  // tools (it suppresses them), so we expose web_search as a normal function tool
+  // backed by the API's SerpAPI organic search — same role: find stores/URLs.
+  const webSearchTool = useGoogle
+    ? tool({
+        description: "Search the web (Google) for stores, product pages and general info. FALLBACK when search_products returns nothing, and the way to find a real merchant product-page URL at order time. Returns results with title, url and snippet — pass good product-page URLs to show_products or extract_product.",
+        inputSchema: z.object({ query: z.string().describe('What to search for, e.g. "YoungLA joggers men", "owala 24oz official site".') }),
+        execute: async ({ query }) => callApi('/products/web-search', { method: 'POST', body: { query }, timeoutMs: 12000 }),
+      })
+    : createAnthropic({ apiKey: process.env.ANTHROPIC_API_KEY }).tools.webSearch_20250305({ maxUses: 6 })
+
   // Identity for analytics question-logging (searches log themselves server-side).
   const auth = { cookie: getHeader(event, 'cookie'), origin: getHeader(event, 'origin'), token }
   const question = lastUserText(messages)
 
   const authedNote = { ok: false, error: 'not_authenticated', message: 'Ask the user to create an account first (call create_account).' }
-
-  // Live shopping rollout flag — read from process.env at REQUEST time, never via
-  // runtimeConfig (that is evaluated at BUILD time and baked into the bundle — the
-  // voice-session rule, see nuxt.config.ts). Off (the default) ⇒ the live_verify
-  // tool below simply does not exist and the assistant is byte-identical to today.
-  // Also requires a signed-in user: the session/ticket endpoints are Sanctum-scoped.
-  // conversation_id is REQUIRED by the frozen create contract, so the tool only
-  // exists once the chat has a claimed conversation.
-  const liveShoppingEnabled = ['1', 'true'].includes(String(process.env.LIVE_SHOPPING_ENABLED || '')) && !!token && !!conversationId
-  const liveStores: LiveStore[] = liveShoppingEnabled ? await fetchLiveStores(token as string) : []
-  // live_verify stays usable AFTER a gallery has rendered — escalating "quiero
-  // verlo en la tienda real" naturally follows a gallery, so it rides with the
-  // non-gallery belt when enabled.
 
   // Prompt caching: the big static instructions (+ tool defs, which Anthropic
   // caches as part of the same prefix) go in ONE system block with an ephemeral
@@ -629,26 +669,69 @@ export default defineEventHandler(async (event) => {
   const modelMessages: any[] = [
     {
       role: 'system',
-      content: systemPrompt(!!token, knowledge, liveShoppingEnabled ? liveStoreGuidance(liveStores) : ''),
+      content: systemPrompt(!!token, knowledge),
       // Anthropic-only prompt caching of the big static prefix. Gemini does its own
       // implicit caching automatically, so we just omit the breakpoint there.
-      ...(providerFeatures.anthropicCacheControl
-        ? { providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' } } } }
-        : {}),
+      ...(useGoogle ? {} : { providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' } } } }),
     },
     ...(hubBlock ? [{ role: 'system', content: hubBlock }] : []),
     ...(ctx ? [{ role: 'system', content: ctx }] : []),
     ...await convertToModelMessages(sanitizeToolInputs(stripIncompleteToolCalls(await pdfPartsToText(messages)))),
   ]
 
+  // "One gallery per reply" guard (see GALLERY_TOOLS): a gallery tool flips this
+  // when it returns products; prepareStep() then strips gallery tools from later
+  // steps. Wrap a gallery tool's result with markGallery() to arm it.
+  let galleryShown = false
+  const markGallery = (r: any) => {
+    if (r && Array.isArray(r.products) && r.products.length > 0) galleryShown = true
+    return r
+  }
+
   const result = streamText({
     model: chatModel(),
     providerOptions: providerOptions(),
     messages: modelMessages,
-    stopWhen: stepCountIs(10),
+    // Stop at 10 steps, OR — once a gallery has shown — the moment the model calls
+    // suggest_followups (its intended last action: gallery → one closing line +
+    // follow-ups → done). This prevents a runaway extra step where some models
+    // (Gemini) re-answer the whole thing a second time. Gated on galleryShown so
+    // normal multi-step turns (ordering, profile updates) are unaffected.
+    stopWhen: [
+      stepCountIs(10),
+      ({ steps }: any) => {
+        const last = steps?.[steps.length - 1]
+        return galleryShown && (last?.toolCalls || []).some((c: any) => c.toolName === 'suggest_followups')
+      },
+    ],
+    // Once a gallery has rendered, only non-gallery tools remain available — the
+    // model can write its closing line and add follow-ups, but can't draw a 2nd gallery.
+    //
+    // ALSO cap gallery-tool attempts at 2, even when nothing has rendered. The
+    // prompt tells the model to retry once with a broader query and then stop,
+    // but it does not reliably obey: conversation 331 (a real customer asking for
+    // Kipling bags, while SerpAPI's shopping engine was down and every search
+    // returned nothing) shows it emitting "Encontré varias bolsas Kipling en
+    // oferta" and searching again, six times over. stepCountIs(10) was the only
+    // brake, and ten steps of searching is far past the ~30s the host allows a
+    // request — so the stream was cut, onFinish never ran, the turn was never
+    // saved, and the customer sat on a spinner and got nothing.
+    //
+    // Two attempts is the same budget the prompt asks for. After that the gallery
+    // tools go away and the model has to answer in text, which is a real reply
+    // ("no encontré, ¿probamos otra marca?") instead of a hang.
+    prepareStep: ({ steps }: any) => {
+      if (galleryShown) return { activeTools: NON_GALLERY_TOOLS }
+      const galleryAttempts = (steps || []).reduce(
+        (n: number, s: any) => n + (s.toolCalls || []).filter((c: any) => GALLERY_TOOLS.includes(c.toolName)).length,
+        0
+      )
+      return galleryAttempts >= 2 ? { activeTools: NON_GALLERY_TOOLS } : undefined
+    },
     onError: ({ error }) => console.error('[assistant] error:', error instanceof Error ? error.message : error),
     onFinish: async ({ text, steps }) => {
-      // Live-shopping turns are discovery sessions; other turns are business questions.
+      // A turn that used a product tool is a SEARCH (logged server-side by
+      // /products/search). A turn with no product tool is a business QUESTION.
       const usedProductTool = (steps || []).some((s: any) => (s.toolCalls || []).some((c: any) => PRODUCT_TOOLS.has(c.toolName)))
       if (!usedProductTool) logQuestion(question, text || '', auth, conversationId)
       // Durably save the turn server-side (awaited so it completes within the
@@ -656,75 +739,89 @@ export default defineEventHandler(async (event) => {
       await persistTurn(conversationId, token, messages, steps, text || '')
     },
     tools: {
-      // Live verification tier (flag-gated, signed-in only — see liveShoppingEnabled).
-      // NOT a gallery tool: its output is a session HANDLE {localSessionId,
-      // engineSessionId, status} that renders the live panel; it must NEVER carry
-      // output.products. Terminal results
-      // are appended by the API-side webhook as a separate tool-live_results part —
-      // the return path is never client-supplied.
-      // FAIL-CLOSED: without a confirmed catalog the tool is NOT registered this
-      // turn (no schema, no create, no unknown_store); the prompt tells the model
-      // live verification is temporarily unavailable and the chat continues.
-      ...(liveShoppingEnabled && liveVerifyExposed(liveStores) ? {
-        live_verify: tool({
-          description: "DEFAULT shopping discovery path: open a LIVE verification session where a real Boxly browser opens ONE store and the customer WATCHES it verify price, stock, and variants in real time. Use the requested store slug and product constraints; never invent results or fall back to legacy catalog/search/scraping tools. The session verifies current price and availability of ONE best-matching product; put only the product and its constraints in `objective`. Results appear progressively inside the live panel. " + liveStoreGuidance(liveStores),
-          // Schema extracted to liveVerifyContract.ts so the objective guidance
-          // (the model's only steering surface, and the engine browser's actual
-          // search input) is pinned by a deterministic test.
-          inputSchema: liveVerifyInputSchemaFor(liveStores)!,
-          execute: async ({ objective, store_id }) => {
-            // FAIL-CLOSED: no confirmed catalog → no session. The customer gets
-            // an honest "unavailable right now"; the rest of the chat works.
-            if (!liveStores.length) {
-              console.error('[live_verify]', liveVerifyFailureLog('capability_unavailable', null, { conversationId, storeId: store_id }))
-              return liveCapabilityUnavailable()
-            }
-            // Frozen v1 create contract: {conversation_id, objective, store_id} —
-            // no client-supplied callback URL, ever. The response is matched
-            // against LiveShoppingController::present EXACTLY (two ID domains:
-            // localSessionId for the ticket route, engineSessionId for EventV1);
-            // anything else returns an honest {ok:false} part (explicit
-            // unavailable card in the UI).
-            try {
-              const r: any = await callApi('/live-shopping/sessions', {
-                method: 'POST',
-                body: { conversation_id: conversationId, objective, store_id },
-                token,
-                timeoutMs: 15000,
-              })
-              // A store the engine does not know is its own, actionable state —
-              // never the generic outage card. Laravel maps engine unknown_store
-              // to code store_unsupported (422); everything else stays generic.
-              const refusal = liveVerifyRefusal(r, liveStores, store_id)
-              if (refusal) {
-                console.error('[live_verify]', liveVerifyFailureLog('store_unsupported', r, { conversationId, storeId: store_id }))
-                return refusal
-              }
-              const handle = parseSessionCreateResponse(r)
-              if (!handle) {
-                // Laravel ANSWERED and we refused its shape — a contract drift,
-                // not an outage. Logged as its own reason because the two look
-                // identical to the customer and need opposite fixes.
-                // callApi returns structured non-2xx responses instead of
-                // throwing. Preserve only their safe HTTP status/code in the
-                // diagnostic line so unknown_store/config drift is distinct
-                // from a malformed successful response; customer copy stays
-                // the same and the response body remains unlogged.
-                console.error('[live_verify]', liveVerifyFailureLog('contract_mismatch', r, { conversationId, storeId: store_id }))
-                return { ok: false, error: 'live_session_unavailable', message: 'No pude iniciar la sesión en vivo en este momento.' }
-              }
-              return handle // {localSessionId, engineSessionId, status} — never products
-            } catch (e) {
-              // Status + stable code ONLY, built by an allowlist that cannot
-              // reach the response body, the objective, the token or a ticket.
-              // The bare catch this replaces made a real 409 outage take a
-              // database query and an index definition to diagnose.
-              console.error('[live_verify]', liveVerifyFailureLog('create_failed', e, { conversationId, storeId: store_id }))
-              return { ok: false, error: 'live_session_unavailable', message: 'No pude iniciar la sesión en vivo en este momento.' }
-            }
-          },
+      web_search: webSearchTool,
+
+      extract_product: tool({
+        description: 'Fetch clean details (title, USD price, image, store) from a specific US product URL the user picked.',
+        inputSchema: z.object({ url: z.string().describe('The product page URL.') }),
+        execute: async ({ url }) => callApi('/products/extract', { method: 'POST', body: { url } }),
+      }),
+
+      browse_store: tool({
+        description: "Pull REAL products straight from a US store's own catalog (works for Shopify stores like YoungLA, Gymshark, Alo, Chubbies). Use this whenever the user names or links a specific store — show their latest drop, or pass a query to search within that store (e.g. \"joggers\"). Results are ALREADY filtered to items publicly available to order RIGHT NOW — gated/unreleased early-access drops (e.g. a future-dated \"… - July 7th\" item) are excluded — so everything returned is the latest AVAILABLE drop and safe to present as orderable. Returns products with real images/prices that render as a gallery. If it returns no products the store isn't supported — fall back to web_search.",
+        inputSchema: z.object({
+          store_url: z.string().describe('Store homepage or any URL on it, e.g. https://www.youngla.com'),
+          query: z.string().describe('Optional keyword to search within the store; omit for the latest drop.').optional(),
+          sale: z.boolean().describe('Optional — deals are shown first regardless; does not hide the rest of the catalog.').optional(),
         }),
-      } : {}),
+        execute: async ({ store_url, query, sale }) => markGallery(await callApi('/products/store-feed', { method: 'POST', body: { url: store_url, query: query || undefined, sale: sale || undefined, limit: 12 }, timeoutMs: 25000 })),
+        toModelOutput: galleryModelOutput,
+      }),
+
+      browse_stores: tool({
+        description: "Browse MULTIPLE US stores AT ONCE and return a single mixed gallery of real products tagged by store. Use this for broad/category requests (e.g. 'gym clothes', 'cozy hoodies', 'something for the beach') to show variety across brands, or with sale:true to surface current DEALS across stores. Pass 2-5 Shopify store URLs (use the store directory in your instructions, or stores you found via web_search). Results render as a gallery the user can filter by store. If a store returns nothing it's skipped.",
+        inputSchema: z.object({
+          stores: z.array(z.object({
+            name: z.string().describe('Display/brand name, e.g. "YoungLA".').optional(),
+            url: z.string().describe('Store homepage URL, e.g. https://www.youngla.com'),
+          })).min(1).max(6),
+          query: z.string().describe('Optional keyword to search within each store, e.g. "joggers"; omit for each store\'s latest drop.').optional(),
+          sale: z.boolean().describe('Optional — deals are shown first regardless; does not hide non-sale items.').optional(),
+        }),
+        execute: async ({ stores, query, sale }) => {
+          const list = (stores || []).slice(0, 6)
+          const per = list.length >= 5 ? 3 : list.length >= 3 ? 4 : 6
+          const perStore = await Promise.all(list.map(async (s) => {
+            try {
+              const r: any = await callApi('/products/store-feed', {
+                method: 'POST',
+                body: { url: s.url, query: query || undefined, sale: sale || undefined, limit: per },
+                timeoutMs: 20000,
+              })
+              return (r?.products || []).map((p: any) => ({ ...p, store: s.name || r?.store || p.store }))
+            } catch { return [] }
+          }))
+          return markGallery({ products: interleave(perStore) })
+        },
+        toModelOutput: galleryModelOutput,
+      }),
+
+      search_products: tool({
+        description: "THE UNIVERSAL product search — searches the entire US market via Google Shopping, so it works for ANY store/brand on ANY platform (Shopify, headless, JS-rendered, Cloudflare-blocked: Gymshark, Nike, Lululemon, Alo, boutiques, etc.). Use as the DEFAULT for broad/category discovery, for any specific store NOT in the directory (set store to the brand name), and whenever browse_store/browse_stores can't reach a store. Returns a gallery with real images, prices (incl. sale prices), and the source store of each item. Put descriptive attributes (color, size, gender, fit/style, material, category) IN the query; use the structured params for budget and deals.",
+        inputSchema: z.object({
+          query: z.string().describe('What to find, WITH every descriptive attribute the user gave: category + gender + color + size + fit/style + material + brand. E.g. "black wide-leg jeans women size 30", "men running shoes wide", "leather crossbody bag".'),
+          store: z.string().describe('The store/retailer/brand to focus on, whenever the user names one — a brand store ("Gymshark", "American Eagle") OR a big-box retailer ("Target", "Walmart", "Amazon", "Costco", "Best Buy"). ALWAYS set this if the user says "de/from/en <store>" (e.g. "el owala rosa de Target" → store:"Target"); we use it to put that store\'s listings FIRST in the gallery.').optional(),
+          min_price: z.number().describe('Minimum USD price.').optional(),
+          max_price: z.number().describe('Maximum USD price — use for budgets like "under $50" (max_price: 50).').optional(),
+          sale: z.boolean().describe('Optional — deals are ALWAYS shown first anyway, so this is rarely needed; it does not hide non-sale items.').optional(),
+        }),
+        execute: async ({ query, store, min_price, max_price, sale }) => {
+          // Google Shopping returns 0 for some multi-word phrasings ("adidas clothing
+          // men") even though the brand alone ("adidas") returns plenty, so a failed
+          // query is broadened to the store (or the first word). That retry now lives
+          // ENTIRELY in the API: doing it here meant a second HTTP round-trip and a
+          // phantom analytics row per broadened search, and — worse — the broadening
+          // was invisible, so a search for "PINK promos" came back as generic
+          // Victoria's Secret bras and this tool reported them as matches.
+          // `r.broadened` is the API saying "these are catalog items, not matches".
+          const r: any = await callApi('/products/search', { method: 'POST', body: { query, store: store || undefined, min_price, max_price, sale: sale || undefined, limit: 16, conversation_id: conversationId }, token, timeoutMs: 50000 })
+          // Store/brand lookup ("Rhode", "Gymshark") → show the catalog INSTANTLY:
+          // just float the brand's own listings first (deterministic, no model call).
+          // Attribute search ("owala rosa", "black jeans size 30") → run the one smart
+          // pass (relevance + color/attribute + trust) and then float the store.
+          if (r && Array.isArray(r.products)) {
+            // A broadened result set is the store's catalog, so there is nothing
+            // to rank against `query` — curating on a query these items were
+            // never matched to just burns a model call. Float the store instead,
+            // same as a plain store lookup.
+            r.products = (r.broadened || isPureStoreQuery(query, store))
+              ? floatRequestedStore(r.products, store)
+              : await curateProducts(query, r.products, { store })
+          }
+          return markGallery(r)
+        },
+        toModelOutput: galleryModelOutput,
+      }),
 
       show_saved_products: tool({
         description: "Re-display products that were ALREADY shown earlier in THIS chat (listed under 'PRODUCTS ALREADY SHOWN IN THIS CHAT'). Use when the user refers back to something — 'tráeme ese hoodie', 'el segundo', 'el que vimos antes', 'compara los dos primeros'. Pass their ids. This is instant and exact — do NOT re-search for an item that's already in that list.",
@@ -734,10 +831,62 @@ export default defineEventHandler(async (event) => {
         execute: async ({ ids }) => {
           const set = new Set(ids)
           const products = savedProducts.filter((p) => set.has(p.id))
-          return { products }
+          return markGallery({ products })
         },
         toModelOutput: galleryModelOutput,
       }),
+
+      show_products: tool({
+        description: 'Display a visual GALLERY of product recommendations to the user (cards with image, price, link they can tap). ALWAYS use this to present products you found — never just list them as plain text. Provide up to 6 real products, each with a real product_url. The gallery fetches the real image automatically.',
+        inputSchema: z.object({
+          products: z.array(z.object({
+            title: z.string(),
+            product_url: z.string().describe('Direct URL to the product page.'),
+            price: z.number().describe('USD price if known.').optional(),
+            store: z.string().describe('Store/brand name.').optional(),
+            reason: z.string().describe('Short note on why it fits (optional).').optional(),
+          })).min(1).max(6),
+        }),
+        execute: async ({ products }) => {
+          const enriched = await Promise.all((products || []).map(async (p) => {
+            let image: string | null = null
+            let price = p.price ?? null
+            let store = p.store ?? null
+            let ok = false
+            try {
+              const ex: any = await callApi('/products/extract', { method: 'POST', body: { url: p.product_url }, timeoutMs: 15000 })
+              if (ex && ex.image) image = ex.image
+              if (price == null && ex?.price != null) price = ex.price
+              if (!store && ex?.store) store = ex.store
+              // Require a real IMAGE — a store homepage (or a category page) yields a
+              // price but no product image, and a card with no image is a broken,
+              // blank tile. Only render items that extracted an actual product photo.
+              ok = !!image
+            } catch { /* best-effort */ }
+            return { title: p.title, url: p.product_url, image, price, store, note: p.reason ?? null, ok }
+          }))
+          // Only return products we could verify (real image/price). If none
+          // verify, return empty so nothing renders — better than broken cards
+          // (the model likely already showed a good gallery via search_products).
+          const verified = enriched.filter((p) => p.ok).map(({ ok, ...p }) => p)
+          // Say WHY it's empty. Returning a bare [] read as "nothing exists", so
+          // the model apologised and handed the customer a link to the store —
+          // while the web_search snippet it already had listed the real items and
+          // prices. An explicit failure tells it to use what it has.
+          const failed = enriched.filter((p) => !p.ok).map((p) => p.url)
+          if (!verified.length) {
+            return {
+              products: [],
+              error: 'no_product_page_resolved',
+              failed_urls: failed,
+              note: 'None of these URLs resolved to a real product page (invented slugs and category/homepage URLs both fail). Do NOT tell the customer you could not load the catalog and do NOT just hand them a store link. Retry show_products with product URLs copied VERBATIM from web_search results, or — if you have none — name the specific items and prices from the web_search snippets in your reply and offer to quote whichever one they pick.',
+            }
+          }
+          return markGallery({ products: verified })
+        },
+        toModelOutput: galleryModelOutput,
+      }),
+
       show_shipment: tool({
         description: "Show/UPDATE the customer's live BOXLY shipment (their consolidation box). Call this EVERY time the shipment changes — an item is added, removed, or a quantity changes — passing ALL items currently in the shipment (not just the new one). It renders a card with the recommended box size, a volume bar and capacity remaining, so the customer watches their box fill up and is encouraged to consolidate more. Display only — it does NOT place the order (call show_assisted_summary to finalize an assisted purchase). This is separate from the product gallery; you may call it in the same turn as confirming an add.",
         inputSchema: z.object({

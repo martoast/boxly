@@ -120,6 +120,8 @@ const content = {
         h: 'Con quién compartimos la información',
         p: 'Para comparar precios necesitamos consultar servicios externos. Les enviamos datos del producto (título, marca, tienda, dirección de la página), nunca tus datos personales:',
         items: [
+          'SerpAPI — búsqueda de precios en Google Shopping.',
+          'ScraperAPI — lectura de la página del producto desde Estados Unidos, para obtener el precio en dólares.',
           'Google (Gemini) — un modelo de inteligencia artificial que ordena los resultados y descarta los que no corresponden al mismo producto.',
         ],
         after:
@@ -199,6 +201,8 @@ const content = {
         h: 'Who we share it with',
         p: 'Comparing prices requires third-party services. We send them product data (title, brand, store, page URL), never your personal information:',
         items: [
+          'SerpAPI — price search across Google Shopping.',
+          'ScraperAPI — reads the product page from the United States so we can obtain the US dollar price.',
           'Google (Gemini) — an AI model that ranks results and discards listings that are not the same product.',
         ],
         after:

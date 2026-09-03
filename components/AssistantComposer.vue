@@ -54,20 +54,13 @@
         Transcribiendo…
       </div>
 
-      <!-- NORMAL: text input. A NATIVE textarea with a STABLE accessible name:
-           the visible placeholder rotates, but assistive tech (and AT-SPI
-           read-back verification) must be able to re-find this exact field by
-           an unchanging name. v-model keeps the local model synchronously
-           current (no controlled-prop echo window), and Vue's v-model defers
-           updates during IME composition natively. -->
+      <!-- NORMAL: text input -->
       <textarea
         v-else
         ref="ta"
-        v-model="text"
-        aria-label="Escribe tu mensaje"
-        @keydown.enter.exact="onEnter"
-        @compositionstart="gate.compositionStart()"
-        @compositionend="gate.compositionEnd()"
+        :value="text"
+        @input="$emit('update:text', $event.target.value)"
+        @keydown.enter.exact.prevent="doSend"
         @paste="onPaste"
         rows="1"
         :placeholder="placeholder"
@@ -95,9 +88,8 @@
 </template>
 
 <script setup>
-import { createComposerGate } from '../utils/composerGate'
-
 const props = defineProps({
+  text: { type: String, default: '' },
   micRecording: { type: Boolean, default: false },
   micTranscribing: { type: Boolean, default: false },
   micLevels: { type: Array, default: () => [] },
@@ -106,12 +98,7 @@ const props = defineProps({
   placeholder: { type: String, default: 'Describe lo que buscas o pega un link…' },
   large: { type: Boolean, default: false },
 })
-const emit = defineEmits(['send', 'mic'])
-// v-model:text — the local model is synchronously current (defineModel), so
-// canSend/doSend never read a one-render-stale prop.
-const text = defineModel('text', { type: String, default: '' })
-// Composition + submit gating lives in utils/composerGate.ts (pure, tested).
-const gate = createComposerGate()
+const emit = defineEmits(['update:text', 'send', 'mic'])
 
 // Let the parent focus the input (e.g. after tapping a suggestion card).
 const ta = ref(null)
@@ -134,7 +121,7 @@ const previews = computed(() => attachments.value.map((f, i) => {
   return { key: `${i}-${f.name}`, isPdf, name: f.name, url: isPdf ? null : URL.createObjectURL(f) }
 }))
 
-const canSend = computed(() => !props.busy && (text.value.trim().length > 0 || attachments.value.length > 0))
+const canSend = computed(() => !props.busy && (props.text.trim().length > 0 || attachments.value.length > 0))
 
 const micBtnClass = computed(() => [
   'relative shrink-0 grid place-items-center w-9 h-9 rounded-full transition-colors',
@@ -168,32 +155,10 @@ function buildFileList() {
   return dt.files
 }
 
-// Enter routing. Shift+Enter never reaches here (.exact); a bare Enter during
-// an open IME composition is the IME's confirm — let it commit natively and
-// never submit uncommitted text. Any other bare Enter keeps the historical
-// behavior (no newline), sending only when there is something to send.
-function onEnter(e) {
-  const decision = gate.decide({
-    shiftKey: e.shiftKey,
-    eventComposing: e.isComposing,
-    busy: props.busy,
-    value: ta.value?.value ?? text.value,
-    hasAttachments: attachments.value.length > 0,
-  })
-  if (decision === 'ignore' && (e.isComposing || gate.composing)) return
-  e.preventDefault()
-  if (decision === 'send') doSend()
-}
-
 function doSend() {
-  if (props.busy || gate.composing) return
-  // The DOM snapshot is the submitted truth — byte-for-byte what the user
-  // sees, immune to any in-flight model/prop staleness.
-  const value = gate.payloadText(ta.value?.value, text.value)
-  if (!value.trim() && !attachments.value.length) return
-  text.value = value // parent state agrees with the payload before the send
+  if (!canSend.value) return
   const files = buildFileList()
-  emit('send', { text: value, files })
+  emit('send', { files })
   attachments.value = []
 }
 </script>

@@ -3,10 +3,7 @@
        the Boxly box logo — floating, a pulsing glow, and motion "speed lines"
        streaking in — with a rotating caption so the pause feels productive and
        exciting instead of a tiny spinner the customer might bail on. -->
-  <!-- Decorative for AT: the caption ROTATES every ~2s and must never be live;
-       the assistant surface's single hidden status announcer carries the
-       equivalent meaningful state ("Respondiendo…"). -->
-  <div aria-hidden="true" class="inline-flex items-center gap-3 bg-white border border-gray-100 rounded-2xl px-4 py-3 shadow-sm">
+  <div class="inline-flex items-center gap-3 bg-white border border-gray-100 rounded-2xl px-4 py-3 shadow-sm">
     <div class="relative w-11 h-11 shrink-0">
       <span class="glow"></span>
       <svg class="box absolute inset-0 w-full h-full" viewBox="0 0 415 387" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">

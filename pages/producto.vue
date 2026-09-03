@@ -249,8 +249,9 @@ onMounted(async () => {
   if (!data.on_sale && pp.sale === '1') data.on_sale = true
   if (!data.images.length && pp.img) data.images = [String(pp.img)]
 
-  // Live-verified product hand-offs are already authoritative; no server scrape
-  // or secondary product-page lookup is performed.
+  // (The product view is logged server-side in /products/page below — reliable,
+  // unlike a best-effort client POST. A cache hit skips that call by design, so a
+  // refresh/back to the same product doesn't inflate the view count.)
 
   // Cache hit (refresh / back / same product) → hydrate instantly, no re-scrape.
   const cached = readProductCache()
@@ -262,10 +263,39 @@ onMounted(async () => {
     return
   }
 
-  // Product details come from the live-verified result/query hand-off.
-  initSelected()
-  writeProductCache()
-  loading.value = false
+  const startedAt = Date.now()
+  const MIN_MS = 1500 // let the loading animation breathe so it reads as "working"
+  try {
+    const r = await $customFetch('/products/page', {
+      method: 'POST',
+      body: {
+        url: pp.u || undefined,
+        token: pp.t || undefined,
+        store: pp.store ? String(pp.store) : (data.store || undefined),
+        title: pp.title ? String(pp.title) : (data.title || undefined),
+      },
+      timeout: 30000, // never hang on a slow store; fall back to the card data
+    })
+    const d = r?.data || r || {}
+    if (d.title) data.title = d.title
+    if (d.price != null) data.price = d.price
+    if (d.was != null) data.was = d.was
+    if (d.on_sale != null) data.on_sale = d.on_sale
+    if (d.available != null) data.available = d.available
+    if (d.store) data.store = d.store
+    if (d.buy_url) data.buy_url = d.buy_url
+    if (Array.isArray(d.images) && d.images.length) { data.images = d.images; mainIdx.value = 0 }
+    if (d.description) data.description = d.description
+    data.options = d.options || []
+    data.variants = d.variants || []
+    data.has_variants = !!d.has_variants
+    initSelected()
+    writeProductCache() // only cache a successfully-scraped product
+  } catch { /* keep the fields passed via query */ } finally {
+    const elapsed = Date.now() - startedAt
+    if (elapsed < MIN_MS) await new Promise((res) => setTimeout(res, MIN_MS - elapsed))
+    loading.value = false
+  }
 })
 
 function addToCart() {
