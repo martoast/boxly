@@ -179,6 +179,32 @@ const render = async (sessionState, session) => {
   }
 }
 
+// ── 4d (A.1). history-terminal handle, NO page memory: the reason comes from the authority ──
+// The persisted handle can already be terminal on a fresh page load. Without a
+// remembered terminal the panel never starts a stream, so the composable reads
+// the authority once and surfaces it as terminalReason; the history branch must
+// read it instead of painting the plain green card.
+{
+  const terminalHandle = { localSessionId: '1073', engineSessionId: 'bb25ac47-ebd0-4688-90c4-48ef9952d9b5', status: 'completed' }
+  const hydrated = await render({ status: 'completed', terminalAuthoritative: true, terminalReason: 'partial_match' }, terminalHandle)
+  check('history-terminal without memory + hydrated partial_match renders the caveat', hydrated.includes('no cumple todo lo que pediste'), hydrated.slice(-400))
+  check('…and not the plain "ya terminó" green copy', !/ya terminó — los resultados/.test(hydrated))
+  const plainHistory = await render({ status: 'completed', terminalAuthoritative: true, terminalReason: null }, terminalHandle)
+  check('history-terminal without memory and no code keeps the green history copy', /ya terminó — los resultados están en la conversación/.test(plainHistory) && !plainHistory.includes('no cumple todo'))
+  const notYet = await render({ status: 'connecting', terminalAuthoritative: false, terminalReason: null }, terminalHandle)
+  check('before the authority answers the history card is the plain green one, never a failure', /ya terminó — los resultados están en la conversación/.test(notYet) && !/conexión/i.test(notYet))
+  const sid = terminalHandle.engineSessionId
+  globalThis.window = {}; globalThis.document = {}
+  try {
+    pageTerminalMemory().remember(sid, 'completed', null)
+    const remembered = await render({ status: 'completed', terminalAuthoritative: true, terminalReason: 'partial_match' }, terminalHandle)
+    check('a remembered terminal (no caveat) wins over a stale live reason', !remembered.includes('no cumple todo') && /ya terminó/.test(remembered), remembered.slice(-400))
+    forgetLiveTerminals()
+  } finally {
+    delete globalThis.window; delete globalThis.document
+  }
+}
+
 // ── 4c. completed + partial_match: real products, honest caveat, not a failure ──
 {
   const html = await render({ status: 'completed', terminalAuthoritative: true, terminalReason: 'partial_match' })

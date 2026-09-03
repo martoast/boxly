@@ -813,6 +813,29 @@ export function forgetLiveTerminals(): void { pageTerminalMemory().clear() }
  * the external onTerminal callback — which starts conversation refreshes —
  * fires once per session per page, never once per consumer.
  */
+/**
+ * A.1 (2026-09-03): a panel that comes out of history ALREADY terminal by its
+ * persisted handle status, with no terminal in this page's memory, has nothing
+ * that says WHY it ended — the handle carries no error_code, only the API does.
+ * One read-only GET of the authority (present(): status + public error_code)
+ * hydrates the terminal reason so a completed partial_match session shows its
+ * caveat instead of the plain green card. Null in every other case (a live or
+ * remembered session, a non-terminal or malformed authority answer, a failed
+ * fetch): the caller then keeps exactly what it had.
+ */
+export async function readHistoryTerminal(
+  fetchSession: () => Promise<any>,
+  handle: SessionHandle | null,
+  remembered: RememberedTerminal | null,
+): Promise<{ status: string; errorCode: string | null } | null> {
+  if (!handle || !isTerminal(handle.status) || remembered) return null
+  let raw: any
+  try { raw = await fetchSession() } catch { return null }
+  const state = parseSessionStateResponse(raw)
+  if (!state || !isTerminal(state.status)) return null
+  return { status: state.status, errorCode: state.errorCode }
+}
+
 export function claimTerminalAnnouncement(memory: TerminalMemory, engineSessionId: unknown, status: string, errorCode: unknown = null): boolean {
   if (memory.has(engineSessionId)) return false
   return memory.remember(engineSessionId as string, status, errorCode)

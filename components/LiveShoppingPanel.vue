@@ -103,7 +103,10 @@ const card = computed(() => {
   if (s === 'completed') {
     // partial_match: the engine verified a product that misses one requested
     // constraint (real price/availability, honest caveat) — say so, in amber.
-    const partial = (historyTerminal ? (remembered?.errorCode ?? null) : live.terminalReason.value) === 'partial_match'
+    // History: the page memory is authoritative when it has this terminal; without
+    // it the composable hydrates live.terminalReason from the API (A.1), so a
+    // fresh page load of an old partial_match session is not painted green.
+    const partial = (historyTerminal ? (remembered ? remembered.errorCode : live.terminalReason.value) : live.terminalReason.value) === 'partial_match'
     if (partial) return { tone: 'amber', text: terminalReasonText('partial_match') }
     return { tone: 'green', text: historyTerminal ? 'Esta sesión en vivo ya terminó — los resultados están en la conversación.' : 'Sesión completada — estos son los resultados verificados en la tienda.' }
   }

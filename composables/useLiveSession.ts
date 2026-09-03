@@ -12,6 +12,7 @@ import {
   claimTerminalAnnouncement,
   isTerminal,
   pageTerminalMemory,
+  readHistoryTerminal,
   type Candidate,
   type EventV1,
   type SessionHandle,
@@ -82,6 +83,19 @@ export function useLiveSession(
     status.value = controller.getStatus()
     terminalReason.value = controller.getTerminalReason()
     terminalAuthoritative.value = controller.isTerminalAuthoritative()
+  } else if (handle && isTerminal(handle.status)) {
+    // A.1: terminal by history, nothing remembered — the panel will not start
+    // a stream, so nobody would ever ask the authority why the session ended.
+    // One GET hydrates the reason (a completed partial_match caveat), records
+    // it in the page memory for remounts, and announces NOTHING: the gallery
+    // for this session is already in the conversation.
+    void readHistoryTerminal(fetchSession, handle, remembered).then((t) => {
+      if (!t) return
+      status.value = t.status as ViewerSessionState
+      terminalReason.value = t.errorCode
+      terminalAuthoritative.value = true
+      memory.remember(handle.engineSessionId, t.status, t.errorCode)
+    })
   }
 
   if (getCurrentInstance()) onBeforeUnmount(() => controller.stop())

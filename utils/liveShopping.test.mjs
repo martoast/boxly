@@ -446,5 +446,20 @@ check('capability-unavailable copy is honest and keeps the conversation going', 
 check('a partial_match gallery carries the visible constraint-missing label', liveResultsCaveat({ products: [{}], caveat: 'partial_match' }) === 'Verificado en la tienda, pero no cumple todo lo que pediste — revisa los detalles antes de decidir.')
 check('a full-match gallery carries no label', liveResultsCaveat({ products: [{}] }) === '' && liveResultsCaveat(null) === '' && liveResultsCaveat({ caveat: 'other' }) === '')
 
+// A.1: readHistoryTerminal — hydrate a history-terminal panel's reason from the authority, and nothing else.
+{
+  const { readHistoryTerminal } = await import('./liveShopping.ts')
+  const handle = { localSessionId: '1073', engineSessionId: 'dd25ac47-ebd0-4688-90c4-48ef9952d9b5', status: 'completed' }
+  const present = (status, error_code) => ({ id: 1073, status, engine_session_id: handle.engineSessionId, conversation_id: 78, store_id: 'best-buy', expires_at: null, created_at: null, updated_at: null, error_code })
+  let fetches = 0
+  const fetchSession = (r) => async () => { fetches++; return r }
+  check('history-terminal + no memory + authority completed/partial_match → the caveat', JSON.stringify(await readHistoryTerminal(fetchSession(present('completed', 'partial_match')), handle, null)) === JSON.stringify({ status: 'completed', errorCode: 'partial_match' }))
+  check('authority completed without a code → completed, null', JSON.stringify(await readHistoryTerminal(fetchSession(present('completed', null)), handle, null)) === JSON.stringify({ status: 'completed', errorCode: null }))
+  check('a live handle never reads the authority', (fetches = 0, await readHistoryTerminal(fetchSession(present('completed', 'partial_match')), { ...handle, status: 'running' }, null)) === null && fetches === 0)
+  check('a remembered terminal never reads the authority', (fetches = 0, await readHistoryTerminal(fetchSession(present('completed', 'partial_match')), handle, { status: 'completed', errorCode: null })) === null && fetches === 0)
+  check('a non-terminal or malformed authority answer → null', await readHistoryTerminal(fetchSession(present('running', null)), handle, null) === null && await readHistoryTerminal(fetchSession({ nope: true }), handle, null) === null)
+  check('a failed fetch → null, never a throw', await readHistoryTerminal(async () => { throw new Error('offline') }, handle, null) === null)
+}
+
 console.log(`\n${pass} passed, ${fail} failed`)
 process.exit(fail ? 1 : 0)

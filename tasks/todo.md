@@ -1304,3 +1304,16 @@ for completed sessions — fixed on its side in the boxly-api plan; both hops mu
   the page memory returns `{completed, partial_match}`; control: completed+store_blocked commits null).
 - Evidence: `npm run test:live` — parser 195/195, harness 170/170, panel key 12/12, panel dom 29/29.
 - Not pushed. Alex pushes; the API side (boxly-api) must land together for the label to appear.
+
+## A.1 — history-terminal panel without page memory (2026-09-03, lead finding)
+Plan: `LiveShoppingPanel.vue:106` on the history branch read only `remembered?.errorCode`; with no in-page
+memory (fresh page load of an old conversation) a completed partial_match session painted the plain green
+card. The persisted handle carries no error_code (only the API's present() does), and a history-terminal
+panel never starts a stream, so nobody asked the authority. Smallest change: `readHistoryTerminal()` in
+`utils/liveShopping.ts` (one read-only GET, parsed by the same `parseSessionStateResponse`, null in every
+other case); `useLiveSession` calls it exactly when the handle is terminal by status and nothing is
+remembered, surfaces it as `terminalReason`, records it in the page memory, announces nothing; the panel's
+history branch falls back to `live.terminalReason` when there is no memory (a remembered terminal still
+wins). Tests: parser (+6), panel dom (+5: hydrated caveat, no code → green, before the answer → green,
+memory wins). No push.
+
