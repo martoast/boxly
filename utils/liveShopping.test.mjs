@@ -446,6 +446,18 @@ check('capability-unavailable copy is honest and keeps the conversation going', 
 check('a partial_match gallery carries the visible constraint-missing label', liveResultsCaveat({ products: [{}], caveat: 'partial_match' }) === 'Verificado en la tienda, pero no cumple todo lo que pediste — revisa los detalles antes de decidir.')
 check('a full-match gallery carries no label', liveResultsCaveat({ products: [{}] }) === '' && liveResultsCaveat(null) === '' && liveResultsCaveat({ caveat: 'other' }) === '')
 
+// L2 (multi-store): present() may carry a tenth key `stores`; the parsers accept it and still reject any other extra.
+{
+  const { parseSessionCreateResponse, parseSessionStateResponse } = await import('./liveShopping.ts')
+  const nine = { id: 1073, status: 'running', engine_session_id: 'dd25ac47-ebd0-4688-90c4-48ef9952d9b5', conversation_id: 78, store_id: 'target', expires_at: null, created_at: '2026-09-03T00:00:00Z', updated_at: '2026-09-03T00:00:00Z', error_code: null }
+  const ten = { ...nine, stores: [{ id: 'target', status: 'running', error_code: null }, { id: 'walmart', status: 'running', error_code: null }] }
+  check('create: the nine-key present() still parses', parseSessionCreateResponse({ success: true, data: nine })?.localSessionId === '1073')
+  check('create: the ten-key present() (with stores) parses to the same handle', parseSessionCreateResponse({ success: true, data: ten })?.localSessionId === '1073')
+  check('create: any other extra key is still rejected', parseSessionCreateResponse({ success: true, data: { ...nine, extra: 1 } }) === null)
+  check('state: ten keys with stores parse; nine keys still parse', parseSessionStateResponse({ success: true, data: { ...ten, status: 'completed', error_code: 'partial_match' } })?.errorCode === 'partial_match' && parseSessionStateResponse({ success: true, data: nine })?.status === 'running')
+  check('state: a missing required key is still rejected even with stores present', parseSessionStateResponse({ success: true, data: (({ error_code, ...rest }) => rest)(ten) }) === null)
+}
+
 // Item 3: liveSessionIdFor — the last valid tool-live_verify handle in a conversation.
 {
   const { liveSessionIdFor } = await import('./liveShopping.ts')

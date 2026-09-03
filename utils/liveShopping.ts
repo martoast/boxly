@@ -449,14 +449,18 @@ export interface SessionHandle { localSessionId: string; engineSessionId: string
 // a session that ended `store_blocked` was indistinguishable from a dropped
 // connection. Nullable, and null for every non-failed session.
 const CREATE_DATA_KEYS = ['id', 'status', 'engine_session_id', 'conversation_id', 'store_id', 'expires_at', 'created_at', 'updated_at', 'error_code'] as const
+// L2 (multi-store, 2026-09-03): present() gains a tenth key, `stores` — one entry per
+// requested store. Optional here so the parser accepts the API before and after
+// that landing; any OTHER extra key is still a contract drift and is rejected.
+const CREATE_DATA_OPTIONAL_KEYS = ['stores'] as const
 
 /** Laravel's present() sanitizer emits this shape or the literal 'failed'. */
 const ERROR_CODE_RE = /^[a-z0-9_]{1,40}$/
 
-function hasExactKeys(o: any, expected: readonly string[]): boolean {
+function hasExactKeys(o: any, expected: readonly string[], optional: readonly string[] = []): boolean {
   const keys = Object.keys(o)
-  if (keys.length !== expected.length) return false
   for (const k of expected) if (!(k in o)) return false
+  for (const k of keys) if (!expected.includes(k) && !optional.includes(k)) return false
   return true
 }
 
@@ -468,7 +472,7 @@ function hasExactKeys(o: any, expected: readonly string[]): boolean {
 export function parseSessionCreateResponse(raw: any): SessionHandle | null {
   const data = raw && typeof raw === 'object' && 'success' in raw ? unwrapPublicEnvelope(raw) : raw
   if (!data || typeof data !== 'object' || Array.isArray(data)) return null
-  if (!hasExactKeys(data, CREATE_DATA_KEYS)) return null
+  if (!hasExactKeys(data, CREATE_DATA_KEYS, CREATE_DATA_OPTIONAL_KEYS)) return null
   const id = data.id
   if (!Number.isInteger(id) || id <= 0) return null
   const engineId = data.engine_session_id
@@ -499,7 +503,7 @@ export function parseSessionCreateResponse(raw: any): SessionHandle | null {
 export function parseSessionStateResponse(raw: any): { status: string; errorCode: string | null } | null {
   const data = raw && typeof raw === 'object' && 'success' in raw ? unwrapPublicEnvelope(raw) : raw
   if (!data || typeof data !== 'object' || Array.isArray(data)) return null
-  if (!hasExactKeys(data, CREATE_DATA_KEYS)) return null
+  if (!hasExactKeys(data, CREATE_DATA_KEYS, CREATE_DATA_OPTIONAL_KEYS)) return null
   const status = data.status
   // Only the closed status vocabulary; never a server string rendered verbatim.
   if (typeof status !== 'string' || !/^[a-z][a-z_]{0,31}$/.test(status)) return null
