@@ -1251,3 +1251,56 @@ suite green; `git diff --check` clean.
 NOT done: no production, no commit/push/deploy, and the running service was not
 restarted onto the launcher — switching the tmux service over is the
 coordinator's call.
+
+# Customer-visible caveat label (partial_match) — Nuxt side (PLAN, awaiting approval)
+
+Status: PLAN ONLY — nothing below is implemented until approved. Never push (a push deploys).
+
+Facts (live trace 2026-09-03): the panel's amber caveat card and the gallery caveat line both exist and
+are pinned (`components/LiveShoppingPanel.vue:106`, `components/ShoppingAssistant.vue:329`,
+`utils/liveShopping.ts:1374 liveResultsCaveat`, dom test 4c), and the page terminal memory keeps
+`partial_match` for a completed session (`utils/liveShopping.ts:757-765`). The label is still lost because
+`utils/liveShopping.ts:499-516 parseSessionStateResponse` returns
+`errorCode: status === 'failed' ? errorCode : null`, and four of the five terminal commits in the
+controller come from that parser — the outcome-hint reconciliation (:987), transport reconciliation
+(:995), authority death (:1027) and the recovery schedule (:1044) — only the SSE frame (:1097) passes
+`payload.error_code`. Live, the `worker.progress outcome` hint triggers the authority read before the
+`session.completed` frame arrives, so the terminal is committed with `errorCode: null`, the memory
+remembers null, and the remounted history panel renders the green card. (The API also nulls the code
+for completed sessions — fixed on its side in the boxly-api plan; both hops must pass it.)
+
+## Todo (smallest change)
+- [ ] `parseSessionStateResponse`: keep the re-gate; return
+      `errorCode: status === 'failed' ? errorCode : (status === 'completed' && errorCode === 'partial_match' ? 'partial_match' : null)`.
+      Comment: a FAILED session has a reason; a COMPLETED session may carry exactly the one caveat;
+      anything else on a non-failed session is a contradiction and is dropped.
+- [ ] Tests — `utils/liveShopping.test.mjs`: completed + `partial_match` → `'partial_match'`;
+      completed + `store_blocked` → null (existing :106, kept); cancelled/running + `partial_match` → null;
+      completed + `PARTIAL_MATCH` → null. `composables/liveShopping.harness.test.mjs`: a controller whose
+      outcome-hint reconciliation reads `completed` + `partial_match` from the authority commits
+      `terminalReason === 'partial_match'`, `onTerminalCommitted` carries it, and the page memory then
+      returns `{ status: 'completed', errorCode: 'partial_match' }` — the exact live path.
+      The remounted-panel amber card is already pinned (dom test 4c, `:192-194`); unchanged.
+- [ ] No change to `LiveShoppingPanel.vue` or `ShoppingAssistant.vue`: both already render the caveat
+      once the code/caveat reach them.
+- [ ] Run `npm run test:live` (parser, harness, panel key, panel dom).
+- [ ] Review section below; hand the diff to the lead. NO PUSH.
+
+## Review — caveat label, Nuxt side (implemented, NOT pushed)
+
+- `utils/liveShopping.ts` `parseSessionStateResponse`: one expression — a FAILED session keeps its
+  re-gated reason; a COMPLETED session keeps exactly `'partial_match'`; everything else on a non-failed
+  session is null. No other file changed; the panel, the terminal memory and the gallery line already
+  rendered the caveat once it reached them.
+- Correction to the plan's mechanism note: the worker outcome hint triggers the authority read only for
+  `blocked`/`error` outcomes (`utils/liveShopping.ts:1107-1111`). On a COMPLETED session the
+  authority-committed terminal comes from the transport-end reconciliation / give-up read (the SSE
+  stream closing before the `session.completed` frame is delivered), which the new harness case models.
+  The fix is the same either way: every authority path goes through this parser.
+- Tests: `utils/liveShopping.test.mjs` (+5: completed+partial_match kept; completed+other, upper-case,
+  cancelled/running/pending+partial_match dropped; failed+partial_match still a failed reason);
+  `composables/liveShopping.harness.test.mjs` (+2 cases: a give-up authority read on
+  completed+partial_match commits the caveat as terminal reason, carries it on onTerminalCommitted and
+  the page memory returns `{completed, partial_match}`; control: completed+store_blocked commits null).
+- Evidence: `npm run test:live` — parser 195/195, harness 170/170, panel key 12/12, panel dom 29/29.
+- Not pushed. Alex pushes; the API side (boxly-api) must land together for the label to appear.

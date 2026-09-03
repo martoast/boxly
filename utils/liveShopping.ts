@@ -509,9 +509,14 @@ export function parseSessionStateResponse(raw: any): { status: string; errorCode
   // honest "the session ended" via provenance, never a connection story.
   const rawCode = data.error_code
   const errorCode = typeof rawCode === 'string' && ERROR_CODE_RE.test(rawCode) ? rawCode : null
-  // Only a FAILED session has a reason. A reason on a running/completed session
-  // is a contradiction; drop it rather than narrate it.
-  return { status, errorCode: status === 'failed' ? errorCode : null }
+  // A FAILED session has a reason. A COMPLETED session may carry exactly ONE
+  // caveat — partial_match (the engine verified a product that misses a
+  // requested constraint) — which the panel and the gallery must still show
+  // after a remount. Any other reason on a non-failed session is a
+  // contradiction; drop it rather than narrate it. This is the same closed
+  // vocabulary Laravel's presenter applies; both hops must keep it, because
+  // four of the controller's five terminal commits come through this parser.
+  return { status, errorCode: status === 'failed' ? errorCode : (status === 'completed' && errorCode === 'partial_match' ? 'partial_match' : null) }
 }
 
 /** The persisted part output the panel is allowed to boot from — both ID

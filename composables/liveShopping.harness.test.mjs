@@ -856,6 +856,55 @@ console.log('SSE terminal ⇒ authoritative + reason')
   check('duplicate outcome is deduped to one authority GET', fetches === 1, String(fetches))
 }
 
+// L0b. The live 2026-09-03 shape (sessions ace8d110 / 80cb048b): a COMPLETED
+// session whose row carries the partial_match caveat, and a terminal committed
+// from an AUTHORITY READ (here: the transport ended before the terminal frame,
+// so the give-up path asks the server). The parser used to null every
+// non-failed code, so the terminal was committed with null, the memory
+// remembered null, and the remounted history panel lost its amber card. The
+// caveat must survive the parser, the commit, the callback and the memory.
+{
+  const timers = fakeTimers()
+  let fetches = 0; let reason = 'UNSET'; let committed = null
+  const memory = createTerminalMemory()
+  const session = createLiveSessionController({
+    engineSessionId: SID,
+    mintTicket: async () => rawTicket(),
+    fetchSession: async () => { fetches++; return present9('completed', 'partial_match') },
+    fetchImpl: eofBody,
+    setTimeoutImpl: timers.set,
+    clearTimeoutImpl: timers.clear,
+    onTerminalReason: (c) => { reason = c },
+    onTerminalCommitted: (info) => { committed = info; claimTerminalAnnouncement(memory, SID, info.status, info.errorCode) },
+  })
+  session.start()
+  await drive(timers, () => session.getStatus() === 'completed')
+  check('completed + partial_match: the authority read commits the CAVEAT as the terminal reason', session.getStatus() === 'completed' && session.isTerminalAuthoritative() && reason === 'partial_match' && session.getTerminalReason() === 'partial_match', `${session.getStatus()} ${reason}`)
+  check('onTerminalCommitted carries it', committed?.status === 'completed' && committed?.errorCode === 'partial_match', JSON.stringify(committed))
+  check('and the page memory keeps it for a remounted panel', JSON.stringify(memory.get(SID)) === JSON.stringify({ status: 'completed', errorCode: 'partial_match' }), JSON.stringify(memory.get(SID)))
+  check('exactly one authority GET', fetches === 1, String(fetches))
+}
+{
+  // Control: any OTHER code on a completed session is still dropped (closed vocabulary); memory remembers null.
+  const timers = fakeTimers()
+  let reason = 'UNSET'
+  const memory = createTerminalMemory()
+  const session = createLiveSessionController({
+    engineSessionId: SID,
+    mintTicket: async () => rawTicket(),
+    fetchSession: async () => present9('completed', 'store_blocked'),
+    fetchImpl: eofBody,
+    setTimeoutImpl: timers.set,
+    clearTimeoutImpl: timers.clear,
+    onTerminalReason: (c) => { reason = c },
+    onTerminalCommitted: (info) => { claimTerminalAnnouncement(memory, SID, info.status, info.errorCode) },
+  })
+  session.start()
+  await drive(timers, () => session.getStatus() === 'completed')
+  check('completed + a non-caveat code commits null (not narrated)', session.getStatus() === 'completed' && reason === null, `${session.getStatus()} ${reason}`)
+  check('memory remembers the completed terminal without a code', JSON.stringify(memory.get(SID)) === JSON.stringify({ status: 'completed', errorCode: null }), JSON.stringify(memory.get(SID)))
+}
+
 {
   const stream = sseStream(); let resolveFetch; let fetches = 0
   const session = createLiveSessionController({

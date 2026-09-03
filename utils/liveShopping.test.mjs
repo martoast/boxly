@@ -104,6 +104,14 @@ const vp = (p) => validateProduct(p, NOW)
   check('null code tolerated', parseSessionStateResponse(present({ error_code: null }))?.errorCode === null)
   check("the sanitizer's own fallback literal passes through", parseSessionStateResponse(present({ error_code: 'failed' }))?.errorCode === 'failed')
   check('a reason on a NON-failed session is dropped, not narrated', parseSessionStateResponse(present({ status: 'completed', error_code: 'store_blocked' }))?.errorCode === null)
+  // The ONE completed caveat survives the parser (live 2026-09-03: the outcome-hint
+  // authority read committed the terminal with a nulled code and the remounted panel
+  // lost its amber card); everything else on a non-failed session still drops.
+  check('completed + partial_match keeps the caveat', parseSessionStateResponse(present({ status: 'completed', error_code: 'partial_match' }))?.errorCode === 'partial_match')
+  check('completed + any other code drops it', parseSessionStateResponse(present({ status: 'completed', error_code: 'store_blocked' }))?.errorCode === null)
+  check('completed + upper-case caveat drops (closed vocabulary, exact)', parseSessionStateResponse(present({ status: 'completed', error_code: 'PARTIAL_MATCH' }))?.errorCode === null)
+  for (const st of ['cancelled', 'running', 'pending']) check(`${st} + partial_match drops`, parseSessionStateResponse(present({ status: st, error_code: 'partial_match' }))?.errorCode === null)
+  check('failed + partial_match still passes as a failed reason (unchanged)', parseSessionStateResponse(present({ status: 'failed', error_code: 'partial_match' }))?.errorCode === 'partial_match')
 
   // Create's contract: running means no reason.
   check('create REFUSES a non-running session', parseSessionCreateResponse(wrapped(present({ status: 'failed' }))) === null)
