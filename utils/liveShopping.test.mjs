@@ -482,5 +482,19 @@ check('a full-match gallery carries no label', liveResultsCaveat({ products: [{}
   check('a failed fetch → null, never a throw', await readHistoryTerminal(async () => { throw new Error('offline') }, handle, null) === null)
 }
 
+// ── Spike 1 (Transport C): media.ready carries the engine's start-up timing; the reader ignores payload keys ──
+console.log('Spike 1: media.ready timing payload is ignored by the reader')
+{
+  const frame = (payload) => ({ id: 'sess-9:7', data: JSON.stringify({ schema_version: 1, id: 'sess-9:7', session_id: 'sess-9', seq: 7, type: 'media.ready', occurred_at: '2026-09-03T07:00:00Z', payload }) })
+  const timed = parseEventV1(frame({ api_created_ms: 412, children_ms: 430, first_frame_ms: 1900, connected_ms: 3500 }), 'sess-9')
+  check('media.ready with the four timing keys parses (the payload is carried, not interpreted)', timed !== null && timed.type === 'media.ready' && timed.payload.connected_ms === 3500)
+  check('the activity mapping reads the TYPE only: timing keys change nothing', eventActivity(timed.type) === 'media_ready')
+  const empty = parseEventV1(frame({}), 'sess-9')
+  check('an empty media.ready payload (older engine) parses the same', empty !== null && eventActivity(empty.type) === 'media_ready')
+  const junk = parseEventV1(frame({ anything: { nested: true }, extra: 'x' }), 'sess-9')
+  check('unknown payload keys on media.ready are ignored, never a parse failure', junk !== null && eventActivity(junk.type) === 'media_ready')
+  check('a non-object payload is still refused', parseEventV1(frame([1, 2]), 'sess-9') === null && parseEventV1(frame(null), 'sess-9') === null)
+}
+
 console.log(`\n${pass} passed, ${fail} failed`)
 process.exit(fail ? 1 : 0)
