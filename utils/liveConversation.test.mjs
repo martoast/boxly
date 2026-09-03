@@ -1,4 +1,5 @@
 import { createProjectionRefresh, hasProjectedLiveResults, projectionRetryDelay, shouldRefreshOnTerminal, shouldRetryProjection } from './liveConversation.ts'
+import { liveSessionIdFor } from './liveShopping.ts'
 
 let pass = 0; let fail = 0
 const check = (name, value) => { if (value) pass++; else { fail++; console.error(`FAIL ${name}`) } }
@@ -49,9 +50,9 @@ function fakeTimers() {
   }
 }
 // A world: the server projects tool-live_results at `projectAt` ms after the terminal (Infinity = never).
-function world({ projectAt = 2000, activeId = 42 } = {}) {
+function world({ projectAt = 2000, activeId = 42, reconcile = null } = {}) {
   const timers = fakeTimers()
-  const state = { activeId, messages: RUNNING, reloads: [], cacheDrops: 0 }
+  const state = { activeId, messages: RUNNING, reloads: [], cacheDrops: 0, reconciles: [], logs: [] }
   const chain = createProjectionRefresh({
     activeId: () => state.activeId,
     messages: () => state.messages,
@@ -59,8 +60,12 @@ function world({ projectAt = 2000, activeId = 42 } = {}) {
       state.cacheDrops++
       state.reloads.push({ id, at: timers.now() })
       await Promise.resolve()
-      state.messages = timers.now() >= projectAt ? PROJECTED : RUNNING
+      state.messages = timers.now() >= projectAt || state.projectedByReconcile ? PROJECTED : RUNNING
     },
+    ...(reconcile ? { reconcile: async (sid) => { state.reconciles.push({ sid, at: timers.now(), reloadsBefore: state.reloads.length }); await reconcile(state) } } : {}),
+    sessionIdFor: liveSessionIdFor,
+    log: (line) => state.logs.push(line),
+    now: timers.now,
     setTimeoutImpl: timers.set, clearTimeoutImpl: timers.clear,
   })
   return { timers, state, chain }
@@ -131,5 +136,55 @@ function world({ projectAt = 2000, activeId = 42 } = {}) {
   while (await w.timers.step()) { /* drain */ }
   check('and the superseding chain still reaches the projection with its own budget', hasProjectedLiveResults(w.state.messages) && w.timers.count() === 0 && w.state.reloads.length === 5)
 }
+// ── Item 3 (2026-09-03): ONE reconcile GET before reload #0 ─────────────────
+check('liveSessionIdFor: the last valid tool-live_verify handle', liveSessionIdFor(RUNNING) === '1003' && liveSessionIdFor(PROJECTED) === '1003')
+check('liveSessionIdFor: nothing valid ⇒ null', liveSessionIdFor([]) === null && liveSessionIdFor(undefined) === null && liveSessionIdFor([{ parts: [{ type: 'tool-live_verify', state: 'output-available', output: { localSessionId: 'x!', engineSessionId: 'nope', status: 'running' } }] }]) === null)
+check('liveSessionIdFor: a pending handle part does not count', liveSessionIdFor([{ parts: [{ type: 'tool-live_verify', state: 'input-available', output: { localSessionId: '1003', engineSessionId: 'dd25ac47-ebd0-4688-90c4-48ef9952d9b5', status: 'running' } }] }]) === null)
+{
+  // (r1) the reconcile persists the part (the API's show() runs the result job inline): reload #0 shows it, no retry, one GET.
+  const w = world({ projectAt: Infinity, reconcile: async (state) => { state.projectedByReconcile = true } })
+  void w.chain.onTerminal('completed')
+  await flush()
+  check('reconcile called exactly once, with the session id, BEFORE reload #0', w.state.reconciles.length === 1 && w.state.reconciles[0].sid === '1003' && w.state.reconciles[0].reloadsBefore === 0)
+  check('reload #0 already carries the gallery ⇒ no retry armed', w.state.reloads.length === 1 && hasProjectedLiveResults(w.state.messages) && !w.chain.hasPendingRetry() && w.timers.count() === 0)
+  check('the two timing lines', w.state.logs.length === 2 && w.state.logs[0] === '[live] terminal received; conversation 42; session 1003' && w.state.logs[1] === '[live] results projected on reload #0 at +0ms')
+}
+{
+  // (r2) the reconcile rejects: today's chain, byte for byte (reload #0, retries at +400/+1100/+2500), reconcile never repeated.
+  const w = world({ projectAt: 2000, reconcile: async () => { throw new Error('503') } })
+  void w.chain.onTerminal('completed')
+  await flush()
+  while (await w.timers.step()) { /* run the whole chain */ }
+  check('a rejected reconcile leaves the reload + retry chain unchanged', w.state.reloads.map((r) => r.at).join(',') === '0,400,1100,2500' && hasProjectedLiveResults(w.state.messages))
+  check('reconcile is never retried on the retries', w.state.reconciles.length === 1)
+  check('the projection line names the reload that showed the part', w.state.logs.at(-1) === '[live] results projected on reload #3 at +2500ms')
+}
+{
+  // (r3) cancel() while the reconcile is in flight: no reload afterwards.
+  let release
+  const w = world({ projectAt: Infinity, reconcile: () => new Promise((r) => { release = r }) })
+  void w.chain.onTerminal('completed')
+  await flush()
+  w.chain.cancel()
+  release(); await flush()
+  check('cancel() during the reconcile drops the chain before any reload', w.state.reconciles.length === 1 && w.state.reloads.length === 0 && w.timers.count() === 0)
+}
+{
+  // (r4) no valid handle in the conversation ⇒ no reconcile, the chain as today.
+  const w = world({ projectAt: 2000, reconcile: async () => {} })
+  w.state.messages = [{ parts: [{ type: 'text', text: 'hola' }] }]
+  void w.chain.onTerminal('completed')
+  await flush()
+  check('without a session id the reconcile is skipped and reload #0 still runs', w.state.reconciles.length === 0 && w.state.reloads.length === 1 && w.state.logs[0].endsWith('session unknown'))
+}
+{
+  // (r5) no reconcile dep at all (older callers): exactly today's behaviour.
+  const w = world({ projectAt: 2000 })
+  void w.chain.onTerminal('completed')
+  await flush()
+  while (await w.timers.step()) { /* run */ }
+  check('no reconcile dep ⇒ the unchanged chain', w.state.reconciles.length === 0 && w.state.reloads.map((r) => r.at).join(',') === '0,400,1100,2500')
+}
+
 console.log(`${pass} passed, ${fail} failed`)
 process.exit(fail ? 1 : 0)

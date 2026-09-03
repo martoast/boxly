@@ -446,6 +446,15 @@ check('capability-unavailable copy is honest and keeps the conversation going', 
 check('a partial_match gallery carries the visible constraint-missing label', liveResultsCaveat({ products: [{}], caveat: 'partial_match' }) === 'Verificado en la tienda, pero no cumple todo lo que pediste — revisa los detalles antes de decidir.')
 check('a full-match gallery carries no label', liveResultsCaveat({ products: [{}] }) === '' && liveResultsCaveat(null) === '' && liveResultsCaveat({ caveat: 'other' }) === '')
 
+// Item 3: liveSessionIdFor — the last valid tool-live_verify handle in a conversation.
+{
+  const { liveSessionIdFor } = await import('./liveShopping.ts')
+  const handle = (localSessionId, status = 'running') => ({ type: 'tool-live_verify', state: 'output-available', output: { localSessionId, engineSessionId: 'dd25ac47-ebd0-4688-90c4-48ef9952d9b5', status } })
+  check('liveSessionIdFor: the last valid handle wins', liveSessionIdFor([{ parts: [handle('1001')] }, { parts: [{ type: 'text', text: 'x' }, handle('1003')] }]) === '1003')
+  check('liveSessionIdFor: nothing valid ⇒ null', liveSessionIdFor([]) === null && liveSessionIdFor(undefined) === null && liveSessionIdFor([{ parts: [{ ...handle('x!'), output: { localSessionId: 'x!', engineSessionId: 'nope', status: 'running' } }] }]) === null)
+  check('liveSessionIdFor: a pending handle part does not count', liveSessionIdFor([{ parts: [{ ...handle('1003'), state: 'input-available' }] }]) === null)
+}
+
 // A.1: readHistoryTerminal — hydrate a history-terminal panel's reason from the authority, and nothing else.
 {
   const { readHistoryTerminal } = await import('./liveShopping.ts')

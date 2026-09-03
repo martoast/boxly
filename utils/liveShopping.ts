@@ -532,6 +532,22 @@ export function validateSessionHandle(h: any): SessionHandle | null {
   return { localSessionId: local, engineSessionId: engine, status }
 }
 
+/**
+ * Item 3 (2026-09-03): the Laravel session id of the LAST live session in a
+ * conversation (the persisted tool-live_verify handle, validated), so the
+ * post-terminal refresh chain can ask the API to reconcile that session before
+ * its first reload. Null when no valid handle is present.
+ */
+export function liveSessionIdFor(messages: any[]): string | null {
+  let found: string | null = null
+  for (const m of messages || []) for (const p of m?.parts || []) {
+    if (p?.type !== 'tool-live_verify' || p.state !== 'output-available') continue
+    const handle = validateSessionHandle(p.output)
+    if (handle) found = handle.localSessionId
+  }
+  return found
+}
+
 // ── Viewer ticket ────────────────────────────────────────────────────────────
 
 export interface ViewerTicket {

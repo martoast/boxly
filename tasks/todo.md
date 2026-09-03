@@ -1317,3 +1317,15 @@ history branch falls back to `live.terminalReason` when there is no memory (a re
 wins). Tests: parser (+6), panel dom (+5: hydrated caveat, no code → green, before the answer → green,
 memory wins). No push.
 
+## Item 3 — customer-visible overhead after the engine terminal (2026-09-03, lead measured 5–6 s)
+Plan: the webhook's result job rides the database queue (one worker, `--sleep=1`); the panel's terminal
+fires the refresh chain at once, so reload #0 raced ahead of the part and the gallery landed on retry #2/#3
+(+1.1 s / +2.5 s) or not at all within the bounded chain. `GET /live-shopping/sessions/{id}` already
+reconciles the engine terminal and runs `ProcessLiveShoppingResultJob` inline, so `createProjectionRefresh`
+now awaits ONE `reconcile(sessionId)` (that GET, session id from the conversation's last valid
+tool-live_verify handle) before reload #0 — errors swallowed, never repeated on retries, dropped by
+`cancel()`; the 400/700/1400 retries stay as the fallback. Two `console.debug` lines (terminal received /
+first reload showing the part, with +ms) so the hop is measured customer-side. Tests: liveConversation
+(+10). boxly-api: no change (noted there). Optional, separate: mount the panel on the tool's
+`input-available` state ("Abriendo la tienda…"). No push.
+

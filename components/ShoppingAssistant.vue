@@ -2086,6 +2086,10 @@ const liveRefresh = createProjectionRefresh({
     msgCache.delete(id)
     await openChat(id, { preserveLiveRefresh: true })
   },
+  // Item 3: the status read reconciles the engine terminal and persists the
+  // gallery part inline, so the first reload already carries it.
+  reconcile: (sessionId) => $customFetch(`/live-shopping/sessions/${sessionId}`),
+  sessionIdFor: liveSessionIdFor,
 })
 function cancelLiveRefresh() { liveRefresh.cancel() }
 

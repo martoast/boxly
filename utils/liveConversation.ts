@@ -56,6 +56,20 @@ export interface ProjectionRefreshDeps {
   activeId: () => number | string | null | undefined
   messages: () => any[]
   reload: (id: number) => Promise<void>
+  /**
+   * Item 3 (2026-09-03, measured 5–6 s terminal→gallery): the webhook's result
+   * job rides the database queue (one worker, --sleep=1), so reload #0 almost
+   * always raced ahead of it and the gallery landed on retry #2 or #3. GET
+   * /live-shopping/sessions/{id} reconciles the engine terminal and runs that
+   * job INLINE, so awaiting it ONCE before reload #0 puts the part in place for
+   * the first reload. Errors are swallowed; the retries stay as the fallback.
+   */
+  reconcile?: (sessionId: string) => Promise<unknown>
+  /** The session id to reconcile, read from the conversation (liveSessionIdFor in utils/liveShopping). */
+  sessionIdFor?: (messages: any[]) => string | null
+  /** Two customer-side timing lines (terminal received / first reload showing the part). */
+  log?: (line: string) => void
+  now?: () => number
   setTimeoutImpl?: (fn: () => void, ms: number) => any
   clearTimeoutImpl?: (id: any) => void
 }
@@ -67,6 +81,9 @@ export function createProjectionRefresh(deps: ProjectionRefreshDeps) {
   const clearPending = () => { if (timer !== null) clearT(timer); timer = null }
   /** Navigation / new chat / unmount: drop the pending retry and retire every in-flight chain. */
   const cancel = () => { clearPending(); generation++ }
+  const now = deps.now || (() => Date.now())
+  const log = deps.log || ((line: string) => { try { console.debug(line) } catch { /* never */ } })
+  let terminalAt = 0
 
   async function run(attempt: number, expectedId: number | null, gen: number): Promise<void> {
     const id = Number(expectedId ?? deps.activeId())
@@ -78,8 +95,20 @@ export function createProjectionRefresh(deps: ProjectionRefreshDeps) {
     // Already projected ⇒ nothing to refresh (this is what breaks the remount
     // loop, see shouldRefreshOnTerminal). The pending chain was cleared above.
     if (!shouldRefreshOnTerminal(deps.messages())) return
+    if (attempt === 0) {
+      // Item 3: ask the API to reconcile the session ONCE (its show() runs the
+      // result job inline) so reload #0 already carries the gallery part.
+      terminalAt = now()
+      const sessionId = deps.sessionIdFor ? deps.sessionIdFor(deps.messages()) : null
+      log(`[live] terminal received; conversation ${id}; session ${sessionId ?? 'unknown'}`)
+      if (sessionId && deps.reconcile) {
+        try { await deps.reconcile(sessionId) } catch { /* the reload + retries remain the fallback */ }
+        if (gen !== generation || Number(deps.activeId()) !== id) return
+      }
+    }
     await deps.reload(id)
     if (gen !== generation || Number(deps.activeId()) !== id) return
+    if (hasProjectedLiveResults(deps.messages())) log(`[live] results projected on reload #${attempt} at +${now() - terminalAt}ms`)
     // A normal SSE terminal can beat the webhook projector by about a second
     // (measured live: ~2 s). Three bounded backoff reads cover that race; the
     // fixed budget forbids open-ended polling.
