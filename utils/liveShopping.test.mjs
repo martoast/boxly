@@ -515,5 +515,16 @@ console.log('outcome reason payload is ignored by the reader')
   check('an unknown extra key on worker.progress is ignored, never a parse failure', parseEventV1(frame({ phase: 'outcome', outcome: 'partial', reason: 'x', extra: { nested: true } }), 'sess-9') !== null)
 }
 
+// ── media.failed carries {error_code, reason, blocking_line} (Task B); the reader maps the TYPE only ──
+console.log('media.failed detail payload is ignored by the reader')
+{
+  const frame = (payload) => ({ id: 'sess-9:8', data: JSON.stringify({ schema_version: 1, id: 'sess-9:8', session_id: 'sess-9', seq: 8, type: 'media.failed', occurred_at: '2026-09-03T09:50:00Z', payload }) })
+  const detailed = parseEventV1(frame({ error_code: 'capture_start_failed', reason: 'nvenc_driver_too_old', blocking_line: '[h264_nvenc @ 0x5] Driver does not support the required nvenc API version.' }), 'sess-9')
+  check('media.failed with the three keys parses and maps to media_failed', detailed !== null && eventActivity(detailed.type) === 'media_failed' && detailed.payload.reason === 'nvenc_driver_too_old')
+  const legacy = parseEventV1(frame({ error_code: 'capture_exited' }), 'sess-9')
+  check('media.failed with only error_code (older engine) parses the same', legacy !== null && eventActivity(legacy.type) === 'media_failed')
+  check('unknown extra keys on media.failed are ignored, never a parse failure', parseEventV1(frame({ error_code: 'x', reason: 'y', blocking_line: null, extra: 1 }), 'sess-9') !== null)
+}
+
 console.log(`\n${pass} passed, ${fail} failed`)
 process.exit(fail ? 1 : 0)
