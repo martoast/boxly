@@ -1329,3 +1329,27 @@ first reload showing the part, with +ms) so the hop is measured customer-side. T
 (+10). boxly-api: no change (noted there). Optional, separate: mount the panel on the tool's
 `input-available` state ("Abriendo la tienda…"). No push.
 
+## Multi-store sessions — PLAN ONLY (2026-09-03; L3, behind a flag, lands after the engine's L1 and the API's L2)
+Contract: one session, N store workers, one merged gallery ranked by the engine across stores, one row per
+store in the panel, per-store caveats. Full brief: `MULTI_STORE_PLAN.md` in the engine repo.
+- [ ] Flag `liveShoppingMultiStore` (read at request time like `liveShoppingEnabled`), off by default.
+- [ ] Tool schema (`server/utils/liveVerifyContract.ts:31`): `store_ids: z.array(enum).min(1).max(max_stores_per_session)`;
+      `server/api/assistant.post.ts` posts `store_ids`; the prompt maps "compare across stores" to the catalog's
+      default set (the first N enabled entries in catalog order) and never invents a store; contract test updated.
+- [ ] Parser (`utils/liveShopping.ts`): create/state responses read the ten-key `present()` with `stores`
+      (`CREATE_DATA_KEYS` :443-449 in lockstep with the API); `EventV1` types unchanged; the controller reads
+      `payload.store_id` on `worker.progress`/`candidate` and keeps per-store state (status per store; candidates
+      grouped by `product.store_id`, already a ProductV1 key :180); the session terminal as today.
+- [ ] `components/LiveShoppingPanel.vue`: one panel, N rows — per-store badge (preparing / browsing / per-store
+      terminal from the outcome progress) and per-store candidate list; one video plane (per-store video is out of
+      scope; the engine's media publisher is null today).
+- [ ] Gallery (`components/ShoppingAssistant.vue:329`, `liveResultsCaveat`): products in the engine's merged rank;
+      per-store caveat lines from `output.stores`; the store label already on each card (`utils/galleryCard.ts:59`).
+- [ ] Refresh chain / reconcile GET: unchanged (one session terminal).
+- [ ] Tests: contract (schema); parser (stores key, per-store codes); harness (per-store rows from stamped events; a
+      store outcome before the session terminal); panel dom (two rows, per-store badges, per-store caveat copy);
+      gallery caveat copy.
+- [ ] Live check (lead, flag on locally): ONE controlled two-store session with the engine cap at 2, compared to the
+      single-store baseline on per-store turn count, engine seconds, bridge call p50/p95, `Refused:` and
+      `NOT VERIFIED` counts, terminal outcome/caveat per store.
+
