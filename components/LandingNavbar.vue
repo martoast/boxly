@@ -27,24 +27,6 @@
             {{ t.home }}
           </NuxtLink>
 
-          <!-- Boxly AI search — supplementary pipeline, styled distinct so it
-               reads as the exciting new option. -->
-          <NuxtLink
-            to="/app/search"
-            class="inline-flex items-center gap-1.5 font-semibold transition-colors duration-200"
-            :class="isActiveRoute('/app/search') ? 'text-primary-600' : 'text-gray-700 hover:text-primary-600'"
-          >
-            <svg class="w-4 h-4 text-primary-500" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 5.1L19 9l-5.1 1.9L12 16l-1.9-5.1L5 9l5.1-1.9L12 2z"/></svg>
-            {{ t.searchAI }}
-          </NuxtLink>
-
-          <NuxtLink
-            to="/app/browse"
-            class="transition-colors duration-200"
-            :class="isActiveRoute('/app/browse') ? 'text-primary-600' : 'text-gray-700 hover:text-primary-600'"
-          >
-            {{ t.liveStores }}
-          </NuxtLink>
 
           <NuxtLink
             to="/how-it-works"
@@ -224,24 +206,6 @@
             {{ t.home }}
           </NuxtLink>
 
-          <NuxtLink
-            to="/app/search"
-            @click="mobileMenuOpen = false"
-            class="flex items-center gap-2 px-3 py-2 rounded-md text-base font-semibold"
-            :class="isActiveRoute('/app/search') ? 'bg-primary-50 text-primary-600' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'"
-          >
-            <svg class="w-4 h-4 text-primary-500" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 5.1L19 9l-5.1 1.9L12 16l-1.9-5.1L5 9l5.1-1.9L12 2z"/></svg>
-            {{ t.searchAI }}
-          </NuxtLink>
-
-          <NuxtLink
-            to="/app/browse"
-            @click="mobileMenuOpen = false"
-            class="block px-3 py-2 rounded-md text-base font-medium"
-            :class="isActiveRoute('/app/browse') ? 'bg-primary-50 text-primary-600' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'"
-          >
-            {{ t.liveStores }}
-          </NuxtLink>
 
           <NuxtLink
             to="/how-it-works"

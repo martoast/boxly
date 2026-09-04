@@ -49,34 +49,6 @@
               {{ t.dashboard }}
             </button>
 
-            <!-- AI search — the flagship shopping assistant (its own page now) -->
-            <button
-              @click="handleNavigation('/app/search')"
-              :class="[
-                isActiveRoute('/app/search')
-                  ? 'border-primary-500 text-primary-700'
-                  : 'border-transparent text-primary-600 hover:border-primary-300 hover:text-primary-700',
-                'inline-flex items-center border-b-2 px-1 pt-1 text-sm font-semibold transition-colors duration-200',
-              ]"
-            >
-              <svg class="w-4 h-4 mr-1.5" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2l1.7 5.6L19 9l-5.3 1.4L12 16l-1.7-5.6L5 9l5.3-1.4z"/>
-              </svg>
-              {{ t.aiSearch }}
-            </button>
-
-            <!-- Live stores — the customer-driven streamed store browser -->
-            <button
-              @click="handleNavigation('/app/browse')"
-              :class="[
-                isActiveRoute('/app/browse')
-                  ? 'border-primary-500 text-gray-900'
-                  : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700',
-                'inline-flex items-center border-b-2 px-1 pt-1 text-sm font-medium transition-colors duration-200',
-              ]"
-            >
-              {{ t.liveStores }}
-            </button>
 
             <!-- Pricing -->
             <button
@@ -409,38 +381,6 @@
           </div>
         </DisclosureButton>
 
-        <!-- AI search -->
-        <DisclosureButton
-          as="button"
-          @click="handleNavigation('/app/search')"
-          :class="[
-            isActiveRoute('/app/search')
-              ? 'bg-primary-50 border-primary-500 text-primary-700'
-              : 'border-transparent text-primary-600 hover:bg-primary-50 hover:border-primary-300',
-            'block border-l-4 py-2 pl-3 pr-4 text-base font-semibold sm:pl-5 sm:pr-6 w-full text-left',
-          ]"
-        >
-          <div class="flex items-center">
-            <svg class="w-5 h-5 mr-3" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2l1.7 5.6L19 9l-5.3 1.4L12 16l-1.7-5.6L5 9l5.3-1.4z"/>
-            </svg>
-            {{ t.aiSearch }}
-          </div>
-        </DisclosureButton>
-
-        <!-- Live stores -->
-        <DisclosureButton
-          as="button"
-          @click="handleNavigation('/app/browse')"
-          :class="[
-            isActiveRoute('/app/browse')
-              ? 'bg-primary-50 border-primary-500 text-primary-700'
-              : 'border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300',
-            'block border-l-4 py-2 pl-3 pr-4 text-base font-medium sm:pl-5 sm:pr-6 w-full text-left',
-          ]"
-        >
-          {{ t.liveStores }}
-        </DisclosureButton>
 
         <!-- Pricing -->
         <DisclosureButton
