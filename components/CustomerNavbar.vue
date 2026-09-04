@@ -49,6 +49,21 @@
               {{ t.dashboard }}
             </button>
 
+            <!-- AI search — product discovery on the Boxly catalog -->
+            <button
+              @click="handleNavigation('/app/search')"
+              :class="[
+                isActiveRoute('/app/search')
+                  ? 'border-primary-500 text-primary-700'
+                  : 'border-transparent text-primary-600 hover:border-primary-300 hover:text-primary-700',
+                'inline-flex items-center border-b-2 px-1 pt-1 text-sm font-semibold transition-colors duration-200',
+              ]"
+            >
+              <svg class="w-4 h-4 mr-1.5" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2l1.7 5.6L19 9l-5.3 1.4L12 16l-1.7-5.6L5 9l5.3-1.4z"/>
+              </svg>
+              {{ t.aiSearch }}
+            </button>
 
             <!-- Pricing -->
             <button

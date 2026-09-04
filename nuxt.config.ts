@@ -48,16 +48,13 @@ export default defineNuxtConfig({
     // The redirects stay for bookmarks, old share links and anything still
     // pointing at the previous paths; every internal link now targets
     // /app/search directly, so nothing depends on a redirect preserving ?q=.
-    // The AI search (/app/search) is removed. These legacy bookmark paths now
-    // land on the homepage; the in-app one goes to /app (the live store browser).
-    '/assistant':     { redirect: '/' },
-    '/app/assistant': { redirect: '/app' },
-    '/buscar':        { redirect: '/' },
-    '/buscar/**':     { redirect: '/' },
-    '/search':        { redirect: '/' },
-    '/search/**':     { redirect: '/' },
-    '/app/search':    { redirect: '/app' },
-    '/app/search/**': { redirect: '/app' },
+    // Legacy bookmark paths → the AI search.
+    '/assistant':     { redirect: '/app/search' },
+    '/app/assistant': { redirect: '/app/search' },
+    '/buscar':        { redirect: '/app/search' },
+    '/buscar/**':     { redirect: '/app/search' },
+    '/search':        { redirect: '/app/search' },
+    '/search/**':     { redirect: '/app/search' },
     // /shop was the Boxly Store, since removed — every one of those URLs 404s
     // today. Search Console still shows /shop at position 2.3 with 351
     // impressions over 12 months, plus the product pages beneath it
