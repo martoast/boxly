@@ -24,8 +24,9 @@ import { chatModel, isGoogle, providerOptions, hasModelKey } from '../utils/aiPr
 const API_BASE = (process.env.API_URL || 'https://api.boxly.mx').replace(/\/$/, '')
 
 // The Boxly product catalog (our SERP replacement): products harvested from our
-// favorite stores by the computer-use agents, served under the fullstack domain.
-const CATALOG_API = (process.env.CATALOG_API_URL || 'https://catalog.fullstacklabs.org').replace(/\/$/, '')
+// favorite stores by the computer-use agents. The app reaches it through the
+// Boxly API's /catalog/search, which proxies the standalone catalog service on
+// the fullstack domain (app → Boxly API → catalog API).
 async function searchCatalogApi({ query, store, max_price, sale }: { query?: string; store?: string; max_price?: number; sale?: boolean }) {
   const qs = new URLSearchParams()
   if (query) qs.set('q', query)
@@ -35,11 +36,7 @@ async function searchCatalogApi({ query, store, max_price, sale }: { query?: str
   qs.set('limit', '16')
   let products: any[] = []
   try {
-    const ctrl = new AbortController()
-    const to = setTimeout(() => ctrl.abort(), 12000)
-    const res = await fetch(`${CATALOG_API}/catalog/search?${qs}`, { signal: ctrl.signal })
-    clearTimeout(to)
-    const data: any = res.ok ? await res.json() : null
+    const data: any = await callApi(`/catalog/search?${qs.toString()}`, { timeoutMs: 12000 })
     products = Array.isArray(data?.products) ? data.products : []
   } catch { products = [] }
   // Map the catalog shape to the gallery's product shape.
