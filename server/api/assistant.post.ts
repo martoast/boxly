@@ -48,8 +48,12 @@ async function searchCatalogApi(a: CatalogSearchArgs) {
     const data: any = await callApi(`/catalog/search?${qs.toString()}`, { timeoutMs: 12000 })
     products = Array.isArray(data?.products) ? data.products : []
   } catch { products = [] }
-  // Map the catalog shape to the gallery's product shape.
-  const mapped = products.map((p: any) => ({
+  return { products: products.map(toGalleryProduct), source: 'catalog' }
+}
+
+// One catalog/live SERP row → the gallery's product shape.
+function toGalleryProduct(p: any) {
+  return {
     title: p.title,
     url: p.url,
     source_url: p.url,
@@ -64,8 +68,33 @@ async function searchCatalogApi(a: CatalogSearchArgs) {
     availability: p.availability,
     see_in_cart: p.see_in_cart,
     seen_at: p.seen_at,
-  }))
-  return { products: mapped, source: 'catalog' }
+  }
+}
+
+// The live-grab fallback: fetch a specific product our catalog doesn't have with the
+// computer-use agent (a pasted link, or store+query). Heavy (~7-9s) — the AI only
+// reaches for it on a genuine catalog miss or a pasted link. Fails SOFT: any error/
+// block/miss comes back as empty products plus a `reason` the model can act on.
+async function liveGrabApi(a: { url?: string; store?: string; query?: string }) {
+  let data: any = {}
+  try {
+    data = await callApi('/catalog/live-grab', { method: 'POST', body: a, timeoutMs: 58000 })
+  } catch { data = { error: 'unreachable' } }
+  // Upstream returns {product} (exact) | {products, note:'closest'} | {error|blocked|no_match|busy}.
+  const raw: any[] = Array.isArray(data?.products) ? data.products : (data?.product ? [data.product] : [])
+  const reason: string | null = data?.error ? String(data.error)
+    : data?.blocked ? 'blocked'
+    : data?.busy ? 'busy'
+    : data?.no_match ? 'no_match'
+    : null
+  return {
+    products: raw.map(toGalleryProduct),
+    live: true,
+    exact: !!data?.product,
+    note: data?.note || null, // 'closest' when the exact item wasn't found
+    reason,                    // null on success; a code the model can explain otherwise
+    source: 'live',
+  }
 }
 // Which model/provider runs this chat is decided centrally in ../utils/aiProvider
 // (chatModel()), so the whole app can switch between Gemini and Claude via env.
@@ -121,7 +150,7 @@ function lastUserText(messages: any[]): string {
   return ''
 }
 
-const PRODUCT_TOOLS = new Set(['search_products', 'browse_store', 'browse_stores', 'show_products', 'show_saved_products', 'extract_product', 'web_search'])
+const PRODUCT_TOOLS = new Set(['search_products', 'find_live_product', 'browse_store', 'browse_stores', 'show_products', 'show_saved_products', 'extract_product', 'web_search'])
 
 // Is this search a PURE store/brand lookup (e.g. "Rhode", "Gymshark", "productos
 // de Nike") rather than an attribute search ("owala rosa", "black wide-leg jeans")?
@@ -148,7 +177,7 @@ function isPureStoreQuery(query: string, store?: string): boolean {
 // toolset for the rest of the turn — so the model physically cannot fire a second
 // (often empty) gallery. Claude obeyed the prompt rule; Gemini does not, calling a
 // gallery tool again in a later step and rendering a duplicate empty gallery.
-const GALLERY_TOOLS = ['search_products', 'browse_store', 'browse_stores', 'show_products', 'show_saved_products']
+const GALLERY_TOOLS = ['search_products', 'find_live_product', 'browse_store', 'browse_stores', 'show_products', 'show_saved_products']
 // Everything the model may still use AFTER a gallery has rendered (write text, add
 // follow-ups, build the shipment, take the order) — i.e. all tools minus GALLERY_TOOLS.
 const NON_GALLERY_TOOLS = [
@@ -575,6 +604,12 @@ You are a SHOPPING COMPANION and DEAL FINDER. Deals are your HEADLINE, not a fil
 
 Your tools, and when to use them:
 - search_products(query, store?) — YOUR DEFAULT and FIRST move for EVERY product request, in or out of the directory. It reads Boxly's OWN catalog, so it comes back INSTANTLY (no waiting on a live store) already led by the best deals — this is what makes the reply feel fast, so reach for it first every time. It's UNIVERSAL — it covers EVERY US brand and store, so NEVER tell the customer you don't have a way to search a specific store (e.g. Adidas); you always do — just call search_products with that brand as store. It returns a rich gallery (often 12-16 items) with images, prices, and the store each is from. Use the STRUCTURED params — category for the product type, store/brands for the brand, min_price/max_price for budget, min_discount for deal depth, sort for ordering — and leave ONLY the look-descriptors (color, fit, material, model) in query. ALWAYS put the brand in store, never repeat it inside query ({category:"clothing", store:"Adidas"}, never {query:"Adidas men clothing", store:"Adidas"}). The query never has to be "short to be safe" anymore — extra descriptive words only rank, they don't empty the result — but the category/brand/price belong in their own params. Because query ranks instead of gating, a search almost never comes back empty; if it truly does, fall back to browse_store for a directory brand, or web_search otherwise. Only use web_search + show_products as a last resort, and never present a store homepage as a product.
+- find_live_product(url? / store?+query?) — the LIVE fallback when the CATALOG can't answer. WHEN TO USE IT (be smart — this is slower, ~10s, and heavier than the catalog, so it's the exception, never the default):
+  1. The user PASTED A PRODUCT LINK → call find_live_product({url}) RIGHT AWAY (do NOT search_products first — you already have the exact item). Our agent opens that page and returns the product with its real image + US price.
+  2. They want a SPECIFIC product and search_products didn't actually have it — you SEE the returned titles and they clearly aren't the thing they asked for (a specific model/colour we don't carry). Then say so honestly and fetch it live: find_live_product({store, query}) with the brand in store and the model in query (e.g. {store:"Nike", query:"air max 90 red"}).
+  DO IT SMOOTHLY: open with ONE short line so the reply talks instantly ("Va, déjame buscarlo en vivo un momento 🔎") and fire the tool in the SAME turn — the live loader covers the wait. It works for Nike, Best Buy and Walmart today.
+  NEVER use it for browsing, a category, or a general search — the catalog (search_products) is ALWAYS the first, fast move. find_live_product is only for a pasted link or a confirmed catalog miss of a specific item.
+  READ THE RESULT: if it returns the product (or the closest matches), present the gallery and drive to the purchase request — this is exactly the point (the customer can order it through Boxly even though it wasn't in our catalog). If it flags the result as "closest" (not exact), say plainly it's the closest we could pull and offer to take a direct link. If it comes back empty with a reason — "store_cooling_down" or "unknown_store" means we can't fetch that store live right now (offer to take a link, or note we'll add it); "blocked", "no_match" or "busy" means it didn't work this time (say so briefly and offer to try again or take a link). Never invent a product when it returns nothing.
   RESULTS ARE RANKED BY RELEVANCE — JUDGE THEM YOURSELF. The gallery comes back with the best matches FIRST, and you can SEE each item's title. So look at what came back and match it against what the customer asked. If the top items ARE what they wanted, present them confidently. If we don't have the EXACT thing (they asked for "wide-leg jeans" and the closest we carry is straight-leg, or a specific print/model isn't there), be honest and helpful: these are the closest options we have — say so plainly and show them anyway ("No tengo ese exacto, pero mira estas opciones parecidas 👇 — ¿alguna te late?"). NEVER claim you found the exact thing when the titles clearly don't match. If they named a very specific product/model/link we don't stock, offer to get it for them: "si me pasas el link te lo consigo" (we can fetch it live). Showing a close, relevant set beats an empty gallery every time.
 - REFINING / FILTERING (CRITICAL — this is where your intelligence shows). YOU do the semantic understanding of what the shopper means, then express it as STRUCTURED FILTERS. Don't dump everything into one text query — map each part of their request to the RIGHT param, because the structured filters are reliable and the query text only ranks. Whenever they narrow, run a NEW search_products call carrying ALL still-active filters (keep the old ones, add the new one). Map each kind:
   • product TYPE ("jeans", "hoodies", "running shoes", "dresses") → category (the strongest, most dependable filter — always set it when they name a type; keeps the gallery on-topic).
@@ -859,6 +894,17 @@ export default defineEventHandler(async (event) => {
           const r: any = await searchCatalogApi({ query, store, brands, category, min_price, max_price, min_discount, sale, sort })
           return markGallery(r)
         },
+        toModelOutput: galleryModelOutput,
+      }),
+
+      find_live_product: tool({
+        description: "LIVE product fetch with our OWN shopping agent — the fallback for when the catalog can't answer. Use it in EXACTLY two cases: (1) the user PASTED a product link → pass {url}; (2) they want a SPECIFIC product that search_products just didn't have → pass {store, query}. It sends the agent to the store and grabs that exact product in real time. It's SLOWER (~10s), so open with ONE short line first ('Va, déjame buscarlo en vivo un momento… 🔎') — the loader shows while it works. Works for Nike, Best Buy and Walmart today. Returns the product (or the closest matches) with a real image + US price, ready to add to a purchase request. NEVER use it for browsing, categories, or a general search — search_products (the catalog) is ALWAYS your first, fast move; find_live_product is only for a miss or a pasted link.",
+        inputSchema: z.object({
+          url: z.string().describe('The exact product URL the user pasted. Use this form for a pasted link (no store/query needed).').optional(),
+          store: z.string().describe('Store to search live, e.g. "Nike" (typos are fine). Use WITH query when the user named a product but gave no link.').optional(),
+          query: z.string().describe('The specific product to find, short, e.g. "air max 90 red" or "pegasus 41". No store words here — put those in store.').optional(),
+        }),
+        execute: async ({ url, store, query }) => markGallery(await liveGrabApi({ url, store, query })),
         toModelOutput: galleryModelOutput,
       }),
 

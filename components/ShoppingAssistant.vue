@@ -337,6 +337,13 @@
 
                     <LazySearchLoader v-else-if="part.type === 'tool-search_products' && part.state !== 'output-available'" />
 
+                    <!-- Live grab: our agent is fetching a specific product from the store
+                         in real time (~10s). Its own themed loader for that longer wait. -->
+                    <LazySearchLoader
+                      v-else-if="part.type === 'tool-find_live_product' && part.state !== 'output-available'"
+                      :messages="['Buscándolo en vivo en la tienda…', 'Abriendo la página del producto…', 'Trayendo precio e imagen…', 'Un momento, casi listo…']"
+                    />
+
                     <LazySearchLoader
                       v-else-if="(part.type === 'tool-browse_store' || part.type === 'tool-browse_stores') && part.state !== 'output-available'"
                       :messages="['Revisando tiendas…', 'Abriendo el catálogo…', 'Trayendo lo mejor de la tienda…']"
@@ -1172,7 +1179,7 @@ function ensureCardImages(list) {
 }
 
 const isBusy = computed(() => chat.status === 'streaming' || chat.status === 'submitted')
-const GALLERY_TOOLS = ['tool-show_products', 'tool-browse_store', 'tool-browse_stores', 'tool-search_products', 'tool-show_saved_products']
+const GALLERY_TOOLS = ['tool-show_products', 'tool-browse_store', 'tool-browse_stores', 'tool-search_products', 'tool-find_live_product', 'tool-show_saved_products']
 function isGalleryTool(part) { return GALLERY_TOOLS.includes(part?.type) }
 // Merge ALL text parts of a message into one string so a multi-step reply renders
 // in ONE bubble instead of fragmenting into many (the "split bubbles" bug).
@@ -1238,7 +1245,7 @@ function showNoResults(m, part) {
 // Tool calls that render their OWN in-place loader (spinner/SearchLoader) while
 // running — for these we don't also show the bottom dots (that'd double up).
 const TOOLS_WITH_LOADER = new Set([
-  'tool-search_products', 'tool-browse_store', 'tool-browse_stores',
+  'tool-search_products', 'tool-find_live_product', 'tool-browse_store', 'tool-browse_stores',
   'tool-web_search', 'tool-show_orders', 'tool-plan_in_person',
 ])
 // Keep a loading indicator visible WHENEVER the assistant is working, so the chat
