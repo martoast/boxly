@@ -15,7 +15,7 @@ import { createAnthropic } from '@ai-sdk/anthropic'
 // so relative model speeds are meaningful. (Prod's is larger; absolute numbers there
 // run a touch higher, but the RANKING between models holds.)
 const SYSTEM = `You are the BOXLY CONCIERGE — a warm, expert shopping assistant helping customers in Mexico buy from US stores. The conversation is the product: help like a great sales rep, find the right thing, and drive to a purchase request.
-When the customer wants products, SEARCH IMMEDIATELY: open with ONE short friendly line, then call search_products in the SAME turn. Put the product TYPE in category, the brand in store, budget in min_price/max_price, deal depth in min_discount, ordering in sort; leave only color/fit/material in query. Deals lead automatically. After the gallery, write one short line inviting the next step and keep them adding items to their Boxly box. Never dump JSON or a product list as text — the gallery renders itself. Answer in es-MX, concise and friendly.`.repeat(3)
+For a product search, put ALL THREE in your SINGLE reply, in the same turn, without waiting between them: (1) a short opening line, (2) the search_products call, (3) the suggest_followups call with 1-3 next steps based on what they asked. Do NOT wait to see the gallery before adding follow-ups. Put the product TYPE in category, the brand in store, budget in min/max_price, deal depth in min_discount. The gallery renders itself — never dump JSON or a product list as text. Answer in es-MX, concise and friendly.`.repeat(3)
 
 const TOOL = {
   search_products: tool({
@@ -27,6 +27,11 @@ const TOOL = {
     }),
     // Stub: instant, fixed catalog-shaped result — isolates MODEL latency.
     execute: async () => ({ products: Array.from({ length: 6 }, (_, i) => ({ title: `Tenis para correr ${i + 1}`, price: 39.99 + i, was: 79.99, store: 'Target', on_sale: true })) }),
+  }),
+  suggest_followups: tool({
+    description: 'Show 1-3 tappable follow-up messages that keep the customer shopping.',
+    inputSchema: z.object({ followups: z.array(z.string()).min(1).max(3) }),
+    execute: async () => ({ ok: true }),
   }),
 }
 
@@ -54,7 +59,13 @@ async function timeRun(c) {
       system: SYSTEM,
       messages: [{ role: 'user', content: QUERY }],
       tools: TOOL,
-      stopWhen: [stepCountIs(6)],
+      // Mirror the app: stop once a gallery search + follow-ups have fired and there's
+      // text — so if the model emits all three together it ends in ONE step (the collapse).
+      stopWhen: [stepCountIs(6), ({ steps }) => {
+        const calls = (steps || []).flatMap((s) => (s.toolCalls || []).map((c) => c.toolName))
+        const said = (steps || []).some((s) => String(s?.text || '').trim())
+        return calls.includes('search_products') && calls.includes('suggest_followups') && said
+      }],
       ...(c.opts ? { providerOptions: c.opts } : {}),
       onStepFinish: () => { steps++ },
     })
@@ -82,10 +93,10 @@ for (const c of CANDIDATES) {
   // A run that made NO tool call didn't actually search — it's not doing the job,
   // so its speed is meaningless. Flag the model INVALID if it ever skipped the tool.
   const searchedEvery = good.length === N && good.every((r) => r.toolCalls >= 1)
-  const r = { label: c.label, ok: good.length > 0, total: avg((x) => x.total), ttft: avg((x) => x.ttft), chars: Math.round(avg((x) => x.chars)), searchedEvery, err: runs.find((x) => !x.ok)?.err }
+  const r = { label: c.label, ok: good.length > 0, total: avg((x) => x.total), ttft: avg((x) => x.ttft), steps: avg((x) => x.steps), chars: Math.round(avg((x) => x.chars)), searchedEvery, err: runs.find((x) => !x.ok)?.err }
   rows.push(r)
   if (!r.ok) console.log(`  ${r.label.padEnd(30)} ERROR: ${r.err}`)
-  else console.log(`  ${r.label.padEnd(30)} total ${(r.total / 1000).toFixed(2)}s  · first-token ${(r.ttft / 1000).toFixed(2)}s  · ${r.chars} chars  ${searchedEvery ? '' : '⚠️ SKIPPED SEARCH (invalid)'}`)
+  else console.log(`  ${r.label.padEnd(30)} total ${(r.total / 1000).toFixed(2)}s  · first-token ${(r.ttft / 1000).toFixed(2)}s  · ${r.steps.toFixed(1)} steps ${r.steps < 1.5 ? '(collapsed ✅)' : '(2 round-trips)'} · ${r.chars} chars  ${searchedEvery ? '' : '⚠️ SKIPPED SEARCH'}`)
 }
 const valid = rows.filter((r) => r.ok && r.searchedEvery).sort((a, b) => a.total - b.total)
 if (valid.length) console.log(`\n🏆 Fastest that ACTUALLY searches every time: ${valid[0].label} — ${(valid[0].total / 1000).toFixed(2)}s total, ${(valid[0].ttft / 1000).toFixed(2)}s to first token\n`)
