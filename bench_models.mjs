@@ -36,9 +36,8 @@ const anthropic = process.env.ANTHROPIC_API_KEY && createAnthropic({ apiKey: pro
 
 // The candidates — only those whose provider key is present get run.
 const CANDIDATES = [
-  openai && { label: 'openai/gpt-4o-mini', model: openai('gpt-4o-mini') },
+  openai && { label: 'openai/gpt-5.6-luna', model: openai('gpt-5.6-luna') },
   openai && { label: 'openai/gpt-4.1-mini', model: openai('gpt-4.1-mini') },
-  openai && { label: 'openai/gpt-4.1-nano', model: openai('gpt-4.1-nano') },
   google && { label: 'google/gemini-3.8-flash', model: google('gemini-3.8-flash'), opts: { google: { thinkingConfig: { thinkingBudget: 0 } } } },
   google && { label: 'google/gemini-2.5-flash-lite', model: google('gemini-2.5-flash-lite'), opts: { google: { thinkingConfig: { thinkingBudget: 0 } } } },
   anthropic && { label: 'anthropic/claude-haiku-4-5', model: anthropic('claude-haiku-4-5-20251001') },
@@ -71,14 +70,23 @@ async function timeRun(c) {
   }
 }
 
-console.log(`\nBenchmark: "${QUERY}" — ${CANDIDATES.length} model(s), 2 runs each (warm)\n`)
+const N = Number(process.env.BENCH_RUNS || 3)
+console.log(`\nBenchmark: "${QUERY}" — ${CANDIDATES.length} model(s), ${N} measured runs each (1 warm-up)\n`)
 const rows = []
 for (const c of CANDIDATES) {
-  await timeRun(c)                 // warm-up (ignore)
-  const r = await timeRun(c)       // measured
+  await timeRun(c) // warm-up (ignore)
+  const runs = []
+  for (let i = 0; i < N; i++) runs.push(await timeRun(c))
+  const good = runs.filter((r) => r.ok)
+  const avg = (f) => good.reduce((s, r) => s + f(r), 0) / (good.length || 1)
+  // A run that made NO tool call didn't actually search — it's not doing the job,
+  // so its speed is meaningless. Flag the model INVALID if it ever skipped the tool.
+  const searchedEvery = good.length === N && good.every((r) => r.toolCalls >= 1)
+  const r = { label: c.label, ok: good.length > 0, total: avg((x) => x.total), ttft: avg((x) => x.ttft), chars: Math.round(avg((x) => x.chars)), searchedEvery, err: runs.find((x) => !x.ok)?.err }
   rows.push(r)
-  if (r.ok) console.log(`  ${r.label.padEnd(30)} total ${(r.total / 1000).toFixed(2)}s  · first-token ${(r.ttft / 1000).toFixed(2)}s  · ${r.steps} steps · ${r.toolCalls} tool-call(s) · ${r.chars} chars`)
-  else console.log(`  ${r.label.padEnd(30)} ERROR: ${r.err}`)
+  if (!r.ok) console.log(`  ${r.label.padEnd(30)} ERROR: ${r.err}`)
+  else console.log(`  ${r.label.padEnd(30)} total ${(r.total / 1000).toFixed(2)}s  · first-token ${(r.ttft / 1000).toFixed(2)}s  · ${r.chars} chars  ${searchedEvery ? '' : '⚠️ SKIPPED SEARCH (invalid)'}`)
 }
-const ok = rows.filter((r) => r.ok).sort((a, b) => a.total - b.total)
-if (ok.length) console.log(`\n🏆 Fastest: ${ok[0].label} at ${(ok[0].total / 1000).toFixed(2)}s total (${(ok[0].ttft / 1000).toFixed(2)}s to first token)\n`)
+const valid = rows.filter((r) => r.ok && r.searchedEvery).sort((a, b) => a.total - b.total)
+if (valid.length) console.log(`\n🏆 Fastest that ACTUALLY searches every time: ${valid[0].label} — ${(valid[0].total / 1000).toFixed(2)}s total, ${(valid[0].ttft / 1000).toFixed(2)}s to first token\n`)
+else console.log('\n(no model searched reliably across all runs)\n')
