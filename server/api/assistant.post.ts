@@ -4,7 +4,7 @@ import { extractText, getDocumentProxy } from 'unpdf'
 import { z } from 'zod'
 import { FALLBACK_KNOWLEDGE } from '../utils/boxlyKnowledge'
 import { curateProducts, floatRequestedStore } from '../utils/curate'
-import { chatModel, isGoogle, providerOptions, hasModelKey } from '../utils/aiProvider'
+import { chatModel, isAnthropic, providerOptions, hasModelKey } from '../utils/aiProvider'
 
 /**
  * AI shopping-assistant chat backend (Phase 2).
@@ -705,7 +705,6 @@ export default defineEventHandler(async (event) => {
     setResponseStatus(event, 503)
     return { error: 'assistant_not_configured', message: 'Missing LLM provider API key on the server.' }
   }
-  const useGoogle = isGoogle()
 
   const body = await readBody(event)
   const messages = body?.messages ?? []
@@ -724,17 +723,17 @@ export default defineEventHandler(async (event) => {
 
   const knowledge = await getKnowledge()
 
-  // web_search: on Claude we use Anthropic's native server-side web search. On
-  // Gemini that built-in (google_search) can't coexist with our custom function
-  // tools (it suppresses them), so we expose web_search as a normal function tool
-  // backed by the API's SerpAPI organic search — same role: find stores/URLs.
-  const webSearchTool = useGoogle
-    ? tool({
+  // web_search: on Claude we use Anthropic's native server-side web search. On any
+  // other provider (Gemini, OpenAI) we expose web_search as a normal function tool
+  // backed by the API's SerpAPI organic search — same role: find stores/URLs. (On
+  // Gemini the built-in google_search also can't coexist with our function tools.)
+  const webSearchTool = isAnthropic()
+    ? createAnthropic({ apiKey: process.env.ANTHROPIC_API_KEY }).tools.webSearch_20250305({ maxUses: 6 })
+    : tool({
         description: "Search the web (Google) for stores, product pages and general info. FALLBACK when search_products returns nothing, and the way to find a real merchant product-page URL at order time. Returns results with title, url and snippet — pass good product-page URLs to show_products or extract_product.",
         inputSchema: z.object({ query: z.string().describe('What to search for, e.g. "YoungLA joggers men", "owala 24oz official site".') }),
         execute: async ({ query }) => callApi('/products/web-search', { method: 'POST', body: { query }, timeoutMs: 12000 }),
       })
-    : createAnthropic({ apiKey: process.env.ANTHROPIC_API_KEY }).tools.webSearch_20250305({ maxUses: 6 })
 
   // Identity for analytics question-logging (searches log themselves server-side).
   const auth = { cookie: getHeader(event, 'cookie'), origin: getHeader(event, 'origin'), token }
@@ -759,7 +758,8 @@ export default defineEventHandler(async (event) => {
       content: systemPrompt(!!token, knowledge),
       // Anthropic-only prompt caching of the big static prefix. Gemini does its own
       // implicit caching automatically, so we just omit the breakpoint there.
-      ...(useGoogle ? {} : { providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' } } } }),
+      // Anthropic-only prompt caching (Gemini caches implicitly; OpenAI has its own).
+      ...(isAnthropic() ? { providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' } } } } : {}),
     },
     ...(hubBlock ? [{ role: 'system', content: hubBlock }] : []),
     ...(ctx ? [{ role: 'system', content: ctx }] : []),

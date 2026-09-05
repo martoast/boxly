@@ -1,5 +1,6 @@
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { createGoogleGenerativeAI } from '@ai-sdk/google'
+import { createOpenAI } from '@ai-sdk/openai'
 
 /**
  * ONE place that decides which LLM provider/model every server route uses, so we
@@ -24,22 +25,28 @@ import { createGoogleGenerativeAI } from '@ai-sdk/google'
  * for these tasks and it bills as (expensive) output tokens and adds latency.
  */
 
-export type ProviderName = 'google' | 'anthropic'
+export type ProviderName = 'google' | 'anthropic' | 'openai'
 
 export function aiProvider(): ProviderName {
   const forced = (process.env.AI_PROVIDER || '').toLowerCase()
-  if (forced === 'google') return 'google'
-  if (forced === 'anthropic') return 'anthropic'
-  return process.env.GEMINI_API_KEY ? 'google' : 'anthropic'
+  if (forced === 'google' || forced === 'anthropic' || forced === 'openai') return forced
+  // No explicit choice: prefer whichever key is present (prod has GEMINI → unchanged).
+  if (process.env.GEMINI_API_KEY) return 'google'
+  if (process.env.ANTHROPIC_API_KEY) return 'anthropic'
+  if (process.env.OPENAI_API_KEY) return 'openai'
+  return 'anthropic'
 }
 
-export function isGoogle(): boolean {
-  return aiProvider() === 'google'
-}
+export function isGoogle(): boolean { return aiProvider() === 'google' }
+export function isAnthropic(): boolean { return aiProvider() === 'anthropic' }
+export function isOpenAI(): boolean { return aiProvider() === 'openai' }
 
 /** True when the active provider has its API key configured. */
 export function hasModelKey(): boolean {
-  return isGoogle() ? !!process.env.GEMINI_API_KEY : !!process.env.ANTHROPIC_API_KEY
+  const p = aiProvider()
+  if (p === 'google') return !!process.env.GEMINI_API_KEY
+  if (p === 'openai') return !!process.env.OPENAI_API_KEY
+  return !!process.env.ANTHROPIC_API_KEY
 }
 
 // gemini-3.8-flash (GA): far better instruction adherence than 3.1-flash-lite —
@@ -50,22 +57,29 @@ const GOOGLE_AUX_MODEL = process.env.GOOGLE_AUX_MODEL || 'gemini-2.5-flash-lite'
 const ANTHROPIC_CHAT_MODEL = process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001'
 const ANTHROPIC_AUX_MODEL =
   process.env.ANTHROPIC_RANK_MODEL || process.env.ANTHROPIC_TITLE_MODEL || 'claude-haiku-4-5-20251001'
+// OpenAI: gpt-4o-mini / gpt-4.1-mini are the fast+cheap tier — good candidates for the
+// ~2s target. Override with OPENAI_CHAT_MODEL / OPENAI_AUX_MODEL.
+const OPENAI_CHAT_MODEL = process.env.OPENAI_CHAT_MODEL || 'gpt-4o-mini'
+const OPENAI_AUX_MODEL = process.env.OPENAI_AUX_MODEL || 'gpt-4o-mini'
 
-function google() {
-  return createGoogleGenerativeAI({ apiKey: process.env.GEMINI_API_KEY })
-}
-function anthropic() {
-  return createAnthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-}
+function google() { return createGoogleGenerativeAI({ apiKey: process.env.GEMINI_API_KEY }) }
+function anthropic() { return createAnthropic({ apiKey: process.env.ANTHROPIC_API_KEY }) }
+function openai() { return createOpenAI({ apiKey: process.env.OPENAI_API_KEY }) }
 
 /** The model for the main agentic chat (assistant.post.ts). */
 export function chatModel() {
-  return isGoogle() ? google()(GOOGLE_CHAT_MODEL) : anthropic()(ANTHROPIC_CHAT_MODEL)
+  const p = aiProvider()
+  if (p === 'google') return google()(GOOGLE_CHAT_MODEL)
+  if (p === 'openai') return openai()(OPENAI_CHAT_MODEL)
+  return anthropic()(ANTHROPIC_CHAT_MODEL)
 }
 
 /** The model for cheap auxiliary calls (curate, intent, title, search parse, ask). */
 export function auxModel() {
-  return isGoogle() ? google()(GOOGLE_AUX_MODEL) : anthropic()(ANTHROPIC_AUX_MODEL)
+  const p = aiProvider()
+  if (p === 'google') return google()(GOOGLE_AUX_MODEL)
+  if (p === 'openai') return openai()(OPENAI_AUX_MODEL)
+  return anthropic()(ANTHROPIC_AUX_MODEL)
 }
 
 /**
