@@ -17,7 +17,10 @@
 
 <script setup>
 definePageMeta({
-  layout: 'app',
+  // 'assistant' layout: site navbar on desktop only. On mobile the chat renders its
+  // own single top bar (history / title / new chat), so we don't stack two navbars
+  // with two hamburgers (the 'app' layout showed the BOXLY nav on top of it).
+  layout: 'assistant',
   middleware: ['auth', 'customer', 'complete-profile'],
 })
 useHead({ title: 'Boxly — Buscar y cotizar' })
