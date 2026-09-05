@@ -326,7 +326,11 @@
                          that errored or was cut off mid-stream is never getting a
                          result, and rendering a spinner for it hangs the chat
                          forever with no way out. See toolFailed(). -->
-                    <div v-else-if="TOOLS_WITH_LOADER.has(part.type) && toolFailed(m, part)" class="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[13px] text-gray-500 bg-white border border-gray-100 rounded-2xl px-4 py-3 shadow-sm">
+                    <!-- Suppress the interrupted-search banner when ANOTHER gallery in
+                         this same turn DID return products: a model that fires a
+                         second (failing) search after a good one must not scare the
+                         user with a red retry banner sitting above a full gallery. -->
+                    <div v-else-if="TOOLS_WITH_LOADER.has(part.type) && toolFailed(m, part) && !hasProducts(m)" class="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[13px] text-gray-500 bg-white border border-gray-100 rounded-2xl px-4 py-3 shadow-sm">
                       <span>Se interrumpió la búsqueda. Puede pasar cuando una tienda tarda demasiado.</span>
                       <button @click="retryLastTurn" class="font-semibold text-primary-600 hover:text-primary-700">Reintentar</button>
                     </div>

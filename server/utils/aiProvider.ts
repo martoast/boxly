@@ -42,7 +42,10 @@ export function hasModelKey(): boolean {
   return isGoogle() ? !!process.env.GEMINI_API_KEY : !!process.env.ANTHROPIC_API_KEY
 }
 
-const GOOGLE_CHAT_MODEL = process.env.GOOGLE_CHAT_MODEL || 'gemini-3.1-flash-lite-preview'
+// gemini-3.8-flash (GA): far better instruction adherence than 3.1-flash-lite —
+// it stops dumping raw JSON galleries into the reply and stops firing a second
+// (empty) gallery tool. Override per env with GOOGLE_CHAT_MODEL.
+const GOOGLE_CHAT_MODEL = process.env.GOOGLE_CHAT_MODEL || 'gemini-3.8-flash'
 const GOOGLE_AUX_MODEL = process.env.GOOGLE_AUX_MODEL || 'gemini-2.5-flash-lite'
 const ANTHROPIC_CHAT_MODEL = process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001'
 const ANTHROPIC_AUX_MODEL =
