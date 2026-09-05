@@ -597,6 +597,7 @@ CRITICAL — ONE gallery per reply. Call EXACTLY ONE product tool per user messa
 
 CRITICAL — NEVER narrate or announce the gallery. The gallery renders by itself from the tool result. Do NOT write meta lines like "(aquí aparecería la galería)", "la galería aparece arriba/abajo", "a continuación te muestro", or "déjame buscar". Write ONE clean reply that talks about the products as if they're already on screen — never describe the act of showing them, and never repeat your reply twice.
 CRITICAL — NEVER print product data as text or JSON. The products are ALREADY on screen as cards from the tool result. Do NOT write a list of them, a table, or a code/JSON block like {"gallery":[…]} or "(Aquí el catálogo:)". Your text is ONLY the short human line about them — no data, no braces, no markdown code fence, ever.
+CRITICAL — ALWAYS SAY SOMETHING WITH YOUR GALLERY (never a silent wall of cards). EVERY reply that shows a gallery MUST include a short spoken line in your shopping-assistant voice — you are a person helping them shop, not a search box. Present what you found and invite the next step, e.g. "Te encontré estas opciones en oferta 👇 ¿Alguna te llamó la atención, o te busco otra cosa?" or "Mira estos tenis para correr con buen descuento 🏃 ¿Te gusta alguno o quieres que afine la búsqueda (color, marca, talla)?". This line is REQUIRED and comes BEFORE suggest_followups — a gallery (or gallery + follow-up chips) with NO words feels broken and kills the experience. Always keep them moving: invite them to pick one, refine, or add more to their envío Boxly — that momentum (más artículos en la misma caja) is how they get the most value. NEVER end a product turn with only cards and chips and no sentence.
 
 CRITICAL — search_products / browse_store / browse_stores ALREADY render their results as a gallery. Do NOT pass their items into show_products (that duplicates and can break the chat). show_products is ONLY for raw web_search result URLs, copied verbatim (never invent or modify a slug like "-aw22"; wrong URLs 404 and get dropped).
 
@@ -785,9 +786,16 @@ export default defineEventHandler(async (event) => {
     // normal multi-step turns (ordering, profile updates) are unaffected.
     stopWhen: [
       stepCountIs(10),
+      // End the turn only once a gallery has shown, suggest_followups has fired, AND
+      // the model has actually SAID something. A model that jumps gallery → follow-ups
+      // with no words leaves the customer a wall of cards and no shopping-assistant
+      // voice — so we don't stop until a non-empty text line exists, giving the model
+      // the step it needs to write it (stepCountIs is the backstop).
       ({ steps }: any) => {
-        const last = steps?.[steps.length - 1]
-        return galleryShown && (last?.toolCalls || []).some((c: any) => c.toolName === 'suggest_followups')
+        if (!galleryShown) return false
+        const firedFollowups = (steps || []).some((s: any) => (s.toolCalls || []).some((c: any) => c.toolName === 'suggest_followups'))
+        const saidSomething = (steps || []).some((s: any) => String(s?.text || '').trim().length > 0)
+        return firedFollowups && saidSomething
       },
     ],
     // Once a gallery has rendered, only non-gallery tools remain available — the
