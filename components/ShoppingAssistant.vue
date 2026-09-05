@@ -317,7 +317,7 @@
                     <!-- Only the RICHEST gallery in this message renders — see
                          primaryGalleryIndex(): a model that fires two gallery
                          tools in one step must not draw two carousels. -->
-                    <LazyProductGallery v-if="isGalleryTool(part) && part.state === 'output-available' && part.output?.products?.length && i === primaryGalleryIndex(m) && !galleryPending(m)" :products="part.output.products" @open="openProduct" />
+                    <LazyProductGallery v-if="isGalleryTool(part) && part.state === 'output-available' && part.output?.products?.length && i === primaryGalleryIndex(m) && !galleryPending(m)" :products="orderedGallery(m, part.output.products)" @open="openProduct" />
                     <!-- Search/browse finished but found nothing — clean message, not an empty
                          carousel. Suppress it if ANOTHER search in this turn did find options. -->
                     <div v-else-if="showNoResults(m, part)" class="text-[13px] text-gray-500 bg-white border border-gray-100 rounded-2xl px-4 py-3 shadow-sm">No encontré opciones para eso ahora. ¿Probamos con otra marca o término?</div>
@@ -1181,6 +1181,24 @@ function ensureCardImages(list) {
 const isBusy = computed(() => chat.status === 'streaming' || chat.status === 'submitted')
 const GALLERY_TOOLS = ['tool-show_products', 'tool-browse_store', 'tool-browse_stores', 'tool-search_products', 'tool-find_live_product', 'tool-show_saved_products']
 function isGalleryTool(part) { return GALLERY_TOOLS.includes(part?.type) }
+// The assistant reorders the gallery to lead with what it recommended: feature_products
+// returns the exact titles it spotlighted. Float those to the front (in the given order),
+// keeping every other product after them — so the top of the carousel matches the reply.
+function featuredTitles(m) {
+  const p = (m?.parts || []).find((x) => x.type === 'tool-feature_products' && x.state === 'output-available')
+  return Array.isArray(p?.output?.featured) ? p.output.featured : []
+}
+function orderedGallery(m, products) {
+  const feat = featuredTitles(m).map((t) => String(t || '').toLowerCase().trim()).filter(Boolean)
+  if (!feat.length || !Array.isArray(products)) return products || []
+  const rank = (p) => {
+    const t = String(p?.title || '').toLowerCase()
+    const i = feat.findIndex((f) => t && (t.includes(f) || f.includes(t)))
+    return i === -1 ? feat.length + 1 : i
+  }
+  // Stable sort by featured rank (unmatched keep their original relative order).
+  return products.map((p, i) => [p, i]).sort((a, b) => rank(a[0]) - rank(b[0]) || a[1] - b[1]).map(([p]) => p)
+}
 // Merge ALL text parts of a message into one string so a multi-step reply renders
 // in ONE bubble instead of fragmenting into many (the "split bubbles" bug).
 function msgText(m) { return (m.parts || []).filter((p) => p.type === 'text' && p.text).map((p) => p.text).join('\n\n') }

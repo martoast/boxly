@@ -181,7 +181,7 @@ const GALLERY_TOOLS = ['search_products', 'find_live_product', 'browse_store', '
 // Everything the model may still use AFTER a gallery has rendered (write text, add
 // follow-ups, build the shipment, take the order) — i.e. all tools minus GALLERY_TOOLS.
 const NON_GALLERY_TOOLS = [
-  'web_search', 'extract_product', 'show_shipment', 'show_box_guide', 'suggest_followups',
+  'web_search', 'extract_product', 'show_shipment', 'show_box_guide', 'suggest_followups', 'feature_products',
   'show_assisted_summary', 'get_profile', 'list_orders', 'show_orders',
   'update_shopping_profile', 'create_self_order', 'cancel_order', 'plan_in_person', 'create_account',
 ]
@@ -597,7 +597,7 @@ CRITICAL — ONE gallery per reply. Call EXACTLY ONE product tool per user messa
 
 CRITICAL — NEVER narrate or announce the gallery. The gallery renders by itself from the tool result. Do NOT write meta lines like "(aquí aparecería la galería)", "la galería aparece arriba/abajo", "a continuación te muestro", or "déjame buscar". Write ONE clean reply that talks about the products as if they're already on screen — never describe the act of showing them, and never repeat your reply twice.
 CRITICAL — NEVER print product data as text or JSON. The products are ALREADY on screen as cards from the tool result. Do NOT write a list of them, a table, or a code/JSON block like {"gallery":[…]} or "(Aquí el catálogo:)". Your text is ONLY the short human line about them — no data, no braces, no markdown code fence, ever.
-CRITICAL — SEARCH, THEN RECOMMEND WITH THE RESULTS IN HAND (this is what makes you a shopping assistant instead of a search box). For a product request: FIRST call search_products — do NOT write a "te busco…" line before it (the gallery loads with its own loader that already tells the customer you're searching, and any pre-search line ends up printed UNDER the finished gallery, which reads backwards). THEN, once the results come back, you can SEE the exact items — their names, prices and discounts — so your reply is a REAL recommendation about THOSE items: highlight a standout or the best deal BY NAME and say why, then point to the next step. E.g. "Los Deal Mens Running a $25 (¡50% OFF!) son la mejor ganga 🔥; si quieres más amortiguación, los Nike a $75.57 valen la pena. ¿Cuál te late o te afino la búsqueda?". This results-aware reply is REQUIRED — a gallery with no words, or a generic "aquí tienes opciones", is broken; ALWAYS speak to the ACTUAL products you pulled. Then call suggest_followups. Keep them moving: invite them to pick one, refine (color/marca/talla), or add more to their envío Boxly.
+CRITICAL — SEARCH, THEN RECOMMEND WITH THE RESULTS IN HAND (this is what makes you a shopping assistant instead of a search box). For a product request: FIRST call search_products — do NOT write a "te busco…" line before it (the gallery loads with its own loader that already tells the customer you're searching, and any pre-search line ends up printed UNDER the finished gallery, which reads backwards). THEN, once the results come back, you can SEE the exact items — their names, prices and discounts — so your reply is a REAL recommendation about THOSE items: highlight a standout or the best deal BY NAME and say why, then point to the next step. E.g. "Los Deal Mens Running a $25 (¡50% OFF!) son la mejor ganga 🔥; si quieres más amortiguación, los Nike a $75.57 valen la pena. ¿Cuál te late o te afino la búsqueda?". This results-aware reply is REQUIRED — a gallery with no words, or a generic "aquí tienes opciones", is broken; ALWAYS speak to the ACTUAL products you pulled. THEN call feature_products with the exact title(s) of the item(s) you just recommended (best first) so the gallery REORDERS to show your pick at the FRONT — the customer must see the item you're recommending first, not scroll to find it. Finally call suggest_followups. Keep them moving: invite them to pick one, refine (color/marca/talla), or add more to their envío Boxly.
 
 CRITICAL — search_products / browse_store / browse_stores ALREADY render their results as a gallery. Do NOT pass their items into show_products (that duplicates and can break the chat). show_products is ONLY for raw web_search result URLs, copied verbatim (never invent or modify a slug like "-aw22"; wrong URLs 404 and get dropped).
 
@@ -997,6 +997,14 @@ export default defineEventHandler(async (event) => {
         description: "Show Boxly's box SIZES and SHIPPING PRICES as a table in the chat. Call this whenever the customer asks about box sizes, shipping/box prices or cost — '¿cuánto cuesta el envío?', '¿qué cajas tienen?', '¿cuánto cuesta mandar una caja?', '¿cuáles son las medidas/precios?', 'how much is shipping'. The box price is the shipping cost for the WHOLE consolidated box (the product cost + Boxly's 15% commission are SEPARATE). After showing it, answer their question briefly and steer them to consolidate into the smallest box that fits.",
         inputSchema: z.object({}),
         execute: async () => ({ boxes: await boxGuide() }),
+      }),
+
+      feature_products: tool({
+        description: "Reorder the gallery to lead with the product(s) you just recommended, so what's shown FIRST matches your recommendation. Call this in the SAME turn, right after your recommendation text, passing the EXACT title(s) of the item(s) you spotlighted (best first, 1–3). The customer sees your top pick at the front of the carousel instead of having to scroll to it. Always do this whenever you highlight specific products.",
+        inputSchema: z.object({
+          titles: z.array(z.string()).min(1).max(3).describe('Exact title(s) of the recommended product(s), best first — copied from the gallery items you just saw.'),
+        }),
+        execute: async ({ titles }) => ({ featured: (titles || []).map((t) => String(t).trim()).filter(Boolean).slice(0, 3) }),
       }),
 
       suggest_followups: tool({
