@@ -44,14 +44,9 @@ async function searchCatalogApi(a: CatalogSearchArgs) {
   if (a.sort) qs.set('sort', a.sort)
   qs.set('limit', '16')
   let products: any[] = []
-  let broadened = false
   try {
     const data: any = await callApi(`/catalog/search?${qs.toString()}`, { timeoutMs: 12000 })
     products = Array.isArray(data?.products) ? data.products : []
-    // The catalog flags broadened when the query's descriptive terms didn't all
-    // match — these are the CLOSEST items, not exact matches. Pass it through so
-    // the model can say so honestly instead of claiming "encontré exactamente X".
-    broadened = !!data?.broadened
   } catch { products = [] }
   // Map the catalog shape to the gallery's product shape.
   const mapped = products.map((p: any) => ({
@@ -70,7 +65,7 @@ async function searchCatalogApi(a: CatalogSearchArgs) {
     see_in_cart: p.see_in_cart,
     seen_at: p.seen_at,
   }))
-  return { products: mapped, broadened, source: 'catalog' }
+  return { products: mapped, source: 'catalog' }
 }
 // Which model/provider runs this chat is decided centrally in ../utils/aiProvider
 // (chatModel()), so the whole app can switch between Gemini and Claude via env.
@@ -580,7 +575,7 @@ You are a SHOPPING COMPANION and DEAL FINDER. Deals are your HEADLINE, not a fil
 
 Your tools, and when to use them:
 - search_products(query, store?) — YOUR DEFAULT and FIRST move for EVERY product request, in or out of the directory. It reads Boxly's OWN catalog, so it comes back INSTANTLY (no waiting on a live store) already led by the best deals — this is what makes the reply feel fast, so reach for it first every time. It's UNIVERSAL — it covers EVERY US brand and store, so NEVER tell the customer you don't have a way to search a specific store (e.g. Adidas); you always do — just call search_products with that brand as store. It returns a rich gallery (often 12-16 items) with images, prices, and the store each is from. Use the STRUCTURED params — category for the product type, store/brands for the brand, min_price/max_price for budget, min_discount for deal depth, sort for ordering — and leave ONLY the look-descriptors (color, fit, material, model) in query. ALWAYS put the brand in store, never repeat it inside query ({category:"clothing", store:"Adidas"}, never {query:"Adidas men clothing", store:"Adidas"}). The query never has to be "short to be safe" anymore — extra descriptive words only rank, they don't empty the result — but the category/brand/price belong in their own params. Because query ranks instead of gating, a search almost never comes back empty; if it truly does, fall back to browse_store for a directory brand, or web_search otherwise. Only use web_search + show_products as a last resort, and never present a store homepage as a product.
-  CRITICAL — "broadened": true in the result means YOUR QUERY MATCHED NOTHING and these are the store's GENERAL catalog items, NOT what the customer asked for. NEVER present them as matches ("Encontré varias opciones de X" is a LIE when broadened is true — a customer who asked for PINK promos was shown Victoria's Secret bras that way). Say plainly what happened and offer the catalog: "No encontré [lo que pidió] específicamente, pero aquí está lo que hay en [tienda] ahora 👇 — ¿quieres que busque algo más concreto?". If the customer named a specific collection/print/model, ALSO offer to take a link: "si me pasas el link de lo que viste, te lo cotizo". When broadened is true and web_search returned real product names + prices for what they asked, TELL THEM those (name + price, from the snippet) instead of pretending the catalog answered.
+  RESULTS ARE RANKED BY RELEVANCE — JUDGE THEM YOURSELF. The gallery comes back with the best matches FIRST, and you can SEE each item's title. So look at what came back and match it against what the customer asked. If the top items ARE what they wanted, present them confidently. If we don't have the EXACT thing (they asked for "wide-leg jeans" and the closest we carry is straight-leg, or a specific print/model isn't there), be honest and helpful: these are the closest options we have — say so plainly and show them anyway ("No tengo ese exacto, pero mira estas opciones parecidas 👇 — ¿alguna te late?"). NEVER claim you found the exact thing when the titles clearly don't match. If they named a very specific product/model/link we don't stock, offer to get it for them: "si me pasas el link te lo consigo" (we can fetch it live). Showing a close, relevant set beats an empty gallery every time.
 - REFINING / FILTERING (CRITICAL — this is where your intelligence shows). YOU do the semantic understanding of what the shopper means, then express it as STRUCTURED FILTERS. Don't dump everything into one text query — map each part of their request to the RIGHT param, because the structured filters are reliable and the query text only ranks. Whenever they narrow, run a NEW search_products call carrying ALL still-active filters (keep the old ones, add the new one). Map each kind:
   • product TYPE ("jeans", "hoodies", "running shoes", "dresses") → category (the strongest, most dependable filter — always set it when they name a type; keeps the gallery on-topic).
   • store/brand ("de Nike", "en Old Navy") → store; MULTIPLE ("Nike o Gap") → brands:["Nike","Gap"]. Spelling doesn't matter — we fuzzy-resolve typos ("beast buy"→Best Buy). If the brand isn't one we carry (Adidas, Gymshark…) it's used to rank, not to filter.
@@ -856,17 +851,11 @@ export default defineEventHandler(async (event) => {
           sale: z.boolean().describe('Optional — deals are ALWAYS shown first anyway, so this is rarely needed; it does not hide non-sale items. Use only for "SOLO ofertas / only on sale".').optional(),
         }),
         execute: async ({ query, store, brands, category, min_price, max_price, min_discount, sale, sort }) => {
-          // Google Shopping returns 0 for some multi-word phrasings ("adidas clothing
-          // men") even though the brand alone ("adidas") returns plenty, so a failed
-          // query is broadened to the store (or the first word). That retry now lives
-          // ENTIRELY in the API: doing it here meant a second HTTP round-trip and a
-          // phantom analytics row per broadened search, and — worse — the broadening
-          // was invisible, so a search for "PINK promos" came back as generic
-          // Victoria's Secret bras and this tool reported them as matches.
-          // `r.broadened` is the API saying "these are catalog items, not matches".
           // SERP replacement: our OWN catalog, harvested by the computer-use agents
-          // and served from catalog.fullstacklabs.org. Already ranked by relevance,
-          // deal size and freshness — no model curation pass, no Google Shopping.
+          // and served from catalog.fullstacklabs.org. The catalog does the fuzzy
+          // store resolution, structured filtering and relevance ranking; free-text
+          // query ranks (never gates), so results come back best-match-first and the
+          // gallery stays full — the model judges exactness from the titles it gets.
           const r: any = await searchCatalogApi({ query, store, brands, category, min_price, max_price, min_discount, sale, sort })
           return markGallery(r)
         },
