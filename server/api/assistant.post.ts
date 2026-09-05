@@ -27,17 +27,31 @@ const API_BASE = (process.env.API_URL || 'https://api.boxly.mx').replace(/\/$/, 
 // favorite stores by the computer-use agents. The app reaches it through the
 // Boxly API's /catalog/search, which proxies the standalone catalog service on
 // the fullstack domain (app → Boxly API → catalog API).
-async function searchCatalogApi({ query, store, max_price, sale }: { query?: string; store?: string; max_price?: number; sale?: boolean }) {
+interface CatalogSearchArgs {
+  query?: string; store?: string; brands?: string[]; category?: string
+  min_price?: number; max_price?: number; min_discount?: number; sale?: boolean; sort?: string
+}
+async function searchCatalogApi(a: CatalogSearchArgs) {
   const qs = new URLSearchParams()
-  if (query) qs.set('q', query)
-  if (store) qs.set('store', store)
-  if (max_price != null) qs.set('max', String(max_price))
-  if (sale) qs.set('sale', '1')
+  if (a.query) qs.set('q', a.query)
+  if (a.store) qs.set('store', a.store)
+  if (a.brands && a.brands.length) qs.set('brands', a.brands.join(','))
+  if (a.category) qs.set('category', a.category)
+  if (a.min_price != null) qs.set('min', String(a.min_price))
+  if (a.max_price != null) qs.set('max', String(a.max_price))
+  if (a.min_discount != null) qs.set('min_discount', String(a.min_discount))
+  if (a.sale) qs.set('sale', '1')
+  if (a.sort) qs.set('sort', a.sort)
   qs.set('limit', '16')
   let products: any[] = []
+  let broadened = false
   try {
     const data: any = await callApi(`/catalog/search?${qs.toString()}`, { timeoutMs: 12000 })
     products = Array.isArray(data?.products) ? data.products : []
+    // The catalog flags broadened when the query's descriptive terms didn't all
+    // match — these are the CLOSEST items, not exact matches. Pass it through so
+    // the model can say so honestly instead of claiming "encontré exactamente X".
+    broadened = !!data?.broadened
   } catch { products = [] }
   // Map the catalog shape to the gallery's product shape.
   const mapped = products.map((p: any) => ({
@@ -48,6 +62,7 @@ async function searchCatalogApi({ query, store, max_price, sale }: { query?: str
     price: p.price,
     was: p.was,
     on_sale: p.on_sale,
+    discount_pct: p.discount_pct,
     image: p.image || null,
     images: p.image ? [p.image] : [],
     store: p.store,
@@ -55,7 +70,7 @@ async function searchCatalogApi({ query, store, max_price, sale }: { query?: str
     see_in_cart: p.see_in_cart,
     seen_at: p.seen_at,
   }))
-  return { products: mapped, broadened: false, source: 'catalog' }
+  return { products: mapped, broadened, source: 'catalog' }
 }
 // Which model/provider runs this chat is decided centrally in ../utils/aiProvider
 // (chatModel()), so the whole app can switch between Gemini and Claude via env.
@@ -563,13 +578,18 @@ CRITICAL — search_products / browse_store / browse_stores ALREADY render their
 You are a SHOPPING COMPANION and DEAL FINDER. Deals are your HEADLINE, not a filter: every search already puts on-sale items first (flagged on_sale with a was price), so a normal search shows the full selection WITH the deals on top. Call out the deals, but always show a rich set of options — never reduce results to just the discounted ones (a one-item result is a bad experience). Only filter to sale-ONLY (sale:true) if the user explicitly says "solo ofertas / only what's on sale", and if that comes back sparse, show the full catalog instead. Show options from DIFFERENT stores side by side, point out the deals, then dive deeper. Conversational — suggest, compare, narrow, pivot.
 
 Your tools, and when to use them:
-- search_products(query, store?) — YOUR DEFAULT and FIRST move for EVERY product request, in or out of the directory. It reads Boxly's OWN catalog, so it comes back INSTANTLY (no waiting on a live store) already led by the best deals — this is what makes the reply feel fast, so reach for it first every time. It's UNIVERSAL — it covers EVERY US brand and store, so NEVER tell the customer you don't have a way to search a specific store (e.g. Adidas); you always do — just call search_products with that brand as store. It returns a rich gallery (often 12-16 items) with images, prices, and the store each is from. ALWAYS put the brand in store (e.g. {query:"men clothing", store:"Adidas"}), and DON'T repeat the brand inside query — put it in store ONLY ({query:"men clothing", store:"Adidas"}, never {query:"Adidas men clothing", store:"Adidas"}). Keep the query SHORT (2-3 core words) — long phrases like "adidas men clothing hoodie tracksuit" can return nothing. If a call returns NO products, RETRY ONCE with a shorter/broader query (just the brand + one word, e.g. {query:"clothing", store:"Adidas"} or {query:"adidas"}); if it's STILL empty, THEN use browse_store for a directory brand, or web_search otherwise. Only use web_search + show_products as a last resort, and never present a store homepage as a product.
+- search_products(query, store?) — YOUR DEFAULT and FIRST move for EVERY product request, in or out of the directory. It reads Boxly's OWN catalog, so it comes back INSTANTLY (no waiting on a live store) already led by the best deals — this is what makes the reply feel fast, so reach for it first every time. It's UNIVERSAL — it covers EVERY US brand and store, so NEVER tell the customer you don't have a way to search a specific store (e.g. Adidas); you always do — just call search_products with that brand as store. It returns a rich gallery (often 12-16 items) with images, prices, and the store each is from. Use the STRUCTURED params — category for the product type, store/brands for the brand, min_price/max_price for budget, min_discount for deal depth, sort for ordering — and leave ONLY the look-descriptors (color, fit, material, model) in query. ALWAYS put the brand in store, never repeat it inside query ({category:"clothing", store:"Adidas"}, never {query:"Adidas men clothing", store:"Adidas"}). The query never has to be "short to be safe" anymore — extra descriptive words only rank, they don't empty the result — but the category/brand/price belong in their own params. Because query ranks instead of gating, a search almost never comes back empty; if it truly does, fall back to browse_store for a directory brand, or web_search otherwise. Only use web_search + show_products as a last resort, and never present a store homepage as a product.
   CRITICAL — "broadened": true in the result means YOUR QUERY MATCHED NOTHING and these are the store's GENERAL catalog items, NOT what the customer asked for. NEVER present them as matches ("Encontré varias opciones de X" is a LIE when broadened is true — a customer who asked for PINK promos was shown Victoria's Secret bras that way). Say plainly what happened and offer the catalog: "No encontré [lo que pidió] específicamente, pero aquí está lo que hay en [tienda] ahora 👇 — ¿quieres que busque algo más concreto?". If the customer named a specific collection/print/model, ALSO offer to take a link: "si me pasas el link de lo que viste, te lo cotizo". When broadened is true and web_search returned real product names + prices for what they asked, TELL THEM those (name + price, from the snippet) instead of pretending the catalog answered.
-- REFINING / FILTERING (CRITICAL): whenever the user narrows what they want, run a NEW search_products call carrying ALL active filters (keep the ones from before and add the new one). Map each kind of filter correctly:
-  • color, size, gender (men/women/kids), fit/style ("wide-leg", "oversized", "slim"), material, category → put them in the QUERY text (e.g. {query:"black wide-leg jeans women size 30", store:"American Eagle"}). Google matches these from text; there are no separate params for them.
-  • budget / price ("menos de $50", "between $20 and $40", "barato") → use max_price / min_price (e.g. max_price:50).
+- REFINING / FILTERING (CRITICAL — this is where your intelligence shows). YOU do the semantic understanding of what the shopper means, then express it as STRUCTURED FILTERS. Don't dump everything into one text query — map each part of their request to the RIGHT param, because the structured filters are reliable and the query text only ranks. Whenever they narrow, run a NEW search_products call carrying ALL still-active filters (keep the old ones, add the new one). Map each kind:
+  • product TYPE ("jeans", "hoodies", "running shoes", "dresses") → category (the strongest, most dependable filter — always set it when they name a type; keeps the gallery on-topic).
+  • store/brand ("de Nike", "en Old Navy") → store; MULTIPLE ("Nike o Gap") → brands:["Nike","Gap"]. Spelling doesn't matter — we fuzzy-resolve typos ("beast buy"→Best Buy). If the brand isn't one we carry (Adidas, Gymshark…) it's used to rank, not to filter.
+  • budget / price ("menos de $50", "entre $20 y $40", "barato") → max_price / min_price (e.g. max_price:50).
+  • DEALS depth ("con buen descuento", "al menos 40% off", "las mayores rebajas") → min_discount (e.g. min_discount:40) — the reseller's core filter.
+  • ORDER ("lo más barato", "las mayores rebajas", "premium", "lo más nuevo") → sort ('price_low' | 'discount' | 'price_high' | 'newest'). Default (best_deal) already leads with relevant deals.
+  • only the LOOK — color, fit/style ("wide-leg", "oversized"), material, model name, gender → query text. These RANK (best matches first) and never empty the gallery.
+  So "wide-leg jeans negros de Old Navy abajo de $30, los de mayor descuento" → {query:"black wide-leg", category:"jeans", store:"Old Navy", max_price:30, sort:"discount"}. NEVER cram the category/brand/price into query when a param exists for it.
   • "en oferta" / "on sale" / "deals" → do a NORMAL search (no sale flag): results already lead with the deals AND keep the full selection. Use sale:true ONLY if they say "SOLO ofertas / only on sale", and if that's sparse, fall back to the full result.
-  NEVER try to re-show or hand-pick a subset of the previous gallery (past search_products items can't be re-displayed — they all drop and you show an empty result, the #1 failure). Every change on screen = a fresh search_products call with the updated query/params.
+  NEVER try to re-show or hand-pick a subset of the previous gallery (past search_products items can't be re-displayed — they all drop and you show an empty result, the #1 failure). Every change on screen = a fresh search_products call with the updated params.
 - web_search + show_products — the FALLBACK when search_products returns nothing, and the way to RESOLVE a real buy URL at order time. web_search the store + item, then pass 5-8 real product-page URLs (paths like /p/… or /products/…, copied verbatim — never category pages or invented slugs) to show_products, which pulls image + price from each page.
 - browse_store(store_url, query?) / browse_stores([...], query?, sale?) — the FALLBACK for the verified Shopify DIRECTORY: use them when search_products came back empty or thin for a directory brand, or when the customer explicitly wants the FRESHEST live drop. They hit the store LIVE (slower — a few seconds) but carry the full latest-drop catalog (on-sale items shown FIRST, with real compare_at was-prices) and in-store search. For "ofertas en [directory store]" use a NORMAL browse_store — it already leads with the discounted items while keeping the full catalog. Only pass sale:true if they want SOLELY discounted items. browse_store search matches PRODUCT TITLES — use short category keywords ("shorts", "joggers", "hoodie"), NOT phrases/gender words; if thin, silently broaden. Many gym stores prefix women's items with "W" (e.g. "W2279…") and leave men's un-prefixed — use that to tell gender.
   STORE DIRECTORY: Gym & activewear — YoungLA https://www.youngla.com (men+women) · Alphalete https://www.alphaleteathletics.com · NVGTN https://www.nvgtn.com (women) · Ryderwear https://www.ryderwear.com · DARC SPORT https://www.darcsport.com · Ten Thousand https://www.tenthousand.cc (men's training).
@@ -822,15 +842,19 @@ export default defineEventHandler(async (event) => {
       }),
 
       search_products: tool({
-        description: "THE DEFAULT product search and your FIRST move for ANY product request — it reads Boxly's OWN curated catalog (harvested daily from our favorite US stores: Target, Nike, Dick's, Best Buy, Walmart, New Balance, Gap, Old Navy, Alo and more) and returns INSTANTLY, already ranked with the best deals first. Works for ANY store/brand (set store to the brand name) and for broad/category or cross-store discovery. Returns a gallery with real images, prices (incl. sale prices) and each item's store. Put descriptive attributes (color, size, gender, fit/style, material, category) IN the query; use the structured params for budget and deals. If it comes back empty, THEN fall back to browse_store (for a Shopify directory brand) or web_search.",
+        description: "THE DEFAULT product search and your FIRST move for ANY product request — it reads Boxly's OWN curated catalog (harvested daily from our favorite US stores: Target, Nike, Dick's, Best Buy, Walmart, New Balance, Gap, Old Navy, Alo and more) and returns INSTANTLY, already ranked with the best deals first. Works for ANY store/brand (set store — or brands[] for several — to the brand name; typos are fuzzy-resolved) and for broad/category or cross-store discovery. Returns a gallery with real images, prices (incl. sale prices) and each item's store. Drive it with STRUCTURED filters: category (product type), store/brands, min_price/max_price (budget), min_discount (deal depth, %), sort (best_deal|discount|price_low|price_high|newest). Leave only the LOOK-descriptors (color, fit/style, material, model name) in query — query ranks results, it does not gate them, so it rarely returns empty. If it somehow does, THEN fall back to browse_store (for a Shopify directory brand) or web_search.",
         inputSchema: z.object({
-          query: z.string().describe('What to find, WITH every descriptive attribute the user gave: category + gender + color + size + fit/style + material + brand. E.g. "black wide-leg jeans women size 30", "men running shoes wide", "leather crossbody bag".'),
-          store: z.string().describe('The store/retailer/brand to focus on, whenever the user names one — a brand store ("Gymshark", "American Eagle") OR a big-box retailer ("Target", "Walmart", "Amazon", "Costco", "Best Buy"). ALWAYS set this if the user says "de/from/en <store>" (e.g. "el owala rosa de Target" → store:"Target"); we use it to put that store\'s listings FIRST in the gallery.').optional(),
-          min_price: z.number().describe('Minimum USD price.').optional(),
-          max_price: z.number().describe('Maximum USD price — use for budgets like "under $50" (max_price: 50).').optional(),
-          sale: z.boolean().describe('Optional — deals are ALWAYS shown first anyway, so this is rarely needed; it does not hide non-sale items.').optional(),
+          query: z.string().describe('The FREE-TEXT descriptors only — color, style/fit ("wide-leg", "oversized"), material, model name, gender. Keep it to the words that describe the LOOK. It RANKS results (best matches first) and never empties the gallery, so extra words are safe. Put the CATEGORY, BRAND, PRICE and DISCOUNT in the dedicated params below instead of here — that filtering is far more reliable. E.g. for "black wide-leg jeans from Old Navy under $30" → query:"black wide-leg", category:"jeans", store:"Old Navy", max_price:30.'),
+          store: z.string().describe('The store/brand the user named — set it whenever they say "de/from/en <store>". Typos and loose spelling are fine: we fuzzy-resolve it ("beast buy"→Best Buy, "old navvy"→Old Navy, "naik"→Nike). We carry Target, Nike, Dick\'s, Best Buy, Walmart, New Balance, Gap, Old Navy and Alo — a brand we don\'t carry is used to rank instead. For MULTIPLE stores use brands[].').optional(),
+          brands: z.array(z.string()).describe('Multiple stores/brands to include at once, e.g. ["Nike","Old Navy"] for "jeans from Nike or Old Navy". Same fuzzy resolution as store. Use this OR store, not both.').optional(),
+          category: z.string().describe('The product TYPE, matched reliably against our category field: "jeans", "hoodies", "running shoes", "dresses", "headphones", "backpack", "leggings", "sweaters", "jackets". Prefer this over putting the category in query — it is the strongest, most dependable filter and keeps the gallery on-topic.').optional(),
+          min_price: z.number().describe('Minimum USD price (e.g. "over $50" → min_price:50).').optional(),
+          max_price: z.number().describe('Maximum USD price — budgets like "under $50" → max_price:50.').optional(),
+          min_discount: z.number().describe('Minimum discount PERCENT — the reseller\'s deal filter. "at least 40% off" / "big discounts" → min_discount:40. Implies on-sale only.').optional(),
+          sort: z.enum(['best_deal', 'discount', 'price_low', 'price_high', 'newest']).describe('Ordering. Default best_deal (relevant deals first). Use discount for "biggest markdowns", price_low for "cheapest", price_high for "premium", newest for "latest".').optional(),
+          sale: z.boolean().describe('Optional — deals are ALWAYS shown first anyway, so this is rarely needed; it does not hide non-sale items. Use only for "SOLO ofertas / only on sale".').optional(),
         }),
-        execute: async ({ query, store, min_price, max_price, sale }) => {
+        execute: async ({ query, store, brands, category, min_price, max_price, min_discount, sale, sort }) => {
           // Google Shopping returns 0 for some multi-word phrasings ("adidas clothing
           // men") even though the brand alone ("adidas") returns plenty, so a failed
           // query is broadened to the store (or the first word). That retry now lives
@@ -842,7 +866,7 @@ export default defineEventHandler(async (event) => {
           // SERP replacement: our OWN catalog, harvested by the computer-use agents
           // and served from catalog.fullstacklabs.org. Already ranked by relevance,
           // deal size and freshness — no model curation pass, no Google Shopping.
-          const r: any = await searchCatalogApi({ query, store, max_price, sale })
+          const r: any = await searchCatalogApi({ query, store, brands, category, min_price, max_price, min_discount, sale, sort })
           return markGallery(r)
         },
         toModelOutput: galleryModelOutput,
