@@ -1,10 +1,12 @@
-import { streamText, tool, convertToModelMessages, stepCountIs } from 'ai'
+import { streamText, tool, convertToModelMessages, stepCountIs, createUIMessageStreamResponse } from 'ai'
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { extractText, getDocumentProxy } from 'unpdf'
 import { z } from 'zod'
 import { FALLBACK_KNOWLEDGE } from '../utils/boxlyKnowledge'
 import { curateProducts, floatRequestedStore } from '../utils/curate'
 import { chatModel, isAnthropic, providerOptions, hasModelKey } from '../utils/aiProvider'
+import { ageGalleries, windowMessages, withContextOnLastUser, dropToolParts, contextStats } from '../utils/chatContext'
+import { generateFollowups, followupPart, followupsWithin, attachFollowupChips } from '../utils/followups'
 
 /**
  * AI shopping-assistant chat backend (Phase 2).
@@ -214,10 +216,23 @@ const GALLERY_TOOLS = ['search_products', 'curate_products', 'find_live_product'
 // Everything the model may still use AFTER a gallery has rendered (write text, add
 // follow-ups, build the shipment, take the order) — i.e. all tools minus GALLERY_TOOLS.
 const NON_GALLERY_TOOLS = [
-  'web_search', 'extract_product', 'show_shipment', 'show_box_guide', 'suggest_followups', 'feature_products',
+  'web_search', 'extract_product', 'show_shipment', 'show_box_guide', 'feature_products',
   'show_assisted_summary', 'get_profile', 'list_orders', 'show_orders',
   'update_shopping_profile', 'create_self_order', 'cancel_order', 'plan_in_person', 'create_account',
 ]
+// The loop toolset before a gallery has shown: everything except suggest_followups —
+// the chips are generated OFF the loop (server/utils/followups.ts), so the model never
+// spends a round-trip on them (its persisted parts are dropped from the transcript).
+const LOOP_TOOLS = [...GALLERY_TOOLS, ...NON_GALLERY_TOOLS]
+// Registry id of a product (FNV-1a of its URL) — MUST match the JS/PHP implementations
+// (ShoppingAssistant.vue / ConversationController::productId); used by the gallery markers.
+function registryId(p: any): string | null {
+  const key = p?.url || p?.product_url || (p?.title ? p.title + (p.store || '') : '')
+  if (!key) return null
+  let h = 2166136261
+  for (let i = 0; i < key.length; i++) { h ^= key.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0 }
+  return 'p' + h.toString(36)
+}
 
 // Token efficiency: a gallery tool returns rich product objects, but most of each
 // is DISPLAY-ONLY — the image URL, the buy/Google link, and especially the
@@ -243,6 +258,11 @@ function galleryModelOutput({ output }: { output: any }) {
   }
   return { type: 'json' as const, value: output ?? null }
 }
+
+// For convertToModelMessages: the SDK applies a tool's `toModelOutput` to HISTORY
+// parts only when it is handed the tools — without this map every past gallery is
+// replayed as the FULL product objects (~3× the compact size, per gallery, per turn).
+const HISTORY_TOOLS: any = Object.fromEntries(GALLERY_TOOLS.map((t) => [t, { toModelOutput: galleryModelOutput }]))
 
 // Analytics: a turn that used a product tool is a SEARCH (already logged server-side
 // by /products/search); a turn with no product tool is a business QUESTION. Log the
@@ -340,12 +360,14 @@ function userPartsFromMessages(messages: any[]): any[] | null {
 
 // Save this turn (new user message + assistant reply) to the conversation. No-op
 // for guests / threads without an id or token.
-async function persistTurn(conversationId: number | undefined, token: string | undefined, messages: any[], steps: any[], finalText: string) {
+async function persistTurn(conversationId: number | undefined, token: string | undefined, messages: any[], steps: any[], finalText: string, followups: string[] = []) {
   if (!conversationId || !token) return
   const toSave: any[] = []
   const uParts = userPartsFromMessages(messages)
   if (uParts) toSave.push({ role: 'user', content: { parts: uParts } })
   const aParts = assistantPartsFromSteps(steps, finalText)
+  // Off-loop follow-up chips → the same tool part shape the UI renders on resume.
+  if (followups.length) aParts.push(followupPart(followups))
   if (aParts.length) toSave.push({ role: 'assistant', content: { parts: aParts } })
   if (!toSave.length) return
   try {
@@ -626,11 +648,11 @@ CRITICAL — NEVER invent products. You may ONLY show a product (name, URL, pric
 
 CRITICAL — NEVER claim an order/request was created, and NEVER state or invent a request/order NUMBER (e.g. "PR-26-…"). You do NOT place orders by writing about them. For ASSISTED PURCHASE you have exactly ONE way to order: call show_assisted_summary — that card creates the real request AUTOMATICALLY the instant it appears and shows its real number itself. So your own text must NEVER say "listo/creada/registré tu solicitud" and must NEVER contain a PR number — the card handles the confirmation. Claiming a request exists (or inventing a number) when the card hasn't shown it is the single worst thing you can do — it silently loses the sale.
 
-CRITICAL — ONE gallery per reply. Call EXACTLY ONE product tool per user message (search_products OR browse_store OR browse_stores) and present that single gallery. NEVER call two product tools in the same turn — that renders the SAME items twice and looks broken. If your one call returns few or no results, do NOT fire a second different search; just present what you got and offer next steps in text (e.g. "¿quieres ver el catálogo completo?"). (suggest_followups is NOT a product/gallery tool — call it in the SAME turn, together with search_products in one fast reply, not as a separate later step.)
+CRITICAL — ONE gallery per reply. Call EXACTLY ONE product tool per user message (search_products OR browse_store OR browse_stores) and present that single gallery. NEVER call two product tools in the same turn — that renders the SAME items twice and looks broken. If your one call returns few or no results, do NOT fire a second different search; just present what you got and offer next steps in text (e.g. "¿quieres ver el catálogo completo?"). (The tappable follow-up chips under your reply are generated AUTOMATICALLY after your gallery — you do not call any tool for them.)
 
 CRITICAL — NEVER narrate or announce the gallery. The gallery renders by itself from the tool result. Do NOT write meta lines like "(aquí aparecería la galería)", "la galería aparece arriba/abajo", "a continuación te muestro", or "déjame buscar". Write ONE clean reply that talks about the products as if they're already on screen — never describe the act of showing them, and never repeat your reply twice.
 CRITICAL — NEVER print product data as text or JSON. The products are ALREADY on screen as cards from the tool result. Do NOT write a list of them, a table, or a code/JSON block like {"gallery":[…]} or "(Aquí el catálogo:)". Your text is ONLY the short human line about them — no data, no braces, no markdown code fence, ever.
-CRITICAL — SEARCH, THEN RECOMMEND WITH THE RESULTS IN HAND (this is what makes you a shopping assistant instead of a search box). For a product request: FIRST call search_products — do NOT write a "te busco…" line before it (the gallery loads with its own loader that already tells the customer you're searching, and any pre-search line ends up printed UNDER the finished gallery, which reads backwards). THEN, once the results come back, you can SEE the exact items — their names, prices and discounts — so your reply is a REAL recommendation about THOSE items: highlight a standout or the best deal BY NAME and say why, then point to the next step. E.g. "Los Deal Mens Running a $25 (¡50% OFF!) son la mejor ganga 🔥; si quieres más amortiguación, los Nike a $75.57 valen la pena. ¿Cuál te late o te afino la búsqueda?". This results-aware reply is REQUIRED — a gallery with no words, or a generic "aquí tienes opciones", is broken; ALWAYS speak to the ACTUAL products you pulled. SPEED MATTERS: write that recommendation and call suggest_followups TOGETHER in ONE reply (a single step), not spread across separate turns. feature_products is OPTIONAL and usually UNNECESSARY — curate_products/search_products already return best-first, so if the item you're spotlighting is already among the first few shown (the normal case), SKIP feature_products entirely (it's a redundant extra round-trip that just slows the answer). Only call feature_products when your top pick is NOT already near the front and you need to move it up. suggest_followups keeps them moving: invite them to pick one, refine (color/marca/talla), or add more to their envío Boxly.
+CRITICAL — SEARCH, THEN RECOMMEND WITH THE RESULTS IN HAND (this is what makes you a shopping assistant instead of a search box). For a product request: FIRST call search_products — do NOT write a "te busco…" line before it (the gallery loads with its own loader that already tells the customer you're searching, and any pre-search line ends up printed UNDER the finished gallery, which reads backwards). THEN, once the results come back, you can SEE the exact items — their names, prices and discounts — so your reply is a REAL recommendation about THOSE items: highlight a standout or the best deal BY NAME and say why, then point to the next step. E.g. "Los Deal Mens Running a $25 (¡50% OFF!) son la mejor ganga 🔥; si quieres más amortiguación, los Nike a $75.57 valen la pena. ¿Cuál te late o te afino la búsqueda?". This results-aware reply is REQUIRED — a gallery with no words, or a generic "aquí tienes opciones", is broken; ALWAYS speak to the ACTUAL products you pulled. SPEED MATTERS: write that recommendation right after the gallery, in ONE step — nothing else is needed to finish the turn (the follow-up chips are added automatically). feature_products is OPTIONAL and usually UNNECESSARY — curate_products/search_products already return best-first, so if the item you're spotlighting is already among the first few shown (the normal case), SKIP feature_products entirely (it's a redundant extra round-trip that just slows the answer). Only call feature_products when your top pick is NOT already near the front and you need to move it up. Keep them moving: invite them to pick one, refine (color/marca/talla), or add more to their envío Boxly.
 
 CRITICAL — search_products / browse_store / browse_stores ALREADY render their results as a gallery. Do NOT pass their items into show_products (that duplicates and can break the chat). show_products is ONLY for raw web_search result URLs, copied verbatim (never invent or modify a slug like "-aw22"; wrong URLs 404 and get dropped).
 
@@ -674,8 +696,8 @@ Your tools, and when to use them:
   ① ADDING TO CART (the core loop, where the value is built). When the customer wants a product — they tap "Agregar al carrito Boxly", OR say "agrégalo", "quiero ese", "añádelo", "ese me gusta", "el primero" — ADD it to their running cart and IMMEDIATELY call show_shipment passing EVERY item in the cart so far (each item's name, quantity, image and price, plus its packing type). This renders their box filling up. Then confirm warmly and ENCOURAGE THE NEXT ADD — consolidating several items from different stores into one box is exactly how they get the most value, so every add invites another: "📦 ¡Listo! Agregué [item] a tu caja 🛒. ¿Qué más te llevas? Todo se va junto en un solo envío, así aprovechas la caja". Do NOT create the purchase request here — adding to the cart is NOT placing the order. Keep building across as many items/stores as they want, and don't interrogate: DON'T ask for size/colour at add-time (that's for finalize).
   ② FINALIZE = create the purchase request, ONLY when the customer signals they're DONE: "eso es todo", "ya", "ya no quiero más", "créala", "cotízala", "haz el pedido", "ciérralo", "ya estoy listo", "págalo", "finaliza", "finalizar carrito", "finaliza y crea mi pedido" (this last one is exactly what the "Finalizar carrito" button sends). THEN call show_assisted_summary RIGHT AWAY with EVERY item in the cart — do NOT ask for size, colour, variant or quantity first. Our shopping team confirms the exact variant directly with the customer AFTER the request is created, so asking here only adds friction and kills the moment. The customer tapped Finalizar expecting an INSTANT confirmation — give it to them. It is the ONLY way to place the request, and it's a FINALIZE action — never call it just because they added one item. Boxly buys it all, imports it, delivers it; the customer pays product + 15% (on the checkout total) + the box, quoted after.
 - ALREADY-BOUGHT-IT-THEMSELVES is a SEPARATE, rarer case — do NOT offer it in the catalog/cart flow. Only if the customer explicitly says "ya lo compré / lo pagué yo / yo lo compro en la tienda con mi tarjeta" → that's CASILLERO, call create_self_order (no 15%; the app asks for their comprobante). Never proactively suggest they buy it themselves; the catalog is for building the Boxly cart.
-- RECOMMEND FROM WHAT CAME BACK (the heart of the experience). After search_products returns, look at the items you got and pick 1–2 to spotlight — the biggest discount, the best value, or the closest fit to what they asked — and say why in a line or two ("oye, estos están buenísimos y es la mejor oferta que hay ahorita"). You have the real names, prices and was-prices in front of you, so be specific and genuinely helpful, like a friend who found the good deals. THEN call suggest_followups. Don't rush past this — a bare gallery with no take is a worse experience than a slightly slower one with a real recommendation.
-- FOLLOW-UPS = your cross-sell / "build the full set" engine (1–3 tappable next steps that keep them shopping). PRIORITIZE COMPLEMENTARY pieces for what they asked: searched running shoes → socks, shorts, a matching top; leggings → a matching sports bra, then a top/hoodie; a dress → a bag or jacket. You may also offer another color/variant, a tighter filter ("¿Qué talla?", "solo Nike"), or ONE adjacent deal-heavy brand. Write each as a ready-to-send FIRST-PERSON message ("Búscame calcetines deportivos que combinen"). Base them on what they asked + what you just showed, and mirror the invite in your recommendation line too ("¿Te armo el set? 💪"). Skip suggest_followups only when they're clearly mid-checkout or asked to stay on one item. Adjacent-brand map for the deal angle: gym/activewear → YoungLA, Gymshark, Alphalete, NVGTN, Ryderwear, Alo, Vuori, Lululemon · streetwear/casual → American Eagle, Hollister, Abercrombie, PacSun, Urban Outfitters, Zara · athletic shoes → New Balance, Nike, Adidas, Hoka, On · outdoor → Patagonia, The North Face, Columbia · hydration/lifestyle → Owala, Stanley, Hydro Flask.
+- RECOMMEND FROM WHAT CAME BACK (the heart of the experience). After search_products returns, look at the items you got and pick 1–2 to spotlight — the biggest discount, the best value, or the closest fit to what they asked — and say why in a line or two ("oye, estos están buenísimos y es la mejor oferta que hay ahorita"). You have the real names, prices and was-prices in front of you, so be specific and genuinely helpful, like a friend who found the good deals. Don't rush past this — a bare gallery with no take is a worse experience than a slightly slower one with a real recommendation.
+- FOLLOW-UP CHIPS (1–3 tappable next steps under your reply — the cross-sell / "build the full set" engine) are generated AUTOMATICALLY from your gallery; you never call a tool for them. Mirror the invite in your recommendation line ("¿Te armo el set? 💪") so the chips read as a natural continuation. Adjacent-brand map for the deal angle: gym/activewear → YoungLA, Gymshark, Alphalete, NVGTN, Ryderwear, Alo, Vuori, Lululemon · streetwear/casual → American Eagle, Hollister, Abercrombie, PacSun, Urban Outfitters, Zara · athletic shoes → New Balance, Nike, Adidas, Hoka, On · outdoor → Patagonia, The North Face, Columbia · hydration/lifestyle → Owala, Stanley, Hydro Flask.
 - DRIVE TO THE ORDER. You exist to get them buying, not browsing forever. After showing options, be proactive: recommend a top pick, ask which one they want, and move them toward placing the request. If they stall or are vague, suggest the best deal and ask "¿te lo agrego al pedido?". Don't leave them wandering.
 - SHOW THE CART EVERY TIME IT CHANGES (show_shipment). One Purchase Request = one consolidated box holding MULTIPLE items from DIFFERENT stores. Every time the customer adds (or removes/changes qty) an item, call show_shipment with ALL items currently in the cart — pass each item's name, quantity, IMAGE and PRICE (from the gallery item they added) so the box shows real thumbnails filling up, plus its packing type for the size estimate. Respond in cart-builder voice and reinforce that everything goes in ONE box (one shipping cost, not one per item): "📦 Agregado. ¿Qué más te llevas? Se va todo junto 🛒". You do NOT need size/colour/buy-URL to add — collect those only at finalize.
 - RESPECT THE SALE PRICE. Record each item at the EXACT price the customer saw. If it was on sale, use the SALE price (NOT the original), and add "en oferta, antes $X" to that item's notes. Never replace a sale price with a higher/regular price.
@@ -778,9 +800,22 @@ export default defineEventHandler(async (event) => {
   // caches as part of the same prefix) go in ONE system block with an ephemeral
   // cache breakpoint, so every turn after the first reads them from cache (~90%
   // cheaper) instead of re-billing ~9k tokens. The per-shopper memory + in-chat
-  // product registry change mid-conversation, so they ride in a SEPARATE,
-  // uncached system block after it — keeping the cached prefix byte-identical.
+  // product registry change mid-conversation, so they ride at the very END of the
+  // prompt (on the newest user message, see below) — keeping everything before
+  // them byte-identical for Anthropic's breakpoint AND Gemini's implicit cache.
   const ctx = shopperContext(!!token, shoppingProfile, savedProducts)
+  // History → model, bounded (see server/utils/chatContext.ts):
+  //  1. old galleries collapse to a one-line marker (the products stay in the registry),
+  //  2. hysteresis window (MAX 14 msgs / 6k tokens → keep 8; hard cap 9k),
+  //  3. the per-shopper block rides on the NEWEST user message, so everything before
+  //     it is byte-identical turn to turn and Gemini's implicit prefix cache covers
+  //     the system prompt, the tools AND the recent history (it used to sit between
+  //     the system prompt and the history, invalidating the cache every gallery turn).
+  // suggest_followups parts are UI-only (chips) and the tool is no longer declared to
+  // the model, so they are dropped from the transcript rather than replayed.
+  const cleaned = dropToolParts(sanitizeToolInputs(stripIncompleteToolCalls(await pdfPartsToText(messages))), ['suggest_followups'])
+  const windowed = windowMessages(ageGalleries(cleaned, GALLERY_TOOLS, { keepLast: 2, productId: registryId, compactProduct }))
+  const promptStats = contextStats(cleaned, windowed.messages, windowed.dropped)
   // On the hub surface the assistant becomes the OS for all pipelines. The router is
   // kept in a SEPARATE, uncached system block (it varies with the tapped pipeline)
   // so the big static shopping prompt above stays byte-identical and stays cached.
@@ -795,16 +830,24 @@ export default defineEventHandler(async (event) => {
       ...(isAnthropic() ? { providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' } } } } : {}),
     },
     ...(hubBlock ? [{ role: 'system', content: hubBlock }] : []),
-    ...(ctx ? [{ role: 'system', content: ctx }] : []),
-    ...await convertToModelMessages(sanitizeToolInputs(stripIncompleteToolCalls(await pdfPartsToText(messages)))),
+    ...await convertToModelMessages(withContextOnLastUser(windowed.messages, ctx), { tools: HISTORY_TOOLS }),
   ]
+
+  // Follow-up chips are produced OFF the agent loop (server/utils/followups.ts):
+  // the first gallery that returns products kicks off a cheap aux-model call in
+  // PARALLEL with the model's recommendation text; the chips are attached to the
+  // same assistant message just before the stream finishes (and persisted with it).
+  let followupsPromise: Promise<string[]> | null = null
 
   // "One gallery per reply" guard (see GALLERY_TOOLS): a gallery tool flips this
   // when it returns products; prepareStep() then strips gallery tools from later
   // steps. Wrap a gallery tool's result with markGallery() to arm it.
   let galleryShown = false
   const markGallery = (r: any) => {
-    if (r && Array.isArray(r.products) && r.products.length > 0) galleryShown = true
+    if (r && Array.isArray(r.products) && r.products.length > 0) {
+      galleryShown = true
+      if (!followupsPromise) followupsPromise = generateFollowups({ question, products: r.products, store: r.products[0]?.store })
+    }
     return r
   }
 
@@ -812,23 +855,22 @@ export default defineEventHandler(async (event) => {
     model: chatModel(),
     providerOptions: providerOptions(),
     messages: modelMessages,
-    // Stop at 10 steps, OR — once a gallery has shown — the moment the model calls
-    // suggest_followups (its intended last action: gallery → one closing line +
-    // follow-ups → done). This prevents a runaway extra step where some models
-    // (Gemini) re-answer the whole thing a second time. Gated on galleryShown so
-    // normal multi-step turns (ordering, profile updates) are unaffected.
+    // Stop at 10 steps, OR — once a gallery has shown — as soon as the model has
+    // written its recommendation (gallery → one closing line → done; the follow-up
+    // chips are generated off-loop, see followupsPromise). This prevents a runaway
+    // extra step where some models (Gemini) re-answer the whole thing a second time.
+    // Gated on galleryShown so normal multi-step turns (ordering, profile updates)
+    // are unaffected.
     stopWhen: [
       stepCountIs(10),
-      // End the turn only once a gallery has shown, suggest_followups has fired, AND
-      // the model has actually SAID something. A model that jumps gallery → follow-ups
-      // with no words leaves the customer a wall of cards and no shopping-assistant
-      // voice — so we don't stop until a non-empty text line exists, giving the model
-      // the step it needs to write it (stepCountIs is the backstop).
+      // End the turn only once a gallery has shown AND the model has actually SAID
+      // something. A gallery with no words leaves the customer a wall of cards and no
+      // shopping-assistant voice — so we don't stop until a non-empty text line
+      // exists, giving the model the step it needs to write it (stepCountIs is the
+      // backstop).
       ({ steps }: any) => {
         if (!galleryShown) return false
-        const firedFollowups = (steps || []).some((s: any) => (s.toolCalls || []).some((c: any) => c.toolName === 'suggest_followups'))
-        const saidSomething = (steps || []).some((s: any) => String(s?.text || '').trim().length > 0)
-        return firedFollowups && saidSomething
+        return (steps || []).some((s: any) => String(s?.text || '').trim().length > 0)
       },
     ],
     // Once a gallery has rendered, only non-gallery tools remain available — the
@@ -853,17 +895,29 @@ export default defineEventHandler(async (event) => {
         (n: number, s: any) => n + (s.toolCalls || []).filter((c: any) => GALLERY_TOOLS.includes(c.toolName)).length,
         0
       )
-      return galleryAttempts >= 2 ? { activeTools: NON_GALLERY_TOOLS } : undefined
+      // suggest_followups is never offered to the model (chips come from followupsPromise).
+      return { activeTools: galleryAttempts >= 2 ? NON_GALLERY_TOOLS : LOOP_TOOLS }
     },
     onError: ({ error }) => console.error('[assistant] error:', error instanceof Error ? error.message : error),
-    onFinish: async ({ text, steps }) => {
+    onFinish: async ({ text, steps, totalUsage }) => {
+      // Prompt-size + cache telemetry (one line per turn) so the effect of the
+      // context window and the prefix cache can be measured in prod.
+      const u: any = totalUsage || {}
+      console.log('[assistant] usage', JSON.stringify({
+        conversation: conversationId ?? null, steps: (steps || []).length,
+        input: u.inputTokens ?? null, cache_read: u.inputTokenDetails?.cacheReadTokens ?? u.cachedInputTokens ?? null,
+        output: u.outputTokens ?? null, ...promptStats,
+      }))
+      // The chips ride on the message via the stream (see the end of this handler);
+      // wait for the same bounded promise so the persisted turn carries them too.
+      const chips = await followupsWithin(followupsPromise)
       // A turn that used a product tool is a SEARCH (logged server-side by
       // /products/search). A turn with no product tool is a business QUESTION.
       const usedProductTool = (steps || []).some((s: any) => (s.toolCalls || []).some((c: any) => PRODUCT_TOOLS.has(c.toolName)))
       if (!usedProductTool) logQuestion(question, text || '', auth, conversationId)
       // Durably save the turn server-side (awaited so it completes within the
       // stream lifecycle — see persistTurn). Authoritative writer of chat history.
-      await persistTurn(conversationId, token, messages, steps, text || '')
+      await persistTurn(conversationId, token, messages, steps, text || '', chips)
     },
     tools: {
       web_search: webSearchTool,
@@ -1228,7 +1282,10 @@ export default defineEventHandler(async (event) => {
     },
   })
 
-  return result.toUIMessageStreamResponse({
-    onError: (error) => (error instanceof Error ? error.message : String(error)),
-  })
+  // Attach the off-loop follow-up chips to THIS assistant message right before its
+  // `finish` chunk: wait (bounded) for followupsPromise — it started when the gallery
+  // returned, so by the time the recommendation text has streamed it is normally
+  // already resolved — and emit the same tool chunks the model used to produce.
+  const ui = result.toUIMessageStream({ onError: (error) => (error instanceof Error ? error.message : String(error)) })
+  return createUIMessageStreamResponse({ stream: attachFollowupChips(ui, () => followupsWithin(followupsPromise)) })
 })
