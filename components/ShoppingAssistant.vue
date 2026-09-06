@@ -380,7 +380,7 @@
 
                   <!-- 3) Action widgets + follow-ups after the reply -->
                   <template v-for="(part, i) in m.parts" :key="'w' + i">
-                    <LazyShipmentCard v-if="part.type === 'tool-show_shipment' && part.state === 'output-available'" :shipment="part.output" :requested="!!assistedPr" @order="onFinalizeShipment" @add="onAddMore" />
+                    <LazyShipmentCard v-if="part.type === 'tool-show_shipment' && part.state === 'output-available'" :shipment="enrichShipment(part.output)" :requested="!!assistedPr" @order="onFinalizeShipment" @add="onAddMore" />
 
                     <template v-else-if="part.type === 'tool-show_assisted_summary' && part.state === 'output-available'">
                       <!-- Once the request is actually created (deterministically, on
@@ -1199,6 +1199,23 @@ function orderedGallery(m, products) {
   // Stable sort by featured rank (unmatched keep their original relative order).
   return products.map((p, i) => [p, i]).sort((a, b) => rank(a[0]) - rank(b[0]) || a[1] - b[1]).map(([p]) => p)
 }
+// The model doesn't see product image URLs (stripped for tokens), so it can't pass
+// them to show_shipment. Enrich the box's items here by matching each item name to a
+// product already shown in this chat (savedProducts has titles + images) — so the box
+// shows real thumbnails filling up. Falls back gracefully to no image.
+function enrichShipment(shipment) {
+  if (!shipment?.items?.length) return shipment
+  const prods = savedProducts.value || []
+  const norm = (t) => String(t || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+  const items = shipment.items.map((it) => {
+    if (it.image) return it
+    const n = norm(it.name)
+    if (!n) return it
+    const match = prods.find((p) => { const t = norm(p.title); return t && (t.includes(n) || n.includes(t)) })
+    return match ? { ...it, image: it.image || match.image || null, price: it.price ?? match.price ?? null } : it
+  })
+  return { ...shipment, items }
+}
 // Merge ALL text parts of a message into one string so a multi-step reply renders
 // in ONE bubble instead of fragmenting into many (the "split bubbles" bug).
 function msgText(m) { return (m.parts || []).filter((p) => p.type === 'text' && p.text).map((p) => p.text).join('\n\n') }
@@ -1665,12 +1682,14 @@ function productTail(p) {
   const urlPart = p.url && !isGoogle ? ` — ${p.url}` : ''
   return { store, price, urlPart }
 }
-// "Boxly lo compra" — assisted purchase → the AI creates a Purchase Request (+15%).
+// "Agregar al carrito Boxly" — ADD to the running cart (does NOT create the request;
+// the assistant accumulates items and only finalizes when the customer says they're
+// done). Same intent whether they tap this or type "agrégalo a mi carrito" in chat.
 function onAssistedProduct(p) {
   ensureChatToken()
   if (isBusy.value) { pendingPick.value = { p, assisted: true }; return }
   const { store, price, urlPart } = productTail(p)
-  const text = `Quiero que Boxly lo compre por mí (compra asistida): ${p.title}${store}${price}${urlPart}`
+  const text = `Agrégalo a mi carrito Boxly: ${p.title}${store}${price}${urlPart}`
   ensureConversation(text)
   chat.sendMessage({ text })
   scrollDown()
@@ -1701,7 +1720,8 @@ function onAskProduct(p) {
 function onFinalizeShipment() {
   if (isBusy.value) return
   ensureChatToken()
-  const text = 'Confirmar mi envío'
+  // Explicit FINALIZE — the AI creates the one purchase request from everything in the cart.
+  const text = 'Ya, eso es todo — finaliza y crea mi pedido con todo lo que tengo en el carrito.'
   ensureConversation(text)
   chat.sendMessage({ text })
   scrollDown()

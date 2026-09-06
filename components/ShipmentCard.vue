@@ -1,15 +1,24 @@
 <template>
   <div class="rounded-2xl border border-primary-200 bg-gradient-to-b from-primary-50/80 to-white p-4 max-w-md shadow-sm">
     <div class="flex items-center justify-between gap-2">
-      <p class="text-[14px] font-extrabold text-primary-900 flex items-center gap-1.5">📦 Tu envío</p>
+      <p class="text-[14px] font-extrabold text-primary-900 flex items-center gap-1.5">
+        📦 Tu caja Boxly
+        <span v-if="itemCount" class="text-[11px] font-bold text-white bg-primary-500 rounded-full px-2 py-0.5 tabular-nums">{{ itemCount }}</span>
+      </p>
       <span class="text-[11px] font-semibold text-primary-700 bg-primary-100 rounded-full px-2.5 py-0.5">Caja {{ s.box_label }}</span>
     </div>
 
-    <!-- items -->
-    <ul class="mt-2.5 space-y-1">
-      <li v-for="(it, i) in s.items" :key="i" class="flex items-center justify-between gap-2 text-[13px]">
-        <span class="text-gray-800 min-w-0 truncate"><span class="font-semibold">{{ it.quantity }}×</span> {{ it.name }}</span>
-        <span class="shrink-0 text-[11px] text-gray-400">{{ it.size }}</span>
+    <!-- items — with thumbnails so the box visibly fills up as they add more -->
+    <ul class="mt-3 space-y-2">
+      <li v-for="(it, i) in s.items" :key="i" class="flex items-center gap-2.5">
+        <div class="shrink-0 w-11 h-11 rounded-lg bg-white border border-primary-100 overflow-hidden grid place-items-center">
+          <img v-if="it.image" :src="it.image" :alt="it.name" class="w-full h-full object-contain" loading="lazy" />
+          <svg v-else class="w-5 h-5 text-primary-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+        </div>
+        <div class="min-w-0 flex-1">
+          <p class="text-[13px] text-gray-800 truncate leading-tight"><span v-if="it.quantity > 1" class="font-semibold">{{ it.quantity }}× </span>{{ it.name }}</p>
+          <p class="text-[11px] text-gray-400 leading-tight mt-0.5">{{ it.size }}<span v-if="it.price"> · ${{ it.price }} USD</span></p>
+        </div>
       </li>
     </ul>
 
@@ -61,6 +70,8 @@ const s = computed(() => ({
   capacity_left_pct: props.shipment?.capacity_left_pct ?? 100,
 }))
 
+// Total pieces in the box (sums quantities) — the badge that ticks up as they add.
+const itemCount = computed(() => (s.value.items || []).reduce((n, it) => n + (Number(it.quantity) || 1), 0))
 const nearlyFull = computed(() => s.value.capacity_used_pct >= 85)
 const barClass = computed(() => {
   const u = s.value.capacity_used_pct

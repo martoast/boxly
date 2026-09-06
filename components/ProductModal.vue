@@ -94,49 +94,18 @@
               </div>
 
               <template v-else>
-              <p class="text-[12px] font-bold text-gray-800 mb-2">¿Cómo lo quieres?</p>
-              <div class="grid grid-cols-2 gap-3">
-                <!-- Self-buy: open the original store (gated until the real link resolves) -->
-                <a
-                  :href="linkPending ? undefined : bestLink"
-                  :target="linkPending ? undefined : '_blank'"
-                  rel="noopener noreferrer"
-                  @click="linkPending ? $event.preventDefault() : $emit('close')"
-                  :class="['flex flex-col items-start gap-1 rounded-2xl border border-gray-200 p-3.5 transition', linkPending ? 'opacity-60 cursor-wait' : 'hover:border-primary-300 hover:bg-gray-50 active:scale-[.98]']"
-                >
-                  <span class="flex items-center gap-1.5 text-[14px] font-bold text-gray-900">
-                    <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
-                    Yo lo compro
-                  </span>
-                  <span class="text-[11.5px] text-gray-500 leading-snug">Tú lo compras en la tienda original</span>
-                  <span class="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-primary-600">
-                    <template v-if="linkPending">
-                      <svg class="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
-                      Cargando enlace…
-                    </template>
-                    <template v-else>
-                      Ir a {{ product.store || 'la tienda' }}
-                      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
-                    </template>
-                  </span>
-                </a>
-                <!-- Assisted: Boxly buys it (Purchase Request) -->
-                <button
-                  type="button" @click="assisted"
-                  class="flex flex-col items-start gap-1 rounded-2xl border-2 border-primary-500 bg-primary-50/60 hover:bg-primary-50 p-3.5 active:scale-[.98] transition text-left"
-                >
-                  <span class="flex items-center gap-1.5 text-[14px] font-bold text-primary-800">
-                    <svg class="w-4 h-4 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
-                    Boxly lo compra
-                  </span>
-                  <span class="text-[11.5px] text-primary-700/80 leading-snug">Precio total al checkout + 15%</span>
-                  <span class="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-primary-600">Crear solicitud</span>
-                </button>
-              </div>
-              <!-- self-buy address instruction (honors the no-reveal rule: points to the panel) -->
-              <p class="mt-3 text-[11.5px] text-gray-500 leading-relaxed">
-                📦 Si lo compras tú, al pagar envíalo a tu <span class="font-semibold text-gray-700">dirección de bodega Boxly</span> y nosotros lo importamos a México.
-                <NuxtLink to="/app/" @click="$emit('close')" class="text-primary-600 font-semibold whitespace-nowrap">Ver mi casillero →</NuxtLink>
+              <!-- ONE action: add to the Boxly cart. Boxly buys + imports everything the
+                   customer adds (across stores) in a single consolidated purchase request.
+                   No self-buy option — the whole point of the catalog is to build the cart. -->
+              <button
+                type="button" @click="assisted"
+                class="w-full flex items-center justify-center gap-2 rounded-2xl bg-primary-500 hover:bg-primary-600 active:scale-[.98] transition text-white font-bold py-3.5 text-[15px] shadow-sm shadow-primary-500/20"
+              >
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-1.5 3h11m-8 3a1 1 0 11-2 0 1 1 0 012 0zm9 0a1 1 0 11-2 0 1 1 0 012 0z"/></svg>
+                Agregar al carrito Boxly
+              </button>
+              <p class="mt-2.5 text-[11.5px] text-gray-500 text-center leading-relaxed">
+                Lo sumamos a tu envío. Sigue agregando lo que quieras — de cualquier tienda 🛒 — y cuando termines, Boxly lo compra e importa todo junto a México. 🇺🇸➜🇲🇽
               </p>
               </template>
             </div>
