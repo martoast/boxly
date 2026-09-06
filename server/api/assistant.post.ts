@@ -71,6 +71,39 @@ function toGalleryProduct(p: any) {
   }
 }
 
+// The DYNAMIC "showing": curate over the catalog's UNDERSTANDING layer (gender,
+// department, category, deal_score/tier, style/occasion/season tags, variant dedupe).
+// For broad/deal queries this beats a raw search — it returns a personalized, VARIED,
+// suspect-free best-of set (a per-call seed rotates it, so the same request never shows
+// the same list twice). Each item carries a precomputed evergreen `why` (Spanish) the
+// model speaks to; the live price/discount come from the row itself.
+interface CurateArgs {
+  query?: string; intent?: string; department?: string; genders?: string[]; categories?: string[]
+  occasion_tags?: string[]; season_tags?: string[]; style_tags?: string[]; gift?: boolean
+  brand_tiers?: string[]; store?: string; min_price?: number; max_price?: number; limit?: number
+}
+async function curateCatalogApi(a: CurateArgs) {
+  const body: any = {
+    query: a.query, intent: a.intent || 'deals', department: a.department, genders: a.genders,
+    categories: a.categories, occasion_tags: a.occasion_tags, season_tags: a.season_tags,
+    style_tags: a.style_tags, gift: a.gift, brand_tiers: a.brand_tiers, store: a.store,
+    pool_size: 48, per_store_cap: 2, limit: a.limit ?? 12,
+    seed: (Math.random() * 1e9) | 0, // fresh rotation each call → never the same list
+  }
+  if (a.min_price != null) body.price_min = a.min_price
+  if (a.max_price != null) body.price_max = a.max_price
+  let products: any[] = []
+  try {
+    const data: any = await callApi('/catalog/curate', { method: 'POST', body, timeoutMs: 12000 })
+    products = Array.isArray(data?.products) ? data.products : []
+  } catch { products = [] }
+  return { products: products.map(toCurateGalleryProduct), source: 'catalog' }
+}
+// Curate row → gallery shape + the enrichment fields the model speaks to (why/deal_tier).
+function toCurateGalleryProduct(p: any) {
+  return { ...toGalleryProduct(p), why: p.why_good || null, who_for: p.who_its_for || null, deal_tier: p.deal_tier || null }
+}
+
 // The live-grab fallback: fetch a specific product our catalog doesn't have with the
 // computer-use agent (a pasted link, or store+query). Heavy (~7-9s) — the AI only
 // reaches for it on a genuine catalog miss or a pasted link. Fails SOFT: any error/
@@ -150,7 +183,7 @@ function lastUserText(messages: any[]): string {
   return ''
 }
 
-const PRODUCT_TOOLS = new Set(['search_products', 'find_live_product', 'browse_store', 'browse_stores', 'show_products', 'show_saved_products', 'extract_product', 'web_search'])
+const PRODUCT_TOOLS = new Set(['search_products', 'curate_products', 'find_live_product', 'browse_store', 'browse_stores', 'show_products', 'show_saved_products', 'extract_product', 'web_search'])
 
 // Is this search a PURE store/brand lookup (e.g. "Rhode", "Gymshark", "productos
 // de Nike") rather than an attribute search ("owala rosa", "black wide-leg jeans")?
@@ -177,7 +210,7 @@ function isPureStoreQuery(query: string, store?: string): boolean {
 // toolset for the rest of the turn — so the model physically cannot fire a second
 // (often empty) gallery. Claude obeyed the prompt rule; Gemini does not, calling a
 // gallery tool again in a later step and rendering a duplicate empty gallery.
-const GALLERY_TOOLS = ['search_products', 'find_live_product', 'browse_store', 'browse_stores', 'show_products', 'show_saved_products']
+const GALLERY_TOOLS = ['search_products', 'curate_products', 'find_live_product', 'browse_store', 'browse_stores', 'show_products', 'show_saved_products']
 // Everything the model may still use AFTER a gallery has rendered (write text, add
 // follow-ups, build the shipment, take the order) — i.e. all tools minus GALLERY_TOOLS.
 const NON_GALLERY_TOOLS = [
@@ -194,7 +227,7 @@ const NON_GALLERY_TOOLS = [
 // over and feed THAT to the model via `toModelOutput`, while the client still
 // receives the complete object. On a 16-item search that's the difference between
 // the model re-reading ~16 long tokens + URLs every turn vs. a tiny summary.
-const MODEL_FIELDS = ['id', 'title', 'store', 'price', 'was', 'on_sale', 'rating', 'reviews']
+const MODEL_FIELDS = ['id', 'title', 'store', 'price', 'was', 'on_sale', 'rating', 'reviews', 'discount_pct', 'deal_tier', 'why']
 function compactProduct(p: any) {
   if (!p || typeof p !== 'object') return p
   const o: any = {}
@@ -605,6 +638,7 @@ You are a SHOPPING COMPANION and DEAL FINDER. Deals are your HEADLINE, not a fil
 
 Your tools, and when to use them:
 - search_products(query, store?) — YOUR DEFAULT and FIRST move for EVERY product request, in or out of the directory. It reads Boxly's OWN catalog, so it comes back INSTANTLY (no waiting on a live store) already led by the best deals — this is what makes the reply feel fast, so reach for it first every time. It's UNIVERSAL — it covers EVERY US brand and store, so NEVER tell the customer you don't have a way to search a specific store (e.g. Adidas); you always do — just call search_products with that brand as store. It returns a rich gallery (often 12-16 items) with images, prices, and the store each is from. Use the STRUCTURED params — category for the product type, store/brands for the brand, min_price/max_price for budget, min_discount for deal depth, sort for ordering — and leave ONLY the look-descriptors (color, fit, material, model) in query. ALWAYS put the brand in store, never repeat it inside query ({category:"clothing", store:"Adidas"}, never {query:"Adidas men clothing", store:"Adidas"}). The query never has to be "short to be safe" anymore — extra descriptive words only rank, they don't empty the result — but the category/brand/price belong in their own params. Because query ranks instead of gating, a search almost never comes back empty; if it truly does, fall back to browse_store for a directory brand, or web_search otherwise. Only use web_search + show_products as a last resort, and never present a store homepage as a product.
+- curate_products(intent, department?, gender?, categories?, occasion?, season?, style?, gift?, brand_tier?, store?, price?) — the DEALS & BROAD-DISCOVERY specialist, and your FIRST move (instead of search_products) for the WIDE, deal-seeking asks that are a huge share of what people want: "ofertas / promos / los mejores descuentos", "promos de ropa para hombre", "algo para el gym / para una fiesta / para el frío", "un regalo para mi novia", "bolsas de mujer en descuento". It reads our DEEP UNDERSTANDING of the catalog — real gender/department/type, a true deal-quality score, and style/occasion/season tags — so you express the request as those structured params (department + gender + occasion/season + intent:'deals') and it returns a curated, best-first, DE-DUPED set with the bogus "too-good-to-be-true" errors removed. It's DYNAMIC: it hands back DIFFERENT great picks every call, so when they say "muéstrame más / otras opciones" just call it again (same params) and you get a fresh set — never the same list twice. Each item includes a short Spanish 'why' — weave it into your recommendation so each pick feels hand-chosen. Use search_products instead only for a SPECIFIC product/model/brand lookup; use curate_products for deals and broad "show me X for Y" browsing.
 - find_live_product(url? / store?+query?) — the LIVE fallback when the CATALOG can't answer. WHEN TO USE IT (be smart — this is slower, ~10s, and heavier than the catalog, so it's the exception, never the default):
   1. The user PASTED A PRODUCT LINK → call find_live_product({url}) RIGHT AWAY (do NOT search_products first — you already have the exact item). Our agent opens that page and returns the product with its real image + US price.
   2. They want a SPECIFIC product and search_products didn't actually have it — you SEE the returned titles and they clearly aren't the thing they asked for (a specific model/colour we don't carry). Then say so honestly and fetch it live: find_live_product({store, query}) with the brand in store and the model in query (e.g. {store:"Nike", query:"air max 90 red"}).
@@ -903,6 +937,35 @@ export default defineEventHandler(async (event) => {
         toModelOutput: galleryModelOutput,
       }),
 
+      curate_products: tool({
+        description: "The DEALS & BROAD-DISCOVERY specialist — use it INSTEAD of search_products whenever the request is about DEALS/PROMOS ('ofertas', 'promos', 'lo más rebajado', 'deals'), or is a WIDE 'show me X for [men/women/kids]' / 'algo para [el gym / una fiesta / otoño / un regalo]' kind of ask (the wide, vibe-y requests — a big share of what shoppers want). It reads Boxly's DEEP UNDERSTANDING of the catalog (real gender, product type, brand tier, a true deal-quality score, and style/occasion/season tags) and returns a PERSONALIZED, VARIED, best-first curated set — one representative per product (no duplicate colors), too-good-to-be-true errors filtered out, and DIFFERENT great picks each time you call it (so 'muéstrame más' or a repeat ask never shows the same list). Each item comes back with a short Spanish `why` you should weave into your recommendation. Prefer this for deals and broad/curated asks; use search_products for a SPECIFIC product/model/brand lookup.",
+        inputSchema: z.object({
+          query: z.string().describe('OPTIONAL free-text look descriptors only (color, style, model). Ranks, never gates. Put type/gender/occasion in their own params.').optional(),
+          intent: z.enum(['deals', 'browse']).describe("deals (DEFAULT) = only real markdowns, ranked by deal quality — use for ANY oferta/promo/deal request. browse = include full-price too, for a general curated browse when they're not deal-focused.").optional(),
+          department: z.enum(['apparel', 'footwear', 'bags', 'accessories', 'beauty', 'electronics', 'home', 'toys', 'sports']).describe('Top-level type. "ropa"→apparel, "tenis/zapatos"→footwear, "bolsas/mochilas"→bags, "maquillaje/skincare/perfume"→beauty, "audífonos/tv/laptop"→electronics, "juguetes/lego/funko"→toys.').optional(),
+          gender: z.enum(['women', 'men', 'kids']).describe('Who it is for — "para hombre/hombres"→men, "para mujer/mujeres"→women, "para niños"→kids. Unisex items are auto-included; leave unset if not specified.').optional(),
+          categories: z.array(z.string()).describe('Specific product types when narrower than department: "hoodie","leggings","sneakers","handbag","crossbody","headphones","dress","jeans". Optional.').optional(),
+          occasion: z.array(z.string()).describe('Occasion/use: "gym","everyday","work","travel","party","outdoor". Great for "algo para el gym", "para una fiesta".').optional(),
+          season: z.array(z.string()).describe('Season: "fall","winter","summer","spring","holiday". For "ropa de otoño", "para el frío".').optional(),
+          style: z.array(z.string()).describe('Aesthetic: "streetwear","athleisure","classic","minimalist","cozy","luxury","preppy".').optional(),
+          gift: z.boolean().describe('true for gift asks ("un regalo para…").').optional(),
+          brand_tier: z.enum(['mass', 'mid', 'premium', 'luxury']).describe('"de lujo/marca fina"→luxury; "de marca"→premium; "económico/barato"→mass. Optional.').optional(),
+          store: z.string().describe('Focus on one store/brand (fuzzy-resolved). Keep it set on follow-ups until they name a different store (STICKY STORE).').optional(),
+          min_price: z.number().describe('Minimum USD price.').optional(),
+          max_price: z.number().describe('Maximum USD price — budgets like "menos de $50" → max_price:50.').optional(),
+        }),
+        execute: async (a: any) => {
+          const genders = a.gender === 'men' ? ['men', 'unisex'] : a.gender === 'women' ? ['women', 'unisex'] : a.gender === 'kids' ? ['kids'] : undefined
+          const r: any = await curateCatalogApi({
+            query: a.query, intent: a.intent || 'deals', department: a.department, genders,
+            categories: a.categories, occasion_tags: a.occasion, season_tags: a.season, style_tags: a.style,
+            gift: a.gift, brand_tiers: a.brand_tier ? [a.brand_tier] : undefined, store: a.store,
+            min_price: a.min_price, max_price: a.max_price,
+          })
+          return markGallery(r)
+        },
+        toModelOutput: galleryModelOutput,
+      }),
       find_live_product: tool({
         description: "LIVE product fetch with our OWN shopping agent — the fallback for when the catalog can't answer. Use it in EXACTLY two cases: (1) the user PASTED a product link → pass {url}; (2) they want a SPECIFIC product that search_products just didn't have → pass {store, query}. It sends the agent to the store and grabs that exact product in real time. It's SLOWER (~10s), so open with ONE short line first ('Va, déjame buscarlo en vivo un momento… 🔎') — the loader shows while it works. Works for Nike, Best Buy and Walmart today. Returns the product (or the closest matches) with a real image + US price, ready to add to a purchase request. NEVER use it for browsing, categories, or a general search — search_products (the catalog) is ALWAYS your first, fast move; find_live_product is only for a miss or a pasted link.",
         inputSchema: z.object({
