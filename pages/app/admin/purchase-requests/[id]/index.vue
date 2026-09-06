@@ -278,10 +278,14 @@
                     <div class="flex items-start justify-between gap-3">
                       <div class="min-w-0">
                         <h4 class="font-medium text-gray-900 text-lg leading-snug">{{ item.product_name }}</h4>
-                        <a :href="item.product_url" target="_blank" class="text-sm text-blue-600 hover:underline flex items-center gap-1 mt-1 w-fit">
+                        <a v-if="item.product_url" :href="item.product_url" target="_blank" class="text-sm text-blue-600 hover:underline flex items-center gap-1 mt-1 w-fit">
                           {{ truncateUrl(item.product_url) }}
                           <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
                         </a>
+                        <!-- Said out loud, not pasted: an empty href would link
+                             to this very page, and the shopper needs to SEE that
+                             this one is hers to find. -->
+                        <p v-else class="text-sm text-gray-400 mt-1">{{ t.noUrl }}</p>
                       </div>
                       <!-- Per-item delete (editable through `paid`) -->
                       <button
@@ -629,7 +633,7 @@
                       <input v-model="addItemForm.product_name" type="text" class="w-full px-3 py-2 text-sm rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-500" :placeholder="t.addItemNamePh" />
                   </div>
                   <div>
-                      <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">{{ t.addItemUrl }}</label>
+                      <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">{{ t.addItemUrl }} <span class="font-normal lowercase text-gray-400">— {{ t.optional }}</span></label>
                       <input v-model="addItemForm.product_url" type="url" class="w-full px-3 py-2 text-sm rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-500" placeholder="https://..." />
                   </div>
                   <div class="grid grid-cols-2 gap-3">
@@ -657,7 +661,7 @@
                   <button @click="closeAddItemModal" :disabled="addItemSaving" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50">{{ t.cancel }}</button>
                   <button
                       @click="submitAddItem"
-                      :disabled="addItemSaving || !addItemForm.product_name || !addItemForm.product_url || addItemForm.price === '' || !addItemForm.quantity"
+                      :disabled="addItemSaving || !addItemForm.product_name || addItemForm.price === '' || !addItemForm.quantity"
                       class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                       {{ addItemSaving ? t.adding : t.addItem }}
@@ -856,6 +860,7 @@ const translations = {
   deleteConfirmDesc: { es: '¿Estás seguro de que deseas eliminar esta solicitud de compra? Toda la información asociada se perderá permanentemente.', en: 'Are you sure you want to delete this purchase request? All associated information will be permanently lost.' },
   confirmDelete: { es: 'Sí, Eliminar', en: 'Yes, Delete' },
   viewImage: { es: 'Ver Imagen', en: 'View Image' },
+  noUrl: { es: 'Sin link — buscar en tienda', en: 'No link — find in store' },
 };
 
 const t = createTranslations(translations);

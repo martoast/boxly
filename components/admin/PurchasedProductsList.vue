@@ -23,7 +23,7 @@
       </div>
 
       <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-5 flex flex-col sm:flex-row gap-3">
-        <input v-model="search" placeholder="Buscar por cliente, teléfono, # de orden o productos..." class="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
+        <input v-model="search" placeholder="Buscar por cliente, teléfono, # de orden, # de rastreo o productos..." class="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
         <select v-model="dateRange" class="px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
           <option value="">Todas las fechas</option>
           <option value="7">Últimos 7 días</option>
@@ -61,9 +61,19 @@
               </span>
             </div>
             <p class="text-sm text-gray-600 whitespace-pre-line mt-1.5 line-clamp-3">{{ r.items || '—' }}</p>
-            <div class="flex items-center justify-between gap-2 mt-2">
-              <span v-if="r.order_number" class="font-mono text-xs text-gray-500 truncate">{{ r.order_number }}</span>
-              <span v-else class="text-xs font-semibold text-amber-600">+ Agregar # de orden</span>
+            <div class="flex items-end justify-between gap-2 mt-2">
+              <div class="min-w-0 space-y-0.5">
+                <p class="text-xs truncate">
+                  <span class="text-gray-400">Orden:</span>
+                  <span v-if="r.order_number" class="font-mono text-gray-500">{{ r.order_number }}</span>
+                  <span v-else class="font-semibold text-amber-600">+ Agregar</span>
+                </p>
+                <p class="text-xs truncate">
+                  <span class="text-gray-400">Rastreo:</span>
+                  <span v-if="r.tracking_number" class="font-mono text-gray-500">{{ r.tracking_number }}</span>
+                  <span v-else class="font-semibold text-amber-600">+ Agregar</span>
+                </p>
+              </div>
               <span class="inline-flex items-center gap-1 text-primary-600 font-semibold text-sm shrink-0">
                 Editar
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
@@ -78,6 +88,7 @@
               <th class="px-4 py-3">Cliente</th>
               <th class="px-4 py-3">Productos</th>
               <th class="px-4 py-3"># Orden</th>
+              <th class="px-4 py-3"># Rastreo</th>
               <th class="px-4 py-3">Fecha</th>
               <th class="px-4 py-3">Estado</th>
               <th class="px-4 py-3"></th>
@@ -91,6 +102,7 @@
               </td>
               <td class="px-4 py-3 text-gray-700 whitespace-pre-line max-w-xs">{{ r.items || '—' }}</td>
               <td class="px-4 py-3 text-gray-500 font-mono text-xs">{{ r.order_number || '—' }}</td>
+              <td class="px-4 py-3 text-gray-500 font-mono text-xs">{{ r.tracking_number || '—' }}</td>
               <td class="px-4 py-3 text-gray-500 text-xs">{{ formatDate(r.order_date) }}</td>
               <td class="px-4 py-3">
                 <span :class="r.status === 'delivered' ? 'bg-green-50 text-green-700 border-green-100' : 'bg-amber-50 text-amber-700 border-amber-100'" class="inline-flex px-2 py-0.5 rounded-full text-xs font-semibold border">
@@ -166,7 +178,7 @@ const exportList = async () => {
     ]
     rows.forEach((r, i) => {
       lines.push(`${i + 1}) ${r.customer_name}${r.contact_phone ? ' — ' + r.contact_phone : ''}`)
-      lines.push(`   Orden: ${r.order_number || '—'} | Fecha: ${formatDate(r.order_date)} | Estado: ${r.status === 'delivered' ? 'Entregado' : 'Pendiente'}`)
+      lines.push(`   Orden: ${r.order_number || '—'} | Rastreo: ${r.tracking_number || '—'} | Fecha: ${formatDate(r.order_date)} | Estado: ${r.status === 'delivered' ? 'Entregado' : 'Pendiente'}`)
       if (r.items) String(r.items).split('\n').forEach((it) => lines.push(`   ${it}`))
       lines.push('')
     })

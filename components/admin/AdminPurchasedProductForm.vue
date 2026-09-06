@@ -17,10 +17,17 @@
         <textarea v-model="form.items" rows="4" placeholder="1x Sudadera YoungLA&#10;2x Shorts Chubbies" class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"></textarea>
       </div>
 
-      <div>
-        <label class="block text-sm font-semibold text-gray-900 mb-1"># de orden (tienda)</label>
-        <input v-model="form.order_number" placeholder="Número de orden de la tienda" class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
-        <p class="text-xs text-gray-400 mt-1">El número de confirmación de la tienda (no el de Boxly).</p>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-semibold text-gray-900 mb-1"># de orden (tienda)</label>
+          <input v-model="form.order_number" placeholder="Número de orden de la tienda" class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" />
+          <p class="text-xs text-gray-400 mt-1">El número de confirmación de la tienda (no el de Boxly).</p>
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-900 mb-1"># de rastreo (guía)</label>
+          <input v-model="form.tracking_number" placeholder="Número de rastreo de la paquetería" class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary-500" />
+          <p class="text-xs text-gray-400 mt-1">La guía de la paquetería (UPS, FedEx, USPS…). Se puede agregar después.</p>
+        </div>
       </div>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -68,6 +75,7 @@ const form = ref({
   contact_phone: '',
   items: '',
   order_number: '',
+  tracking_number: '',
   status: 'pending',
   order_date: '',
 })
@@ -79,6 +87,7 @@ watch(() => props.existingRecord, (r) => {
       contact_phone: r.contact_phone ?? '',
       items: r.items ?? '',
       order_number: r.order_number ?? '',
+      tracking_number: r.tracking_number ?? '',
       status: r.status ?? 'pending',
       order_date: r.order_date ? String(r.order_date).slice(0, 10) : '',
     }

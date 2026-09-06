@@ -95,7 +95,7 @@
   
                     <div class="flex-1 min-w-0">
                       <h4 class="font-medium text-gray-900 truncate">{{ item.product_name }}</h4>
-                      <div class="text-xs text-primary-600 truncate mb-2 flex items-center gap-1">
+                      <div v-if="item.product_url" class="text-xs text-primary-600 truncate mb-2 flex items-center gap-1">
                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
                            {{ truncateUrl(item.product_url) }}
                       </div>
@@ -189,10 +189,10 @@
   
                   <form @submit.prevent="saveItem" class="p-6 space-y-4">
                      <div>
-                      <label class="block text-sm font-medium text-gray-700 mb-1">{{ t.productUrl }}</label>
+                      <label class="block text-sm font-medium text-gray-700 mb-1">{{ t.productUrl }} <span class="font-normal lowercase text-gray-400">— {{ t.optional }}</span></label>
                       <div class="relative">
                           <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg></div>
-                          <input v-model="currentItem.product_url" type="text" required class="pl-10 w-full rounded-lg border-gray-300 focus:ring-primary-500 focus:border-primary-500" :placeholder="t.urlPlaceholder">
+                          <input v-model="currentItem.product_url" type="text" class="pl-10 w-full rounded-lg border-gray-300 focus:ring-primary-500 focus:border-primary-500" :placeholder="t.urlPlaceholder">
                       </div>
                     </div>
   
@@ -290,7 +290,8 @@
       adminNotes: 'Notas de Admin',
       createRequest: 'Crear Solicitud',
       saving: 'Guardando...',
-      urlPlaceholder: 'https://...',
+      urlPlaceholder: 'https://... (opcional)',
+      optional: 'opcional',
       namePlaceholder: 'Nombre del producto...',
       qty: 'Cant',
       change: 'Cambiar',
@@ -478,7 +479,7 @@
           
           form.value.items.forEach((item, index) => {
               formData.append(`items[${index}][product_name]`, item.product_name);
-              formData.append(`items[${index}][product_url]`, item.product_url);
+              formData.append(`items[${index}][product_url]`, item.product_url || '');
               formData.append(`items[${index}][price]`, item.price);
               formData.append(`items[${index}][quantity]`, item.quantity);
               
