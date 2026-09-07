@@ -107,6 +107,40 @@ function toCurateGalleryProduct(p: any) {
   return { ...toGalleryProduct(p), why: p.why_good || null, who_for: p.who_its_for || null, deal_tier: p.deal_tier || null }
 }
 
+// Curated COLLECTIONS — the precomputed "understanding → showing" sets the assistant
+// surfaces proactively (deal-driven + store-spotlight). The menu is stable and mirrors
+// catalog/collections.mjs; it's injected into the prompt so the model picks one from the
+// conversation and calls show_collection with its id (one tool call, no discovery hop).
+const COLLECTION_MENU: { id: string; title: string }[] = [
+  { id: 'ofertas-estrella', title: 'Ofertas estrella (los descuentos más fuertes)' },
+  { id: 'ofertas-ropa', title: 'Ofertas en ropa' },
+  { id: 'ofertas-bolsas', title: 'Ofertas en bolsas' },
+  { id: 'ofertas-belleza', title: 'Ofertas en belleza' },
+  { id: 'ofertas-tenis', title: 'Ofertas en tenis' },
+  { id: 'ofertas-hombre', title: 'Ofertas para él' },
+  { id: 'ofertas-mujer', title: 'Ofertas para ella' },
+  { id: 'spotlight-coach-outlet', title: 'Lo mejor de Coach Outlet' },
+  { id: 'spotlight-kipling', title: 'Kipling en oferta' },
+  { id: 'spotlight-old-navy', title: 'Lo mejor de Old Navy' },
+  { id: 'spotlight-gap', title: 'Lo mejor de Gap' },
+  { id: 'spotlight-nike', title: 'Nike en oferta' },
+  { id: 'spotlight-dicks', title: 'Deportes en oferta (Dick’s)' },
+  { id: 'spotlight-bath-body-works', title: 'Bath & Body Works en oferta' },
+]
+const COLLECTION_IDS = COLLECTION_MENU.map((c) => c.id) as [string, ...string[]]
+
+// One curated collection by id, served live (rotates per call). Returns the products in
+// the same gallery shape as curate, plus the collection header (title/subtitle) so the
+// gallery can headline it. Fails SOFT to empty.
+async function getCollectionApi(id: string, exclude_ids?: string[]) {
+  const body: any = { id, limit: 12, seed: (Math.random() * 1e9) | 0 }
+  if (exclude_ids?.length) body.exclude_ids = exclude_ids
+  let data: any = {}
+  try { data = await callApi('/catalog/collection', { method: 'POST', body, timeoutMs: 12000 }) } catch { data = {} }
+  const products = Array.isArray(data?.products) ? data.products.map(toCurateGalleryProduct) : []
+  return { products, source: 'catalog', collection: { id, title: data?.title || null, subtitle: data?.subtitle || null, kind: data?.kind || null } }
+}
+
 // The live-grab fallback: fetch a specific product our catalog doesn't have with the
 // computer-use agent (a pasted link, or store+query). Heavy (~7-9s) — the AI only
 // reaches for it on a genuine catalog miss or a pasted link. Fails SOFT: any error/
@@ -186,7 +220,7 @@ function lastUserText(messages: any[]): string {
   return ''
 }
 
-const PRODUCT_TOOLS = new Set(['search_products', 'curate_products', 'find_live_product', 'browse_store', 'browse_stores', 'show_products', 'show_saved_products', 'extract_product', 'web_search'])
+const PRODUCT_TOOLS = new Set(['search_products', 'curate_products', 'show_collection', 'find_live_product', 'browse_store', 'browse_stores', 'show_products', 'show_saved_products', 'extract_product', 'web_search'])
 
 // Is this search a PURE store/brand lookup (e.g. "Rhode", "Gymshark", "productos
 // de Nike") rather than an attribute search ("owala rosa", "black wide-leg jeans")?
@@ -213,7 +247,7 @@ function isPureStoreQuery(query: string, store?: string): boolean {
 // toolset for the rest of the turn — so the model physically cannot fire a second
 // (often empty) gallery. Claude obeyed the prompt rule; Gemini does not, calling a
 // gallery tool again in a later step and rendering a duplicate empty gallery.
-const GALLERY_TOOLS = ['search_products', 'curate_products', 'find_live_product', 'browse_store', 'browse_stores', 'show_products', 'show_saved_products']
+const GALLERY_TOOLS = ['search_products', 'curate_products', 'show_collection', 'find_live_product', 'browse_store', 'browse_stores', 'show_products', 'show_saved_products']
 // Everything the model may still use AFTER a gallery has rendered (write text, add
 // follow-ups, build the shipment, take the order) — i.e. all tools minus GALLERY_TOOLS.
 const NON_GALLERY_TOOLS = [
@@ -662,6 +696,7 @@ You are a SHOPPING COMPANION and DEAL FINDER. Deals are your HEADLINE, not a fil
 Your tools, and when to use them:
 - search_products(query, store?) — the instant catalog lookup for a SPECIFIC product / brand / model (curate_products below is the default for DEALS and broad "show me X for Y" asks). Covers EVERY US store, led by the best deals. ALWAYS put the brand in the store param and only look-descriptors (color/fit/material/model) in the query param — query RANKS, never gates, so it rarely empties (e.g. {category:"clothing", store:"Adidas"}, never {query:"Adidas men clothing"}). Structured params (category/store/brands/min_price/max_price/min_discount/sort) are in the tool's own description. If it genuinely returns nothing, follow the catalog-miss rule below. Never present a store homepage as a product.
 - curate_products(intent, department?, gender?, categories?, occasion?, season?, style?, gift?, brand_tier?, store?, price?) — the DEALS & BROAD-DISCOVERY specialist, and your FIRST move (instead of search_products) for the WIDE, deal-seeking asks that are a huge share of what people want: "ofertas / promos / los mejores descuentos", "promos de ropa para hombre", "algo para el gym / para una fiesta / para el frío", "un regalo para mi novia", "bolsas de mujer en descuento". It reads our DEEP UNDERSTANDING of the catalog — real gender/department/type, a true deal-quality score, and style/occasion/season tags — so you express the request as those structured params (department + gender + occasion/season + intent:'deals') and it returns a curated, best-first, DE-DUPED set with the bogus "too-good-to-be-true" errors removed. It's DYNAMIC: it hands back DIFFERENT great picks every call, so when they say "muéstrame más / otras opciones" just call it again (same params) and you get a fresh set — never the same list twice. Each item includes a short Spanish 'why' — weave it into your recommendation so each pick feels hand-chosen. Use search_products instead only for a SPECIFIC product/model/brand lookup; use curate_products for deals and broad "show me X for Y" browsing.
+- show_collection(collection) — Boxly's PRECOMPUTED curated sets, and your VERY FIRST move for an OPENING or WIDE deal/store ask that maps to one of them: a fresh chat, "¿qué ofertas hay?", "muéstrame deals / lo más rebajado", "ofertas de ropa / de bolsas / de tenis", "ofertas para hombre / para mujer", or a store spotlight ("algo de Coach Outlet", "lo mejor de Kipling / Old Navy / Gap / Nike"). It returns a NAMED, editorial, best-deals-first set (title + the strongest real markdowns), rotated fresh each call — one instant read, the most white-glove opening. Prefer it over curate_products whenever the ask matches a collection id in its list. Fall to curate_products for a NARROWER facet combo not in the list (e.g. "leggings de gym para mujer en otoño"), and search_products for a SPECIFIC product/model. The collection ids and titles are in the tool description — pick the single best match.
 - find_live_product(url? / store?+query?) — the LIVE fallback when the CATALOG can't answer. WHEN TO USE IT (be smart — this is slower, ~10s, and heavier than the catalog, so it's the exception, never the default):
   1. The user PASTED A PRODUCT LINK → call find_live_product({url}) RIGHT AWAY (do NOT search_products first — you already have the exact item). Our agent opens that page and returns the product with its real image + US price.
   2. They want a SPECIFIC product/model and the catalog doesn't actually have it — you SEE the returned titles and they clearly aren't the thing they asked for (a specific model/colour we don't carry). Then say so honestly and fetch it live: find_live_product({store, query}) with the brand in store and the model in query (e.g. {store:"Nike", query:"air max 90 red"}). THIS INCLUDES a model YOU named that the customer then picks: if you mentioned e.g. "New Balance 9060" and they reply "sí, los 9060" / "esos quiero" / "los 9060 están de moda", you MUST SHOW THAT exact model — if it isn't already the gallery on screen, call find_live_product({store:"New Balance", query:"9060"}) so they see the real shoe. NEVER agree with or describe a specific model ("¡sí, los 9060 son geniales!") while the gallery shows unrelated items (socks, shorts) or a stale previous gallery — that's a broken, missed sale. And never recommend/name a specific model you can't then put on screen.
@@ -1032,6 +1067,14 @@ export default defineEventHandler(async (event) => {
           })
           return markGallery(r)
         },
+        toModelOutput: galleryModelOutput,
+      }),
+      show_collection: tool({
+        description: "Surface a PRECOMPUTED curated collection — the fastest, most white-glove way to answer a BROAD or OPENING ask (a fresh chat, 'qué ofertas hay', 'muéstrame deals', 'algo de Coach Outlet', 'lo mejor de Kipling'). These are hand-curated deal-driven and store-spotlight sets Boxly maintains, each with a title and the best real markdowns, rotated so it's fresh every time. Prefer this over curate_products when the request maps to one of the collections below — it's one instant read and leads with a named, editorial set. Pass the collection `id`. Available collections:\n" + COLLECTION_MENU.map((c) => `  • ${c.id} — ${c.title}`).join('\n') + "\nPick the single best-matching id from the conversation. For a specific product/model use search_products; for a narrow facet combo not covered here use curate_products.",
+        inputSchema: z.object({
+          collection: z.enum(COLLECTION_IDS).describe('The collection id to show — the single best match for what the shopper wants.'),
+        }),
+        execute: async ({ collection }: any) => markGallery(await getCollectionApi(collection)),
         toModelOutput: galleryModelOutput,
       }),
       find_live_product: tool({

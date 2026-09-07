@@ -317,6 +317,11 @@
                     <!-- Only the RICHEST gallery in this message renders — see
                          primaryGalleryIndex(): a model that fires two gallery
                          tools in one step must not draw two carousels. -->
+                    <!-- Collection header: the editorial title/subtitle above a curated set (show_collection only). -->
+                    <div v-if="part.type === 'tool-show_collection' && part.state === 'output-available' && part.output?.collection?.title && part.output?.products?.length && i === primaryGalleryIndex(m) && !galleryPending(m)" class="mb-1.5 px-1">
+                      <p class="text-[13px] font-semibold text-gray-900">{{ part.output.collection.title }}</p>
+                      <p v-if="part.output.collection.subtitle" class="text-[12px] text-gray-500">{{ part.output.collection.subtitle }}</p>
+                    </div>
                     <LazyProductGallery v-if="isGalleryTool(part) && part.state === 'output-available' && part.output?.products?.length && i === primaryGalleryIndex(m) && !galleryPending(m)" :products="orderedGallery(m, part.output.products)" @open="openProduct" />
                     <!-- Search/browse finished but found nothing — clean message, not an empty
                          carousel. Suppress it if ANOTHER search in this turn did find options. -->
@@ -335,7 +340,7 @@
                       <button @click="retryLastTurn" class="font-semibold text-primary-600 hover:text-primary-700">Reintentar</button>
                     </div>
 
-                    <LazySearchLoader v-else-if="(part.type === 'tool-search_products' || part.type === 'tool-curate_products') && part.state !== 'output-available'" />
+                    <LazySearchLoader v-else-if="(part.type === 'tool-search_products' || part.type === 'tool-curate_products' || part.type === 'tool-show_collection') && part.state !== 'output-available'" />
 
                     <!-- Live grab: our agent is fetching a specific product from the store
                          in real time (~10s). Its own themed loader for that longer wait. -->
@@ -1179,7 +1184,7 @@ function ensureCardImages(list) {
 }
 
 const isBusy = computed(() => chat.status === 'streaming' || chat.status === 'submitted')
-const GALLERY_TOOLS = ['tool-show_products', 'tool-browse_store', 'tool-browse_stores', 'tool-search_products', 'tool-curate_products', 'tool-find_live_product', 'tool-show_saved_products']
+const GALLERY_TOOLS = ['tool-show_products', 'tool-browse_store', 'tool-browse_stores', 'tool-search_products', 'tool-curate_products', 'tool-show_collection', 'tool-find_live_product', 'tool-show_saved_products']
 function isGalleryTool(part) { return GALLERY_TOOLS.includes(part?.type) }
 // The assistant reorders the gallery to lead with what it recommended: feature_products
 // returns the exact titles it spotlighted. Float those to the front (in the given order),
@@ -1289,7 +1294,7 @@ function showNoResults(m, part) {
 // Tool calls that render their OWN in-place loader (spinner/SearchLoader) while
 // running — for these we don't also show the bottom dots (that'd double up).
 const TOOLS_WITH_LOADER = new Set([
-  'tool-search_products', 'tool-curate_products', 'tool-find_live_product', 'tool-browse_store', 'tool-browse_stores',
+  'tool-search_products', 'tool-curate_products', 'tool-show_collection', 'tool-find_live_product', 'tool-browse_store', 'tool-browse_stores',
   'tool-web_search', 'tool-show_orders', 'tool-plan_in_person',
 ])
 // Keep a loading indicator visible WHENEVER the assistant is working, so the chat
