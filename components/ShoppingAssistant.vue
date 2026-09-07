@@ -1186,7 +1186,16 @@ function isGalleryTool(part) { return GALLERY_TOOLS.includes(part?.type) }
 // keeping every other product after them — so the top of the carousel matches the reply.
 function featuredTitles(m) {
   const p = (m?.parts || []).find((x) => x.type === 'tool-feature_products' && x.state === 'output-available')
-  return Array.isArray(p?.output?.featured) ? p.output.featured : []
+  if (Array.isArray(p?.output?.featured) && p.output.featured.length) return p.output.featured
+  // Fallback (no feature_products call): the assistant BOLDS the product(s) it spotlights
+  // in its reply ("**Impact Leggings** a $62.50…"). Pull those bold phrases — stripped of
+  // any trailing price — so the gallery leads with the recommended item and the carousel
+  // matches the words. Non-product bolds simply won't match a gallery title (harmless).
+  const text = (m?.parts || []).filter((x) => x.type === 'text').map((x) => x.text || '').join(' ')
+  return [...text.matchAll(/\*\*([^*]{3,70})\*\*/g)]
+    .map((mm) => mm[1].replace(/\s*(?:a|desde|por|—|-|,)?\s*\$\s*[\d.,]+.*$/i, '').trim())
+    .filter((s) => s.length >= 3)
+    .slice(0, 3)
 }
 function orderedGallery(m, products) {
   const feat = featuredTitles(m).map((t) => String(t || '').toLowerCase().trim()).filter(Boolean)
