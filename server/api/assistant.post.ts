@@ -175,6 +175,30 @@ async function liveGrabApi(a: { url?: string; store?: string; query?: string }) 
     source: 'live',
   }
 }
+// The OUT-OF-CATALOG fallback: when Boxly doesn't carry a product, the computer-use agent
+// runs a GOOGLE SHOPPING search and returns real cross-web options (merchant, price, image,
+// buyable link) — the shopper orders it through Boxly. Heavy (~16-32s) + rate-limited
+// (Google walls sustained use → {blocked, cooling}). Fails SOFT: any block/miss/error comes
+// back as empty products + a reason the model explains.
+async function getGoogleShopApi(query: string) {
+  let data: any = {}
+  try {
+    data = await callApi('/catalog/google-shop', { method: 'POST', body: { query }, timeoutMs: 58000 })
+  } catch { data = { error: 'unreachable' } }
+  const raw: any[] = Array.isArray(data?.products) ? data.products : []
+  const reason: string | null = data?.error ? String(data.error)
+    : data?.blocked ? (data?.cooling ? 'cooling' : 'blocked')
+    : data?.busy ? 'busy'
+    : data?.no_results ? 'no_results'
+    : null
+  return {
+    products: raw.map((p) => ({ ...toGalleryProduct(p), merchant: p.merchant || p.store || null, source: 'google' })),
+    source: 'google',
+    from_web: true,          // the model MUST frame these as found on the web, orderable via Boxly
+    reason,                  // null on success; 'cooling'/'blocked'/'no_results'/an error code otherwise
+    retry_after_s: data?.retry_after_s ?? null,
+  }
+}
 // Which model/provider runs this chat is decided centrally in ../utils/aiProvider
 // (chatModel()), so the whole app can switch between Gemini and Claude via env.
 
@@ -229,7 +253,7 @@ function lastUserText(messages: any[]): string {
   return ''
 }
 
-const PRODUCT_TOOLS = new Set(['search_products', 'curate_products', 'show_collection', 'find_live_product', 'browse_store', 'browse_stores', 'show_products', 'show_saved_products', 'extract_product', 'web_search'])
+const PRODUCT_TOOLS = new Set(['search_products', 'curate_products', 'show_collection', 'find_live_product', 'find_on_google', 'browse_store', 'browse_stores', 'show_products', 'show_saved_products', 'extract_product', 'web_search'])
 
 // Is this search a PURE store/brand lookup (e.g. "Rhode", "Gymshark", "productos
 // de Nike") rather than an attribute search ("owala rosa", "black wide-leg jeans")?
@@ -256,7 +280,7 @@ function isPureStoreQuery(query: string, store?: string): boolean {
 // toolset for the rest of the turn — so the model physically cannot fire a second
 // (often empty) gallery. Claude obeyed the prompt rule; Gemini does not, calling a
 // gallery tool again in a later step and rendering a duplicate empty gallery.
-const GALLERY_TOOLS = ['search_products', 'curate_products', 'show_collection', 'find_live_product', 'browse_store', 'browse_stores', 'show_products', 'show_saved_products']
+const GALLERY_TOOLS = ['search_products', 'curate_products', 'show_collection', 'find_live_product', 'find_on_google', 'browse_store', 'browse_stores', 'show_products', 'show_saved_products']
 // Everything the model may still use AFTER a gallery has rendered (write text, add
 // follow-ups, build the shipment, take the order) — i.e. all tools minus GALLERY_TOOLS.
 const NON_GALLERY_TOOLS = [
@@ -716,8 +740,8 @@ Your tools, and when to use them:
   RESULTS ARE RANKED BY RELEVANCE — JUDGE THEM YOURSELF. The gallery comes back with the best matches FIRST, and you can SEE each item's title. So look at what came back and match it against what the customer asked. If the top items ARE what they wanted, present them confidently. If we don't have the EXACT thing (they asked for "wide-leg jeans" and the closest we carry is straight-leg, or a specific print/model isn't there), be honest and helpful: these are the closest options we have — say so plainly and show them anyway ("No tengo ese exacto, pero mira estas opciones parecidas 👇 — ¿alguna te late?"). NEVER claim you found the exact thing when the titles clearly don't match. If they named a very specific product/model/link we don't stock, offer to get it for them: "si me pasas el link te lo consigo" (we can fetch it live). Showing a close, relevant set beats an empty gallery every time.
 - ⚑ MISS SIGNALS — THE TOOL TELLS YOU WHEN IT FAILED, ACT ON IT (this is the #1 rule for "results that make sense"). Every search_products / curate_products result carries flags you MUST read before you write a word:
   • no_exact_match:true (see missing_terms, e.g. ["9060"]) → the SPECIFIC model/product the shopper named is in NONE of the returned items; the gallery is just same-store neighbours, NOT the thing they asked for. You MUST fetch the exact item live in the SAME turn: one short line ("Va, déjame traerte los 9060 en vivo 🔎") then find_live_product({store:"<brand>", query:"<the exact model>"}). NEVER agree with / describe the model ("¡sí, los 9060!") while the screen shows other items — go get the real one.
-  • query_matched:false → NOTHING matched what they actually asked; the rows are the store's top DEALS as filler (this is why a "matching sets para el gym" ask came back as DRESSES). Do NOT present filler as the answer. Instead: (1) re-run expressing the intent as STRUCTURED params that GATE the set — occasion ("gym"/"deportivo"→occasion:["gym"]), category (the product type), gender — so only sensible items come back; and (2) if it's a product/category we genuinely don't carry (e.g. a digital camera, electronics), tell them honestly what we do have and OFFER to get the exact thing live / from a US store (Best Buy, Amazon, Walmart), or grab a concrete model live if they name one.
-  RESULTS MUST MAKE SENSE — this is non-negotiable. A real shopping assistant NEVER shows dresses for a gym request, a toaster for a camera, or random top-deals for a specific model. If what came back doesn't clearly fit the ask, it's a MISS: gate it with structured params, fetch it live, or be honest about what we have — but never pass off nonsense as the answer.
+  • query_matched:false → NOTHING matched what they actually asked; the rows are the store's top DEALS as filler (this is why a "matching sets para el gym" ask came back as DRESSES). Do NOT present filler as the answer. Instead: (1) re-run expressing the intent as STRUCTURED params that GATE the set — occasion ("gym"/"deportivo"→occasion:["gym"]), category (the product type), gender — so only sensible items come back; and (2) if the re-gated search STILL misses, or it's clearly a product/category we don't carry (a digital camera, a red-light LED mask, an appliance), go to the WEB with find_on_google({query}) — it fetches real cross-web options (Target/eBay/Best Buy/…) Boxly buys and delivers; frame them as found on the web, not our catalog.
+  RESULTS MUST MAKE SENSE — this is non-negotiable. A real shopping assistant NEVER shows dresses for a gym request, a toaster for a camera, or random top-deals for a specific model. If what came back doesn't clearly fit the ask, it's a MISS: gate it with structured params, or GO GET IT (find_live_product for a specific model at a store we can reach; find_on_google for anything else we don't carry) — never pass off nonsense as the answer. The out-of-catalog web search is what lets Boxly get ANYTHING — USE IT rather than settling for filler.
 - STICKY STORE — REMEMBER WHICH STORE THEY'RE SHOPPING (critical context bug to avoid). Once the customer is browsing a specific store — they named it ("ofertas en Nike", "muéstrame Coach"), or a previous search this conversation was scoped to it — KEEP that store on EVERY following product search UNTIL they either (a) name a DIFFERENT store, or (b) explicitly ask to look across all stores ("en todas las tiendas", "en cualquier tienda", "en general", "busca en todo el catálogo"). Their next message NOT repeating the store name does NOT mean drop it — they're still in that store. Examples: "promos en Nike" → then "¿y tenis para correr?" → STILL search store:"Nike" (running shoes in Nike), NOT the whole catalog. "ahora en Adidas" → switch store to Adidas. "muéstrame en todas" → then drop the store filter. When in doubt, carry the store forward.
 - REFINING / FILTERING (CRITICAL — this is where your intelligence shows). YOU do the semantic understanding of what the shopper means, then express it as STRUCTURED FILTERS. Don't dump everything into one text query — map each part of their request to the RIGHT param, because the structured filters are reliable and the query text only ranks. Whenever they narrow, run a NEW search_products call carrying ALL still-active filters (keep the old ones — INCLUDING the store — and add the new one). Map each kind:
   • product TYPE ("jeans", "hoodies", "running shoes", "dresses") → category (the strongest, most dependable filter — always set it when they name a type; keeps the gallery on-topic).
@@ -1068,6 +1092,14 @@ export default defineEventHandler(async (event) => {
           const r: any = await searchCatalogApi({ query, store, brands, category, min_price, max_price, min_discount, sale, sort })
           return markGallery(r)
         },
+        toModelOutput: galleryModelOutput,
+      }),
+      find_on_google: tool({
+        description: "OUT-OF-CATALOG WEB SEARCH — the fallback for a product Boxly does NOT carry. Our agent runs a GOOGLE SHOPPING search and returns real cross-web options (merchant, price, image, a buyable link); Boxly buys it in the US and delivers to Mexico. USE IT ONLY AFTER the catalog genuinely missed — i.e. search_products/curate_products came back empty, or with no_exact_match:true, or query_matched:false, OR it's clearly a category/product we don't stock (a digital camera, a red-light LED mask, an appliance, a very specific model). The catalog is ALWAYS your first move; this is the exception. SLOW (~20-30s): open with ONE short line in the SAME turn ('Eso no lo tenemos en el catálogo — déjame buscarlo en la web 🔎') so the loader covers the wait, then fire it. Pass the product as `query` with the brand/model included. FRAME the results as found on the WEB (Target, eBay, Best Buy, Walmart…) and orderable through Boxly — NOT our catalog. If it comes back with reason 'cooling'/'blocked' (Google rate-limited us) say we couldn't search the web this moment and offer to take a direct link or try shortly; 'no_results' means the web search found nothing — ask for a link.",
+        inputSchema: z.object({
+          query: z.string().describe('The product to find on the web, with brand/model, e.g. "red light led face mask", "Sony ZV-1F camera", "New Balance 9060 grey".'),
+        }),
+        execute: async ({ query }: any) => markGallery(await getGoogleShopApi(query)),
         toModelOutput: galleryModelOutput,
       }),
 

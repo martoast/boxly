@@ -349,6 +349,13 @@
                       :messages="['Buscándolo en vivo en la tienda…', 'Abriendo la página del producto…', 'Trayendo precio e imagen…', 'Un momento, casi listo…']"
                     />
 
+                    <!-- Out-of-catalog web search (Google Shopping): slower (~20-30s), its
+                         own copy so the shopper knows we're scouring the web for them. -->
+                    <LazySearchLoader
+                      v-else-if="part.type === 'tool-find_on_google' && part.state !== 'output-available'"
+                      :messages="['Buscándolo en la web…', 'Revisando tiendas de EE. UU.…', 'Comparando precios y opciones…', 'Trayendo lo mejor, un momento…']"
+                    />
+
                     <LazySearchLoader
                       v-else-if="(part.type === 'tool-browse_store' || part.type === 'tool-browse_stores') && part.state !== 'output-available'"
                       :messages="['Revisando tiendas…', 'Abriendo el catálogo…', 'Trayendo lo mejor de la tienda…']"
@@ -1184,7 +1191,7 @@ function ensureCardImages(list) {
 }
 
 const isBusy = computed(() => chat.status === 'streaming' || chat.status === 'submitted')
-const GALLERY_TOOLS = ['tool-show_products', 'tool-browse_store', 'tool-browse_stores', 'tool-search_products', 'tool-curate_products', 'tool-show_collection', 'tool-find_live_product', 'tool-show_saved_products']
+const GALLERY_TOOLS = ['tool-show_products', 'tool-browse_store', 'tool-browse_stores', 'tool-search_products', 'tool-curate_products', 'tool-show_collection', 'tool-find_live_product', 'tool-find_on_google', 'tool-show_saved_products']
 function isGalleryTool(part) { return GALLERY_TOOLS.includes(part?.type) }
 // The assistant reorders the gallery to lead with what it recommended: feature_products
 // returns the exact titles it spotlighted. Float those to the front (in the given order),
@@ -1294,7 +1301,7 @@ function showNoResults(m, part) {
 // Tool calls that render their OWN in-place loader (spinner/SearchLoader) while
 // running — for these we don't also show the bottom dots (that'd double up).
 const TOOLS_WITH_LOADER = new Set([
-  'tool-search_products', 'tool-curate_products', 'tool-show_collection', 'tool-find_live_product', 'tool-browse_store', 'tool-browse_stores',
+  'tool-search_products', 'tool-curate_products', 'tool-show_collection', 'tool-find_live_product', 'tool-find_on_google', 'tool-browse_store', 'tool-browse_stores',
   'tool-web_search', 'tool-show_orders', 'tool-plan_in_person',
 ])
 // Keep a loading indicator visible WHENEVER the assistant is working, so the chat
