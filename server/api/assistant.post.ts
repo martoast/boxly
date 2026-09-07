@@ -5,8 +5,9 @@ import { z } from 'zod'
 import { FALLBACK_KNOWLEDGE } from '../utils/boxlyKnowledge'
 import { curateProducts, floatRequestedStore } from '../utils/curate'
 import { chatModel, isAnthropic, providerOptions, hasModelKey } from '../utils/aiProvider'
-import { ageGalleries, windowMessages, withContextOnLastUser, dropToolParts, contextStats } from '../utils/chatContext'
+import { ageGalleries, windowMessages, withContextOnLastUser, dropToolParts, contextStats, WINDOW_DEFAULTS } from '../utils/chatContext'
 import { generateFollowups, followupPart, followupsWithin, attachFollowupChips } from '../utils/followups'
+import { readSummary, summaryBlock, summarize, shouldSummarize } from '../utils/chatSummary'
 
 /**
  * AI shopping-assistant chat backend (Phase 2).
@@ -776,7 +777,9 @@ export default defineEventHandler(async (event) => {
   const surface: string = body?.surface === 'hub' ? 'hub' : 'search'
   const pipeline: string | undefined = typeof body?.pipeline === 'string' ? body.pipeline : undefined
 
-  const knowledge = await getKnowledge()
+  // The per-chat rolling summary (phase 2, CHAT_SUMMARY-gated) is read in parallel
+  // with the wiki so it adds no latency; it is null for guests / short chats / flag off.
+  const [knowledge, summaryState] = await Promise.all([getKnowledge(), readSummary(callApi, conversationId, token)])
 
   // web_search: on Claude we use Anthropic's native server-side web search. On any
   // other provider (Gemini, OpenAI) we expose web_search as a normal function tool
@@ -803,7 +806,7 @@ export default defineEventHandler(async (event) => {
   // product registry change mid-conversation, so they ride at the very END of the
   // prompt (on the newest user message, see below) — keeping everything before
   // them byte-identical for Anthropic's breakpoint AND Gemini's implicit cache.
-  const ctx = shopperContext(!!token, shoppingProfile, savedProducts)
+  const ctx = [summaryBlock(summaryState), shopperContext(!!token, shoppingProfile, savedProducts)].filter(Boolean).join('\n\n')
   // History → model, bounded (see server/utils/chatContext.ts):
   //  1. old galleries collapse to a one-line marker (the products stay in the registry),
   //  2. hysteresis window (MAX 14 msgs / 6k tokens → keep 8; hard cap 9k),
@@ -907,6 +910,7 @@ export default defineEventHandler(async (event) => {
         conversation: conversationId ?? null, steps: (steps || []).length,
         input: u.inputTokens ?? null, cache_read: u.inputTokenDetails?.cacheReadTokens ?? u.cachedInputTokens ?? null,
         output: u.outputTokens ?? null, ...promptStats,
+        has_summary: !!summaryState?.running_summary, summary_chars: summaryState?.running_summary?.length ?? 0,
       }))
       // The chips ride on the message via the stream (see the end of this handler);
       // wait for the same bounded promise so the persisted turn carries them too.
@@ -918,6 +922,14 @@ export default defineEventHandler(async (event) => {
       // Durably save the turn server-side (awaited so it completes within the
       // stream lifecycle — see persistTurn). Authoritative writer of chat history.
       await persistTurn(conversationId, token, messages, steps, text || '', chips)
+      // Fold the turns the window no longer shows into the per-chat summary. After
+      // the reply and the persist, fire-and-forget, cheap aux model; every failure
+      // keeps the previous summary (see server/utils/chatSummary.ts).
+      if (conversationId && token && shouldSummarize(windowed.dropped, summaryState, WINDOW_DEFAULTS.keep)) {
+        summarize(conversationId, token, WINDOW_DEFAULTS.keep, callApi, (l) => console.error(l))
+          .then((r) => { if (r.ran) console.log('[assistant] summary', JSON.stringify({ conversation: conversationId, ...r })) })
+          .catch(() => {})
+      }
     },
     tools: {
       web_search: webSearchTool,
