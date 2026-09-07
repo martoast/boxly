@@ -335,7 +335,7 @@
                       <button @click="retryLastTurn" class="font-semibold text-primary-600 hover:text-primary-700">Reintentar</button>
                     </div>
 
-                    <LazySearchLoader v-else-if="part.type === 'tool-search_products' && part.state !== 'output-available'" />
+                    <LazySearchLoader v-else-if="(part.type === 'tool-search_products' || part.type === 'tool-curate_products') && part.state !== 'output-available'" />
 
                     <!-- Live grab: our agent is fetching a specific product from the store
                          in real time (~10s). Its own themed loader for that longer wait. -->
@@ -1179,7 +1179,7 @@ function ensureCardImages(list) {
 }
 
 const isBusy = computed(() => chat.status === 'streaming' || chat.status === 'submitted')
-const GALLERY_TOOLS = ['tool-show_products', 'tool-browse_store', 'tool-browse_stores', 'tool-search_products', 'tool-find_live_product', 'tool-show_saved_products']
+const GALLERY_TOOLS = ['tool-show_products', 'tool-browse_store', 'tool-browse_stores', 'tool-search_products', 'tool-curate_products', 'tool-find_live_product', 'tool-show_saved_products']
 function isGalleryTool(part) { return GALLERY_TOOLS.includes(part?.type) }
 // The assistant reorders the gallery to lead with what it recommended: feature_products
 // returns the exact titles it spotlighted. Float those to the front (in the given order),
@@ -1280,7 +1280,7 @@ function showNoResults(m, part) {
 // Tool calls that render their OWN in-place loader (spinner/SearchLoader) while
 // running — for these we don't also show the bottom dots (that'd double up).
 const TOOLS_WITH_LOADER = new Set([
-  'tool-search_products', 'tool-find_live_product', 'tool-browse_store', 'tool-browse_stores',
+  'tool-search_products', 'tool-curate_products', 'tool-find_live_product', 'tool-browse_store', 'tool-browse_stores',
   'tool-web_search', 'tool-show_orders', 'tool-plan_in_person',
 ])
 // Keep a loading indicator visible WHENEVER the assistant is working, so the chat
