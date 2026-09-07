@@ -14,11 +14,11 @@
  *                     PATCH it back with optimistic versioning. Fire-and-forget; every
  *                     failure keeps the previous summary.
  *
- * Gated by CHAT_SUMMARY (env): unset/"0" → off (no reads, no writes). Ships OFF; it is
- * flipped on in prod once the endpoints and the summarizer have been verified.
+ * ON by default. CHAT_SUMMARY is only a kill-switch: set it to "0"/"false"/"off"/"no"
+ * to disable (no reads, no writes) if it ever misbehaves. Unset → on.
  */
 
-export const summaryEnabled = () => /^(1|true|on|yes)$/i.test(String(process.env.CHAT_SUMMARY || ''))
+export const summaryEnabled = () => !/^(0|false|off|no)$/i.test(String(process.env.CHAT_SUMMARY ?? '').trim())
 
 /** Hard cut when READING into the prompt (the API also caps writes at 2,500 chars). */
 export const SUMMARY_MAX_CHARS = 2000

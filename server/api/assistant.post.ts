@@ -778,8 +778,8 @@ export default defineEventHandler(async (event) => {
   const surface: string = body?.surface === 'hub' ? 'hub' : 'search'
   const pipeline: string | undefined = typeof body?.pipeline === 'string' ? body.pipeline : undefined
 
-  // The per-chat rolling summary (phase 2, CHAT_SUMMARY-gated) is read in parallel
-  // with the wiki so it adds no latency; it is null for guests / short chats / flag off.
+  // The per-chat rolling summary (phase 2, on by default) is read in parallel
+  // with the wiki so it adds no latency; it is null for guests / short chats.
   const [knowledge, summaryState] = await Promise.all([getKnowledge(), readSummary(callApi, conversationId, token)])
 
   // web_search: on Claude we use Anthropic's native server-side web search. On any
