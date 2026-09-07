@@ -890,10 +890,21 @@ export default defineEventHandler(async (event) => {
     return r
   }
 
+  // Latency instrumentation: t0 = just before the first model call. onChunk marks
+  // time-to-first-chunk (RT1 tool round-trip done, RT2 producing) and time-to-first-text
+  // (the closing line begins streaming). onFinish logs the breakdown so the real
+  // bottleneck (RT1 vs tool call vs RT2) is measurable in prod, not guessed.
+  const t0 = Date.now()
+  let firstChunkAt = 0
+  let firstTextAt = 0
   const result = streamText({
     model: chatModel(),
     providerOptions: providerOptions(),
     messages: modelMessages,
+    onChunk: ({ chunk }: any) => {
+      if (!firstChunkAt) firstChunkAt = Date.now()
+      if (!firstTextAt && chunk?.type === 'text-delta') firstTextAt = Date.now()
+    },
     // Stop at 10 steps, OR — once a gallery has shown — as soon as the model has
     // written its recommendation (gallery → one closing line → done; the follow-up
     // chips are generated off-loop, see followupsPromise). This prevents a runaway
@@ -942,11 +953,18 @@ export default defineEventHandler(async (event) => {
       // Prompt-size + cache telemetry (one line per turn) so the effect of the
       // context window and the prefix cache can be measured in prod.
       const u: any = totalUsage || {}
+      const done = Date.now()
+      const toolsUsed = (steps || []).flatMap((s: any) => (s.toolCalls || []).map((c: any) => c.toolName))
       console.log('[assistant] usage', JSON.stringify({
         conversation: conversationId ?? null, steps: (steps || []).length,
         input: u.inputTokens ?? null, cache_read: u.inputTokenDetails?.cacheReadTokens ?? u.cachedInputTokens ?? null,
         output: u.outputTokens ?? null, ...promptStats,
         has_summary: !!summaryState?.running_summary, summary_chars: summaryState?.running_summary?.length ?? 0,
+        // Latency breakdown (ms): ttfc = to first stream chunk (RT1+tool done), ttft = to
+        // first TEXT (RT2 begins speaking), total = full turn. tools = what ran this turn.
+        ms_ttfc: firstChunkAt ? firstChunkAt - t0 : null,
+        ms_ttft: firstTextAt ? firstTextAt - t0 : null,
+        ms_total: done - t0, tools: toolsUsed,
       }))
       // The chips ride on the message via the stream (see the end of this handler);
       // wait for the same bounded promise so the persisted turn carries them too.
