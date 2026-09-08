@@ -1810,30 +1810,17 @@ async function confirmAssisted(part) {
   assistedErrors[id] = ''
   assistedCreatingId.value = id
   try {
-    let pr = null
-    // Update this chat's open request when we have one. If it's already been
-    // quoted the API refuses the edit (400/403/404) — that request is in the
-    // shopping team's hands, so the extra item legitimately becomes a new one.
-    // Any OTHER failure (network, 500) must NOT fall through to a create, or a
-    // hiccup silently duplicates the whole shipment.
-    if (assistedPr.value?.id) {
-      try {
-        const res = await $customFetch(`/purchase-requests/${assistedPr.value.id}`, { method: 'PUT', body: { currency: 'usd', items } })
-        pr = res?.data || res
-      } catch (e) {
-        const status = e?.response?.status || e?.statusCode
-        if (![400, 403, 404].includes(status)) throw e
-        assistedPr.value = null
-      }
-    }
-    const updated = !!pr
-    if (!pr) {
-      const res = await $customFetch('/purchase-requests', {
-        method: 'POST',
-        body: { currency: 'usd', items, conversation_id: activeId.value || undefined },
-      })
-      pr = res?.data || res
-    }
+    // Each finalized cart is its OWN purchase request — a summary card = one request — so the
+    // customer can place SEVERAL across one chat and keep shopping after an order. The per-card
+    // guards above (assistedResults[id] / assistedCreatingId / assistedHandled) ensure a given
+    // card fires exactly once; a NEW card is a NEW request. We deliberately do NOT PUT-update a
+    // prior request: after an order the model builds a FRESH cart, so updating would overwrite it.
+    const res = await $customFetch('/purchase-requests', {
+      method: 'POST',
+      body: { currency: 'usd', items, conversation_id: activeId.value || undefined },
+    })
+    const pr = res?.data || res
+    const updated = false
     if (!pr?.request_number) throw new Error('no_request_number')
     assistedPr.value = { id: pr.id, request_number: pr.request_number }
     assistedResults[id] = { request_number: pr.request_number, updated }
