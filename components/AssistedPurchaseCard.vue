@@ -30,14 +30,24 @@
          customer already asked Boxly to buy it) — no extra "Continuar" tap. On
          failure we surface a retry so the sale is never silently lost. -->
     <div class="mt-3">
-      <div v-if="!error" class="inline-flex items-center gap-2 text-[13px] font-bold text-primary-700">
-        <svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
-        Creando tu solicitud…
-      </div>
-      <div v-else>
-        <p class="text-[12px] font-semibold text-red-600 mb-2">{{ error }}</p>
-        <button type="button" @click="$emit('confirm')" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-primary-500 hover:bg-primary-600 active:scale-[.98] text-white text-[13px] font-bold rounded-xl transition-all shadow-sm shadow-primary-500/20">Reintentar</button>
-      </div>
+      <!-- SUCCESS in place: when the request is created we keep the items + breakdown above
+           and just swap this footer to the confirmation — no card swap, so no "blink". -->
+      <transition name="fade" mode="out-in">
+        <div v-if="result" key="done" class="rounded-xl bg-green-50 border border-green-200 p-3">
+          <p class="text-[13px] font-bold text-green-800 flex items-center gap-1.5"><svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 011.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z" clip-rule="evenodd"/></svg> Listo — nosotros nos encargamos 🎉</p>
+          <p class="text-[11.5px] text-green-700 mt-1">Solicitud <span class="font-semibold">{{ result.request_number }}</span> creada. Te enviamos la cotización (producto + servicio + envío) para que la apruebes — no pagas nada todavía.</p>
+          <p class="text-[11.5px] text-green-700 mt-1 flex items-start gap-1.5"><span>🛍️</span><span>Nuestro equipo de compras se pondrá en contacto contigo en breve.</span></p>
+          <NuxtLink to="/app/purchase-requests" class="inline-block mt-1.5 text-[11.5px] font-semibold text-green-800 underline active:scale-95 transition-transform">Ver mis solicitudes →</NuxtLink>
+        </div>
+        <div v-else-if="error" key="err">
+          <p class="text-[12px] font-semibold text-red-600 mb-2">{{ error }}</p>
+          <button type="button" @click="$emit('confirm')" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-primary-500 hover:bg-primary-600 active:scale-[.98] text-white text-[13px] font-bold rounded-xl transition-all shadow-sm shadow-primary-500/20">Reintentar</button>
+        </div>
+        <div v-else key="creating" class="inline-flex items-center gap-2 text-[13px] font-bold text-primary-700">
+          <svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
+          Creando tu solicitud…
+        </div>
+      </transition>
     </div>
   </div>
 </template>
@@ -47,6 +57,7 @@ const props = defineProps({
   summary: { type: Object, default: () => ({}) },
   loading: { type: Boolean, default: false },
   error: { type: String, default: '' },
+  result: { type: Object, default: null }, // { request_number, updated } once created — flips the footer to success in place
 })
 defineEmits(['confirm', 'edit'])
 
@@ -60,3 +71,8 @@ const items = computed(() => (props.summary?.items || []).map((it) => ({
 const subtotal = computed(() => items.value.reduce((s, it) => s + it.price * it.quantity, 0))
 const commission = computed(() => subtotal.value * 0.15)
 </script>
+
+<style scoped>
+.fade-enter-active, .fade-leave-active { transition: opacity .22s ease; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
+</style>

@@ -405,18 +405,23 @@
                            success card so we NEVER imply a request exists before it does.
                            Keyed by toolCallId so multiple assisted summaries in one chat
                            stay independent. -->
-                      <div v-if="assistedResults[part.toolCallId]" class="bg-green-50 border border-green-200 rounded-2xl p-4 max-w-sm">
-                        <p class="text-sm font-bold text-green-800 flex items-center gap-1.5"><svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 011.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z" clip-rule="evenodd"/></svg> Listo — nosotros nos encargamos 🎉</p>
-                        <!-- Everything the customer adds in this chat goes into the SAME
-                             request (one shipment, one box, one quote), so a later card
-                             says "actualizada" instead of implying a second order. -->
-                        <p v-if="assistedResults[part.toolCallId].updated" class="text-xs text-green-700 mt-1">Agregado a tu solicitud <span class="font-semibold">{{ assistedResults[part.toolCallId].request_number }}</span>. Todo va en el mismo envío y te enviamos una sola cotización para que la apruebes — no pagas nada todavía.</p>
-                        <p v-else class="text-xs text-green-700 mt-1">Solicitud <span class="font-semibold">{{ assistedResults[part.toolCallId].request_number }}</span> creada. Te enviamos la cotización (producto + servicio + envío) para que la apruebes — no pagas nada todavía.</p>
-                        <p class="text-xs text-green-700 mt-1.5 flex items-start gap-1.5"><span>🛍️</span><span>Nuestro equipo de compras se pondrá en contacto contigo en breve para revisar los detalles de tu compra.</span></p>
-                        <NuxtLink to="/app/purchase-requests" class="inline-block mt-2 text-xs font-semibold text-green-800 underline active:scale-95 transition-transform">Ver mis solicitudes →</NuxtLink>
-                      </div>
-                      <AssistedPurchaseCard v-else :summary="part.output" :loading="assistedCreatingId === part.toolCallId" :error="assistedErrors[part.toolCallId] || ''" @confirm="confirmAssisted(part)" @edit="editAssisted" />
+                      <!-- One stable card: the items + breakdown stay, and the footer flips
+                           to the success confirmation in place once created (no card swap,
+                           so no "blink"). result is set the moment confirmAssisted returns. -->
+                      <AssistedPurchaseCard :summary="part.output" :loading="assistedCreatingId === part.toolCallId" :error="assistedErrors[part.toolCallId] || ''" :result="assistedResults[part.toolCallId] || null" @confirm="confirmAssisted(part)" @edit="editAssisted" />
                     </template>
+
+                    <a v-else-if="part.type === 'tool-show_contact_whatsapp' && part.state === 'output-available'"
+                       :href="part.output?.whatsapp || 'https://wa.me/16195591910'" target="_blank" rel="noopener"
+                       class="flex items-center gap-3 rounded-2xl border border-green-200 bg-green-50 p-4 max-w-sm active:scale-[.99] transition-transform">
+                      <span class="shrink-0 w-10 h-10 rounded-full bg-green-500 grid place-items-center">
+                        <svg class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 004.79 1.22h.01c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0012.04 2zm0 18.15h-.01a8.2 8.2 0 01-4.18-1.15l-.3-.18-3.11.82.83-3.03-.2-.31a8.18 8.18 0 01-1.26-4.36c0-4.54 3.7-8.24 8.24-8.24 2.2 0 4.27.86 5.82 2.42a8.18 8.18 0 012.41 5.83c0 4.54-3.69 8.23-8.23 8.23zm4.52-6.16c-.25-.12-1.47-.72-1.69-.81-.23-.08-.39-.12-.56.13-.16.24-.64.8-.79.97-.14.16-.29.18-.54.06-.25-.12-1.05-.39-1.99-1.23-.74-.66-1.23-1.47-1.38-1.72-.14-.25-.02-.38.11-.5.11-.11.25-.29.37-.43.12-.14.16-.25.25-.41.08-.16.04-.31-.02-.43-.06-.12-.56-1.34-.76-1.84-.2-.48-.4-.42-.56-.43h-.48c-.16 0-.43.06-.66.31-.22.24-.86.85-.86 2.07 0 1.22.89 2.4 1.01 2.56.12.16 1.75 2.67 4.23 3.74.59.26 1.05.41 1.41.52.59.19 1.13.16 1.56.1.48-.07 1.47-.6 1.68-1.18.21-.58.21-1.07.14-1.18-.06-.11-.22-.17-.47-.29z"/></svg>
+                      </span>
+                      <span class="min-w-0">
+                        <span class="block text-[13.5px] font-bold text-green-900">Contáctanos por WhatsApp</span>
+                        <span class="block text-[12px] text-green-700 mt-0.5">{{ part.output?.reason || 'Nuestro equipo te ayuda directo.' }}</span>
+                      </span>
+                    </a>
 
                     <LazyBoxGuide v-else-if="part.type === 'tool-show_box_guide' && part.state === 'output-available'" :boxes="part.output?.boxes || []" />
 
@@ -1235,6 +1240,10 @@ function enrichShipment(shipment) {
   const norm = (t) => String(t || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
   const items = shipment.items.map((it) => {
     if (it.image) return it
+    // Prefer the exact registry row by saved_id (catalog + web products carry a stable id),
+    // then fall back to a fuzzy title match — so a dropped/long image URL still resolves.
+    const byId = it.saved_id ? prods.find((p) => p.id === it.saved_id) : null
+    if (byId) return { ...it, image: byId.image || null, price: it.price ?? byId.price ?? null }
     const n = norm(it.name)
     if (!n) return it
     const match = prods.find((p) => { const t = norm(p.title); return t && (t.includes(n) || n.includes(t)) })
