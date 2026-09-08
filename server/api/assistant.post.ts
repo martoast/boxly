@@ -59,9 +59,21 @@ async function searchCatalogApi(a: CatalogSearchArgs) {
   return { products: products.map(toGalleryProduct), source: 'catalog', ...miss }
 }
 
+// Stable product id — MUST match the client registry's pid() (ShoppingAssistant.vue) byte
+// for byte (FNV-1a over the url, else title+store), so the id the model sees in a gallery is
+// the same key confirmAssisted/openSelfOrder look up. Without this, no gallery product carried
+// an id, the model never had a saved_id to pass, and every order fell back to the model
+// retyping the url/image (which mangled long web links → broken email image + dead link).
+function pid(raw: { url?: string | null; product_url?: string | null; title?: string | null; store?: string | null }) {
+  const s = raw.url || raw.product_url || ((raw.title || '') + (raw.store || ''))
+  let h = 2166136261
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0 }
+  return 'p' + h.toString(36)
+}
 // One catalog/live SERP row → the gallery's product shape.
 function toGalleryProduct(p: any) {
   return {
+    id: p.id || pid({ url: p.url, title: p.title, store: p.store }),
     title: p.title,
     url: p.url,
     source_url: p.url,
@@ -789,7 +801,7 @@ Your tools, and when to use them:
 - FINALIZE ONLY WHEN THEY'RE DONE, THEN DON'T MAKE THEM CONFIRM TWICE. Adding items to the cart NEVER places the order — an "Agrégalo a mi carrito" / "quiero ese" is an ADD (show_shipment), not a finalize. Only when the customer signals they're done ("eso es todo", "créala", "cotízala", "haz el pedido", "ya estoy listo", the Finalizar carrito button) do you FINALIZE: call show_assisted_summary ONCE with EVERY item in the cart — immediately, WITHOUT asking for size, colour, variant or any confirmation (the shopping team collects variants with the customer afterward). That card places the request automatically and shows the real confirmation (real number + that nuestro equipo de compras will reach out) — do NOT ask "¿lo confirmo?" or "¿qué talla?" first. Your own text must NEVER say the request is created and must NEVER contain a PR number — the card does that.
 - THE CARD IS THE WHOLE CURRENT CART. show_assisted_summary is a SNAPSHOT of the shipment being built, not an "add this item" action: while building a cart, every call passes EVERY item agreed so far — the new one AND all previous ones — and re-showing UPDATES that same request (same number, same box, one quote), it does NOT open a second one. Never call it with only the newest item.
 - KEEP SHOPPING AFTER A REQUEST IS PLACED. Creating a purchase request does NOT end the chat — the customer can keep going and place ANOTHER, separate request in the same conversation. So after a request is finalized: stay warm and proactive ("¡Listo! 🎉 ¿Buscamos algo más?"), and if they want more products, help them and build a NEW cart from scratch (the items already ordered are DONE — do not re-attach them). When they finalize that new cart, it becomes a NEW request. In short: one OPEN cart at a time, but as many requests across the chat as the customer wants. Never tell them the chat is closed or that they can only order once.
-- PRICE (assisted purchase): the listed store price is only a REFERENCE, not the final amount. If they merely ASK what it would cost ("¿cuánto costaría?", "¿cuánto sería con comisión?"), answer in ONE short line — "El total será el precio final al hacer checkout en la tienda + 15% de comisión Boxly (la caja se cotiza aparte)" — and do NOT call show_assisted_summary for that (that card PLACES the order; calling it just to quote a price would create a request they didn't ask for). Only call show_assisted_summary once they've DECIDED to finalize. When you do, pass each item with the exact product_name/store/price/url/image you have (from the product they chose or the registry); leave size/color out unless the customer volunteered them (then put them in notes) — the shopping team confirms variants after.
+- PRICE (assisted purchase): the listed store price is only a REFERENCE, not the final amount. If they merely ASK what it would cost ("¿cuánto costaría?", "¿cuánto sería con comisión?"), answer in ONE short line — "El total será el precio final al hacer checkout en la tienda + 15% de comisión Boxly (la caja se cotiza aparte)" — and do NOT call show_assisted_summary for that (that card PLACES the order; calling it just to quote a price would create a request they didn't ask for). Only call show_assisted_summary once they've DECIDED to finalize. When you do, pass each item's saved_id (the registry id of the product you showed them) — ALWAYS, for catalog AND web products — so the exact price/url/image bind from the registry and long web links never get mangled; only fall back to typing name/url/image when there is genuinely no saved product. Leave size/color out unless the customer volunteered them (then put them in notes) — the shopping team confirms variants after.
 ${loggedIn
   ? '- This user is signed in. When they finalize, call show_assisted_summary (with all items) right away — do NOT ask for size/colour/variant first (the shopping team collects those after). It places the request automatically. You never place it yourself and never state a PR number.'
   : '- This user is a GUEST. A Boxly account is required to place ANY order. The moment they confirm they want to order (assisted purchase OR self-purchase), call create_account — this opens a button that takes them to register (email or Google) and brings them back here with the order ready. Do NOT ask for name/email/phone yourself, and do NOT call show_assisted_summary/create_self_order for a guest before the account exists. After they return signed in, the chat resumes and you finish the order.'}
@@ -1256,12 +1268,13 @@ export default defineEventHandler(async (event) => {
         description: "Place an ASSISTED PURCHASE. This card CREATES the real purchase request AUTOMATICALLY the instant it appears (client-side, real number) — it is the ONLY way to place an assisted order, and there is no separate confirm step. You do NOT place the request yourself and never receive its number, so NEVER say it's created and NEVER state a PR number — the card shows the confirmation. Call this as soon as the customer finalizes the cart — do NOT ask for size, colour or variant first (the size/color fields are OPTIONAL; only fill them if the customer volunteered a variant). Our shopping team confirms the exact size/colour directly with the customer AFTER the request exists, so never block or delay placing it to collect variants.",
         inputSchema: z.object({
           items: z.array(z.object({
-            name: z.string().describe('Product name.'),
+            saved_id: z.string().describe('Registry id of a product shown in this chat — ALWAYS set this for any product we displayed (catalog OR web). It binds the EXACT product/price/image/url from the registry so long web links + image URLs are never retyped or mangled. When set, name/url/image/price are taken from the registry.').optional(),
+            name: z.string().describe('Product name (required only if no saved_id).'),
             store: z.string().describe('Store/brand.').optional(),
-            price: z.number().describe('Reference USD price the customer saw (use the sale price if on sale); 0 if unknown.').optional(),
+            price: z.number().describe('Reference USD price the customer saw (use the sale price if on sale); 0 if unknown. Ignored when saved_id resolves a price.').optional(),
             quantity: z.number().int().min(1).default(1),
-            image: z.string().describe('Product image URL if known.').optional(),
-            url: z.string().describe('Direct product URL so Boxly buys the EXACT item — include it whenever you have it (from the registry / the page the user chose).').optional(),
+            image: z.string().describe('Product image URL. Auto-filled from the registry when saved_id is set.').optional(),
+            url: z.string().describe('Direct product URL. Auto-filled from the registry when saved_id is set — prefer saved_id over retyping a long URL.').optional(),
             // Deliberately separate named fields rather than free prose in notes.
             // As a line in the prompt this kept getting skipped; as a field the
             // model has to decide about, it gets filled.

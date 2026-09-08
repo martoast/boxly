@@ -1786,14 +1786,20 @@ const assistedPr = ref(null)                // { id, request_number } for THIS c
 async function confirmAssisted(part) {
   const id = part?.toolCallId
   if (!id || assistedCreatingId.value || assistedResults[id]) return
-  const items = (part?.output?.items || []).map((it) => ({
-    product_name: it.name || it.product_name || 'Producto',
-    product_url: it.url || it.product_url || '',
-    product_image_url: it.image || it.product_image_url || null,
-    price: Number(it.price) || 0,
-    quantity: Math.max(1, Number(it.quantity) || 1),
-    notes: it.notes || undefined,
-  })).filter((it) => it.product_name)
+  // Bind each item to the saved-products registry by saved_id (like openSelfOrder), so the
+  // EXACT url + image are used — never the long web link/thumbnail the model may have
+  // truncated or hallucinated (that was the broken-image / dead-link bug on web products).
+  const items = (part?.output?.items || []).map((it) => {
+    const saved = it.saved_id ? savedProducts.value.find((p) => p.id === it.saved_id) : null
+    return {
+      product_name: saved?.title || it.name || it.product_name || 'Producto',
+      product_url: saved?.url || it.url || it.product_url || '',
+      product_image_url: saved?.image || it.image || it.product_image_url || null,
+      price: Number(saved?.price ?? it.price) || 0,
+      quantity: Math.max(1, Number(it.quantity) || 1),
+      notes: it.notes || undefined,
+    }
+  }).filter((it) => it.product_name)
   // Safety net: if the summary somehow carried no items, fall back to the model
   // path so the request can still be placed rather than silently doing nothing.
   if (!items.length) {
