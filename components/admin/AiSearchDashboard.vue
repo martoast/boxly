@@ -360,7 +360,7 @@ function closeThread() { threadOpen.value = false }
 // and compact chips for tool calls (search, gallery, order, etc.).
 // Tool calls whose output is a product GALLERY — we render the actual products the
 // customer saw, not just a "16 result" chip, so an admin can review the real chat.
-const GALLERY_TOOLS = new Set(['search_products', 'curate_products', 'show_collection', 'find_on_google', 'browse_store', 'browse_stores', 'show_products', 'show_saved_products', 'find_live_product', 'show_orders'])
+const GALLERY_TOOLS = new Set(['search_products', 'curate_products', 'show_collection', 'find_on_google', 'find_on_amazon', 'browse_store', 'browse_stores', 'show_products', 'show_saved_products', 'find_live_product', 'show_orders'])
 function messageBits(m) {
   const parts = (m?.content?.parts) || (Array.isArray(m?.content) ? m.content : [])
   const bits = []

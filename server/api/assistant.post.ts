@@ -211,6 +211,18 @@ async function getGoogleShopApi(query: string) {
     retry_after_s: data?.retry_after_s ?? null,
   }
 }
+// AMAZON search via SerpAPI (engine=amazon) — same shape/behavior as getGoogleShopApi, but
+// Amazon-only results (ratings, Prime pricing) for when the shopper specifically wants Amazon.
+async function getAmazonApi(query: string) {
+  let data: any = {}
+  try { data = await callApi('/catalog/amazon', { method: 'POST', body: { query }, timeoutMs: 20000 }) } catch { data = { error: 'unreachable' } }
+  const raw: any[] = Array.isArray(data?.products) ? data.products : []
+  const reason: string | null = data?.error ? String(data.error) : data?.no_results ? 'no_results' : null
+  return {
+    products: raw.map((p) => ({ ...toGalleryProduct(p), merchant: 'Amazon', source: 'amazon' })),
+    source: 'amazon', from_web: true, reason,
+  }
+}
 // Which model/provider runs this chat is decided centrally in ../utils/aiProvider
 // (chatModel()), so the whole app can switch between Gemini and Claude via env.
 
@@ -265,7 +277,7 @@ function lastUserText(messages: any[]): string {
   return ''
 }
 
-const PRODUCT_TOOLS = new Set(['search_products', 'curate_products', 'show_collection', 'find_live_product', 'find_on_google', 'browse_store', 'browse_stores', 'show_products', 'show_saved_products', 'extract_product', 'web_search'])
+const PRODUCT_TOOLS = new Set(['search_products', 'curate_products', 'show_collection', 'find_live_product', 'find_on_google', 'find_on_amazon', 'browse_store', 'browse_stores', 'show_products', 'show_saved_products', 'extract_product', 'web_search'])
 
 // Is this search a PURE store/brand lookup (e.g. "Rhode", "Gymshark", "productos
 // de Nike") rather than an attribute search ("owala rosa", "black wide-leg jeans")?
@@ -292,7 +304,7 @@ function isPureStoreQuery(query: string, store?: string): boolean {
 // toolset for the rest of the turn — so the model physically cannot fire a second
 // (often empty) gallery. Claude obeyed the prompt rule; Gemini does not, calling a
 // gallery tool again in a later step and rendering a duplicate empty gallery.
-const GALLERY_TOOLS = ['search_products', 'curate_products', 'show_collection', 'find_live_product', 'find_on_google', 'browse_store', 'browse_stores', 'show_products', 'show_saved_products']
+const GALLERY_TOOLS = ['search_products', 'curate_products', 'show_collection', 'find_live_product', 'find_on_google', 'find_on_amazon', 'browse_store', 'browse_stores', 'show_products', 'show_saved_products']
 // Everything the model may still use AFTER a gallery has rendered (write text, add
 // follow-ups, build the shipment, take the order) — i.e. all tools minus GALLERY_TOOLS.
 const NON_GALLERY_TOOLS = [
@@ -1113,6 +1125,14 @@ export default defineEventHandler(async (event) => {
           query: z.string().describe('The product to find on the web, with brand/model, e.g. "red light led face mask", "Sony ZV-1F camera", "New Balance 9060 grey".'),
         }),
         execute: async ({ query }: any) => markGallery(await getGoogleShopApi(query)),
+        toModelOutput: galleryModelOutput,
+      }),
+      find_on_amazon: tool({
+        description: "AMAZON search (fast, ~1-2s) — use it when the shopper specifically wants AMAZON ('en Amazon', 'de Amazon', 'ofertas de Amazon', 'búscalo en Amazon'). Returns real Amazon products with price, image, rating and a clean amazon.com link, which Boxly buys + delivers. Present them naturally like any gallery. Pass the product/category as `query`. For a VAGUE 'qué ofertas hay en Amazon' with no product in mind, first ask ONE quick question about what kind of thing they want (e.g. '¿qué buscas — ropa, tecnología, algo para casa?') then search that on Amazon — Amazon search needs a term. If it returns no_results, ask them to be more specific or share a link. (For a general 'anything on the web' ask that isn't Amazon-specific, use find_on_google instead.)",
+        inputSchema: z.object({
+          query: z.string().describe('What to search on Amazon, e.g. "airpods pro 2", "under armour hoodie men", "yeti tumbler".'),
+        }),
+        execute: async ({ query }: any) => markGallery(await getAmazonApi(query)),
         toModelOutput: galleryModelOutput,
       }),
 
