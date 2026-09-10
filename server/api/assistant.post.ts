@@ -1554,6 +1554,13 @@ export default defineEventHandler(async (event) => {
           })).min(1),
         }),
         execute: async ({ items }) => {
+          // The registry is the truth for anything the model would otherwise retype: the box card must show the
+          // REAL thumbnail / price / name for a saved_id (the model invented "https://example.com/nike_ultrafly.jpg"
+          // in a live run), so resolve before building the card.
+          items = (items || []).map((it: any) => {
+            const saved = it.saved_id ? savedProducts.find((p: any) => p.id === it.saved_id) : null
+            return saved ? { ...it, name: saved.title || it.name, image: saved.image || null, price: saved.price ?? it.price } : it
+          })
           const ship: any = await buildShipment(items)
           // ENFORCED IN CODE (Alex): the moment a sized/coloured product lands in the box is THE moment to read
           // its variants — straight from the product's stored URL, no grid navigation. The fast models skipped
