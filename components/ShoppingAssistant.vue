@@ -1309,6 +1309,11 @@ function primaryGalleryIndex(m) {
 // caused a false "no encontré opciones" to flash before the real results arrived.
 function showNoResults(m, part) {
   if (!isGalleryTool(part) || part.state !== 'output-available' || hasProducts(m)) return false
+  // Two empty searches in one reply used to draw TWO "No encontré opciones" cards stacked
+  // (the PINK / Alo promo screenshots). Only the LAST finished gallery tool shows the card.
+  const parts = m.parts || []
+  const idx = parts.indexOf(part)
+  if (idx >= 0 && parts.slice(idx + 1).some((p) => isGalleryTool(p) && p.state === 'output-available')) return false
   const isCurrent = m.id === chat.messages[chat.messages.length - 1]?.id
   return !(isBusy.value && isCurrent)
 }
