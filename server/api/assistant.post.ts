@@ -63,7 +63,32 @@ async function searchCatalogApi(a: CatalogSearchArgs) {
       unmatched_stores: data?.resolved?.unmatched || [],
     }
   } catch { products = [] }
-  return { products: products.map(toGalleryProduct), source: 'catalog', ...miss }
+  // The store they named is NOT in our catalog (Macy's, ULTA, PINK…): the catalog only RANKED other stores'
+  // rows by that word, which is filler. Don't hand the model filler and hope it notices the flag — go get
+  // that store from the web right here, so the gallery is that store, every time, in one round-trip.
+  if (a.store && miss.unmatched_stores?.includes(a.store)) return uncarriedStoreFallback(a.store, a.query)
+  return { products: products.map(toGalleryProduct), source: 'catalog', ...miss, ...relaxNote({ ...miss, store: a.store }) }
+}
+
+// A named store we don't carry → web results for THAT store (fast SerpAPI, ~1-2s), framed for the model.
+async function uncarriedStoreFallback(store: string, query?: string) {
+  const g: any = await getGoogleShopApi([store, query || ''].join(' ').trim())
+  const note = g.products.length
+    ? `STORE NOT IN OUR CATALOG: "${store}" isn't a store we harvest, so these are web results for ${store} (Boxly buys + delivers them). Present them naturally as ${store} options — never say "no está en el catálogo" or "de la web".`
+    : `STORE NOT IN OUR CATALOG and the web search returned nothing for "${store}" (${g.reason || 'no_results'}). Ask for a product link or what exactly they want from ${store}; do NOT show other stores' items as ${store}.`
+  return { ...g, unmatched_stores: [store], store_fallback: store, note }
+}
+
+// A plain-language note the model cannot miss. relaxed_filters / unmatched_stores are flags; the model
+// (a fast small model) reliably acts on a sentence in the tool result, not on a boolean — so spell it out.
+function relaxNote(r: { relaxed?: boolean; relaxed_filters?: string[]; unmatched_stores?: string[]; store?: string }) {
+  const store = r.store || 'esa tienda'
+  const rf = r.relaxed_filters || []
+  const notes: string[] = []
+  if (rf.includes('deals') || rf.includes('sale')) notes.push(`NO PROMOS RIGHT NOW: ${store} has ZERO marked-down items in our catalog at the moment. The products here are REGULAR-PRICE picks from ${store} — do NOT call them promociones/ofertas/descuentos. Show the gallery and say in one honest line that ${store} has no promotions marked right now, but this is what they have, and you can get it from the US.`)
+  if (rf.some((f) => ['tier', 'price', 'tags', 'category', 'department', 'facets'].includes(f))) notes.push(`FILTERS RELAXED (${rf.filter((f) => f !== 'deals' && f !== 'sale').join(', ')}): the filter(s) you passed matched nothing in ${store}, so these are ${store}'s best available options instead. Don't claim they match a filter that was dropped.`)
+  if (r.unmatched_stores && r.unmatched_stores.length) notes.push(`STORE NOT IN CATALOG: "${r.unmatched_stores.join('", "')}" is not a store we carry — these rows are only ranked by that word across other stores. If it is a line/sub-brand of a store we carry (PINK → Victoria's Secret), search the parent store; otherwise call find_on_google for it in this same turn. Never present other stores' items as that brand.`)
+  return notes.length ? { note: notes.join(' ') } : {}
 }
 
 // Stable product id — MUST match the client registry's pid() (ShoppingAssistant.vue) byte
@@ -123,9 +148,11 @@ async function curateCatalogApi(a: CurateArgs) {
   let query_matched = true
   let relaxed = false
   let relaxed_filters: string[] = []
+  let unmatched: string[] = []
   try {
     const data: any = await callApi('/catalog/curate', { method: 'POST', body, timeoutMs: 12000 })
     products = Array.isArray(data?.products) ? data.products : []
+    unmatched = Array.isArray(data?.resolved?.unmatched) ? data.resolved.unmatched : []
     // query_matched=false → the shopper's words matched nothing; these are best-DEALS filler,
     // not what they asked for. The model must not present them as the answer.
     query_matched = data?.query_matched !== false
@@ -134,7 +161,10 @@ async function curateCatalogApi(a: CurateArgs) {
     relaxed = !!data?.relaxed
     relaxed_filters = Array.isArray(data?.relaxed_filters) ? data.relaxed_filters : []
   } catch { products = [] }
-  return { products: products.map(toCurateGalleryProduct), source: 'catalog', query_matched, relaxed, relaxed_filters }
+  // Same rule as search: a store we don't carry is never answered with other stores' deals (that was
+  // "promociones en Macy's" → Old Navy dresses). Fetch that store from the web instead.
+  if (a.store && unmatched.includes(a.store)) return uncarriedStoreFallback(a.store, a.query)
+  return { products: products.map(toCurateGalleryProduct), source: 'catalog', query_matched, relaxed, relaxed_filters, ...relaxNote({ relaxed, relaxed_filters, store: a.store }) }
 }
 // Curate row → gallery shape + the enrichment fields the model speaks to (why/deal_tier).
 function toCurateGalleryProduct(p: any) {
@@ -1137,6 +1167,8 @@ export default defineEventHandler(async (event) => {
           sale: z.boolean().describe('Optional — deals are ALWAYS shown first anyway, so this is rarely needed; it does not hide non-sale items. Use only for "SOLO ofertas / only on sale".').optional(),
         }),
         execute: async ({ query, store, brands, category, min_price, max_price, min_discount, sale, sort }) => {
+          if (!(min_price! > 0)) min_price = undefined
+          if (!(max_price! > 0) || max_price! >= 5000) max_price = undefined
           // SERP replacement: our OWN catalog, harvested by the computer-use agents
           // and served from catalog.fullstacklabs.org. The catalog does the fuzzy
           // store resolution, structured filtering and relevance ranking; free-text
@@ -1182,6 +1214,10 @@ export default defineEventHandler(async (event) => {
           max_price: z.number().describe('Maximum USD price — budgets like "menos de $50" → max_price:50.').optional(),
         }),
         execute: async (a: any) => {
+          // The model fills EVERY optional param with a placeholder (min_price:0, max_price:9999, brand_tier:"mass"
+          // on "promos de Alo"). Those aren't the shopper's filters — strip them so they can't empty a store.
+          if (!(a.min_price > 0)) a.min_price = undefined
+          if (!(a.max_price > 0) || a.max_price >= 5000) a.max_price = undefined
           const genders = a.gender === 'men' ? ['men', 'unisex'] : a.gender === 'women' ? ['women', 'unisex'] : a.gender === 'kids' ? ['kids'] : undefined
           const r: any = await curateCatalogApi({
             query: a.query, intent: a.intent || 'deals', department: a.department, genders,
