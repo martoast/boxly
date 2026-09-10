@@ -399,20 +399,7 @@
                   <template v-for="(part, i) in m.parts" :key="'w' + i">
                     <LazyShipmentCard v-if="part.type === 'tool-show_shipment' && part.state === 'output-available'" :shipment="enrichShipment(part.output)" :requested="!!assistedPr" @order="onFinalizeShipment" @add="onAddMore" />
                     <!-- Sizes/colours with LIVE availability for the item just added (read from its stored URL by show_shipment). -->
-                    <div v-if="part.type === 'tool-show_shipment' && part.state === 'output-available' && part.output?.variants_for?.variants?.length" class="mt-2">
-                      <p class="text-[12px] text-gray-500 mb-1.5">{{ part.output.variants_for.product_title ? part.output.variants_for.product_title + ' · ' : '' }}Elige talla/color — disponibles ahora<span v-if="part.output.variants_for.checked_at"> · verificado {{ relTime(part.output.variants_for.checked_at) }}</span></p>
-                      <div class="flex flex-wrap gap-2">
-                        <button
-                          v-for="(v, vi) in part.output.variants_for.variants.slice(0, 40)" :key="vi"
-                          @click="v.available && sendFollowup(variantPickText(v))" :disabled="isBusy || !v.available"
-                          :class="v.available ? 'bg-white border-gray-200 text-gray-800 hover:border-primary-300 hover:bg-primary-50' : 'bg-gray-50 border-gray-100 text-gray-300 line-through cursor-not-allowed'"
-                          class="inline-flex items-center gap-1 px-3 py-1.5 rounded-full border text-[12.5px] font-medium transition"
-                        >
-                          <span>{{ v.key }}</span>
-                          <span v-if="v.available && v.price != null" class="text-[11px] text-gray-500">${{ v.price }}</span>
-                        </button>
-                      </div>
-                    </div>
+                    <LazyVariantPicker v-if="part.type === 'tool-show_shipment' && part.state === 'output-available' && part.output?.variants_for?.variants?.length" class="mt-2" :data="variantData(part.output.variants_for)" :busy="isBusy" @pick="sendFollowup" />
 
                     <template v-else-if="part.type === 'tool-show_assisted_summary' && part.state === 'output-available'">
                       <!-- Once the request is actually created (deterministically, on
@@ -469,22 +456,8 @@
                       </div>
                     </div>
 
-                    <!-- Variant picker: sizes/colours with LIVE availability for the product the shopper chose.
-                         Available → tappable chip (sends the pick as a message); unavailable → greyed, not tappable. -->
-                    <div v-else-if="part.type === 'tool-get_product_variants' && part.state === 'output-available' && part.output?.variants?.length" class="mt-1">
-                      <p class="text-[12px] text-gray-500 mb-1.5">{{ part.output.product_title ? part.output.product_title + ' · ' : '' }}Disponibles ahora<span v-if="part.output.checked_at"> · verificado {{ relTime(part.output.checked_at) }}</span></p>
-                      <div class="flex flex-wrap gap-2">
-                        <button
-                          v-for="(v, vi) in part.output.variants.slice(0, 40)" :key="vi"
-                          @click="v.available && sendFollowup(variantPickText(v))" :disabled="isBusy || !v.available"
-                          :class="v.available ? 'bg-white border-gray-200 text-gray-800 hover:border-primary-300 hover:bg-primary-50' : 'bg-gray-50 border-gray-100 text-gray-300 line-through cursor-not-allowed'"
-                          class="inline-flex items-center gap-1 px-3 py-1.5 rounded-full border text-[12.5px] font-medium transition"
-                        >
-                          <span>{{ v.key }}</span>
-                          <span v-if="v.available && v.price != null" class="text-[11px] text-gray-500">${{ v.price }}</span>
-                        </button>
-                      </div>
-                    </div>
+                    <!-- Variant picker: sizes/colours with LIVE availability for the product the shopper chose. -->
+                    <LazyVariantPicker v-else-if="part.type === 'tool-get_product_variants' && part.state === 'output-available' && part.output?.variants?.length" :data="variantData(part.output)" :busy="isBusy" @pick="sendFollowup" />
 
                     <!-- Tappable follow-ups (cross-sell / build-the-set) -->
                     <div v-else-if="part.type === 'tool-suggest_followups' && part.state === 'output-available' && part.output?.suggestions?.length" class="flex flex-wrap gap-2 mt-1">
@@ -1345,6 +1318,14 @@ function variantPickText(v) {
   if (v.size) parts.push('talla ' + v.size)
   if (v.color) parts.push('color ' + v.color)
   return 'Quiero ' + (parts.length ? parts.join(', ') : v.key)
+}
+// The picker's data: the tool output plus the registry product (image / price / store / url) so the card
+// shows the product the shopper chose, not just its variants.
+function variantData(o) {
+  const saved = o?.saved_id ? savedProducts.value.find((p) => p.id === o.saved_id) : null
+  const product = { ...(o?.product || {}) }
+  if (saved) { product.title ||= saved.title; product.image ||= saved.image; product.url ||= saved.url; product.store ||= saved.store; if (product.price == null) product.price = saved.price; if (product.list_price == null && saved.was) product.list_price = saved.was }
+  return { ...o, product, product_title: o?.product_title || product.title }
 }
 function relTime(iso) {
   const ms = Date.now() - new Date(iso).getTime()
