@@ -398,6 +398,21 @@
                   <!-- 3) Action widgets + follow-ups after the reply -->
                   <template v-for="(part, i) in m.parts" :key="'w' + i">
                     <LazyShipmentCard v-if="part.type === 'tool-show_shipment' && part.state === 'output-available'" :shipment="enrichShipment(part.output)" :requested="!!assistedPr" @order="onFinalizeShipment" @add="onAddMore" />
+                    <!-- Sizes/colours with LIVE availability for the item just added (read from its stored URL by show_shipment). -->
+                    <div v-if="part.type === 'tool-show_shipment' && part.state === 'output-available' && part.output?.variants_for?.variants?.length" class="mt-2">
+                      <p class="text-[12px] text-gray-500 mb-1.5">{{ part.output.variants_for.product_title ? part.output.variants_for.product_title + ' · ' : '' }}Elige talla/color — disponibles ahora<span v-if="part.output.variants_for.checked_at"> · verificado {{ relTime(part.output.variants_for.checked_at) }}</span></p>
+                      <div class="flex flex-wrap gap-2">
+                        <button
+                          v-for="(v, vi) in part.output.variants_for.variants.slice(0, 40)" :key="vi"
+                          @click="v.available && sendFollowup(variantPickText(v))" :disabled="isBusy || !v.available"
+                          :class="v.available ? 'bg-white border-gray-200 text-gray-800 hover:border-primary-300 hover:bg-primary-50' : 'bg-gray-50 border-gray-100 text-gray-300 line-through cursor-not-allowed'"
+                          class="inline-flex items-center gap-1 px-3 py-1.5 rounded-full border text-[12.5px] font-medium transition"
+                        >
+                          <span>{{ v.key }}</span>
+                          <span v-if="v.available && v.price != null" class="text-[11px] text-gray-500">${{ v.price }}</span>
+                        </button>
+                      </div>
+                    </div>
 
                     <template v-else-if="part.type === 'tool-show_assisted_summary' && part.state === 'output-available'">
                       <!-- Once the request is actually created (deterministically, on

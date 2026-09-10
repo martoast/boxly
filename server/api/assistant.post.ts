@@ -358,6 +358,7 @@ async function liveGrabApi(a: { url?: string; store?: string; query?: string }) 
 // shopper commits to a product we go straight to its STORED URL (catalog or live row): no grid navigation,
 // no re-search. The catalog service answers from its mirror when the product was checked recently, else it
 // reads the product page live (headless browser, up to ~40s). Fails SOFT: {variants: [], reason}.
+const variantCache = new Map<string, { at: number; r: any }>()
 async function getProductVariantsApi(url: string, maxAgeS = 900) {
   let data: any = {}
   try {
@@ -1541,7 +1542,7 @@ export default defineEventHandler(async (event) => {
       }),
 
       show_shipment: tool({
-        description: "Show/UPDATE the customer's live BOXLY shipment (their consolidation box). Call this EVERY time the shipment changes — an item is added, removed, or a quantity changes — passing ALL items currently in the shipment (not just the new one). It renders a card with the recommended box size, a volume bar and capacity remaining, so the customer watches their box fill up and is encouraged to consolidate more. Display only — it does NOT place the order (call show_assisted_summary to finalize an assisted purchase). This is separate from the product gallery; you may call it in the same turn as confirming an add.",
+        description: "Show/UPDATE the customer's live BOXLY shipment (their consolidation box). Call this EVERY time the shipment changes — an item is added, removed, or a quantity changes — passing ALL items currently in the shipment (not just the new one). It renders a card with the recommended box size, a volume bar and capacity remaining, so the customer watches their box fill up and is encouraged to consolidate more. Display only — it does NOT place the order (call show_assisted_summary to finalize an assisted purchase). This is separate from the product gallery; you may call it in the same turn as confirming an add. For a sized/coloured item just added (shoes, apparel) the card ALSO reads that product's sizes/colours with live availability from its stored URL and returns them as `variants_for` (+ a `note`): the chips are on screen — ask ONE short question for their pick, and carry it into show_assisted_summary's size/color at finalize.",
         inputSchema: z.object({
           items: z.array(z.object({
             saved_id: z.string().describe('Registry id of the gallery product the customer added — ALWAYS set it (catalog OR web) so the box shows the real thumbnail/price without you retyping a long image URL.').optional(),
@@ -1552,7 +1553,37 @@ export default defineEventHandler(async (event) => {
             type: z.enum(['rigid_small', 'flat_soft', 'medium_soft', 'rigid_medium', 'shoes', 'bulky_soft', 'fragile', 'oversize_long']).describe('Packing archetype by VOLUME, not item count. oversize_long = a LONG rigid item that needs a big box on its own and fills it ~100% (a guitar / other large instrument, a skateboard/longboard/snowboard/surfboard, golf clubs) — it does not consolidate with much else. (two orders with the same number of items can need totally different boxes). rigid_small=ocupan muy poco — cosmetics/makeup/perfume/jewelry/accessories/phone cases/cables/Touchland sanitizers/small wallets (adding several barely changes the box); flat_soft=ocupan poco — t-shirts/leggings/shorts/underwear/socks/swimwear (compress well); medium_soft=ocupan medio — jeans/hoodies/sweatshirts/joggers/light jackets/mid bags/backpacks; rigid_medium=bottles/tumblers/electronics; shoes=a boxed pair; bulky_soft=ocupan mucho — boots/thick coats/blankets/pillows/plush/helmets/appliances (pots, coffee makers); fragile=lamps/glass/decor. A Touchland Power Mist sanitizer is rigid_small.').optional(),
           })).min(1),
         }),
-        execute: async ({ items }) => buildShipment(items),
+        execute: async ({ items }) => {
+          const ship: any = await buildShipment(items)
+          // ENFORCED IN CODE (Alex): the moment a sized/coloured product lands in the box is THE moment to read
+          // its variants — straight from the product's stored URL, no grid navigation. The fast models skipped
+          // the get_product_variants step when left to the prompt, so the box card does it itself for the item
+          // just added (the last one), bounded so the card never waits more than ~30s. Cached per URL for
+          // 15 min so repeated box updates in one chat don't re-read the store.
+          const last = Array.isArray(items) && items.length ? items[items.length - 1] : null
+          const sized = last && ['shoes', 'flat_soft', 'medium_soft', 'bulky_soft'].includes(String(last.type || ''))
+          const saved = last?.saved_id ? savedProducts.find((p: any) => p.id === last.saved_id) : null
+          const url = saved?.url || saved?.product_url || null
+          if (sized && url) {
+            const cached = variantCache.get(url)
+            let r: any = cached && Date.now() - cached.at < 15 * 60_000 ? cached.r : null
+            if (!r) {
+              r = await Promise.race([
+                getProductVariantsApi(String(url)).catch(() => null),
+                new Promise((resolve) => setTimeout(() => resolve(null), 30_000)),
+              ])
+              if (r) variantCache.set(url, { at: Date.now(), r })
+            }
+            if (r?.variants?.length) {
+              const avail = r.variants.filter((v: any) => v.available)
+              ship.variants_for = { saved_id: last.saved_id, product_title: saved?.title || last.name || null, variants: r.variants, checked_at: r.checked_at, source: r.source }
+              ship.note = `SIZES/COLOURS READ for "${saved?.title || last.name}": ${avail.length} of ${r.variants.length} available (chips are on screen). Ask ONE short question — which size/colour they want, naming the available ones: ${avail.slice(0, 30).map((v: any) => v.key).join(' · ')}. When they answer, carry that size/color into show_assisted_summary at finalize.`
+            } else if (r) {
+              ship.note = `Variant read for "${saved?.title || last.name}" returned nothing (${r.reason || 'no_variants'}) — don't ask for size now; the shopping team confirms it after the request.`
+            }
+          }
+          return ship
+        },
       }),
 
       show_contact_whatsapp: tool({
