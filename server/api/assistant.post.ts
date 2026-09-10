@@ -354,6 +354,28 @@ async function liveGrabApi(a: { url?: string; store?: string; query?: string }) 
     source: 'live',
   }
 }
+// VARIANTS for ONE product URL — sizes/colours with availability + price per variant. The moment the
+// shopper commits to a product we go straight to its STORED URL (catalog or live row): no grid navigation,
+// no re-search. The catalog service answers from its mirror when the product was checked recently, else it
+// reads the product page live (headless browser, up to ~40s). Fails SOFT: {variants: [], reason}.
+async function getProductVariantsApi(url: string, maxAgeS = 900) {
+  let data: any = {}
+  try {
+    data = await callApi('/catalog/product-variants', { method: 'POST', body: { url, max_age_s: maxAgeS }, timeoutMs: 58000 })
+  } catch (e: any) { console.warn('[assistant] product-variants unreachable:', e?.message || e); data = { error: 'unreachable' } }
+  const variants: any[] = Array.isArray(data?.variants) ? data.variants : []
+  const reason: string | null = data?.error ? String(data.error) : (!variants.length ? (data?.reason || 'no_variants') : null)
+  return {
+    product: data?.product || null,
+    axes: Array.isArray(data?.axes) ? data.axes : [],
+    variants: variants.map((v: any) => ({ key: v.key || [v.color, v.size].filter(Boolean).join(' / '), size: v.size ?? null, color: v.color ?? null, available: !!v.available, price: v.price ?? null, list_price: v.list_price ?? null, low_stock: v.low_stock || null })),
+    selected: data?.selected || null,
+    checked_at: data?.checked_at || null,
+    source: data?.source || null,
+    store_id: data?.store_id || null,
+    reason,
+  }
+}
 // The OUT-OF-CATALOG fallback: when Boxly doesn't carry a product, the computer-use agent
 // runs a GOOGLE SHOPPING search and returns real cross-web options (merchant, price, image,
 // buyable link) — the shopper orders it through Boxly. Heavy (~16-32s) + rate-limited
@@ -514,7 +536,7 @@ const GALLERY_TOOLS = ['search_products', 'curate_products', 'show_collection', 
 // Everything the model may still use AFTER a gallery has rendered (write text, add
 // follow-ups, build the shipment, take the order) — i.e. all tools minus GALLERY_TOOLS.
 const NON_GALLERY_TOOLS = [
-  'web_search', 'extract_product', 'show_shipment', 'show_box_guide', 'feature_products',
+  'web_search', 'extract_product', 'show_shipment', 'show_box_guide', 'feature_products', 'get_product_variants',
   'show_assisted_summary', 'get_profile', 'list_orders', 'show_orders',
   'update_shopping_profile', 'create_self_order', 'cancel_order', 'plan_in_person', 'create_account',
 ]
@@ -989,6 +1011,7 @@ Your tools, and when to use them:
   (2) Read relaxed / relaxed_filters on what comes back. 'deals' or 'sale' = the store has NO marked-down items right now and the gallery is its regular selection → SHOW IT and say so in one honest, upbeat line: "Ahorita Alo no tiene promociones marcadas en nuestro catálogo, pero esto es lo que tienen 👀 — te lo consigo desde EE. UU. y te aviso si baja de precio. ¿Algo te late?". 'category' / 'facets' / 'price' = that type or filter isn't in the store and you're seeing the store's best options → say that ("No vi X en Alo, pero mira lo que sí tienen").
   (3) A LINE / SUB-BRAND inside a store we carry (PINK → Victoria's Secret, Jordan → Nike, Old Navy Active → Old Navy): search the PARENT store (store:"Victoria's Secret"), show its deals, say the line isn't in our direct catalog, AND in the SAME turn find_on_google("PINK Victoria's Secret sale") so they also see the line itself. Two galleries' worth of options beats an apology.
   (4) A store we DON'T carry (unmatched_stores non-empty / the gallery is empty: ULTA, Macy's, Nordstrom Rack, Karl Lagerfeld, Adidas, Amazon, eBay…) → find_on_google("<store> deals" or "<store> <product>") IMMEDIATELY in the same turn and present that as the gallery — never a "no lo manejamos" dead end.
+- ⚑ COMMIT TO A PRODUCT = GO STRAIGHT TO ITS PAGE (sizes & colours). When the shopper picks a SPECIFIC product we showed — "quiero esos", "agrégalos", "lo compro", "ese de la izquierda", "los 9060" after they were on screen — do NOT search or browse again: call get_product_variants({saved_id}) with that product's registry id. It opens the product's stored URL directly and returns each size/colour with live availability and price. Then: one short line offering ONLY the available options (the chat shows them as tappable chips), the shopper picks, and the pick goes into show_assisted_summary's size/color. If get_product_variants returns no variants (unsupported store, timeout, one-size item), proceed exactly as before — never make the shopper wait twice. Shoes and apparel ALWAYS get this step; size availability changes by the hour on stores like New Balance.
 - ⚑ BIG ITEMS — two cases, and BOTH still show options:
   (a) LARGE-BUT-SHIPPABLE (a guitar or other instrument, a skateboard/longboard/snowboard, golf clubs, a small appliance): this DOES ship — find_on_google it like anything else and, when they add it, mark it type:"oversize_long" so the box shows it as its own big box (~100% full, it doesn't consolidate). Do NOT send these to WhatsApp.
   (b) TRULY UN-BOXABLE (a 60"+ flat-screen TV, a fridge/washer/large appliance, furniture, a mattress, tires, a vehicle/golf cart): standard box shipping can't cover it → call show_contact_whatsapp (one short line + the WhatsApp button, no essay). Even here, keep them ENGAGED: you may still find_on_google to show what's out there so they keep browsing, and note the shipping for the big one needs a special quote via WhatsApp. Normal-sized goods (clothing, shoes, bags, most electronics, beauty, toys) are business as usual — never route those to WhatsApp.
@@ -1424,6 +1447,24 @@ export default defineEventHandler(async (event) => {
         },
         toModelOutput: galleryModelOutput,
       }),
+      get_product_variants: tool({
+        description: "THE STEP BEFORE AN ORDER for a sized/coloured product. The moment the shopper commits to a SPECIFIC product we showed ('quiero esos', 'agrégalo', 'lo compro', 'ese', 'los del medio') call this with its saved_id (the registry id from the gallery) — it goes STRAIGHT to that product's stored URL (no new search, no browsing) and returns every variant (size / colour) with whether it is AVAILABLE right now and its price. Then offer ONLY the available sizes/colours (the chat renders them as tappable chips) and ask which one they want; once they pick, call show_assisted_summary with size/color filled from their pick. If it comes back with no variants (reason set: unsupported store, timeout, single-variant item), do NOT stall — proceed exactly as before (place the request; the shopping team confirms size after). Slow on some stores (~10-40s): open with ONE short line ('Déjame revisar tallas y disponibilidad 👟') in the same turn. Never call it for browsing; only for a product the shopper has chosen.",
+        inputSchema: z.object({
+          saved_id: z.string().describe('Registry id of the product the shopper chose (from the gallery). Preferred — it resolves the exact stored URL.').optional(),
+          url: z.string().describe('Direct product URL, only when the shopper pasted a link and there is no saved_id.').optional(),
+        }),
+        execute: async ({ saved_id, url }: any) => {
+          const saved = saved_id ? savedProducts.find((p: any) => p.id === saved_id) : null
+          const target = saved?.url || saved?.product_url || url
+          if (!target) return { variants: [], reason: 'no_url', note: 'No stored URL for that product. Proceed to the purchase request as usual; the shopping team confirms the size/colour after.' }
+          const r: any = await getProductVariantsApi(String(target))
+          const avail = r.variants.filter((v: any) => v.available)
+          const note = r.variants.length
+            ? `VARIANTS READ${r.checked_at ? ' (checked ' + r.checked_at + ')' : ''}: ${avail.length} of ${r.variants.length} available. Offer ONLY these, in this order: ${avail.slice(0, 40).map((v: any) => v.key + (v.price != null ? ' $' + v.price : '')).join(' · ')}. Ask which one they want (one short question), then show_assisted_summary with size/color = their pick. Unavailable ones are shown greyed in the chat — don't list them.`
+            : `NO VARIANT DATA (${r.reason}). Do not stall: proceed as before — place the request when they finalize; the shopping team confirms size/colour with them after.`
+          return { ...r, product_title: saved?.title || r.product?.title || null, saved_id: saved_id || null, note }
+        },
+      }),
       find_live_product: tool({
         description: "LIVE product fetch from a store page with our OWN browser agent — SLOW (~10s) and now a NARROW tool: use it almost exclusively when the user PASTED a product link → pass {url}, and our agent opens that exact page for the real image + US price. Do NOT use it for a general out-of-catalog product or a 'find me X' ask — that is find_on_google's job (a fast ~1-2s web search that covers everything). Only consider {store, query} here if find_on_google specifically missed a model you know a reachable store (Nike/Best Buy/Walmart) carries. If you use it, open with ONE short line ('Va, déjame abrir el producto… 🔎'). NEVER use it for browsing/categories/general search, and NEVER retry it after a timeout — one 'se interrumpió' means stop and use find_on_google or ask for a link.",
         inputSchema: z.object({
@@ -1544,7 +1585,7 @@ export default defineEventHandler(async (event) => {
       }),
 
       show_assisted_summary: tool({
-        description: "Place an ASSISTED PURCHASE. This card CREATES the real purchase request AUTOMATICALLY the instant it appears (client-side, real number) — it is the ONLY way to place an assisted order, and there is no separate confirm step. You do NOT place the request yourself and never receive its number, so NEVER say it's created and NEVER state a PR number — the card shows the confirmation. Call this as soon as the customer finalizes the cart — do NOT ask for size, colour or variant first (the size/color fields are OPTIONAL; only fill them if the customer volunteered a variant). Our shopping team confirms the exact size/colour directly with the customer AFTER the request exists, so never block or delay placing it to collect variants.",
+        description: "Place an ASSISTED PURCHASE. This card CREATES the real purchase request AUTOMATICALLY the instant it appears (client-side, real number) — it is the ONLY way to place an assisted order, and there is no separate confirm step. You do NOT place the request yourself and never receive its number, so NEVER say it's created and NEVER state a PR number — the card shows the confirmation. Call this as soon as the customer finalizes the cart. Size/colour: fill them from the shopper's PICK after get_product_variants returned the available options (that is the one moment to ask, with the real list); if that tool returned no variants for an item, do NOT ask and do NOT guess — leave them blank, our shopping team confirms the exact size/colour with the customer AFTER the request exists. Never block or delay placing the request beyond that single pick.",
         inputSchema: z.object({
           items: z.array(z.object({
             saved_id: z.string().describe('Registry id of a product shown in this chat — ALWAYS set this for any product we displayed (catalog OR web). It binds the EXACT product/price/image/url from the registry so long web links + image URLs are never retyped or mangled. When set, name/url/image/price are taken from the registry.').optional(),

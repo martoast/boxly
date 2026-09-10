@@ -454,6 +454,23 @@
                       </div>
                     </div>
 
+                    <!-- Variant picker: sizes/colours with LIVE availability for the product the shopper chose.
+                         Available → tappable chip (sends the pick as a message); unavailable → greyed, not tappable. -->
+                    <div v-else-if="part.type === 'tool-get_product_variants' && part.state === 'output-available' && part.output?.variants?.length" class="mt-1">
+                      <p class="text-[12px] text-gray-500 mb-1.5">{{ part.output.product_title ? part.output.product_title + ' · ' : '' }}Disponibles ahora<span v-if="part.output.checked_at"> · verificado {{ relTime(part.output.checked_at) }}</span></p>
+                      <div class="flex flex-wrap gap-2">
+                        <button
+                          v-for="(v, vi) in part.output.variants.slice(0, 40)" :key="vi"
+                          @click="v.available && sendFollowup(variantPickText(v))" :disabled="isBusy || !v.available"
+                          :class="v.available ? 'bg-white border-gray-200 text-gray-800 hover:border-primary-300 hover:bg-primary-50' : 'bg-gray-50 border-gray-100 text-gray-300 line-through cursor-not-allowed'"
+                          class="inline-flex items-center gap-1 px-3 py-1.5 rounded-full border text-[12.5px] font-medium transition"
+                        >
+                          <span>{{ v.key }}</span>
+                          <span v-if="v.available && v.price != null" class="text-[11px] text-gray-500">${{ v.price }}</span>
+                        </button>
+                      </div>
+                    </div>
+
                     <!-- Tappable follow-ups (cross-sell / build-the-set) -->
                     <div v-else-if="part.type === 'tool-suggest_followups' && part.state === 'output-available' && part.output?.suggestions?.length" class="flex flex-wrap gap-2 mt-1">
                       <button
@@ -1307,6 +1324,19 @@ function primaryGalleryIndex(m) {
 // Show the "no results" line ONLY once the turn has fully settled — never while the
 // current message is still streaming (a second search may still be loading), which
 // caused a false "no encontré opciones" to flash before the real results arrived.
+// The message a variant chip sends — the model reads it as the shopper's pick and fills size/color.
+function variantPickText(v) {
+  const parts = []
+  if (v.size) parts.push('talla ' + v.size)
+  if (v.color) parts.push('color ' + v.color)
+  return 'Quiero ' + (parts.length ? parts.join(', ') : v.key)
+}
+function relTime(iso) {
+  const ms = Date.now() - new Date(iso).getTime()
+  if (!Number.isFinite(ms) || ms < 0) return 'ahora'
+  const m = Math.round(ms / 60000)
+  return m < 1 ? 'ahora' : m < 60 ? `hace ${m} min` : `hace ${Math.round(m / 60)} h`
+}
 function showNoResults(m, part) {
   if (!isGalleryTool(part) || part.state !== 'output-available' || hasProducts(m)) return false
   // Two empty searches in one reply used to draw TWO "No encontré opciones" cards stacked
@@ -1321,7 +1351,7 @@ function showNoResults(m, part) {
 // running — for these we don't also show the bottom dots (that'd double up).
 const TOOLS_WITH_LOADER = new Set([
   'tool-search_products', 'tool-curate_products', 'tool-show_collection', 'tool-find_live_product', 'tool-find_on_google', 'tool-find_on_amazon', 'tool-browse_store', 'tool-browse_stores',
-  'tool-web_search', 'tool-show_orders', 'tool-plan_in_person',
+  'tool-web_search', 'tool-show_orders', 'tool-plan_in_person', 'tool-get_product_variants',
 ])
 // Keep a loading indicator visible WHENEVER the assistant is working, so the chat
 // never goes blank between steps (the "did my click do anything?" confusion). Hide
