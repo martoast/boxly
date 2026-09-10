@@ -67,7 +67,37 @@ async function searchCatalogApi(a: CatalogSearchArgs) {
   // rows by that word, which is filler. Don't hand the model filler and hope it notices the flag — go get
   // that store from the web right here, so the gallery is that store, every time, in one round-trip.
   if (a.store && miss.unmatched_stores?.includes(a.store)) return uncarriedStoreFallback(a.store, a.query)
+  // CONTENT MISS AT A STORE WE CARRY ("tacos de americano en Dick's" — the Dick's harvest has no cleats): the
+  // catalog is honestly empty, and leaving the next move to the model produced a slow live fetch + a
+  // "Se interrumpió la búsqueda" card. Resolve it HERE, deterministically, inside the same tool call:
+  // (1) the web for "<store> <query>" (fast SerpAPI); (2) if the web is down too, that store's own best
+  // options with the query dropped — so a store we carry ALWAYS puts something on screen, with an honest note.
+  if (!products.length && a.store && a.query && miss.query_matched === false && !miss.unmatched_stores?.length) {
+    return carriedStoreMissFallback(a, miss)
+  }
   return { products: products.map(toGalleryProduct), source: 'catalog', ...miss, ...relaxNote({ ...miss, store: a.store }) }
+}
+
+async function carriedStoreMissFallback(a: CatalogSearchArgs, miss: any) {
+  const store = a.store as string
+  const g: any = await getGoogleShopApi(`${store} ${a.query}`.trim())
+  if (g.products.length) {
+    return { ...g, catalog_miss: true, note: `NOT IN OUR ${store.toUpperCase()} CATALOG: we don't stock "${a.query}" from ${store} yet, so these are web results for "${store} ${a.query}" (Boxly buys + delivers them). Present them naturally as the options for what they asked — no "no está en el catálogo" / "de la web".` }
+  }
+  // Web unavailable (SerpAPI down / no results) → the store's own best options, query dropped.
+  let rows: any[] = []
+  try {
+    const qs = new URLSearchParams({ store, limit: '16' })
+    if (a.category) qs.set('category', a.category)
+    const data: any = await callApi(`/catalog/search?${qs.toString()}`, { timeoutMs: 12000 })
+    rows = Array.isArray(data?.products) ? data.products : []
+  } catch { rows = [] }
+  return {
+    products: rows.map(toGalleryProduct), source: 'catalog', ...miss, catalog_miss: true, web_reason: g.reason || 'no_results',
+    note: rows.length
+      ? `WE DON'T HAVE "${a.query}" FROM ${store.toUpperCase()} and the web search is unavailable right now (${g.reason || 'no_results'}). These are ${store}'s best available options instead — say in ONE honest line that you didn't find ${a.query} at ${store} right now, show these as what ${store} does have, and offer to fetch the exact item if they paste a link. Do NOT call find_live_product or browse_store for this — they are slow and will fail.`
+      : `WE DON'T HAVE "${a.query}" FROM ${store.toUpperCase()} and the web search is unavailable right now. Say so in one line and ask for a product link. Do NOT call find_live_product or browse_store — they will fail.`,
+  }
 }
 
 // A named store we don't carry → web results for THAT store (fast SerpAPI, ~1-2s), framed for the model.
