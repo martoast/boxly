@@ -70,7 +70,7 @@
 </template>
 
 <script setup>
-import { computed, reactive } from 'vue'
+import { computed, reactive, watchEffect } from 'vue'
 
 // Generic N-axis variant picker. Input (from the catalog's product-page read):
 //   axes:     [{ name: 'Waist', kind: 'size'|'color'|'length'|'width'|'capacity'|'scent'|'pack'|'material'|'other', values: [...] }]  (page order)
@@ -119,11 +119,22 @@ const LABELS = { size: 'Talla', color: 'Color', length: 'Largo', width: 'Ancho',
 function axisLabel(ax) { const l = LABELS[ax.kind]; return l && /^(size|color|colour|length|width|capacity|scent|pack|material)$/i.test(ax.name) ? l : ax.name }
 
 const sel = reactive({})
+// Some stores (SFCC: New Balance, Gap/Old Navy) expose one row PER AXIS VALUE (a colour row, a size row), not a
+// colour×size matrix. Then each axis validates on its own: the read says so (`axes_independent`), or we infer it
+// when no row carries values for two or more axes.
+const independent = computed(() => props.data?.axes_independent === true || props.data?.matrix === false
+  || (axes.value.length > 1 && !variants.value.some((v) => Object.keys(v.options).length > 1)))
+// Pre-select what the page had selected (e.g. the colourway from the URL) so the shopper only picks what's missing.
+watchEffect(() => { const pre = props.data?.selected; if (pre && typeof pre === 'object') for (const [k, v] of Object.entries(pre)) if (v != null && !sel[k]) sel[k] = String(v) })
 const availableCount = computed(() => variants.value.filter((v) => v.available).length)
 const fresh = computed(() => { const t = props.data?.checked_at ? Date.now() - new Date(props.data.checked_at).getTime() : Infinity; return t < 15 * 60_000 })
 
 // A value is pickable when some AVAILABLE variant matches it together with everything already selected on OTHER axes.
-function matches(v, axisName, val) { return v.options[axisName] === val && axes.value.every((a) => a.name === axisName || !sel[a.name] || v.options[a.name] === sel[a.name]) }
+function matches(v, axisName, val) {
+  if (v.options[axisName] !== val) return false
+  if (independent.value) return true
+  return axes.value.every((a) => a.name === axisName || !sel[a.name] || v.options[a.name] === sel[a.name])
+}
 function canPick(ax, val) { return variants.value.some((v) => v.available && matches(v, ax.name, val)) }
 function isLow(ax, val) { return variants.value.some((v) => v.available && v.low_stock && matches(v, ax.name, val)) }
 function pick(axisName, val) {
@@ -131,8 +142,17 @@ function pick(axisName, val) {
   // Clear later selections that are no longer compatible.
   for (const a of axes.value) if (a.name !== axisName && sel[a.name] && !canPick(a, sel[a.name])) sel[a.name] = null
 }
-const chosen = computed(() => axes.value.length ? (variants.value.find((v) => axes.value.every((a) => sel[a.name] && v.options[a.name] === sel[a.name])) || null) : (variants.value[0] || null))
-const complete = computed(() => axes.value.length ? !!(chosen.value && chosen.value.available) : !!(chosen.value && chosen.value.available))
+// Matrix reads: the one row matching every axis. Independent reads: the row of the LAST axis (where price/stock live).
+const chosen = computed(() => {
+  if (!axes.value.length) return variants.value[0] || null
+  if (independent.value) { const last = axes.value[axes.value.length - 1]; return sel[last.name] ? (variants.value.find((v) => v.options[last.name] === sel[last.name]) || null) : null }
+  return variants.value.find((v) => axes.value.every((a) => sel[a.name] && v.options[a.name] === sel[a.name])) || null
+})
+const complete = computed(() => {
+  if (!axes.value.length) return !!(chosen.value && chosen.value.available)
+  if (independent.value) return axes.value.every((a) => sel[a.name] && variants.value.some((v) => v.available && v.options[a.name] === sel[a.name]))
+  return !!(chosen.value && chosen.value.available)
+})
 const shownPrice = computed(() => chosen.value?.price ?? product.value.price)
 const shownWas = computed(() => chosen.value?.list_price ?? product.value.list_price)
 const priceRange = computed(() => {
