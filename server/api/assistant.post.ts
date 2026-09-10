@@ -126,6 +126,15 @@ const productTerms = (q?: string, store?: string) => {
   return t.replace(/\s+/g, ' ').trim()
 }
 
+// The store/brand a shopper's message names, if any: "promociones actuales de Macy's" → "Macy's",
+// "en dicks sporting goods busco…" → "dicks sporting goods". Used to keep a named store honest.
+function storeNamedIn(q?: string): string | null {
+  const m = String(q || '').match(/\b(?:de|en|del|from|at)\s+([A-Za-zÀ-ÿ0-9'&.]+(?:\s+[A-Za-zÀ-ÿ0-9'&.]+){0,3}?)(?=\s+(?:busco|quiero|para|que|con|hay|tienen|tiene|y|o)\b|[?!.,]|$)/i)
+  if (!m) return null
+  const v = m[1].trim().replace(INTENT_WORDS_RE, ' ').replace(/\s+/g, ' ').trim()
+  return v.length >= 3 && !/^(hombre|mujer|niños?|ropa|tenis|zapatos|casa|regalo|oferta|ofertas|promociones)$/i.test(v) ? v : null
+}
+
 // LAST RESORT = STILL A GALLERY (Alex: "it still needs to always show something to keep the user hooked").
 // When neither the store nor the web can answer right now, show today's top deals from our own stores with
 // an honest note — never an empty screen. The model says what it couldn't reach and asks the one question.
@@ -264,6 +273,21 @@ async function curateCatalogApi(a: CurateArgs) {
   // Same rule as search: a store we don't carry is never answered with other stores' deals (that was
   // "promociones en Macy's" → Old Navy dresses). Fetch that store from the web instead.
   if (a.store && unmatched.includes(a.store)) return uncarriedStoreFallback(a.store, a.query)
+  // DEALS ASK + curate found no markdowns among the ENRICHED rows → check the raw catalog for that store's
+  // real markdowns (a whole-store feed ingest lands hundreds of sale rows before enrichment runs: Alo 361).
+  // Real sale rows beat a relaxed full-price set every time.
+  if (a.store && (a.intent || 'deals') === 'deals' && relaxed_filters.includes('deals')) {
+    const sale: any = await searchCatalogApi({ store: a.store, query: a.query, category: a.categories?.[0], sale: true })
+    if (sale.products?.length && !sale.relaxed) return { ...sale, note: `REAL MARKDOWNS at ${a.store}: these ${sale.products.length} items are currently on sale (was → now). Lead with the deepest discounts and present them as ${a.store}'s current promotions.` }
+  }
+  // A carried store that curate can't serve (freshly ingested rows have no enrichment yet — curate joins on
+  // it) still has products for plain search. Never let a store we hold come back empty here.
+  // "Thin" counts too: DFYNE's curate saw ONE enriched row while the feed holds 239 — a lonely card is a
+  // broken store page, so anything under 4 rows for a named store goes to the plain catalog search.
+  if (products.length < 4 && a.store) {
+    const r: any = await searchCatalogApi({ store: a.store, query: a.query, category: a.categories?.[0] })
+    if (r.products?.length > products.length) return { ...r, relaxed: true, relaxed_filters: ['curate'], note: r.note || `SHOWING ${a.store.toUpperCase()}'S CATALOG (the deals curation had little for this store yet). Present them as ${a.store}'s available options; call out any real markdowns, and say plainly if none is marked down.` }
+  }
   return { products: products.map(toCurateGalleryProduct), source: 'catalog', query_matched, relaxed, relaxed_filters, ...relaxNote({ relaxed, relaxed_filters, store: a.store }) }
 }
 // Curate row → gallery shape + the enrichment fields the model speaks to (why/deal_tier).
@@ -1387,7 +1411,17 @@ export default defineEventHandler(async (event) => {
         inputSchema: z.object({
           collection: z.enum(COLLECTION_IDS).describe('The collection id to show — the single best match for what the shopper wants.'),
         }),
-        execute: async ({ collection }: any) => markGallery(await getCollectionApi(collection)),
+        execute: async ({ collection }: any) => {
+          // ENFORCED IN CODE: the fast models kept answering "promociones de Macy's" with spotlight-gap. A
+          // store spotlight is only served when the shopper's message names that store or names none.
+          const spot = String(collection || '').startsWith('spotlight-') ? String(collection).slice(10) : null
+          const qn = String(question || '').toLowerCase().replace(/[^a-z0-9]/g, '')
+          const named = storeNamedIn(question)
+          if (spot && named && !qn.includes(spot.replace(/[^a-z0-9]/g, ''))) {
+            return markGallery(await curateCatalogApi({ intent: 'deals', store: named }))
+          }
+          return markGallery(await getCollectionApi(collection))
+        },
         toModelOutput: galleryModelOutput,
       }),
       find_live_product: tool({
