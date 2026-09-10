@@ -12,6 +12,7 @@
         <p class="mt-1 text-[15px] font-extrabold text-gray-900 tabular-nums">
           <span v-if="shownPrice != null">${{ shownPrice }} <span class="text-[11px] font-medium text-gray-400">USD</span></span>
           <span v-if="shownWas != null && shownWas > (shownPrice ?? 0)" class="ml-1.5 text-[12px] font-medium text-gray-400 line-through">${{ shownWas }}</span>
+          <span v-if="priceRange" class="text-[12px] font-medium text-gray-500">{{ priceRange }}</span>
         </p>
       </div>
     </div>
@@ -23,45 +24,38 @@
       <span class="ml-auto text-gray-400">{{ availableCount }} de {{ variants.length }} disponibles</span>
     </div>
 
-    <!-- colors -->
-    <div v-if="colors.length" class="mt-3">
-      <p class="text-[12px] font-semibold text-gray-700 mb-1.5">Color<span v-if="selColor" class="font-normal text-gray-500"> · {{ selColor }}</span></p>
-      <div class="flex flex-wrap gap-1.5">
+    <!-- one row per axis, in the store's order -->
+    <div v-for="ax in axes" :key="ax.name" class="mt-3">
+      <p class="text-[12px] font-semibold text-gray-700 mb-1.5">{{ axisLabel(ax) }}<span v-if="sel[ax.name]" class="font-normal text-gray-500"> · {{ sel[ax.name] }}</span></p>
+      <!-- grid for sizes / lengths / widths (dense, scannable); chips for colours, scents, capacities, packs -->
+      <div v-if="isGrid(ax)" class="grid gap-1.5" :class="ax.values.length > 12 ? 'grid-cols-5' : 'grid-cols-4'">
         <button
-          v-for="c in colors" :key="c.name" type="button"
-          @click="pickColor(c.name)" :disabled="busy"
-          :class="[selColor === c.name ? 'border-primary-500 ring-2 ring-primary-200 text-primary-800 bg-primary-50' : c.available ? 'border-gray-200 text-gray-700 hover:border-primary-300' : 'border-gray-100 text-gray-300 line-through']"
-          class="px-2.5 py-1 rounded-full border text-[12px] font-medium transition"
-          :title="c.available ? c.name : c.name + ' — agotado'"
-        >{{ c.name }}</button>
-      </div>
-    </div>
-
-    <!-- sizes -->
-    <div v-if="sizes.length" class="mt-3">
-      <p class="text-[12px] font-semibold text-gray-700 mb-1.5">Talla<span v-if="selSize" class="font-normal text-gray-500"> · {{ selSize }}</span></p>
-      <div class="grid gap-1.5" :class="sizes.length > 12 ? 'grid-cols-5' : 'grid-cols-4'">
-        <button
-          v-for="s in sizes" :key="s.name" type="button"
-          @click="s.available && pickSize(s.name)" :disabled="busy || !s.available"
-          :class="[selSize === s.name ? 'border-primary-500 ring-2 ring-primary-200 text-primary-800 bg-primary-50' : s.available ? 'border-gray-200 text-gray-800 hover:border-primary-300 hover:bg-primary-50' : 'border-gray-100 bg-gray-50 text-gray-300 line-through cursor-not-allowed']"
+          v-for="val in ax.values" :key="val" type="button"
+          @click="canPick(ax, val) && pick(ax.name, val)" :disabled="busy || !canPick(ax, val)"
+          :class="[sel[ax.name] === val ? 'border-primary-500 ring-2 ring-primary-200 text-primary-800 bg-primary-50' : canPick(ax, val) ? 'border-gray-200 text-gray-800 hover:border-primary-300 hover:bg-primary-50' : 'border-gray-100 bg-gray-50 text-gray-300 line-through cursor-not-allowed']"
           class="relative px-1 py-1.5 rounded-lg border text-[12px] font-semibold text-center transition truncate"
-          :title="s.available ? s.name : s.name + ' — agotado'"
+          :title="canPick(ax, val) ? val : val + ' — agotado'"
         >
-          {{ s.name }}
-          <span v-if="s.available && s.low" class="absolute -top-1 -right-1 text-[9px] font-bold text-amber-700 bg-amber-100 rounded-full px-1 leading-4">¡pocas!</span>
+          {{ val }}
+          <span v-if="canPick(ax, val) && isLow(ax, val)" class="absolute -top-1 -right-1 text-[9px] font-bold text-amber-700 bg-amber-100 rounded-full px-1 leading-4">¡pocas!</span>
+        </button>
+      </div>
+      <div v-else class="flex flex-wrap gap-1.5">
+        <button
+          v-for="val in ax.values" :key="val" type="button"
+          @click="canPick(ax, val) && pick(ax.name, val)" :disabled="busy || !canPick(ax, val)"
+          :class="[sel[ax.name] === val ? 'border-primary-500 ring-2 ring-primary-200 text-primary-800 bg-primary-50' : canPick(ax, val) ? 'border-gray-200 text-gray-700 hover:border-primary-300' : 'border-gray-100 text-gray-300 line-through']"
+          class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[12px] font-medium transition"
+          :title="canPick(ax, val) ? val : val + ' — agotado'"
+        >
+          <span v-if="ax.kind === 'color'" class="inline-block w-3 h-3 rounded-full border border-black/10" :style="{ background: swatch(val) }"></span>
+          {{ val }}
         </button>
       </div>
     </div>
 
-    <!-- single-axis / keyed variants fallback -->
-    <div v-if="!colors.length && !sizes.length" class="mt-3 flex flex-wrap gap-1.5">
-      <button v-for="v in variants" :key="v.key" type="button" @click="v.available && pickKey(v)" :disabled="busy || !v.available"
-        :class="selKey === v.key ? 'border-primary-500 ring-2 ring-primary-200 bg-primary-50 text-primary-800' : v.available ? 'border-gray-200 text-gray-800 hover:border-primary-300' : 'border-gray-100 bg-gray-50 text-gray-300 line-through cursor-not-allowed'"
-        class="px-2.5 py-1 rounded-full border text-[12px] font-medium transition">{{ v.key }}</button>
-    </div>
-
-    <p class="mt-2 text-[11px] text-gray-400"><span class="inline-block w-2.5 h-2.5 rounded border border-gray-200 bg-white align-middle mr-1"></span>disponible <span class="inline-block w-2.5 h-2.5 rounded border border-gray-100 bg-gray-50 align-middle ml-2 mr-1"></span>agotado</p>
+    <p v-if="axes.length" class="mt-2 text-[11px] text-gray-400"><span class="inline-block w-2.5 h-2.5 rounded border border-gray-200 bg-white align-middle mr-1"></span>disponible <span class="inline-block w-2.5 h-2.5 rounded border border-gray-100 bg-gray-50 align-middle ml-2 mr-1"></span>agotado</p>
+    <p v-else class="mt-3 text-[12px] text-gray-600">Talla única · {{ variants[0]?.available ? 'disponible' : 'agotado' }}</p>
 
     <!-- CTA -->
     <div class="mt-3 flex items-center gap-2">
@@ -76,63 +70,91 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, reactive } from 'vue'
 
+// Generic N-axis variant picker. Input (from the catalog's product-page read):
+//   axes:     [{ name: 'Waist', kind: 'size'|'color'|'length'|'width'|'capacity'|'scent'|'pack'|'material'|'other', values: [...] }]  (page order)
+//   variants: [{ key, options: { Waist: '32', Length: '30', Color: 'Dark Wash' }, size?, color?, available, price, list_price, low_stock? }]
+// Older reads without `options` still work: size/color become the axes. A product with no axes is a single SKU.
 const props = defineProps({
-  data: { type: Object, required: true },   // { product, product_title, axes, variants[], checked_at, source }
+  data: { type: Object, required: true },
   busy: { type: Boolean, default: false },
 })
 const emit = defineEmits(['pick'])
 
 const product = computed(() => ({ title: props.data?.product?.title || props.data?.product_title || '', image: props.data?.product?.image || null, url: props.data?.product?.url || null, store: props.data?.product?.store || null, price: props.data?.product?.price ?? null, list_price: props.data?.product?.list_price ?? null }))
-const variants = computed(() => (props.data?.variants || []).map((v) => ({ ...v, size: v.size ? String(v.size) : null, color: v.color ? String(v.color) : null })))
+
+// Normalize every variant to { options: {axis: value} }.
+const variants = computed(() => (props.data?.variants || []).map((v) => {
+  const options = { ...(v.options && typeof v.options === 'object' ? v.options : {}) }
+  if (!Object.keys(options).length) { if (v.color) options.Color = String(v.color); if (v.size) options.Size = String(v.size) }
+  for (const k of Object.keys(options)) options[k] = String(options[k])
+  return { ...v, options }
+}))
+
+// Axes: the read's own list (page order) or derived from the variants' option keys.
+const axes = computed(() => {
+  const declared = Array.isArray(props.data?.axes) ? props.data.axes.filter((a) => a && typeof a === 'object' && a.name) : []
+  const names = declared.length ? declared.map((a) => a.name) : [...new Set(variants.value.flatMap((v) => Object.keys(v.options)))]
+  return names.map((name) => {
+    const d = declared.find((a) => a.name === name) || {}
+    const seen = []; for (const v of variants.value) { const val = v.options[name]; if (val != null && !seen.includes(val)) seen.push(val) }
+    const values = Array.isArray(d.values) && d.values.length ? d.values.map(String) : seen
+    return { name, kind: d.kind || guessKind(name), values }
+  }).filter((a) => a.values.length)
+})
+function guessKind(name) {
+  const n = String(name).toLowerCase()
+  if (/color|colour|shade|wash|finish/.test(n)) return 'color'
+  if (/length|inseam|largo/.test(n)) return 'length'
+  if (/width|ancho/.test(n)) return 'width'
+  if (/oz|capacity|capacidad|ml|size.*oz/.test(n)) return 'capacity'
+  if (/scent|fragrance|flavor|flavour|aroma/.test(n)) return 'scent'
+  if (/pack|count|cantidad|qty/.test(n)) return 'pack'
+  if (/size|talla|waist|cintura/.test(n)) return 'size'
+  return 'other'
+}
+const isGrid = (ax) => ['size', 'length', 'width'].includes(ax.kind)
+const LABELS = { size: 'Talla', color: 'Color', length: 'Largo', width: 'Ancho', capacity: 'Capacidad', scent: 'Aroma', pack: 'Paquete', material: 'Material', other: null }
+function axisLabel(ax) { const l = LABELS[ax.kind]; return l && /^(size|color|colour|length|width|capacity|scent|pack|material)$/i.test(ax.name) ? l : ax.name }
+
+const sel = reactive({})
 const availableCount = computed(() => variants.value.filter((v) => v.available).length)
 const fresh = computed(() => { const t = props.data?.checked_at ? Date.now() - new Date(props.data.checked_at).getTime() : Infinity; return t < 15 * 60_000 })
 
-const selColor = ref(null)
-const selSize = ref(null)
-const selKey = ref(null)
-
-// Colours: available if ANY variant of that colour is available.
-const colors = computed(() => {
-  const m = new Map()
-  for (const v of variants.value) { if (!v.color) continue; const cur = m.get(v.color) || { name: v.color, available: false }; cur.available = cur.available || !!v.available; m.set(v.color, cur) }
-  return [...m.values()]
-})
-// Sizes: filtered by the selected colour when the product has colours.
-const sizes = computed(() => {
-  const m = new Map()
-  for (const v of variants.value) {
-    if (!v.size) continue
-    if (colors.value.length && selColor.value && v.color !== selColor.value) continue
-    const cur = m.get(v.size) || { name: v.size, available: false, low: false }
-    cur.available = cur.available || !!v.available; cur.low = cur.low || !!v.low_stock; m.set(v.size, cur)
-  }
-  return [...m.values()]
-})
-const chosen = computed(() => {
-  if (selKey.value) return variants.value.find((v) => v.key === selKey.value) || null
-  return variants.value.find((v) => (!colors.value.length || v.color === selColor.value) && (!sizes.value.length || v.size === selSize.value)) || null
-})
+// A value is pickable when some AVAILABLE variant matches it together with everything already selected on OTHER axes.
+function matches(v, axisName, val) { return v.options[axisName] === val && axes.value.every((a) => a.name === axisName || !sel[a.name] || v.options[a.name] === sel[a.name]) }
+function canPick(ax, val) { return variants.value.some((v) => v.available && matches(v, ax.name, val)) }
+function isLow(ax, val) { return variants.value.some((v) => v.available && v.low_stock && matches(v, ax.name, val)) }
+function pick(axisName, val) {
+  sel[axisName] = sel[axisName] === val ? null : val
+  // Clear later selections that are no longer compatible.
+  for (const a of axes.value) if (a.name !== axisName && sel[a.name] && !canPick(a, sel[a.name])) sel[a.name] = null
+}
+const chosen = computed(() => axes.value.length ? (variants.value.find((v) => axes.value.every((a) => sel[a.name] && v.options[a.name] === sel[a.name])) || null) : (variants.value[0] || null))
+const complete = computed(() => axes.value.length ? !!(chosen.value && chosen.value.available) : !!(chosen.value && chosen.value.available))
 const shownPrice = computed(() => chosen.value?.price ?? product.value.price)
 const shownWas = computed(() => chosen.value?.list_price ?? product.value.list_price)
-const complete = computed(() => selKey.value ? true : (!colors.value.length || !!selColor.value) && (!sizes.value.length || !!selSize.value) && (chosen.value ? !!chosen.value.available : true))
-const ctaLabel = computed(() => {
-  const bits = [selSize.value ? 'talla ' + selSize.value : null, selColor.value ? selColor.value : null, selKey.value].filter(Boolean)
-  return bits.length ? `Agregar ${bits.join(' · ')} a mi caja` : (sizes.value.length ? 'Elige tu talla' : colors.value.length ? 'Elige un color' : 'Elige una opción')
+const priceRange = computed(() => {
+  if (chosen.value) return ''
+  const ps = variants.value.map((v) => v.price).filter((p) => p != null)
+  if (ps.length < 2) return ''
+  const lo = Math.min(...ps), hi = Math.max(...ps)
+  return lo !== hi && product.value.price == null ? `$${lo} – $${hi}` : ''
 })
-
-function pickColor(name) { selColor.value = selColor.value === name ? null : name; if (selSize.value && !sizes.value.find((s) => s.name === selSize.value && s.available)) selSize.value = null }
-function pickSize(name) { selSize.value = selSize.value === name ? null : name }
-function pickKey(v) { selKey.value = selKey.value === v.key ? null : v.key }
+const ctaLabel = computed(() => {
+  if (!axes.value.length) return complete.value ? 'Agregar a mi caja' : 'Agotado'
+  const missing = axes.value.find((a) => !sel[a.name])
+  if (missing) return `Elige ${axisLabel(missing).toLowerCase()}`
+  return complete.value ? `Agregar ${axes.value.map((a) => sel[a.name]).join(' · ')} a mi caja` : 'Combinación agotada'
+})
 function confirm() {
   if (!complete.value) return
-  const parts = []
-  if (selSize.value) parts.push('talla ' + selSize.value)
-  if (selColor.value) parts.push('color ' + selColor.value)
-  if (selKey.value) parts.push(selKey.value)
-  emit('pick', `Quiero ${product.value.title ? 'los ' + product.value.title + ' en ' : ''}${parts.join(', ')} — agrégalos a mi caja`)
+  const parts = axes.value.map((a) => `${axisLabel(a).toLowerCase()} ${sel[a.name]}`)
+  emit('pick', `Quiero ${product.value.title ? 'los ' + product.value.title : 'ese producto'}${parts.length ? ' en ' + parts.join(', ') : ''} — agrégalos a mi caja`)
 }
+const SWATCH = { black: '#111', negro: '#111', white: '#fff', blanco: '#fff', red: '#dc2626', rojo: '#dc2626', blue: '#2563eb', azul: '#2563eb', navy: '#1e3a8a', green: '#16a34a', verde: '#16a34a', pink: '#ec4899', rosa: '#ec4899', grey: '#9ca3af', gray: '#9ca3af', gris: '#9ca3af', beige: '#d6c7a1', brown: '#92400e', café: '#92400e', yellow: '#eab308', orange: '#f97316', purple: '#7c3aed', tan: '#d2b48c', cream: '#f5f0e1', ivory: '#fffff0', olive: '#6b8e23', burgundy: '#800020', teal: '#0d9488' }
+function swatch(val) { const w = String(val).toLowerCase().split(/[^a-záéíóú]+/).find((t) => SWATCH[t]); return w ? SWATCH[w] : 'linear-gradient(135deg,#e5e7eb,#9ca3af)' }
 function rel(iso) {
   const ms = Date.now() - new Date(iso).getTime()
   if (!Number.isFinite(ms) || ms < 0) return 'ahora'
