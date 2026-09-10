@@ -1816,6 +1816,10 @@ async function confirmAssisted(part) {
       product_image_url: saved?.image || it.image || it.product_image_url || null,
       price: Number(saved?.price ?? it.price) || 0,
       quantity: Math.max(1, Number(it.quantity) || 1),
+      // Variant choice → the API's per-item `options` (rendered in the PR email and the admin as
+      // "Talla: 9.5 US · Color: negro"). Was dropped here, so a size the shopper volunteered never
+      // reached the shopping team. The live variant picker (store-knowledge work) will fill these.
+      options: (() => { const o = {}; if (it.size) o.Talla = String(it.size).trim(); if (it.color) o.Color = String(it.color).trim(); if (it.variant) o.Variante = String(it.variant).trim(); return Object.keys(o).length ? o : undefined })(),
       notes: it.notes || undefined,
     }
   }).filter((it) => it.product_name)
