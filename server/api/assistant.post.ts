@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { FALLBACK_KNOWLEDGE } from '../utils/boxlyKnowledge'
 import { curateProducts, floatRequestedStore } from '../utils/curate'
 import { chatModel, isAnthropic, providerOptions, hasModelKey } from '../utils/aiProvider'
+import { toEnglishSearchTerms } from '../utils/webQuery'
 import { ageGalleries, windowMessages, withContextOnLastUser, dropToolParts, contextStats, WINDOW_DEFAULTS } from '../utils/chatContext'
 import { generateFollowups, followupPart, followupsWithin, attachFollowupChips } from '../utils/followups'
 import { readSummary, summaryBlock, summarize, shouldSummarize } from '../utils/chatSummary'
@@ -80,9 +81,12 @@ async function searchCatalogApi(a: CatalogSearchArgs) {
 
 async function carriedStoreMissFallback(a: CatalogSearchArgs, miss: any) {
   const store = a.store as string
-  const g: any = await getGoogleShopApi(`${store} ${a.query}`.trim())
+  // The model reliably puts an ENGLISH type in `category` ("football cleats") but often leaves the shopper's
+  // own words in `query` ("tacos de americano" → Amazon returns taco T-shirts). Lead with the category.
+  const webQuery = [a.category, productTerms(a.query, store)].filter(Boolean).join(' ').trim() || (a.query as string)
+  const g: any = await getWebApi(webQuery, store)
   if (g.products.length) {
-    return { ...g, catalog_miss: true, note: `NOT IN OUR ${store.toUpperCase()} CATALOG: we don't stock "${a.query}" from ${store} yet, so these are web results for "${store} ${a.query}" (Boxly buys + delivers them). Present them naturally as the options for what they asked — no "no está en el catálogo" / "de la web".` }
+    return { ...g, catalog_miss: true, note: `NOT IN OUR ${store.toUpperCase()} CATALOG: we don't stock "${webQuery}" from ${store} yet, so these are options from other US stores${g.sources?.amazon ? ' (Amazon included)' : ''} that Boxly buys + delivers. Say in ONE short line that ${store} didn't have it in our catalog and these are the best options you found from other US stores — never present them as ${store}, and never say "de la web" / "del catálogo".` }
   }
   // Web unavailable (SerpAPI down / no results) → the store's own best options, query dropped.
   let rows: any[] = []
@@ -100,13 +104,64 @@ async function carriedStoreMissFallback(a: CatalogSearchArgs, miss: any) {
   }
 }
 
-// A named store we don't carry → web results for THAT store (fast SerpAPI, ~1-2s), framed for the model.
+// Intent words describe the ASK, not the product; sent to a web engine they return junk ("promociones" on
+// Amazon → belts and beard kits). Strip them; what's left is the product term, if any.
+const INTENT_WORDS_RE = /\b(promociones?|promos?|ofertas?|descuentos?|rebajas?|rebajad[oa]s?|deals?|sale|clearance|barat[oa]s?|actuales?|quiero|busco|ver|de|en|del|la|el|los|las|para|articulos|artículos)\b/gi
+const productTerms = (q?: string, store?: string) => {
+  let t = String(q || '').replace(INTENT_WORDS_RE, ' ')
+  // The store is handled separately — its name left in the terms sends Amazon "Macy's" → gift cards.
+  for (const w of String(store || '').toLowerCase().split(/[^a-z0-9']+/).filter((w) => w.length > 2)) t = t.replace(new RegExp(`\\b${w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:'s)?\\b`, 'gi'), ' ')
+  return t.replace(/\s+/g, ' ').trim()
+}
+
+// LAST RESORT = STILL A GALLERY (Alex: "it still needs to always show something to keep the user hooked").
+// When neither the store nor the web can answer right now, show today's top deals from our own stores with
+// an honest note — never an empty screen. The model says what it couldn't reach and asks the one question.
+async function hookFallback(context: string) {
+  const c: any = await getCollectionApi('ofertas-estrella').catch(() => ({ products: [] }))
+  if (!c.products?.length) return null
+  return { ...c, hook: true, note: `${context} So these are TODAY'S TOP DEALS from our stores instead (${c.collection?.title || 'Ofertas estrella'}) — say in ONE line what you couldn't reach right now, present these as "mientras tanto, mira las ofertas estrella de hoy", and ask the one question that gets them what they wanted. Do NOT call find_live_product or browse_store.` }
+}
+
+// A named store we don't carry → web results for THAT store, framed for the model. Google Shopping is the
+// only engine that can return the store itself (merchant = Macy's); Amazon is one merchant and is offered
+// only as an honest alternative, never presented as the store they named.
 async function uncarriedStoreFallback(store: string, query?: string) {
-  const g: any = await getGoogleShopApi([store, query || ''].join(' ').trim())
-  const note = g.products.length
-    ? `STORE NOT IN OUR CATALOG: "${store}" isn't a store we harvest, so these are web results for ${store} (Boxly buys + delivers them). Present them naturally as ${store} options — never say "no está en el catálogo" or "de la web".`
-    : `STORE NOT IN OUR CATALOG and the web search returned nothing for "${store}" (${g.reason || 'no_results'}). Ask for a product link or what exactly they want from ${store}; do NOT show other stores' items as ${store}.`
-  return { ...g, unmatched_stores: [store], store_fallback: store, note }
+  const terms = await toEnglishSearchTerms(productTerms(query, store))
+  const g: any = await getGoogleShopApi([store, terms].filter(Boolean).join(' ')).catch(() => ({ products: [], reason: 'unreachable' }))
+  const lc = store.toLowerCase().replace(/[^a-z0-9]/g, '')
+  const mine = (g.products || []).filter((p: any) => String(p.merchant || p.store || '').toLowerCase().replace(/[^a-z0-9]/g, '').includes(lc))
+  const others = (g.products || []).filter((p: any) => !mine.includes(p))
+  const ordered = [...mine, ...others].filter((p: any) => !SECOND_HAND_RE.test(String(p.title || '')))
+  if (ordered.length) {
+    return { products: ordered, source: 'web', from_web: true, reason: null, unmatched_stores: [store], store_fallback: store,
+      note: `STORE NOT IN OUR CATALOG: "${store}" isn't a store we harvest, so these are web results for ${store} (Boxly buys + delivers them)${mine.length ? '' : ' — note none of them is sold by ' + store + ' itself, so present them as options from other US stores'}. Never say "no está en el catálogo" or "de la web".` }
+  }
+  // Google down / nothing → Amazon. With a product term it's an explicit ALTERNATIVE. With only the store
+  // name, Amazon is tried as a BRAND search ("Owala" → real Owala bottles) and kept only when most titles
+  // carry the brand — a retailer name ("Macy's") returns gift cards and crackers, which we drop.
+  const brandKey = store.toLowerCase().replace(/[^a-z0-9]/g, '')
+  let a: any = terms ? await getAmazonApi(terms).catch(() => ({ products: [], reason: 'unreachable' })) : { products: [], reason: 'no_terms' }
+  if (!terms) {
+    const b: any = await getAmazonApi(store).catch(() => ({ products: [], reason: 'unreachable' }))
+    const rows = (b.products || []).filter((p: any) => !/gift card/i.test(String(p.title || '')))
+    const branded = rows.filter((p: any) => `${p.brand || ''} ${p.title || ''}`.toLowerCase().replace(/[^a-z0-9]/g, '').includes(brandKey))
+    if (rows.length && branded.length >= Math.ceil(rows.length / 2)) {
+      return { ...b, products: branded, unmatched_stores: [store], store_fallback: store, alternative_source: 'amazon', brand_on_amazon: true,
+        note: `${store.toUpperCase()} VIA AMAZON: we don't harvest ${store}'s own store yet, but these are genuine ${store} products sold on Amazon (Boxly buys + delivers). Present them naturally as ${store} options, mention they ship via Amazon, and lead with any real markdowns.` }
+    }
+  }
+  if (a.products?.length) {
+    return { ...a, unmatched_stores: [store], store_fallback: store, alternative_source: 'amazon',
+      note: `COULD NOT REACH ${store.toUpperCase()} RIGHT NOW (${g.reason || 'no_results'}). These are AMAZON options for "${terms}" instead — say in one line that you couldn't pull ${store} at this moment and that these are Amazon alternatives; never present them as ${store}.` }
+  }
+  const context = terms
+    ? `COULD NOT REACH ${store.toUpperCase()} RIGHT NOW (${g.reason || 'no_results'}) and no alternative came back for "${terms}".`
+    : `COULD NOT REACH ${store.toUpperCase()} RIGHT NOW (${g.reason || 'no_results'}) and they haven't said WHAT they want from ${store} — ask "¿qué buscas en ${store}? ¿ropa, zapatos, bolsas, belleza…?".`
+  const hook = await hookFallback(context)
+  if (hook) return { ...hook, unmatched_stores: [store], store_fallback: store }
+  return { products: [], source: 'web', from_web: true, reason: g.reason || 'no_results', unmatched_stores: [store], store_fallback: store,
+    note: `${context} Say so in one line, ask for a product link or what they want, and do NOT show other stores' items as ${store}. Do NOT call find_live_product.` }
 }
 
 // A plain-language note the model cannot miss. relaxed_filters / unmatched_stores are flags; the model
@@ -292,10 +347,49 @@ async function getAmazonApi(query: string) {
   const raw: any[] = Array.isArray(data?.products) ? data.products : []
   const reason: string | null = data?.error ? String(data.error) : data?.no_results ? 'no_results' : null
   return {
-    products: raw.map((p) => ({ ...toGalleryProduct(p), merchant: 'Amazon', source: 'amazon' })),
+    products: raw.map((p) => ({ ...toGalleryProduct(p), brand: p.brand || null, merchant: 'Amazon', source: 'amazon' })),
     source: 'amazon', from_web: true, reason,
   }
 }
+// THE WEB BACKBONE (Alex, 2026-09-10): Google Shopping AND Amazon in PARALLEL, merged. If one engine is
+// down (SerpAPI's Google engine was out for hours today) the other still answers; when both answer the
+// shopper gets the richness of both. Used/refurbished marketplaces are already dropped by the API; a
+// title-level guard here is belt-and-braces. Default order: real markdowns first (deepest discount
+// leads), then the rest alternating google/amazon — the model then features its best 1–3 on top.
+const SECOND_HAND_RE = /\b(used|pre-?owned|refurbished|refurb|renewed|open[- ]box|second[- ]hand|reconditioned)\b/i
+async function getWebApi(rawQuery: string, store?: string) {
+  const query = await toEnglishSearchTerms(rawQuery)
+  const [g, a]: any[] = await Promise.all([
+    getGoogleShopApi([store, query].filter(Boolean).join(' ').trim()).catch(() => ({ products: [], reason: 'unreachable' })),
+    // Amazon is one merchant: a store name in the query ("Dick's Sporting Goods cleats") only adds noise.
+    getAmazonApi(query).catch(() => ({ products: [], reason: 'unreachable' })),
+  ])
+  const seen = new Set<string>()
+  const keep = (p: any) => {
+    if (!p?.title || SECOND_HAND_RE.test(String(p.title))) return false
+    const k = String(p.title).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().slice(0, 60)
+    if (seen.has(k)) return false
+    seen.add(k)
+    return true
+  }
+  const gp: any[] = (g.products || []).filter(keep)
+  const ap: any[] = (a.products || []).filter(keep)
+  const all = [...gp, ...ap]
+  const deals = all.filter((p) => p.on_sale && p.discount_pct).sort((x, y) => (y.discount_pct || 0) - (x.discount_pct || 0))
+  const rest: any[] = []
+  const gr = gp.filter((p) => !deals.includes(p)), ar = ap.filter((p) => !deals.includes(p))
+  for (let i = 0; i < Math.max(gr.length, ar.length); i++) { if (gr[i]) rest.push(gr[i]); if (ar[i]) rest.push(ar[i]) }
+  const products = [...deals, ...rest].slice(0, 24)
+  const reason = products.length ? null : (g.reason && a.reason ? `google:${g.reason} amazon:${a.reason}` : g.reason || a.reason || 'no_results')
+  return {
+    products,
+    source: 'web', from_web: true, reason,
+    sources: { google: gp.length, amazon: ap.length, google_status: g.reason || 'ok', amazon_status: a.reason || 'ok' },
+    web_query: query,
+    retry_after_s: g.retry_after_s ?? null,
+  }
+}
+
 // Which model/provider runs this chat is decided centrally in ../utils/aiProvider
 // (chatModel()), so the whole app can switch between Gemini and Claude via env.
 
@@ -388,7 +482,12 @@ const NON_GALLERY_TOOLS = [
 // The loop toolset before a gallery has shown: everything except suggest_followups —
 // the chips are generated OFF the loop (server/utils/followups.ts), so the model never
 // spends a round-trip on them (its persisted parts are dropped from the transcript).
-const LOOP_TOOLS = [...GALLERY_TOOLS, ...NON_GALLERY_TOOLS]
+// The live store browser (browse_store / browse_stores) is NOT offered to the model: the engine behind it
+// refuses to start without a US exit IP (off since 2026-09-07), so every call fails slowly and the model
+// kept picking it over the web backbone for a catalog miss ("Se interrumpió la búsqueda"). The tools stay
+// registered for history replay; re-add them here when live browsing is back.
+const LIVE_BROWSE_TOOLS = ['browse_store', 'browse_stores']
+const LOOP_TOOLS = [...GALLERY_TOOLS.filter((t) => !LIVE_BROWSE_TOOLS.includes(t)), ...NON_GALLERY_TOOLS]
 // Registry id of a product (FNV-1a of its URL) — MUST match the JS/PHP implementations
 // (ShoppingAssistant.vue / ConversationController::productId); used by the gallery markers.
 function registryId(p: any): string | null {
@@ -845,6 +944,7 @@ Your tools, and when to use them:
   RESULTS MUST MAKE SENSE — this is non-negotiable. A real shopping assistant NEVER shows dresses for a gym request, a toaster for a camera, or random top-deals for a specific model. If what came back doesn't clearly fit the ask, it's a MISS: gate it with structured params, or GO GET IT — and for out-of-catalog products find_on_google is your tool (fast, ~1-2s, covers anything). find_live_product is ONLY for a pasted link. NEVER settle for filler, and NEVER burn ~10s on find_live_product for a general product find_on_google answers instantly (that "se interrumpió la búsqueda" hang was find_live_product on a product that should've gone to find_on_google).
 - ⚑ SUPPLEMENT A THIN RESULT (don't leave them with 1 card). If a search for a specific brand/product returns only ONE or TWO real catalog items (e.g. "promociones de RHODE" → we carry a single Rhode kit), that's too thin to feel like a store. In the SAME turn, ALSO call find_on_google({query}) with the same brand/product and show those alongside — so the customer sees a full set of options, not a lonely single card. Present it seamlessly as one selection (never "solo tengo uno en catálogo" / "el resto es de la web"). Rule of thumb: a specific ask that yields < 3 catalog items → supplement with find_on_google. (A broad ask that already returns a full gallery does NOT need supplementing.)
 - ⚑ NEVER DEAD-END ON "NO ENCONTRÉ" FOR A REAL PRODUCT. A nameable product we don't stock in the catalog — "una tele / TV", "una guitarra", "un monitor", a brand we don't carry — must go to find_on_google, NOT a "no encontré opciones" reply. Two "no encontré" cards in a row is a broken experience: if the catalog is empty, GO TO THE WEB. Keep them browsing options.
+- ⚑ THE STORE THEY NAMED IS THE STORE THEY GET. "Promociones de Macy's" → results for MACY'S (search_products/curate_products with store:"Macy's" — if we don't carry it, the tool fetches Macy's from the web by itself). NEVER swap in another store's collection or catalog (a Gap collection for a Macy's ask is a broken answer). And ALWAYS translate the shopper's words into ENGLISH product terms in every query/category param — "tacos de americano" is FOOTBALL CLEATS, "tenis" is SNEAKERS, "tele" is TV — the catalog and the web search both index English titles.
 - ⚑ PROMOS / OFERTAS ASK = ALWAYS A GALLERY, EVEN WITH ZERO PROMOS. The starter cards ("Quiero ver promociones de artículos ALO para mujer", "…PINK by Victoria Secret", "…Nike", "Hay promociones actuales en Target?") and any "ofertas/promos de X" ask MUST end with products on screen — a text-only reply, or a "No encontré opciones" card, on a store we carry is the worst possible outcome. Flow:
   (1) curate_products({intent:'deals', store}) for the brand — NEVER sale:true / min_discount on search_products for a plain promo ask (a full-price store like Alo has ZERO marked-down rows and that empties the gallery).
   (2) Read relaxed / relaxed_filters on what comes back. 'deals' or 'sale' = the store has NO marked-down items right now and the gallery is its regular selection → SHOW IT and say so in one honest, upbeat line: "Ahorita Alo no tiene promociones marcadas en nuestro catálogo, pero esto es lo que tienen 👀 — te lo consigo desde EE. UU. y te aviso si baja de precio. ¿Algo te late?". 'category' / 'facets' / 'price' = that type or filter isn't in the store and you're seeing the store's best options → say that ("No vi X en Alo, pero mira lo que sí tienen").
@@ -1186,7 +1286,7 @@ export default defineEventHandler(async (event) => {
       search_products: tool({
         description: "THE DEFAULT product search and your FIRST move for ANY product request — it reads Boxly's OWN curated catalog (harvested daily from our favorite US stores: Target, Nike, Dick's, Best Buy, Walmart, New Balance, Gap, Old Navy, Alo and more) and returns INSTANTLY, already ranked with the best deals first. Works for ANY store/brand (set store — or brands[] for several — to the brand name; typos are fuzzy-resolved) and for broad/category or cross-store discovery. Returns a gallery with real images, prices (incl. sale prices) and each item's store. Drive it with STRUCTURED filters: category (product type), store/brands, min_price/max_price (budget), min_discount (deal depth, %), sort (best_deal|discount|price_low|price_high|newest). Leave only the LOOK-descriptors (color, fit/style, material, model name) in query — query ranks results, it does not gate them, so it rarely returns empty. If it somehow does, THEN fall back to browse_store (for a Shopify directory brand) or web_search.",
         inputSchema: z.object({
-          query: z.string().describe('The FREE-TEXT descriptors only — color, style/fit ("wide-leg", "oversized"), material, model name, gender. Keep it to the words that describe the LOOK. It RANKS results (best matches first) and never empties the gallery, so extra words are safe. Put the CATEGORY, BRAND, PRICE and DISCOUNT in the dedicated params below instead of here — that filtering is far more reliable. E.g. for "black wide-leg jeans from Old Navy under $30" → query:"black wide-leg", category:"jeans", store:"Old Navy", max_price:30.'),
+          query: z.string().describe('IN ENGLISH product terms (translate: "tacos de americano"→"football cleats", "tenis"→"sneakers", "sudadera"→"hoodie"). The FREE-TEXT descriptors only — color, style/fit ("wide-leg", "oversized"), material, model name, gender. Keep it to the words that describe the LOOK. It RANKS results (best matches first) and never empties the gallery, so extra words are safe. Put the CATEGORY, BRAND, PRICE and DISCOUNT in the dedicated params below instead of here — that filtering is far more reliable. E.g. for "black wide-leg jeans from Old Navy under $30" → query:"black wide-leg", category:"jeans", store:"Old Navy", max_price:30.'),
           store: z.string().describe('The store/brand the customer is shopping — set it whenever they name one ("de/from/en <store>"), AND KEEP IT SET on every follow-up search in the same conversation until they name a DIFFERENT store or ask to search across all stores (the STICKY STORE rule). Typos/loose spelling are fine (we fuzzy-resolve: "beast buy"→Best Buy, "naik"→Nike). A brand we don\'t carry is used to rank instead. For MULTIPLE stores use brands[].').optional(),
           brands: z.array(z.string()).describe('Multiple stores/brands to include at once, e.g. ["Nike","Old Navy"] for "jeans from Nike or Old Navy". Same fuzzy resolution as store. Use this OR store, not both.').optional(),
           category: z.string().describe('The product TYPE, matched reliably against our category field: "jeans", "hoodies", "running shoes", "dresses", "headphones", "backpack", "leggings", "sweaters", "jackets". Prefer this over putting the category in query — it is the strongest, most dependable filter and keeps the gallery on-topic.').optional(),
@@ -1210,11 +1310,16 @@ export default defineEventHandler(async (event) => {
         toModelOutput: galleryModelOutput,
       }),
       find_on_google: tool({
-        description: "WEB PRODUCT SEARCH (fast, ~1-2s) — when the catalog doesn't have what they want, THIS is your move. It finds the product across the web (real US merchants: Target, Best Buy, Walmart, Amazon, eBay, brand sites…) with price + image + a buyable link, and Boxly buys it and delivers to Mexico. Reach for it the MOMENT the catalog misses: search_products/curate_products came back empty, or no_exact_match:true, or query_matched:false, OR it's clearly something we don't stock (a camera, an LED mask, an appliance, a freeze dryer, a niche brand/model). Just DO IT smoothly: open with ONE short natural line in the SAME turn ('Va, déjame buscarte las mejores opciones 🔎' / 'Ahorita te consigo eso 🔎') and fire it — the loader covers the brief wait. CRITICAL: do NOT tell the shopper it's 'no está en el catálogo' or that results are 'de la web' — to them it's just Boxly finding what they asked for; present the products naturally like any other gallery. Pass the product as `query` (include brand/model). PREFER THIS over find_live_product for anything general — find_live_product is slower and only for a pasted link. If it returns no_results, ask for a direct link; 'cooling'/'blocked' is rare (we use a fast API) — if it happens, say you couldn't pull it this moment and offer to take a link.",
+        description: "WEB PRODUCT SEARCH (fast, ~1-3s) — when the catalog doesn't have what they want, THIS is your move. It searches Google Shopping AND Amazon IN PARALLEL and returns ONE merged gallery (real US merchants: Target, Best Buy, Walmart, brand sites… plus Amazon) with price, was-price, rating, reviews, image and a buyable link; Boxly buys it and delivers to Mexico. Used/refurbished sellers are already removed. YOU curate what leads: read the merged list (store, price, was, rating, reviews), pick the best 1–3 for what they asked (a real discount from a trusted merchant, strong rating/reviews, the exact model) and call feature_products with their exact titles so they show FIRST; mention that options come from several stores including Amazon when that's true. `sources` tells you how many came from each engine — if one engine was down (google_status/amazon_status), just work with what came back. Reach for it the MOMENT the catalog misses: search_products/curate_products came back empty, or no_exact_match:true, or query_matched:false, OR it's clearly something we don't stock (a camera, an LED mask, an appliance, a freeze dryer, a niche brand/model). Just DO IT smoothly: open with ONE short natural line in the SAME turn ('Va, déjame buscarte las mejores opciones 🔎' / 'Ahorita te consigo eso 🔎') and fire it — the loader covers the brief wait. CRITICAL: do NOT tell the shopper it's 'no está en el catálogo' or that results are 'de la web' — to them it's just Boxly finding what they asked for; present the products naturally like any other gallery. Pass the product as `query` (include brand/model). PREFER THIS over find_live_product for anything general — find_live_product is slower and only for a pasted link. If it returns no_results, ask for a direct link; 'cooling'/'blocked' is rare (we use a fast API) — if it happens, say you couldn't pull it this moment and offer to take a link.",
         inputSchema: z.object({
-          query: z.string().describe('The product to find on the web, with brand/model, e.g. "red light led face mask", "Sony ZV-1F camera", "New Balance 9060 grey".'),
+          query: z.string().describe('IN ENGLISH (translate: "tele de 55 pulgadas"→"55 inch TV", "tacos de americano"→"football cleats"). The product to find on the web, with brand/model, e.g. "red light led face mask", "Sony ZV-1F camera", "New Balance 9060 grey".'),
         }),
-        execute: async ({ query }: any) => markGallery(await getGoogleShopApi(query)),
+        execute: async ({ query }: any) => {
+          const r: any = await getWebApi(query)
+          if (r.products.length) return markGallery(r)
+          const hook = await hookFallback(`WEB SEARCH CAME BACK EMPTY for "${query}" (${r.reason || 'no_results'}).`)
+          return markGallery(hook ? { ...hook, web_reason: r.reason, sources: r.sources } : r)
+        },
         toModelOutput: galleryModelOutput,
       }),
       find_on_amazon: tool({
@@ -1229,7 +1334,7 @@ export default defineEventHandler(async (event) => {
       curate_products: tool({
         description: "The DEALS & BROAD-DISCOVERY specialist — use it INSTEAD of search_products whenever the request is about DEALS/PROMOS ('ofertas', 'promos', 'lo más rebajado', 'deals'), or is a WIDE 'show me X for [men/women/kids]' / 'algo para [el gym / una fiesta / otoño / un regalo]' kind of ask (the wide, vibe-y requests — a big share of what shoppers want). It reads Boxly's DEEP UNDERSTANDING of the catalog (real gender, product type, brand tier, a true deal-quality score, and style/occasion/season tags) and returns a PERSONALIZED, VARIED, best-first curated set — one representative per product (no duplicate colors), too-good-to-be-true errors filtered out, and DIFFERENT great picks each time you call it (so 'muéstrame más' or a repeat ask never shows the same list). Each item comes back with a short Spanish `why` you should weave into your recommendation. Prefer this for deals and broad/curated asks; use search_products for a SPECIFIC product/model/brand lookup.",
         inputSchema: z.object({
-          query: z.string().describe('OPTIONAL free-text look descriptors only (color, style, model). Ranks, never gates. Put type/gender/occasion in their own params.').optional(),
+          query: z.string().describe('IN ENGLISH product terms (translate the shopper\'s words). OPTIONAL free-text look descriptors only (color, style, model). Ranks, never gates. Put type/gender/occasion in their own params.').optional(),
           intent: z.enum(['deals', 'browse']).describe("deals (DEFAULT) = only real markdowns, ranked by deal quality — use for ANY oferta/promo/deal request. browse = include full-price too, for a general curated browse when they're not deal-focused.").optional(),
           department: z.enum(['apparel', 'footwear', 'bags', 'accessories', 'beauty', 'electronics', 'home', 'toys', 'sports']).describe('Top-level type. "ropa"→apparel, "tenis/zapatos"→footwear, "bolsas/mochilas"→bags, "maquillaje/skincare/perfume"→beauty, "audífonos/tv/laptop"→electronics, "juguetes/lego/funko"→toys.').optional(),
           gender: z.enum(['women', 'men', 'kids']).describe('Who it is for — "para hombre/hombres"→men, "para mujer/mujeres"→women, "para niños"→kids. Unisex items are auto-included; leave unset if not specified.').optional(),
@@ -1260,7 +1365,7 @@ export default defineEventHandler(async (event) => {
         toModelOutput: galleryModelOutput,
       }),
       show_collection: tool({
-        description: "Surface a PRECOMPUTED curated collection — the fastest, most white-glove way to answer a BROAD or OPENING ask (a fresh chat, 'qué ofertas hay', 'muéstrame deals', 'algo de Coach Outlet', 'lo mejor de Kipling'). These are hand-curated deal-driven and store-spotlight sets Boxly maintains, each with a title and the best real markdowns, rotated so it's fresh every time. Prefer this over curate_products when the request maps to one of the collections below — it's one instant read and leads with a named, editorial set. Pass the collection `id`. Available collections:\n" + COLLECTION_MENU.map((c) => `  • ${c.id} — ${c.title}`).join('\n') + "\nPick the single best-matching id from the conversation. For a specific product/model use search_products; for a narrow facet combo not covered here use curate_products.",
+        description: "ONLY for a broad deals ask with NO store named, or for EXACTLY the store a collection is for (Coach Outlet, Kipling, Old Navy, Gap, Nike, Dick's, Bath & Body Works). NEVER answer a named store with a DIFFERENT store's collection — 'promociones de Macy's' must NEVER show spotlight-gap; for a store not in this menu use search_products/curate_products (they fetch the store from the web when we don't carry it). Surface a PRECOMPUTED curated collection — the fastest, most white-glove way to answer a BROAD or OPENING ask (a fresh chat, 'qué ofertas hay', 'muéstrame deals', 'algo de Coach Outlet', 'lo mejor de Kipling'). These are hand-curated deal-driven and store-spotlight sets Boxly maintains, each with a title and the best real markdowns, rotated so it's fresh every time. Prefer this over curate_products when the request maps to one of the collections below — it's one instant read and leads with a named, editorial set. Pass the collection `id`. Available collections:\n" + COLLECTION_MENU.map((c) => `  • ${c.id} — ${c.title}`).join('\n') + "\nPick the single best-matching id from the conversation. For a specific product/model use search_products; for a narrow facet combo not covered here use curate_products.",
         inputSchema: z.object({
           collection: z.enum(COLLECTION_IDS).describe('The collection id to show — the single best match for what the shopper wants.'),
         }),
