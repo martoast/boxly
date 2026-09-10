@@ -35,6 +35,18 @@ interface CatalogSearchArgs {
   query?: string; store?: string; brands?: string[]; category?: string
   min_price?: number; max_price?: number; min_discount?: number; sale?: boolean; sort?: string
 }
+// A LINE inside a store we carry, whose products we do NOT hold: a PINK ask must never be answered with
+// Victoria's Secret's crotchless lingerie (the VS harvest is bras/panties/perfume only). Detected on the
+// shopper's own words, and served through the web backbone as its own brand.
+const BRAND_LINES: { re: RegExp; brand: string }[] = [
+  { re: /\bpink\b.*\b(victoria|vs)\b|\b(victoria|vs)\b.*\bpink\b|\bvs\s*pink\b/i, brand: "PINK Victoria's Secret" },
+]
+function brandLineIn(q?: string): string | null {
+  const t = String(q || '')
+  for (const l of BRAND_LINES) if (l.re.test(t)) return l.brand
+  return null
+}
+
 async function searchCatalogApi(a: CatalogSearchArgs) {
   const qs = new URLSearchParams()
   if (a.query) qs.set('q', a.query)
@@ -142,13 +154,16 @@ async function uncarriedStoreFallback(store: string, query?: string) {
   // carry the brand — a retailer name ("Macy's") returns gift cards and crackers, which we drop.
   const brandKey = store.toLowerCase().replace(/[^a-z0-9]/g, '')
   let a: any = terms ? await getAmazonApi(terms).catch(() => ({ products: [], reason: 'unreachable' })) : { products: [], reason: 'no_terms' }
-  if (!terms) {
-    const b: any = await getAmazonApi(store).catch(() => ({ products: [], reason: 'unreachable' }))
+  {
+    // Brand search on Amazon: "<store> <terms>" ("PINK Victoria's Secret hoodie" → PINK campus hoodies), or the
+    // bare store name when they named only the brand ("Owala" → Owala bottles).
+    const b: any = await getAmazonApi([store, terms].filter(Boolean).join(' ')).catch(() => ({ products: [], reason: 'unreachable' }))
     const rows = (b.products || []).filter((p: any) => !/gift card/i.test(String(p.title || '')))
-    const branded = rows.filter((p: any) => `${p.brand || ''} ${p.title || ''}`.toLowerCase().replace(/[^a-z0-9]/g, '').includes(brandKey))
+    const brandTokens = store.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 3)
+    const branded = rows.filter((p: any) => { const hay = `${p.brand || ''} ${p.title || ''}`.toLowerCase().replace(/[^a-z0-9]/g, ''); return hay.includes(brandKey) || brandTokens.some((t) => hay.includes(t)) })
     if (rows.length && branded.length >= Math.ceil(rows.length / 2)) {
       return { ...b, products: branded, unmatched_stores: [store], store_fallback: store, alternative_source: 'amazon', brand_on_amazon: true,
-        note: `${store.toUpperCase()} VIA AMAZON: we don't harvest ${store}'s own store yet, but these are genuine ${store} products sold on Amazon (Boxly buys + delivers). Present them naturally as ${store} options, mention they ship via Amazon, and lead with any real markdowns.` }
+        note: `${store.toUpperCase()} VIA AMAZON: we don't harvest ${store}'s own store yet, but these are genuine ${store} products${terms ? ` for "${terms}"` : ''} sold on Amazon (Boxly buys + delivers). Present them naturally as ${store} options, mention they ship via Amazon, and lead with any real markdowns.` }
     }
   }
   if (a.products?.length) {
@@ -324,7 +339,7 @@ async function getGoogleShopApi(query: string) {
   let data: any = {}
   try {
     data = await callApi('/catalog/google-shop', { method: 'POST', body: { query }, timeoutMs: 58000 })
-  } catch { data = { error: 'unreachable' } }
+  } catch (e: any) { console.warn('[assistant] google-shop unreachable:', e?.message || e); data = { error: 'unreachable' } }
   const raw: any[] = Array.isArray(data?.products) ? data.products : []
   const reason: string | null = data?.error ? String(data.error)
     : data?.blocked ? (data?.cooling ? 'cooling' : 'blocked')
@@ -343,7 +358,7 @@ async function getGoogleShopApi(query: string) {
 // Amazon-only results (ratings, Prime pricing) for when the shopper specifically wants Amazon.
 async function getAmazonApi(query: string) {
   let data: any = {}
-  try { data = await callApi('/catalog/amazon', { method: 'POST', body: { query }, timeoutMs: 20000 }) } catch { data = { error: 'unreachable' } }
+  try { data = await callApi('/catalog/amazon', { method: 'POST', body: { query }, timeoutMs: 20000 }) } catch (e: any) { console.warn('[assistant] amazon unreachable:', e?.message || e); data = { error: 'unreachable' } }
   const raw: any[] = Array.isArray(data?.products) ? data.products : []
   const reason: string | null = data?.error ? String(data.error) : data?.no_results ? 'no_results' : null
   return {
@@ -1304,7 +1319,8 @@ export default defineEventHandler(async (event) => {
           // store resolution, structured filtering and relevance ranking; free-text
           // query ranks (never gates), so results come back best-match-first and the
           // gallery stays full — the model judges exactness from the titles it gets.
-          const r: any = await searchCatalogApi({ query, store, brands, category, min_price, max_price, min_discount, sale, sort })
+          const line = brandLineIn(question)
+          const r: any = line ? await uncarriedStoreFallback(line, [category, query].filter(Boolean).join(' ')) : await searchCatalogApi({ query, store, brands, category, min_price, max_price, min_discount, sale, sort })
           return markGallery(r)
         },
         toModelOutput: galleryModelOutput,
@@ -1354,6 +1370,8 @@ export default defineEventHandler(async (event) => {
           if (!(a.min_price > 0)) a.min_price = undefined
           if (!(a.max_price > 0) || a.max_price >= 5000) a.max_price = undefined
           const genders = a.gender === 'men' ? ['men', 'unisex'] : a.gender === 'women' ? ['women', 'unisex'] : a.gender === 'kids' ? ['kids'] : undefined
+          const line = brandLineIn(question)
+          if (line) return markGallery(await uncarriedStoreFallback(line, [a.categories?.[0], a.query].filter(Boolean).join(' ')))
           const r: any = await curateCatalogApi({
             query: a.query, intent: a.intent || 'deals', department: a.department, genders,
             categories: a.categories, occasion_tags: a.occasion, season_tags: a.season, style_tags: a.style,
