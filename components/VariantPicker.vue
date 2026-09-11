@@ -1,32 +1,14 @@
 <template>
   <div class="rounded-2xl border border-gray-200 bg-white p-4 max-w-md shadow-sm">
-    <!-- product header -->
-    <div class="flex gap-3">
-      <div class="shrink-0 w-20 h-20 rounded-xl bg-gray-50 border border-gray-100 overflow-hidden grid place-items-center">
-        <img v-if="product.image" :src="product.image" :alt="product.title" class="w-full h-full object-contain" loading="lazy" referrerpolicy="no-referrer" />
-        <svg v-else class="w-6 h-6 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
-      </div>
-      <div class="min-w-0 flex-1">
-        <p v-if="product.store" class="text-[11px] font-semibold uppercase tracking-wide text-gray-400 truncate">{{ product.store }}</p>
-        <p class="text-[14px] font-bold text-gray-900 leading-snug line-clamp-2">{{ product.title || 'Producto' }}</p>
-        <p class="mt-1 text-[15px] font-extrabold text-gray-900 tabular-nums">
-          <span v-if="shownPrice != null">${{ shownPrice }} <span class="text-[11px] font-medium text-gray-400">USD</span></span>
-          <span v-if="shownWas != null && shownWas > (shownPrice ?? 0)" class="ml-1.5 text-[12px] font-medium text-gray-400 line-through">${{ shownWas }}</span>
-          <span v-if="priceRange" class="text-[12px] font-medium text-gray-500">{{ priceRange }}</span>
-        </p>
-      </div>
-    </div>
-
-    <!-- freshness -->
-    <div class="mt-3 flex items-center gap-1.5 text-[11px] text-gray-500">
+    <!-- freshness. ONE statement, never two that disagree: the card used to say "Disponibilidad verificada ·
+         hace un momento" and "disponibilidad por confirmar" side by side on the same read (Alex, 2026-09-11:
+         "why does it say disponibilidad por confirmar when we already did the pull"). The per-size counts only
+         appear when the store actually told us stock; when it did not, the read still happened and the line
+         says so once. -->
+    <div class="flex items-center gap-1.5 text-[11px] text-gray-500">
       <span class="inline-block w-1.5 h-1.5 rounded-full" :class="fresh ? 'bg-emerald-500' : 'bg-amber-400'"></span>
       <span>Disponibilidad {{ data.source === 'live' ? 'en vivo' : 'verificada' }}<template v-if="data.checked_at"> · {{ rel(data.checked_at) }}</template></span>
-      <!-- Never "0 de 81 disponibles": when the store told us nothing, say so plainly instead of implying
-           the product is sold out (Alex, 2026-09-11 — an in-stock Owala read as a wall of dead chips). -->
-      <span class="ml-auto text-gray-400">
-        <template v-if="allUnknown">disponibilidad por confirmar</template>
-        <template v-else>{{ availableCount }} de {{ variants.length }} disponibles<template v-if="unknownCount"> · {{ unknownCount }} por confirmar</template></template>
-      </span>
+      <span v-if="!allUnknown && variants.length > 1" class="ml-auto text-gray-400 tabular-nums">{{ availableCount }} de {{ variants.length }}</span>
     </div>
 
     <!-- one row per axis, in the store's order -->
@@ -59,27 +41,18 @@
       </div>
     </div>
 
-    <p v-if="shownAxes.length && !allUnknown" class="mt-2 text-[11px] text-gray-400"><span class="inline-block w-2.5 h-2.5 rounded border border-gray-200 bg-white align-middle mr-1"></span>disponible <span class="inline-block w-2.5 h-2.5 rounded border border-dashed border-gray-300 bg-white align-middle ml-2 mr-1"></span>por confirmar <span class="inline-block w-2.5 h-2.5 rounded border border-gray-100 bg-gray-50 align-middle ml-2 mr-1"></span>agotado</p>
-    <p v-else class="mt-3 text-[12px] text-gray-600">Talla única · {{ variants[0]?.available ? 'disponible' : 'agotado' }}</p>
+    <!-- The legend earns its space only when a chip is actually struck through. And "Talla única · agotado" must
+         never appear under a row of real sizes — it did, because the old condition fell through whenever stock
+         was unknown (Alex's Samba screenshot: sizes 10 / 7.5 / 9.5 above the words "Talla única · agotado"). -->
+    <p v-if="shownAxes.length && soldOutCount" class="mt-2 text-[11px] text-gray-400"><span class="inline-block w-2.5 h-2.5 rounded border border-gray-200 bg-white align-middle mr-1"></span>disponible <span class="inline-block w-2.5 h-2.5 rounded border border-gray-100 bg-gray-50 align-middle ml-2 mr-1"></span>agotado</p>
+    <p v-else-if="!shownAxes.length" class="mt-3 text-[12px] text-gray-600">Talla única · {{ variants[0]?.available === false ? 'agotado' : variants[0]?.available === true ? 'disponible' : 'disponibilidad por confirmar' }}</p>
 
-    <!-- CTA -->
-    <!-- QUANTITY sits WITH the variant choice (Alex, 2026-09-11): size, colour and how many are one decision,
-         and this button is the real add-to-cart — everything before it was only browsing. -->
-    <div class="mt-3 flex items-center gap-2">
-      <div class="shrink-0 inline-flex items-center rounded-xl border border-gray-200 bg-white overflow-hidden">
-        <button type="button" @click="qty = Math.max(1, qty - 1)" :disabled="busy || qty <= 1" aria-label="Menos"
-          class="w-9 h-10 grid place-items-center text-gray-600 hover:bg-gray-50 disabled:opacity-30 transition">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2.4" d="M5 12h14"/></svg>
-        </button>
-        <input v-model.number="qty" type="number" min="1" max="99" inputmode="numeric" aria-label="Cantidad"
-          class="w-10 h-10 text-center text-[14px] font-bold text-gray-900 outline-none border-x border-gray-200 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
-        <button type="button" @click="qty = Math.min(99, qty + 1)" :disabled="busy || qty >= 99" aria-label="Más"
-          class="w-9 h-10 grid place-items-center text-gray-600 hover:bg-gray-50 disabled:opacity-30 transition">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2.4" d="M12 5v14M5 12h14"/></svg>
-        </button>
-      </div>
+    <!-- CTA. No quantity control here (Alex, 2026-09-11): "let's just make it that they can tell the agent if
+         they want a certain quantity, keep the modal clean and just be the variant selection". One choice, one
+         button, room for a thumb. -->
+    <div class="mt-4 flex items-center gap-3">
       <button type="button" @click="confirm" :disabled="busy || !complete"
-        class="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary-600 text-white text-[13px] font-bold py-2.5 disabled:opacity-40 hover:bg-primary-700 transition">
+        class="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary-600 text-white text-[14px] font-bold py-3 disabled:opacity-40 hover:bg-primary-700 transition">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 4v16m8-8H4"/></svg>
         {{ ctaLabel }}
       </button>
@@ -156,6 +129,8 @@ const unknownCount = computed(() => variants.value.filter((v) => v.available == 
 // The source told us nothing about stock (a feed without the field, an unreadable page): every chip stays
 // pickable and our buyer confirms at purchase — see normalizeAllUnavailable() in the catalog service.
 const allUnknown = computed(() => variants.value.length > 0 && variants.value.every((v) => v.available == null))
+// Only a chip the store actually called sold out earns the legend — unknown stock is not sold out.
+const soldOutCount = computed(() => variants.value.filter((v) => v.available === false).length)
 const fresh = computed(() => { const t = props.data?.checked_at ? Date.now() - new Date(props.data.checked_at).getTime() : Infinity; return t < 15 * 60_000 })
 
 // A value is pickable when some AVAILABLE variant matches it together with everything already selected on OTHER axes.
@@ -183,30 +158,19 @@ const complete = computed(() => {
   if (independent.value) return axes.value.every((a) => sel[a.name] && variants.value.some((v) => v.available !== false && v.options[a.name] === sel[a.name]))
   return !!(chosen.value && chosen.value.available !== false)
 })
-const shownPrice = computed(() => chosen.value?.price ?? product.value.price)
-const shownWas = computed(() => chosen.value?.list_price ?? product.value.list_price)
-const priceRange = computed(() => {
-  if (chosen.value) return ''
-  const ps = variants.value.map((v) => v.price).filter((p) => p != null)
-  if (ps.length < 2) return ''
-  const lo = Math.min(...ps), hi = Math.max(...ps)
-  return lo !== hi && product.value.price == null ? `$${lo} – $${hi}` : ''
-})
-const qty = ref(1)
+// Price and photo live in the modal's header now, so the card no longer computes them.
 const ctaLabel = computed(() => {
-  const n = Math.max(1, Number(qty.value) || 1)
-  const many = n > 1 ? ` (${n})` : ''
-  if (!axes.value.length) return complete.value ? `Agregar al carrito${many}` : 'Agotado'
+  if (!axes.value.length) return complete.value ? 'Agregar al carrito' : 'Agotado'
   const missing = axes.value.find((a) => !sel[a.name])
   if (missing) return `Elige ${axisLabel(missing).toLowerCase()}`
-  return complete.value ? `Agregar al carrito${many}` : 'Combinación agotada'
+  return complete.value ? 'Agregar al carrito' : 'Combinación agotada'
 })
 function confirm() {
   if (!complete.value) return
-  const n = Math.max(1, Math.min(99, Number(qty.value) || 1))
   const parts = axes.value.map((a) => `${axisLabel(a).toLowerCase()} ${sel[a.name]}`)
   const what = product.value.title ? `los ${product.value.title}` : 'ese producto'
-  emit('pick', `Quiero ${n > 1 ? `${n} de ` : ''}${what}${parts.length ? ' en ' + parts.join(', ') : ''}${n > 1 ? ` — cantidad ${n}` : ''} — agrégalos a mi caja`)
+  // Quantity is not asked for here any more — the shopper tells the assistant if they want more than one.
+  emit('pick', `Quiero ${what}${parts.length ? ' en ' + parts.join(', ') : ''} — agrégalos a mi caja`)
 }
 const SWATCH = { black: '#111', negro: '#111', white: '#fff', blanco: '#fff', red: '#dc2626', rojo: '#dc2626', blue: '#2563eb', azul: '#2563eb', navy: '#1e3a8a', green: '#16a34a', verde: '#16a34a', pink: '#ec4899', rosa: '#ec4899', grey: '#9ca3af', gray: '#9ca3af', gris: '#9ca3af', beige: '#d6c7a1', brown: '#92400e', café: '#92400e', yellow: '#eab308', orange: '#f97316', purple: '#7c3aed', tan: '#d2b48c', cream: '#f5f0e1', ivory: '#fffff0', olive: '#6b8e23', burgundy: '#800020', teal: '#0d9488' }
 function swatch(val) { const w = String(val).toLowerCase().split(/[^a-záéíóú]+/).find((t) => SWATCH[t]); return w ? SWATCH[w] : 'linear-gradient(135deg,#e5e7eb,#9ca3af)' }
