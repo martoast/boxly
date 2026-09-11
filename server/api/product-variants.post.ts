@@ -22,7 +22,7 @@ export default defineEventHandler(async (event) => {
   try {
     const r: any = await $fetch(`${CATALOG_BASE}/catalog/product-variants`, {
       method: 'POST',
-      body: { url, max_age_s: maxAgeS },
+      body: { url, max_age_s: maxAgeS, skip_colorways: !!body?.skip_colorways },
       timeout: 55_000,
     })
     const variants = Array.isArray(r?.variants) ? r.variants : []
@@ -34,6 +34,9 @@ export default defineEventHandler(async (event) => {
       selected: r?.selected || null,
       checked_at: r?.checked_at || null,
       source: r?.source || null,
+      // Sibling colourways: stores that sell each colour as its own page (DFYNE, Alo, YoungLA) — the modal offers
+      // them all and re-reads the one the shopper picks, because availability is per colourway.
+      colorways: Array.isArray(r?.colorways) ? r.colorways : [],
       reason: r?.error || (!variants.length ? (r?.reason || 'no_variants') : null),
     }
   } catch (e: any) {

@@ -1802,6 +1802,14 @@ export default defineEventHandler(async (event) => {
               ])
               if (r) variantCache.set(url, { at: Date.now(), r })
             }
+            // A PASTED LINK HAS NO REGISTRY ROW, so the box card had no image and drew a grey placeholder next to
+            // items that did have one (Alex, 2026-09-11: the DFYNE shorts). The live read knows the product's own
+            // photo — use it for the card, and its price when the model did not carry one.
+            if (r?.product) {
+              const pi = r.product.image || (Array.isArray(r.product.images) ? r.product.images[0] : null)
+              if (pi && !last.image) { last.image = pi; const inShip = ship.items?.[ship.items.length - 1]; if (inShip && !inShip.image) inShip.image = pi }
+              if (last.price == null && r.product.price != null) last.price = r.product.price
+            }
             if (r?.variants?.length) {
               const avail = r.variants.filter((v: any) => v.available)
               ship.variants_for = { saved_id: last.saved_id, product_title: saved?.title || last.name || null, variants: r.variants, checked_at: r.checked_at, source: r.source }

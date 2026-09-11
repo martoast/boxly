@@ -401,7 +401,10 @@
                          draw yet, so show the picker alone rather than an empty "Tu caja Boxly 0" card. -->
                     <LazyShipmentCard v-if="part.type === 'tool-show_shipment' && part.state === 'output-available' && !(part.output?.hold && !part.output?.items?.length)" :shipment="enrichShipment(part.output)" :requested="!!assistedPr" @order="onFinalizeShipment" @add="onAddMore" />
                     <!-- Sizes/colours with LIVE availability for the item just added (read from its stored URL by show_shipment). -->
-                    <LazyVariantPicker v-if="part.type === 'tool-show_shipment' && part.state === 'output-available' && part.output?.variants_for?.variants?.length" class="mt-2" :data="variantData(part.output.variants_for)" :busy="isBusy" @pick="sendFollowup" />
+                    <!-- The picker NEVER renders inline in the chat (Alex, 2026-09-11: "this UI/UX of the variant
+                         selection should never be in the chat, it should be in the modal"). When the box holds an item
+                         for a pick, we OPEN THE PRODUCT MODAL for it — one place to choose, every time. -->
+                    <span v-if="part.type === 'tool-show_shipment' && part.state === 'output-available' && part.output?.variants_for?.variants?.length" class="hidden" :data-open-picker="openPickerFor(part.output.variants_for)"></span>
 
                     <template v-else-if="part.type === 'tool-show_assisted_summary' && part.state === 'output-available'">
                       <!-- Once the request is actually created (deterministically, on
@@ -459,7 +462,7 @@
                     </div>
 
                     <!-- Variant picker: sizes/colours with LIVE availability for the product the shopper chose. -->
-                    <LazyVariantPicker v-else-if="part.type === 'tool-get_product_variants' && part.state === 'output-available' && part.output?.variants?.length" :data="variantData(part.output)" :busy="isBusy" @pick="sendFollowup" />
+                    <span v-else-if="part.type === 'tool-get_product_variants' && part.state === 'output-available' && part.output?.variants?.length" class="hidden" :data-open-picker="openPickerFor(part.output)"></span>
 
                     <!-- Tappable follow-ups (cross-sell / build-the-set) -->
                     <div v-else-if="part.type === 'tool-suggest_followups' && part.state === 'output-available' && part.output?.suggestions?.length" class="flex flex-wrap gap-2 mt-1">
@@ -1323,6 +1326,23 @@ function variantPickText(v) {
 }
 // The picker's data: the tool output plus the registry product (image / price / store / url) so the card
 // shows the product the shopper chose, not just its variants.
+// A variant payload that arrives in the chat means the shopper still has to choose — so open the PRODUCT MODAL
+// on that product (photos + sizes + quantity + add to cart), which is the single place a pick ever happens.
+// Idempotent: each tool call opens once, and never while another modal is already up.
+const pickerOpened = new Set()
+function openPickerFor(o) {
+  if (!import.meta.client || !o) return ''
+  const d = variantData(o)
+  const key = o.saved_id || d.product?.url || d.product_title || JSON.stringify(o.axes || []).slice(0, 60)
+  if (!key || pickerOpened.has(key)) return ''
+  pickerOpened.add(key)
+  if (selectedProduct.value) return ''
+  const p = d.product || {}
+  if (!p.url) return '' // nothing to open a product page on
+  nextTick(() => { selectedProduct.value = { title: d.product_title || p.title, url: p.url, image: p.image || null, price: p.price ?? null, was: p.list_price ?? null, store: p.store || null } })
+  return ''
+}
+
 function variantData(o) {
   const saved = o?.saved_id ? savedProducts.value.find((p) => p.id === o.saved_id) : null
   const product = { ...(o?.product || {}) }

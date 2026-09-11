@@ -102,6 +102,24 @@
               <!-- A product with real choices becomes a PRODUCT PAGE right here: sizes, colours and quantity, then
                    one add-to-cart. Only a product with nothing to choose (or an unreadable one) keeps the plain
                    button below — our reader must never block a purchase. -->
+              <!-- COLOURWAYS: each colour is its own product page, so these are real siblings, and picking one
+                   re-reads that page for its own sizes and stock. Shown even while the sizes are still loading. -->
+              <div v-if="colorways.length > 1" class="mb-3">
+                <p class="text-[12px] font-semibold text-gray-700 mb-1.5">
+                  Color<span v-if="activeColorway" class="font-normal text-gray-500"> · {{ activeColorway.name }}</span>
+                </p>
+                <div class="flex gap-2 overflow-x-auto pb-1 -mx-0.5 px-0.5 scrollbar-thin">
+                  <button v-for="c in colorways" :key="c.url" type="button" @click="pickColorway(c)" :disabled="loadingVariants"
+                    :title="c.name"
+                    :class="[(activeColorway?.url || currentColorwayUrl) === c.url ? 'border-primary-500 ring-2 ring-primary-200' : 'border-gray-200 hover:border-gray-300', 'shrink-0 w-[4.25rem] rounded-xl border overflow-hidden bg-white text-left disabled:opacity-50 transition']">
+                    <span class="block aspect-square bg-gray-50">
+                      <img v-if="c.image" :src="c.image" :alt="c.name" referrerpolicy="no-referrer" loading="lazy" class="w-full h-full object-cover" />
+                    </span>
+                    <span class="block px-1 py-1 text-[10px] font-medium text-gray-600 truncate">{{ c.name }}</span>
+                  </button>
+                </div>
+              </div>
+
               <div v-if="loadingVariants" class="flex items-center justify-center gap-2 rounded-2xl border border-gray-100 bg-gray-50/60 py-4 text-[13px] text-gray-500">
                 <svg class="w-4 h-4 animate-spin text-primary-500" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"/><path class="opacity-80" fill="currentColor" d="M4 12a8 8 0 018-8v3a5 5 0 00-5 5H4z"/></svg>
                 Cargando tallas y colores…
@@ -113,10 +131,10 @@
                 class="w-full flex items-center justify-center gap-2 rounded-2xl bg-primary-500 hover:bg-primary-600 active:scale-[.98] transition text-white font-bold py-3.5 text-[15px] shadow-sm shadow-primary-500/20"
               >
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-1.5 3h11m-8 3a1 1 0 11-2 0 1 1 0 012 0zm9 0a1 1 0 11-2 0 1 1 0 012 0z"/></svg>
-                Elegir talla y cantidad
+                {{ hasChoices ? 'Elegir talla y cantidad' : 'Agregar al carrito' }}
               </button>
               <p class="mt-2.5 text-[11.5px] text-gray-500 text-center leading-relaxed">
-Primero eliges talla, color y cantidad — ahí lo agregas a tu carrito. Suma lo que quieras, de cualquier tienda 🛒, y Boxly lo compra e importa todo junto a México. 🇺🇸➜🇲🇽
+{{ hasChoices ? 'Primero eliges talla, color y cantidad — ahí lo agregas a tu carrito.' : 'Este producto no tiene tallas ni colores que elegir.' }} Suma lo que quieras, de cualquier tienda 🛒, y Boxly lo compra e importa todo junto a México. 🇺🇸➜🇲🇽
               </p>
               </template>
             </div>
@@ -190,6 +208,12 @@ const loadingDetail = ref(false)
 // in one step — the same shape as any store's product page, instead of a round trip through chat.
 const variantData = ref(null)
 const loadingVariants = ref(false)
+// A colourway the shopper picked in this modal. Each colour is its own product page with its OWN sizes and stock,
+// so picking one re-reads that page (Alex, 2026-09-11: "the availability changes depending on the colour").
+const activeColorway = ref(null)
+const colorways = computed(() => variantData.value?.colorways || [])
+// Which chip reads as chosen before the shopper touches anything: the one the store says we are on.
+const currentColorwayUrl = computed(() => (colorways.value.find((c) => c.current) || {}).url || null)
 const broken = ref(new Set())
 
 // THE PRODUCT PAGE'S OWN PHOTOGRAPHY, in order of trust:
@@ -215,7 +239,7 @@ function bentoClass(idx) {
   if (n === 2) return idx === 0 ? 'col-span-2 row-span-2' : 'col-span-1 row-span-2'
   return idx === 0 ? 'col-span-2 row-span-2' : 'col-span-1 row-span-1'
 }
-const bestLink = computed(() => fetchedLink.value || props.product?.url || '#')
+const bestLink = computed(() => activeColorway.value?.url || fetchedLink.value || props.product?.url || '#')
 
 // Search-result products carry a GOOGLE SHOPPING link as their url; the real
 // merchant link only arrives after the detail fetch resolves it. Don't let the
@@ -238,6 +262,7 @@ const loadingProduct = computed(() => {
   return loadingDetail.value || loadingVariants.value
 })
 const hasChoices = computed(() => {
+  if (colorways.value.length > 1) return true // the colour itself is a choice, even if this page has one size
   const ax = variantData.value?.axes || []
   return ax.some((a) => (a?.values?.length || 0) > 1)
 })
@@ -276,15 +301,25 @@ function closeLightbox() { lightboxOpen.value = false }
 
 // Variants for this product, straight from the catalog service (mirror when fresh, a live read otherwise).
 // Independent of loadDetails so slow images never hold up the picker, and vice versa.
-async function loadVariants(p) {
-  const url = p?.url || null
+async function loadVariants(p, overrideUrl) {
+  const url = overrideUrl || p?.url || null
   if (!url) return
+  const keep = overrideUrl ? colorways.value : null // switching colour: we already hold the set, don't re-discover
   loadingVariants.value = true
   try {
     // max_age_s 0 = a LIVE read of the product page every time it is opened, never a cached row.
-    const r = await $fetch('/api/product-variants', { method: 'POST', body: { url, max_age_s: 0 }, timeout: 58000 })
-    variantData.value = (r?.variants?.length ? r : null)
-  } catch { variantData.value = null } finally { loadingVariants.value = false }
+    const r = await $fetch('/api/product-variants', { method: 'POST', body: { url, max_age_s: 0, skip_colorways: !!keep }, timeout: 58000 })
+    const merged = r && keep?.length ? { ...r, colorways: keep } : r
+    variantData.value = (merged?.variants?.length || merged?.colorways?.length ? merged : null)
+  } catch { /* keep what we had */ } finally { loadingVariants.value = false }
+}
+
+// Picking a colour swaps to THAT product page: its photos, its sizes, its stock, its price.
+async function pickColorway(c) {
+  if (!c?.url || loadingVariants.value) return
+  activeColorway.value = c
+  broken.value = new Set()
+  await loadVariants(props.product, c.url)
 }
 
 async function loadDetails(p) {
@@ -321,12 +356,21 @@ function assisted(pick) {
 }
 // The picker's own CTA is the add-to-cart for a product that HAS choices: it hands up the exact sentence
 // (size, colour, quantity) so the chat adds it in one turn with everything already decided.
-function onVariantPick(text) { assisted({ text }) }
+function onVariantPick(text) {
+  // Name the colourway the shopper actually chose here — the picker only knows this page's own axes, and for a
+  // store that sells each colour as a separate page the colour lives in the chip, not in the size chips.
+  const c = activeColorway.value?.name || (colorways.value.find((x) => x.current) || {}).name
+  const withColour = c && !new RegExp(`color\\s+${c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i').test(text)
+    ? text.replace(/ — agrégalos a mi caja$/, `, color ${c} — agrégalos a mi caja`)
+    : text
+  assisted({ text: withColour })
+}
 
 let revealTimer = null
 watch(() => props.product, (p) => {
   variantData.value = null
   loadingVariants.value = false
+  activeColorway.value = null
   revealForced.value = false
   if (revealTimer) clearTimeout(revealTimer)
   if (p) { revealTimer = setTimeout(() => { revealForced.value = true }, REVEAL_CAP_MS); loadVariants(p) }
