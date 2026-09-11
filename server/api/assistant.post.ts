@@ -1649,12 +1649,31 @@ export default defineEventHandler(async (event) => {
         // them without any API or admin-UI change.
         execute: async ({ items }) => ({
           items: (items || []).map((it) => {
-            const bits = [
-              it.size ? `Talla ${it.size}` : null,
-              it.color ? `Color ${it.color}` : null,
-              it.notes || null,
-            ].filter(Boolean)
-            return { ...it, quantity: it.quantity || 1, notes: bits.join(' · ') || undefined }
+            // The pick must land in the STRUCTURED size/color fields (they become the purchase request's
+            // `options`, which the email and the admin render). In a live run the model left size empty and
+            // wrote "Talla M 7.5 / W 9" into notes — so recover a pick from the notes, then from the shopper's
+            // own words (a tapped chip sends "Quiero … en talla 9, color Negro — agrégalos a mi caja").
+            let size = String(it.size || '').trim()
+            let color = String(it.color || '').trim()
+            let notes = String(it.notes || '')
+            const grab = (t: string, key: RegExp) => { const m = t.match(key); return m ? m[1].trim().replace(/[.]+$/, '') : '' }
+            const SIZE_RE = /\btalla\s+([^,;—·\n]+?)(?=\s*(?:,|;|—|·|$|\s+color\b|\s+—))/i
+            const COLOR_RE = /\bcolor\s+([^,;—·\n]+?)(?=\s*(?:,|;|—|·|$|\s+talla\b|\s+—))/i
+            if (!size) { size = grab(notes, SIZE_RE) }
+            if (!color) { color = grab(notes, COLOR_RE) }
+            if (!size || !color) {
+              for (let i = (messages || []).length - 1; i >= 0; i--) {
+                const m = messages[i]; if (m?.role !== 'user') continue
+                const t = (m.parts || []).filter((p: any) => p.type === 'text').map((p: any) => p.text).join(' ')
+                if (!/talla|color/i.test(t)) continue
+                if (!size) size = grab(t, SIZE_RE)
+                if (!color) color = grab(t, COLOR_RE)
+                break
+              }
+            }
+            notes = notes.replace(SIZE_RE, '').replace(COLOR_RE, '').replace(/^[\s·,;—-]+|[\s·,;—-]+$/g, '').trim()
+            const bits = [size ? `Talla ${size}` : null, color ? `Color ${color}` : null, notes || null].filter(Boolean)
+            return { ...it, size: size || undefined, color: color || undefined, quantity: it.quantity || 1, notes: bits.join(' · ') || undefined }
           }),
         }),
       }),
