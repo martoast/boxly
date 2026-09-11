@@ -74,6 +74,8 @@ async function searchCatalogApi(a: CatalogSearchArgs) {
       relaxed: !!data?.relaxed, relaxed_filters: data?.relaxed_filters || [],
       // Stores/brands we could not resolve to a catalog store (PINK, ULTA, Macy's…) → the model goes to the web.
       unmatched_stores: data?.resolved?.unmatched || [],
+      // The catalog's id for the store they named ("New Balance" → new-balance): the live-grab leg needs the id.
+      store_id: data?.resolved?.stores?.[0]?.store_id || null,
     }
   } catch { products = [] }
   // The store they named is NOT in our catalog (Macy's, ULTA, PINK…): the catalog only RANKED other stores'
@@ -91,14 +93,48 @@ async function searchCatalogApi(a: CatalogSearchArgs) {
   return { products: products.map(toGalleryProduct), source: 'catalog', ...miss, ...relaxNote({ ...miss, store: a.store }) }
 }
 
+// How long the store's OWN site gets on a catalog miss before we answer with what the web returned. The
+// browser read keeps running in the catalog service after this and upserts what it finds into the mirror,
+// so the next ask for the same thing is instant even when this one had to go on without it.
+const LIVE_STORE_BUDGET_MS = 30000
+
 async function carriedStoreMissFallback(a: CatalogSearchArgs, miss: any) {
   const store = a.store as string
   // The model reliably puts an ENGLISH type in `category` ("football cleats") but often leaves the shopper's
   // own words in `query` ("tacos de americano" → Amazon returns taco T-shirts). Lead with the category.
-  const webQuery = [a.category, productTerms(a.query, store)].filter(Boolean).join(' ').trim() || (a.query as string)
-  const g: any = await getWebApi(webQuery, store)
-  if (g.products.length) {
-    return { ...g, catalog_miss: true, note: `NOT IN OUR ${store.toUpperCase()} CATALOG: we don't stock "${webQuery}" from ${store} yet, so these are options from other US stores${g.sources?.amazon ? ' (Amazon included)' : ''} that Boxly buys + delivers. Say in ONE short line that ${store} didn't have it in our catalog and these are the best options you found from other US stores — never present them as ${store}, and never say "de la web" / "del catálogo".` }
+  const term = productTerms(a.query, store)
+  const webQuery = [a.category, term].filter(Boolean).join(' ').trim() || (a.query as string)
+  // ALL THREE AT ONCE (Alex, 2026-09-11: "we should try the store's website, Amazon and Google Shopping, then
+  // the AI showcases the best of all"): (1) the store's OWN site — our browser agent on its search page
+  // (7–30 s; every row it finds is upserted into the mirror), (2) Google Shopping, (3) Amazon (both SerpAPI,
+  // seconds, already parallel inside getWebApi). Merged with the store's own rows FIRST — that is the store
+  // they named — then the web's, deals first. The model curates one gallery out of all of it.
+  const budget = new Promise<any>((r) => setTimeout(() => r({ products: [], reason: 'budget', live: true }), LIVE_STORE_BUDGET_MS))
+  const [live, g]: any[] = await Promise.all([
+    term ? Promise.race([liveGrabApi({ store: miss.store_id || store, query: term }), budget]).catch(() => ({ products: [], reason: 'error' })) : Promise.resolve({ products: [], reason: 'no_term' }),
+    getWebApi(webQuery, store),
+  ])
+  const seen = new Set<string>()
+  const dedupe = (rows: any[]) => rows.filter((p) => {
+    const k = String(p?.url || p?.title || '').toLowerCase().replace(/[#?].*$/, '')
+    if (!k || seen.has(k)) return false
+    seen.add(k)
+    return true
+  })
+  const storeRows = dedupe(live.products || [])
+  const webRows = dedupe(g.products || [])
+  const products = [...storeRows, ...webRows].slice(0, 28)
+  if (products.length) {
+    const storeLine = storeRows.length
+      ? `${storeRows.length} straight from ${store}'s own site (our agent searched it live just now${live.note === 'closest' ? ', closest matches — the exact item was not on their page' : ''})`
+      : `nothing from ${store}'s own site (${live.reason === 'budget' ? 'their page was still loading; it keeps going in the background and lands in our catalog for next time' : live.reason || 'no match'})`
+    const webLine = `${g.sources?.google || 0} from Google Shopping (other US stores)${g.sources?.google_status !== 'ok' ? ' — Google is degraded right now' : ''}, ${g.sources?.amazon || 0} from Amazon`
+    return {
+      products, source: storeRows.length ? 'live+web' : 'web', from_web: webRows.length > 0, live: storeRows.length > 0, catalog_miss: true, ...miss,
+      sources: { ...(g.sources || {}), store_site: storeRows.length, store_site_status: storeRows.length ? 'ok' : (live.reason || 'no_match') },
+      web_query: g.web_query, retry_after_s: g.retry_after_s ?? null,
+      note: `NOT IN OUR ${store.toUpperCase()} MIRROR YET: "${webQuery}" — so we searched THREE places at once: ${storeLine}; ${webLine}. Present ONE gallery: ${store}'s own results FIRST (that is the store they asked for — say so), then the best of the rest with deals first and each item's store named. Every row here is real and current. Do NOT call find_live_product, find_on_google or find_on_amazon again for this ask.`,
+    }
   }
   // Web unavailable (SerpAPI down / no results) → the store's own best options, query dropped.
   let rows: any[] = []
@@ -419,6 +455,17 @@ async function getAmazonApi(query: string) {
 // title-level guard here is belt-and-braces. Default order: real markdowns first (deepest discount
 // leads), then the rest alternating google/amazon — the model then features its best 1–3 on top.
 const SECOND_HAND_RE = /\b(used|pre-?owned|refurbished|refurb|renewed|open[- ]box|second[- ]hand|reconditioned)\b/i
+// The catalog's REAL matches for a free-text ask (used to lead a web gallery): rows come back only when the
+// mirror actually matched the shopper's words — never same-store filler, never a specific model it lacks.
+async function catalogHitsFor(query: string): Promise<any[]> {
+  try {
+    const qs = new URLSearchParams({ q: query, limit: '8' })
+    const data: any = await callApi(`/catalog/search?${qs.toString()}`, { timeoutMs: 8000 })
+    if (data?.query_matched === false || data?.no_exact_match) return []
+    return (Array.isArray(data?.products) ? data.products : []).map(toGalleryProduct)
+  } catch { return [] }
+}
+
 async function getWebApi(rawQuery: string, store?: string) {
   const query = await toEnglishSearchTerms(rawQuery)
   const [g, a]: any[] = await Promise.all([
@@ -1380,8 +1427,19 @@ export default defineEventHandler(async (event) => {
           query: z.string().describe('IN ENGLISH (translate: "tele de 55 pulgadas"→"55 inch TV", "tacos de americano"→"football cleats"). The product to find on the web, with brand/model, e.g. "red light led face mask", "Sony ZV-1F camera", "New Balance 9060 grey".'),
         }),
         execute: async ({ query }: any) => {
-          const r: any = await getWebApi(query)
-          if (r.products.length) return markGallery(r)
+          // CATALOG FIRST EVEN HERE (Alex, 2026-09-11: the model sometimes reaches for the web on a product our
+          // mirror actually has — "New Balance 9060" went to Amazon while newbalance.com's row sat in the catalog).
+          // The mirror's REAL matches lead the gallery; the web fills in around them. Both run at once.
+          const [c, r]: any[] = await Promise.all([catalogHitsFor(query), getWebApi(query)])
+          if (c.length || r.products.length) {
+            const seen = new Set<string>()
+            const key = (p: any) => String(p?.title || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().slice(0, 60)
+            const products = [...c, ...r.products].filter((p) => { const k = key(p); if (!k || seen.has(k)) return false; seen.add(k); return true }).slice(0, 28)
+            const note = c.length
+              ? `${c.length} of these are from OUR OWN CATALOG (stores we carry, real stock, first in the list) — lead with them and say they're from ${[...new Set(c.map((p: any) => p.store))].join(', ')}; the rest are web results (Google Shopping + Amazon), deals first.${r.note ? ' ' + r.note : ''}`
+              : r.note
+            return markGallery({ ...r, products, source: c.length ? 'catalog+web' : r.source, sources: { ...(r.sources || {}), catalog: c.length }, ...(note ? { note } : {}) })
+          }
           const hook = await hookFallback(`WEB SEARCH CAME BACK EMPTY for "${query}" (${r.reason || 'no_results'}).`)
           return markGallery(hook ? { ...hook, web_reason: r.reason, sources: r.sources } : r)
         },
