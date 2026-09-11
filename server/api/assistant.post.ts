@@ -1013,6 +1013,7 @@ Your tools, and when to use them:
   (3) A LINE / SUB-BRAND inside a store we carry (PINK → Victoria's Secret, Jordan → Nike, Old Navy Active → Old Navy): search the PARENT store (store:"Victoria's Secret"), show its deals, say the line isn't in our direct catalog, AND in the SAME turn find_on_google("PINK Victoria's Secret sale") so they also see the line itself. Two galleries' worth of options beats an apology.
   (4) A store we DON'T carry (unmatched_stores non-empty / the gallery is empty: ULTA, Macy's, Nordstrom Rack, Karl Lagerfeld, Adidas, Amazon, eBay…) → find_on_google("<store> deals" or "<store> <product>") IMMEDIATELY in the same turn and present that as the gallery — never a "no lo manejamos" dead end.
 - ⚑ COMMIT TO A PRODUCT = GO STRAIGHT TO ITS PAGE (sizes & colours). When the shopper picks a SPECIFIC product we showed — "quiero esos", "agrégalos", "lo compro", "ese de la izquierda", "los 9060" after they were on screen — do NOT search or browse again: call get_product_variants({saved_id}) with that product's registry id. It opens the product's stored URL directly and returns each size/colour with live availability and price. Then: one short line offering ONLY the available options (the chat shows them as tappable chips), the shopper picks, and the pick goes into show_assisted_summary's size/color. If get_product_variants returns no variants (unsupported store, timeout, one-size item), proceed exactly as before — never make the shopper wait twice. Shoes and apparel ALWAYS get this step; size availability changes by the hour on stores like New Balance.
+- ⚑ A PICK IS A PICK. When the shopper's message names a size/colour for a product already in the box or just shown — "Quiero los X en talla 9", "talla M, color negro", a tapped chip — that IS their choice: do NOT call get_product_variants again and do NOT re-add the item; confirm in one short line ("Listo: talla 9 ✔") and REMEMBER it — at finalize, pass it as size/color on that item in show_assisted_summary. Only re-read variants if they ask about a different product or say the size they want isn't listed.
 - ⚑ BIG ITEMS — two cases, and BOTH still show options:
   (a) LARGE-BUT-SHIPPABLE (a guitar or other instrument, a skateboard/longboard/snowboard, golf clubs, a small appliance): this DOES ship — find_on_google it like anything else and, when they add it, mark it type:"oversize_long" so the box shows it as its own big box (~100% full, it doesn't consolidate). Do NOT send these to WhatsApp.
   (b) TRULY UN-BOXABLE (a 60"+ flat-screen TV, a fridge/washer/large appliance, furniture, a mattress, tires, a vehicle/golf cart): standard box shipping can't cover it → call show_contact_whatsapp (one short line + the WhatsApp button, no essay). Even here, keep them ENGAGED: you may still find_on_google to show what's out there so they keep browsing, and note the shipping for the big one needs a special quote via WhatsApp. Normal-sized goods (clothing, shoes, bags, most electronics, beauty, toys) are business as usual — never route those to WhatsApp.
@@ -1568,10 +1569,12 @@ export default defineEventHandler(async (event) => {
           // just added (the last one), bounded so the card never waits more than ~30s. Cached per URL for
           // 15 min so repeated box updates in one chat don't re-read the store.
           const last = Array.isArray(items) && items.length ? items[items.length - 1] : null
-          const sized = last && ['shoes', 'flat_soft', 'medium_soft', 'bulky_soft'].includes(String(last.type || ''))
+          // Not gated on the packing archetype: the model filed a pair of Nike running shoes as rigid_small in a
+          // live run, which skipped the read. Any product with a stored URL gets one read; a product with no
+          // variants comes back as a single SKU and shows nothing extra.
           const saved = last?.saved_id ? savedProducts.find((p: any) => p.id === last.saved_id) : null
           const url = saved?.url || saved?.product_url || null
-          if (sized && url) {
+          if (url) {
             const cached = variantCache.get(url)
             let r: any = cached && Date.now() - cached.at < 15 * 60_000 ? cached.r : null
             if (!r) {
