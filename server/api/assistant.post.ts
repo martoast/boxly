@@ -52,6 +52,9 @@ function brandLineIn(q?: string): string | null {
 // browser read keeps running in the catalog service after this and upserts what it finds into the mirror,
 // so the next ask for the same thing is instant even when this one had to go on without it.
 const LIVE_STORE_BUDGET_MS = 12000
+// Gallery size. Alex (2026-09-11): "I don't care if it's a bunch — I'd rather swipe through all of them than see a
+// few catalog results": every source's rows go in, merged, up to this many.
+const GALLERY_MAX = 48
 
 // EVERY SEARCH = CATALOG + GOOGLE SHOPPING + AMAZON AT ONCE (Alex, 2026-09-11: "commit to doing all of the
 // searches in parallel so every gallery is rich in results, even if the user waits a little longer" — the
@@ -82,7 +85,7 @@ async function searchCatalogApi(a0: CatalogSearchArgs & { web?: boolean }) {
   if (a.min_discount != null) qs.set('min_discount', String(a.min_discount))
   if (a.sale) qs.set('sale', '1')
   if (a.sort) qs.set('sort', a.sort)
-  qs.set('limit', '16')
+  qs.set('limit', '24')
   // The web leg starts NOW, beside the catalog call. The model reliably puts an ENGLISH type in `category`
   // ("football cleats") but often leaves the shopper's own words in `query` — lead with the category, strip
   // intent words and the store name (Amazon turns "Macy's" into gift cards; getWebApi translates the rest).
@@ -142,7 +145,7 @@ async function searchCatalogApi(a0: CatalogSearchArgs & { web?: boolean }) {
   })
   const real = dedupe(catalogReal ? [...catRows, ...storeRows, ...webRows] : [...storeRows, ...webRows])
   const filler = catalogReal ? [] : dedupe(catRows)
-  const merged = [...real, ...(real.length >= 6 ? [] : filler)].slice(0, 28)
+  const merged = [...real, ...(real.length >= 6 ? [] : filler)].slice(0, GALLERY_MAX)
   if (!merged.length) return emptySearchFallback(a, miss, g)
   const store = a.store
   const catStores = [...new Set(catRows.map((p: any) => p.store).filter(Boolean))]
@@ -321,12 +324,36 @@ interface CurateArgs {
   occasion_tags?: string[]; season_tags?: string[]; style_tags?: string[]; gift?: boolean
   brand_tiers?: string[]; store?: string; min_price?: number; max_price?: number; limit?: number
 }
+// DEALS ASK = the store's own markdowns PLUS the web, in ONE gallery (Alex, 2026-09-11: "promos de Owala" showed
+// only the catalog; Amazon's Owala bottles belong in the same swipe). The web leg runs beside the curate call;
+// its rows come deals-first (getWebApi orders them so), deduped by title, appended AFTER the store's own.
 async function curateCatalogApi(a: CurateArgs) {
+  const term = productTerms(a.query, a.store)
+  const webQuery = [a.categories?.[0] || a.department, term].filter(Boolean).join(' ').trim()
+  const webP: Promise<any> = (webQuery || a.store)
+    ? getWebApi(webQuery, a.store).catch(() => ({ products: [], sources: {}, reason: 'error' }))
+    : Promise.resolve({ products: [], sources: {}, reason: 'skipped' })
+  const [r, g]: any[] = await Promise.all([curateCatalogCore(a), webP])
+  const own: any[] = r.products || []
+  const key = (p: any) => String(p?.title || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().slice(0, 60)
+  const seen = new Set(own.map(key))
+  const webRows = (g.products || []).filter((p: any) => { const k = key(p); if (!k || seen.has(k)) return false; seen.add(k); return true }).slice(0, Math.max(0, GALLERY_MAX - own.length))
+  if (!webRows.length) return { ...r, sources: { ...(r.sources || {}), web: 0, ...(g.sources || {}) } }
+  const webDeals = webRows.filter((p: any) => p.on_sale && p.discount_pct).length
+  const webLine = `PLUS ${webRows.length} from the web (Google Shopping + Amazon${a.store ? `, ${a.store} items sold there` : ''}) AFTER${own.length ? ` the ${own.length} from our own catalog` : ''}: ${webDeals} of them are real markdowns (deals first), the rest are regular price — name each item's store and call only the marked-down ones promos.`
+  return {
+    ...r, products: [...own, ...webRows], source: own.length ? `${r.source || 'catalog'}+web` : 'web', from_web: true,
+    sources: { ...(r.sources || {}), catalog: own.length, web: webRows.length, web_deals: webDeals, ...(g.sources || {}) },
+    note: [r.note, webLine].filter(Boolean).join(' '),
+  }
+}
+
+async function curateCatalogCore(a: CurateArgs) {
   const body: any = {
     query: a.query, intent: a.intent || 'deals', department: a.department, genders: a.genders,
     categories: a.categories, occasion_tags: a.occasion_tags, season_tags: a.season_tags,
     style_tags: a.style_tags, gift: a.gift, brand_tiers: a.brand_tiers, store: a.store,
-    pool_size: 48, per_store_cap: 2, limit: a.limit ?? 12,
+    pool_size: 48, per_store_cap: 2, limit: a.limit ?? 24,
     seed: (Math.random() * 1e9) | 0, // fresh rotation each call → never the same list
   }
   if (a.min_price != null) body.price_min = a.min_price
@@ -463,7 +490,7 @@ async function getProductVariantsApi(url: string, maxAgeS = 900) {
 async function getGoogleShopApi(query: string) {
   let data: any = {}
   try {
-    data = await callApi('/catalog/google-shop', { method: 'POST', body: { query }, timeoutMs: 10000 })
+    data = await callApi('/catalog/google-shop', { method: 'POST', body: { query, limit: 40 }, timeoutMs: 10000 })
   } catch (e: any) { console.warn('[assistant] google-shop unreachable:', e?.message || e); data = { error: 'unreachable' } }
   const raw: any[] = Array.isArray(data?.products) ? data.products : []
   const reason: string | null = data?.error ? String(data.error)
@@ -483,7 +510,7 @@ async function getGoogleShopApi(query: string) {
 // Amazon-only results (ratings, Prime pricing) for when the shopper specifically wants Amazon.
 async function getAmazonApi(query: string) {
   let data: any = {}
-  try { data = await callApi('/catalog/amazon', { method: 'POST', body: { query }, timeoutMs: 10000 }) } catch (e: any) { console.warn('[assistant] amazon unreachable:', e?.message || e); data = { error: 'unreachable' } }
+  try { data = await callApi('/catalog/amazon', { method: 'POST', body: { query, limit: 40 }, timeoutMs: 10000 }) } catch (e: any) { console.warn('[assistant] amazon unreachable:', e?.message || e); data = { error: 'unreachable' } }
   const raw: any[] = Array.isArray(data?.products) ? data.products : []
   const reason: string | null = data?.error ? String(data.error) : data?.no_results ? 'no_results' : null
   return {
@@ -535,7 +562,7 @@ async function getWebApi(rawQuery: string, store?: string) {
   const rest: any[] = []
   const gr = gp.filter((p) => !deals.includes(p)), ar = ap.filter((p) => !deals.includes(p))
   for (let i = 0; i < Math.max(gr.length, ar.length); i++) { if (gr[i]) rest.push(gr[i]); if (ar[i]) rest.push(ar[i]) }
-  const products = [...deals, ...rest].slice(0, 24)
+  const products = [...deals, ...rest].slice(0, 40)
   const reason = products.length ? null : (g.reason && a.reason ? `google:${g.reason} amazon:${a.reason}` : g.reason || a.reason || 'no_results')
   return {
     products,
@@ -1481,7 +1508,7 @@ export default defineEventHandler(async (event) => {
           if (c.length || r.products.length) {
             const seen = new Set<string>()
             const key = (p: any) => String(p?.title || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().slice(0, 60)
-            const products = [...c, ...r.products].filter((p) => { const k = key(p); if (!k || seen.has(k)) return false; seen.add(k); return true }).slice(0, 28)
+            const products = [...c, ...r.products].filter((p) => { const k = key(p); if (!k || seen.has(k)) return false; seen.add(k); return true }).slice(0, GALLERY_MAX)
             const note = c.length
               ? `${c.length} of these are from OUR OWN CATALOG (stores we carry, real stock, first in the list) — lead with them and say they're from ${[...new Set(c.map((p: any) => p.store))].join(', ')}; the rest are web results (Google Shopping + Amazon), deals first.${r.note ? ' ' + r.note : ''}`
               : r.note
