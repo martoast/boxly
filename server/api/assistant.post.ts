@@ -638,8 +638,11 @@ function canonicalWebQuery(raw: string, max = 4) {
 
 async function getWebApi(rawQuery: string, store?: string) {
   const query = await toEnglishSearchTerms(rawQuery)
+  // What we actually ask each engine, canonicalized — reported back on the tool result so a gallery can be
+  // traced to the exact strings that produced it.
+  const googleQuery = canonicalWebQuery([store, query].filter(Boolean).join(' ').trim(), 5)
   const [g, a]: any[] = await Promise.all([
-    getGoogleShopApi(canonicalWebQuery([store, query].filter(Boolean).join(' ').trim(), 5)).catch(() => ({ products: [], reason: 'unreachable' })),
+    getGoogleShopApi(googleQuery).catch(() => ({ products: [], reason: 'unreachable' })),
     // Amazon is one merchant: a RETAILER's name in the query ("Dick's Sporting Goods cleats") only adds noise,
     // but a BRAND's name is the whole point ("Coach pink bag" → Coach bags; "pink bags" alone → gift bags).
     getAmazonApi(canonicalWebQuery([store && !RETAILER_RE.test(store) ? store : null, query].filter(Boolean).join(' '), 5)).catch(() => ({ products: [], reason: 'unreachable' })),
@@ -665,7 +668,7 @@ async function getWebApi(rawQuery: string, store?: string) {
     products,
     source: 'web', from_web: true, reason,
     sources: { google: gp.length, amazon: ap.length, google_status: g.reason || 'ok', amazon_status: a.reason || 'ok' },
-    web_query: query,
+    web_query: googleQuery, web_query_raw: query,
     retry_after_s: g.retry_after_s ?? null,
   }
 }
