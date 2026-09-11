@@ -544,7 +544,9 @@ async function getProductVariantsApi(url: string, maxAgeS = 900) {
 async function getGoogleShopApi(query: string) {
   let data: any = {}
   try {
-    data = await callApi('/catalog/google-shop', { method: 'POST', body: { query, limit: 40 }, timeoutMs: 10000 })
+    // 12 s, above the API's own 11 s Google budget — a shorter timeout here would throw away a result the API
+    // was about to hand us. Amazon keeps its own 10 s and is unaffected: the two legs run in parallel.
+    data = await callApi('/catalog/google-shop', { method: 'POST', body: { query, limit: 40 }, timeoutMs: 12000 })
   } catch (e: any) { console.warn('[assistant] google-shop unreachable:', e?.message || e); data = { error: 'unreachable' } }
   const raw: any[] = Array.isArray(data?.products) ? data.products : []
   const reason: string | null = data?.error ? String(data.error)
