@@ -1757,7 +1757,11 @@ function onAssistedProduct(p) {
   ensureChatToken()
   if (isBusy.value) { pendingPick.value = { p, assisted: true }; return }
   const { store, price, urlPart } = productTail(p)
-  const text = `Agrégalo a mi carrito Boxly: ${p.title}${store}${price}${urlPart}`
+  // The modal is the product page now: when the shopper chose size/colour/quantity there, its sentence already
+  // says everything, so send THAT and the item lands in the box in one turn instead of being held for a pick.
+  const text = p?.pick?.text
+    ? `${p.pick.text}${urlPart}`
+    : `Agrégalo a mi carrito Boxly: ${p.title}${store}${price}${urlPart}`
   ensureConversation(text)
   chat.sendMessage({ text })
   scrollDown()
@@ -1928,8 +1932,10 @@ function autoCreateAssisted() {
   for (const m of chat.messages) {
     if (m.role !== 'assistant') continue
     for (const part of (m.parts || [])) {
+      // `blocked` = the server refused the request because an item still needs a size/colour it actually sells.
+      // Never auto-create in that case (Alex's rails: nothing is bought without a real pick).
       if (part?.type === 'tool-show_assisted_summary' && part.state === 'output-available'
-          && part.toolCallId && (part.output?.items?.length)
+          && !part.output?.blocked && part.toolCallId && (part.output?.items?.length)
           && !assistedHandled.has(part.toolCallId)
           && !assistedResults[part.toolCallId] && !assistedErrors[part.toolCallId]
           && assistedCreatingId.value !== part.toolCallId) {

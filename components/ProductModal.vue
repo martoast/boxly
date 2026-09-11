@@ -97,8 +97,17 @@
               <!-- ONE action: add to the Boxly cart. Boxly buys + imports everything the
                    customer adds (across stores) in a single consolidated purchase request.
                    No self-buy option — the whole point of the catalog is to build the cart. -->
+              <!-- A product with real choices becomes a PRODUCT PAGE right here: sizes, colours and quantity, then
+                   one add-to-cart. Only a product with nothing to choose (or an unreadable one) keeps the plain
+                   button below — our reader must never block a purchase. -->
+              <div v-if="loadingVariants" class="flex items-center justify-center gap-2 rounded-2xl border border-gray-100 bg-gray-50/60 py-4 text-[13px] text-gray-500">
+                <svg class="w-4 h-4 animate-spin text-primary-500" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"/><path class="opacity-80" fill="currentColor" d="M4 12a8 8 0 018-8v3a5 5 0 00-5 5H4z"/></svg>
+                Cargando tallas y colores…
+              </div>
+              <LazyVariantPicker v-else-if="hasChoices" :data="variantData" @pick="onVariantPick" />
               <button
-                type="button" @click="assisted"
+                v-else
+                type="button" @click="assisted()"
                 class="w-full flex items-center justify-center gap-2 rounded-2xl bg-primary-500 hover:bg-primary-600 active:scale-[.98] transition text-white font-bold py-3.5 text-[15px] shadow-sm shadow-primary-500/20"
               >
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-1.5 3h11m-8 3a1 1 0 11-2 0 1 1 0 012 0zm9 0a1 1 0 11-2 0 1 1 0 012 0z"/></svg>
@@ -175,6 +184,10 @@ const fetchedWas = ref(null)
 const fetchedOnSale = ref(false)
 const available = ref(true) // live stock from the store (Shopify .js); true = unknown/in-stock
 const loadingDetail = ref(false)
+// THE MODAL IS THE PRODUCT PAGE (Alex, 2026-09-11): sizes/colours/quantity are chosen HERE, then added to the cart
+// in one step — the same shape as any store's product page, instead of a round trip through chat.
+const variantData = ref(null)
+const loadingVariants = ref(false)
 const broken = ref(new Set())
 
 const gallery = computed(() => {
@@ -198,6 +211,12 @@ const bestLink = computed(() => fetchedLink.value || props.product?.url || '#')
 // click opens a Google page / the wrong product).
 function isGoogleLink(u) { return typeof u === 'string' && (u.includes('google.com') || u.includes('gstatic.com')) }
 const linkPending = computed(() => loadingDetail.value && isGoogleLink(bestLink.value))
+// "Real choices" = an axis the shopper must actually answer. A single-SKU product (or one whose axes all have one
+// value) shows the plain add button instead of a picker with nothing to pick.
+const hasChoices = computed(() => {
+  const ax = variantData.value?.axes || []
+  return ax.some((a) => (a?.values?.length || 0) > 1)
+})
 
 const displayPrice = computed(() => fetchedPrice.value ?? props.product?.price ?? null)
 const displayWas = computed(() => fetchedWas.value ?? props.product?.was ?? null)
@@ -231,6 +250,18 @@ async function openLightbox(idx) {
 }
 function closeLightbox() { lightboxOpen.value = false }
 
+// Variants for this product, straight from the catalog service (mirror when fresh, a live read otherwise).
+// Independent of loadDetails so slow images never hold up the picker, and vice versa.
+async function loadVariants(p) {
+  const url = p?.url || null
+  if (!url) return
+  loadingVariants.value = true
+  try {
+    const r = await $fetch('/api/product-variants', { method: 'POST', body: { url }, timeout: 58000 })
+    variantData.value = (r?.variants?.length ? r : null)
+  } catch { variantData.value = null } finally { loadingVariants.value = false }
+}
+
 async function loadDetails(p) {
   loadingDetail.value = true
   try {
@@ -253,17 +284,24 @@ async function loadDetails(p) {
 
 // "Boxly lo compra" — hand the product to the chat so the assistant creates a
 // Purchase Request (assisted purchase, +15%). Pass the resolved merchant link.
-function assisted() {
+function assisted(pick) {
   emit('assisted', {
     ...props.product,
     url: bestLink.value,
     price: displayPrice.value,
     was: displayWas.value,
     onSale: displayOnSale.value,
+    ...(pick ? { pick } : {}),
   })
 }
+// The picker's own CTA is the add-to-cart for a product that HAS choices: it hands up the exact sentence
+// (size, colour, quantity) so the chat adds it in one turn with everything already decided.
+function onVariantPick(text) { assisted({ text }) }
 
 watch(() => props.product, (p) => {
+  variantData.value = null
+  loadingVariants.value = false
+  if (p) loadVariants(p)
   fetchedImages.value = []
   fetchedDesc.value = null
   fetchedLink.value = null

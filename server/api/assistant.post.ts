@@ -487,13 +487,17 @@ async function liveGrabApi(a: { url?: string; store?: string; query?: string }) 
 // reads the product page live (headless browser, up to ~40s). Fails SOFT: {variants: [], reason}.
 const variantCache = new Map<string, { at: number; r: any }>()
 async function getProductVariantsApi(url: string, maxAgeS = 900) {
+  // Every read populates variantCache, whichever tool asked for it: the box's hold gate and the finalize rail both
+  // consult it, and when only get_product_variants had run they saw nothing and waved the item through.
+  const hit = variantCache.get(url)
+  if (hit && Date.now() - hit.at < 15 * 60_000) return hit.r
   let data: any = {}
   try {
     data = await callApi('/catalog/product-variants', { method: 'POST', body: { url, max_age_s: maxAgeS }, timeoutMs: 58000 })
   } catch (e: any) { console.warn('[assistant] product-variants unreachable:', e?.message || e); data = { error: 'unreachable' } }
   const variants: any[] = Array.isArray(data?.variants) ? data.variants : []
   const reason: string | null = data?.error ? String(data.error) : (!variants.length ? (data?.reason || 'no_variants') : null)
-  return {
+  const out = {
     product: data?.product || null,
     axes: Array.isArray(data?.axes) ? data.axes : [],
     variants: variants.map((v: any) => ({ key: v.key || [v.color, v.size].filter(Boolean).join(' / '), size: v.size ?? null, color: v.color ?? null, available: !!v.available, price: v.price ?? null, list_price: v.list_price ?? null, low_stock: v.low_stock || null })),
@@ -503,6 +507,8 @@ async function getProductVariantsApi(url: string, maxAgeS = 900) {
     store_id: data?.store_id || null,
     reason,
   }
+  if (out.variants?.length || out.axes?.length) variantCache.set(url, { at: Date.now(), r: out })
+  return out
 }
 // The OUT-OF-CATALOG fallback: when Boxly doesn't carry a product, the computer-use agent
 // runs a GOOGLE SHOPPING search and returns real cross-web options (merchant, price, image,
@@ -1808,7 +1814,20 @@ export default defineEventHandler(async (event) => {
               // local run, which would have waved a junk value straight past this gate and into the box. Every
               // multi-value axis must be answered by one of ITS OWN values (loose compare: case, accents, spacing).
               const norm = (v: any) => String(v ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '')
-              const given = [last.size, last.color].filter(Boolean).map(norm)
+              // THE SHOPPER'S OWN WORDS COUNT. A fast model dropped the size the shopper had just given and the
+              // item stayed held forever — so recover any axis value they actually typed ("talla Medium, color
+              // Black", or a bare "Medium"). Still validated against the store's own values, so junk never passes.
+              const said = (() => {
+                for (let i = (messages || []).length - 1; i >= 0; i--) {
+                  const m = messages[i]
+                  if (m?.role !== 'user') continue
+                  return (m.parts || []).filter((p: any) => p?.type === 'text').map((p: any) => p.text).join(' ')
+                }
+                return ''
+              })()
+              const saidNorm = norm(said)
+              const fromWords = axes.flatMap((a: any) => (a.values || []).filter((v: any) => norm(v).length >= 1 && saidNorm.includes(norm(v))))
+              const given = [last.size, last.color, ...fromWords].filter(Boolean).map(norm)
               const picked = axes
                 .filter((a: any) => (a?.values?.length || 0) > 1)
                 .every((a: any) => (a.values || []).some((v: any) => given.includes(norm(v))))
@@ -1881,7 +1900,34 @@ export default defineEventHandler(async (event) => {
         // Fold size/colour into notes so they land in the single field the admin
         // order view already renders (NOTAS DEL CLIENTE) — the shopping team sees
         // them without any API or admin-UI change.
-        execute: async ({ items }) => ({
+        execute: async ({ items }) => {
+          // ── THE LAST RAIL: A REQUEST IS NEVER PLACED FOR AN ITEM THAT STILL NEEDS A PICK ──────────────────
+          // (Alex, 2026-09-11: "the steps for ANY product are all the same... on rails".) This card CREATES the
+          // real purchase request the moment it renders, so it is the one place a missing size costs money. Using
+          // ONLY variant reads already cached this turn (no new network call, no added latency), any item whose
+          // product has a real choice and whose size/colour is not one the store actually offers blocks the card.
+          const normV = (v: any) => String(v ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '')
+          const needsPick: string[] = []
+          for (const it of items || []) {
+            const saved = (it as any).saved_id ? savedProducts.find((p: any) => p.id === (it as any).saved_id) : null
+            // A pasted link has no registry entry, so fall back to the item's own url and then to the last link
+            // in the conversation — the same resolution the box uses, or this rail silently never fires.
+            const u = saved?.url || saved?.product_url || (it as any).url || lastPastedUrl(messages)
+            const cached = u ? variantCache.get(String(u)) : null
+            const axes: any[] = cached?.r?.axes || []
+            const choose = axes.filter((a: any) => (a?.values?.length || 0) > 1)
+            if (!choose.length) continue
+            const given = [(it as any).size, (it as any).color].filter(Boolean).map(normV)
+            const ok = choose.every((a: any) => (a.values || []).some((v: any) => given.includes(normV(v))))
+            if (!ok) needsPick.push(`${(it as any).name || 'ese producto'} (${choose.map((a: any) => a.name).join(' + ')})`)
+          }
+          if (needsPick.length) {
+            return {
+              blocked: true, needs_pick: needsPick, items: [],
+              note: `STOP — the purchase request was NOT created and no card is on screen. ${needsPick.join('; ')} still need${needsPick.length > 1 ? '' : 's'} a choice the store actually offers. Say ONE short line asking for it and re-show that product's chips with get_product_variants. Do NOT call show_assisted_summary again until every item carries a real size/colour.`,
+            }
+          }
+          return {
           items: (items || []).map((it) => {
             // The pick must land in the STRUCTURED size/color fields (they become the purchase request's
             // `options`, which the email and the admin render). In a live run the model left size empty and
@@ -1909,7 +1955,8 @@ export default defineEventHandler(async (event) => {
             const bits = [size ? `Talla ${size}` : null, color ? `Color ${color}` : null, notes || null].filter(Boolean)
             return { ...it, size: size || undefined, color: color || undefined, quantity: it.quantity || 1, notes: bits.join(' · ') || undefined }
           }),
-        }),
+          }
+        },
       }),
 
       // NOTE: there is deliberately NO create_purchase_request tool. Letting the
