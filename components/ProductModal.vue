@@ -469,7 +469,13 @@ watch(() => props.product, (p) => {
   lightboxOpen.value = false
   if (imgTrack.value) imgTrack.value.scrollLeft = 0
   if (p?.url || p?.token) loadDetails(p)
-})
+// IMMEDIATE, and this is not a detail. The modal is mounted with `v-if="selectedProduct"`, so the component is
+// CREATED with its product already set — a plain watcher never fires, because nothing ever changes after mount.
+// The result: loadVariants() and loadDetails() never ran on first open, so the modal showed the gallery thumbnail
+// and "este producto no tiene tallas ni colores" for products that have plenty (Alex, live, 2026-09-11: the DFYNE
+// Impact Shorts, which have 14 colourways and 5 sizes). Production's tunnel log proves it — opening the modal
+// produced no /catalog/product-variants request at all.
+}, { immediate: true })
 
 // --- Swipe down to close (only when the sheet is scrolled to the top) ---
 const card = ref(null)
