@@ -7,6 +7,8 @@
 // Catalog reads go DIRECT to the catalog service (see CATALOG_DIRECT_RE in assistant.post.ts): the Laravel API's
 // small PHP-FPM pool stalls them behind slow SerpAPI calls.
 const CATALOG_BASE = 'https://catalog.fullstacklabs.org'
+const API_BASE = 'https://api.boxly.mx'
+const hostOf = (u: string) => { try { return new URL(u).hostname.replace(/^www\./, '') } catch { return '' } }
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event).catch(() => null)
@@ -19,6 +21,34 @@ export default defineEventHandler(async (event) => {
   // read. The catalog's stored images stay behind this purely as the instant first paint and the fallback when a
   // store is slow or walled, never as the answer.
   const maxAgeS = Number(body?.max_age_s) >= 0 ? Number(body.max_age_s) : 0
+  // AMAZON GOES TO ITS OWN PRODUCT PAGE. A gallery row from an Amazon search has one image, no sizes and no
+  // stock — but we always have its product URL, so the read is possible and therefore mandatory (Alex, 2026-09-11:
+  // "that step is never optional... the page might reveal the product isn't available"). The catalog service
+  // cannot do this one: the SerpAPI key lives on the API, so the API reads the page and hands back the same shape.
+  if (/(^|\.)amazon\.[a-z.]+$/i.test(hostOf(url))) {
+    try {
+      const a: any = await $fetch(`${API_BASE}/catalog/amazon-product`, { method: 'POST', body: { url }, timeout: 25_000 })
+      const variants = Array.isArray(a?.variants) ? a.variants : []
+      if (variants.length || (a?.product?.images || []).length) {
+        return {
+          product: a.product || null,
+          axes: Array.isArray(a.axes) ? a.axes : [],
+          variants,
+          axes_independent: a.axes_independent !== false,
+          selected: null,
+          checked_at: a.checked_at || null,
+          source: a.source || 'amazon-product',
+          colorways: [],
+          reason: a?.error || null,
+        }
+      }
+      return { variants: [], axes: [], colorways: [], reason: a?.error || 'no_variants' }
+    } catch (e: any) {
+      console.warn('[product-variants] amazon-product unreachable:', e?.message || e)
+      return { variants: [], axes: [], colorways: [], reason: 'unreachable' }
+    }
+  }
+
   try {
     const r: any = await $fetch(`${CATALOG_BASE}/catalog/product-variants`, {
       method: 'POST',
