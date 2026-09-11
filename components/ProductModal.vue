@@ -25,18 +25,51 @@
                image is only the intro; the product page carries the real photography (Alex, 2026-09-11). Bounded
                by REVEAL_CAP_MS so a slow store can never hold the modal hostage. -->
           <div v-if="loadingProduct">
-            <div class="h-80 bg-gray-100 animate-pulse"></div>
-            <div class="p-5 space-y-3">
-              <div class="h-3 w-20 bg-gray-100 rounded animate-pulse"></div>
-              <div class="h-5 w-3/4 bg-gray-100 rounded animate-pulse"></div>
-              <div class="h-7 w-28 bg-gray-100 rounded animate-pulse"></div>
-              <div class="grid grid-cols-2 gap-3 pt-3">
-                <div class="h-[4.5rem] bg-gray-100 rounded-2xl animate-pulse"></div>
-                <div class="h-[4.5rem] bg-gray-100 rounded-2xl animate-pulse"></div>
+            <!-- WAITING WELL (Alex, 2026-09-11: "make the animation better so the user knows what is going on and
+                 they don't leave while waiting"). Three rules: show the product they tapped IMMEDIATELY — its own
+                 photo, name, store and price, which we already have — so the wait never looks like a blank app;
+                 say in plain words which step we are on, because "reading the sizes from DFYNE" is a reason to
+                 wait and a spinner is not; and keep a bar moving so the screen is visibly alive. -->
+            <div class="relative h-64 bg-gray-50 overflow-hidden">
+              <img v-if="product.image" :src="product.image" :alt="product.title" referrerpolicy="no-referrer"
+                   class="w-full h-full object-contain opacity-60 scale-[0.98] blur-[1px] transition-all duration-700" />
+              <div v-else class="absolute inset-0 grid place-items-center">
+                <span class="text-base font-bold text-gray-300 uppercase tracking-wide">{{ product.store || product.title }}</span>
               </div>
-              <div class="flex items-center justify-center gap-2 pt-2 text-gray-400">
-                <svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
-                <span class="text-xs font-medium">Cargando producto…</span>
+              <!-- a light sweeping across the photo: motion tied to nothing, purely "we are working" -->
+              <div class="absolute inset-0 pointer-events-none loading-sweep"></div>
+            </div>
+
+            <div class="p-5">
+              <p v-if="product.store" class="text-[11px] uppercase tracking-wider text-primary-500 font-bold">{{ product.store }}</p>
+              <h2 class="text-lg font-bold text-gray-900 leading-snug mt-1">{{ product.title }}</h2>
+              <p v-if="product.price != null" class="text-xl font-extrabold text-gray-900 mt-1.5">${{ product.price }} <span class="text-[12px] font-semibold text-gray-400">USD</span></p>
+
+              <!-- the step we are actually on -->
+              <div class="mt-4 rounded-2xl border border-gray-100 bg-gray-50/70 px-4 py-3">
+                <div class="flex items-center gap-2.5">
+                  <span class="relative flex h-2.5 w-2.5 shrink-0">
+                    <span class="absolute inline-flex h-full w-full rounded-full bg-primary-400 opacity-75 animate-ping"></span>
+                    <span class="relative inline-flex h-2.5 w-2.5 rounded-full bg-primary-500"></span>
+                  </span>
+                  <p class="text-[13px] font-semibold text-gray-700">{{ loadingStage.title }}</p>
+                </div>
+                <p class="text-[11.5px] text-gray-500 mt-1 ml-[1.35rem] leading-snug">{{ loadingStage.detail }}</p>
+                <div class="mt-2.5 ml-[1.35rem] h-1 rounded-full bg-gray-200 overflow-hidden">
+                  <div class="h-full rounded-full bg-primary-500 transition-[width] duration-700 ease-out" :style="{ width: loadingStage.pct + '%' }"></div>
+                </div>
+              </div>
+
+              <!-- shapes of what is coming, so the layout does not jump when it lands -->
+              <div class="mt-4 space-y-2.5">
+                <div class="h-2.5 w-16 bg-gray-100 rounded animate-pulse"></div>
+                <div class="flex gap-2">
+                  <div v-for="n in 5" :key="'c'+n" class="w-[3.25rem] h-[4rem] rounded-xl bg-gray-100 animate-pulse" :style="{ animationDelay: (n * 90) + 'ms' }"></div>
+                </div>
+                <div class="h-2.5 w-12 bg-gray-100 rounded animate-pulse mt-3"></div>
+                <div class="flex gap-2">
+                  <div v-for="n in 4" :key="'s'+n" class="h-9 w-14 rounded-xl bg-gray-100 animate-pulse" :style="{ animationDelay: (n * 120) + 'ms' }"></div>
+                </div>
               </div>
             </div>
           </div>
@@ -252,10 +285,27 @@ const linkPending = computed(() => loadingDetail.value && isGoogleLink(bestLink.
 // Both fetches gate the reveal, but never past REVEAL_CAP_MS: after that we show whatever arrived (the picker
 // fills in behind its own small loader) rather than leave the shopper staring at a skeleton.
 const REVEAL_CAP_MS = 9000
+
+// WHAT WE ARE DOING, IN WORDS. The wait is real work — opening the store's page, reading its colours, checking
+// each one's sizes — and naming the step is what keeps someone on the screen. Stages advance on elapsed time
+// because the fetches do not report progress, but the wording matches what is genuinely happening in each window,
+// and the last stage is honest about a slow store rather than pretending it is nearly done.
+const elapsed = ref(0)
+let elapsedTimer = null
+const storeName = computed(() => props.product?.store || 'la tienda')
+const loadingStage = computed(() => {
+  const t = elapsed.value
+  if (t < 1200) return { title: `Abriendo ${storeName.value}…`, detail: 'Entrando a la página del producto en la tienda.', pct: 12 }
+  if (t < 3000) return { title: 'Trayendo las fotos reales…', detail: 'Las de la ficha del producto, no la miniatura del buscador.', pct: 38 }
+  if (t < 5500) return { title: 'Revisando colores y tallas…', detail: 'Cada color tiene sus propias tallas y su propio inventario.', pct: 62 }
+  if (t < 9000) return { title: 'Confirmando disponibilidad…', detail: 'Verificando qué tallas quedan realmente en stock ahora mismo.', pct: 82 }
+  return { title: 'Casi listo…', detail: `${storeName.value} está tardando un poco más de lo normal — seguimos en eso.`, pct: 93 }
+})
 const revealForced = ref(false)
 // Reveal as soon as we can SHOW something real. Waiting on the variant read too would strand the shopper for up
 // to ~13 s on the stores that need a live product-page read (bench, 2026-09-11); the picker fills in behind its
 // own small loader instead. Still capped, so a slow detail fetch cannot hold the modal either.
+watch(() => loadingProduct.value, (v) => { if (!v && elapsedTimer) { clearInterval(elapsedTimer); elapsedTimer = null } })
 const loadingProduct = computed(() => {
   if (revealForced.value) return false
   if (gallery.value.length > 1) return false // real product-page photos are in — show them
@@ -373,7 +423,14 @@ watch(() => props.product, (p) => {
   activeColorway.value = null
   revealForced.value = false
   if (revealTimer) clearTimeout(revealTimer)
-  if (p) { revealTimer = setTimeout(() => { revealForced.value = true }, REVEAL_CAP_MS); loadVariants(p) }
+  if (elapsedTimer) clearInterval(elapsedTimer)
+  elapsed.value = 0
+  if (p) {
+    const t0 = Date.now()
+    elapsedTimer = setInterval(() => { elapsed.value = Date.now() - t0 }, 250)
+    revealTimer = setTimeout(() => { revealForced.value = true }, REVEAL_CAP_MS)
+    loadVariants(p)
+  }
   fetchedImages.value = []
   fetchedDesc.value = null
   fetchedLink.value = null
@@ -424,6 +481,15 @@ onBeforeUnmount(() => setLock(false))
 </script>
 
 <style scoped>
+/* A light sweeping across the product photo while we read the store's page — the screen stays alive without a
+   spinner, and it costs one compositor-only transform. */
+.loading-sweep {
+  background: linear-gradient(100deg, transparent 35%, rgba(255,255,255,.62) 50%, transparent 65%);
+  background-size: 250% 100%;
+  animation: pm-sweep 1.7s ease-in-out infinite;
+}
+@keyframes pm-sweep { 0% { background-position: 160% 0; } 100% { background-position: -60% 0; } }
+
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
@@ -435,6 +501,7 @@ onBeforeUnmount(() => setLock(false))
 .lb-enter-from, .lb-leave-to { opacity: 0; }
 .lb-enter-active, .lb-leave-active { transition: opacity .2s ease; }
 @media (prefers-reduced-motion: reduce) {
+  .loading-sweep { animation: none; background: none; }
   .pm-enter-active, .pm-leave-active, .pm-enter-active .pm-card, .pm-leave-active .pm-card { transition: none; }
 }
 </style>
