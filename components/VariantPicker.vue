@@ -21,7 +21,7 @@
     <div class="mt-3 flex items-center gap-1.5 text-[11px] text-gray-500">
       <span class="inline-block w-1.5 h-1.5 rounded-full" :class="fresh ? 'bg-emerald-500' : 'bg-amber-400'"></span>
       <span>Disponibilidad {{ data.source === 'live' ? 'en vivo' : 'verificada' }}<template v-if="data.checked_at"> · {{ rel(data.checked_at) }}</template></span>
-      <span class="ml-auto text-gray-400">{{ availableCount }} de {{ variants.length }} disponibles</span>
+      <span class="ml-auto text-gray-400">{{ availableCount }} de {{ variants.length }} disponibles<template v-if="unknownCount"> · {{ unknownCount }} por confirmar</template></span>
     </div>
 
     <!-- one row per axis, in the store's order -->
@@ -32,9 +32,9 @@
         <button
           v-for="val in ax.values" :key="val" type="button"
           @click="canPick(ax, val) && pick(ax.name, val)" :disabled="busy || !canPick(ax, val)"
-          :class="[sel[ax.name] === val ? 'border-primary-500 ring-2 ring-primary-200 text-primary-800 bg-primary-50' : canPick(ax, val) ? 'border-gray-200 text-gray-800 hover:border-primary-300 hover:bg-primary-50' : 'border-gray-100 bg-gray-50 text-gray-300 line-through cursor-not-allowed']"
+          :class="[sel[ax.name] === val ? 'border-primary-500 ring-2 ring-primary-200 text-primary-800 bg-primary-50' : canPick(ax, val) ? (isUnknown(ax, val) ? 'border-dashed border-gray-300 text-gray-700 hover:border-primary-300' : 'border-gray-200 text-gray-800 hover:border-primary-300 hover:bg-primary-50') : 'border-gray-100 bg-gray-50 text-gray-300 line-through cursor-not-allowed']"
           class="relative px-1 py-1.5 rounded-lg border text-[12px] font-semibold text-center transition truncate"
-          :title="canPick(ax, val) ? val : val + ' — agotado'"
+          :title="canPick(ax, val) ? (isUnknown(ax, val) ? val + ' — disponibilidad por confirmar' : val) : val + ' — agotado'"
         >
           {{ val }}
           <span v-if="canPick(ax, val) && isLow(ax, val)" class="absolute -top-1 -right-1 text-[9px] font-bold text-amber-700 bg-amber-100 rounded-full px-1 leading-4">¡pocas!</span>
@@ -44,9 +44,9 @@
         <button
           v-for="val in ax.values" :key="val" type="button"
           @click="canPick(ax, val) && pick(ax.name, val)" :disabled="busy || !canPick(ax, val)"
-          :class="[sel[ax.name] === val ? 'border-primary-500 ring-2 ring-primary-200 text-primary-800 bg-primary-50' : canPick(ax, val) ? 'border-gray-200 text-gray-700 hover:border-primary-300' : 'border-gray-100 text-gray-300 line-through']"
+          :class="[sel[ax.name] === val ? 'border-primary-500 ring-2 ring-primary-200 text-primary-800 bg-primary-50' : canPick(ax, val) ? (isUnknown(ax, val) ? 'border-dashed border-gray-300 text-gray-700 hover:border-primary-300' : 'border-gray-200 text-gray-700 hover:border-primary-300') : 'border-gray-100 text-gray-300 line-through']"
           class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[12px] font-medium transition"
-          :title="canPick(ax, val) ? val : val + ' — agotado'"
+          :title="canPick(ax, val) ? (isUnknown(ax, val) ? val + ' — disponibilidad por confirmar' : val) : val + ' — agotado'"
         >
           <span v-if="ax.kind === 'color'" class="inline-block w-3 h-3 rounded-full border border-black/10" :style="{ background: swatch(val) }"></span>
           {{ val }}
@@ -54,7 +54,7 @@
       </div>
     </div>
 
-    <p v-if="shownAxes.length" class="mt-2 text-[11px] text-gray-400"><span class="inline-block w-2.5 h-2.5 rounded border border-gray-200 bg-white align-middle mr-1"></span>disponible <span class="inline-block w-2.5 h-2.5 rounded border border-gray-100 bg-gray-50 align-middle ml-2 mr-1"></span>agotado</p>
+    <p v-if="shownAxes.length" class="mt-2 text-[11px] text-gray-400"><span class="inline-block w-2.5 h-2.5 rounded border border-gray-200 bg-white align-middle mr-1"></span>disponible <span class="inline-block w-2.5 h-2.5 rounded border border-dashed border-gray-300 bg-white align-middle ml-2 mr-1"></span>por confirmar <span class="inline-block w-2.5 h-2.5 rounded border border-gray-100 bg-gray-50 align-middle ml-2 mr-1"></span>agotado</p>
     <p v-else class="mt-3 text-[12px] text-gray-600">Talla única · {{ variants[0]?.available ? 'disponible' : 'agotado' }}</p>
 
     <!-- CTA -->
@@ -132,7 +132,8 @@ const independent = computed(() => props.data?.axes_independent === true || prop
   || (axes.value.length > 1 && !variants.value.some((v) => Object.keys(v.options).length > 1)))
 // Pre-select what the page had selected (e.g. the colourway from the URL) so the shopper only picks what's missing.
 watchEffect(() => { const pre = props.data?.selected; if (pre && typeof pre === 'object') for (const [k, v] of Object.entries(pre)) if (v != null && !sel[k]) sel[k] = String(v) })
-const availableCount = computed(() => variants.value.filter((v) => v.available).length)
+const availableCount = computed(() => variants.value.filter((v) => v.available === true).length)
+const unknownCount = computed(() => variants.value.filter((v) => v.available == null).length)
 const fresh = computed(() => { const t = props.data?.checked_at ? Date.now() - new Date(props.data.checked_at).getTime() : Infinity; return t < 15 * 60_000 })
 
 // A value is pickable when some AVAILABLE variant matches it together with everything already selected on OTHER axes.
@@ -141,8 +142,9 @@ function matches(v, axisName, val) {
   if (independent.value) return true
   return axes.value.every((a) => a.name === axisName || !sel[a.name] || v.options[a.name] === sel[a.name])
 }
-function canPick(ax, val) { return variants.value.some((v) => v.available && matches(v, ax.name, val)) }
-function isLow(ax, val) { return variants.value.some((v) => v.available && v.low_stock && matches(v, ax.name, val)) }
+function canPick(ax, val) { return variants.value.some((v) => v.available !== false && matches(v, ax.name, val)) }
+function isUnknown(ax, val) { return !variants.value.some((v) => v.available === true && matches(v, ax.name, val)) && variants.value.some((v) => v.available == null && matches(v, ax.name, val)) }
+function isLow(ax, val) { return variants.value.some((v) => v.available === true && v.low_stock && matches(v, ax.name, val)) }
 function pick(axisName, val) {
   sel[axisName] = sel[axisName] === val ? null : val
   // Clear later selections that are no longer compatible.
@@ -155,9 +157,9 @@ const chosen = computed(() => {
   return variants.value.find((v) => axes.value.every((a) => sel[a.name] && v.options[a.name] === sel[a.name])) || null
 })
 const complete = computed(() => {
-  if (!axes.value.length) return !!(chosen.value && chosen.value.available)
-  if (independent.value) return axes.value.every((a) => sel[a.name] && variants.value.some((v) => v.available && v.options[a.name] === sel[a.name]))
-  return !!(chosen.value && chosen.value.available)
+  if (!axes.value.length) return !!(chosen.value && chosen.value.available !== false)
+  if (independent.value) return axes.value.every((a) => sel[a.name] && variants.value.some((v) => v.available !== false && v.options[a.name] === sel[a.name]))
+  return !!(chosen.value && chosen.value.available !== false)
 })
 const shownPrice = computed(() => chosen.value?.price ?? product.value.price)
 const shownWas = computed(() => chosen.value?.list_price ?? product.value.list_price)
