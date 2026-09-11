@@ -190,8 +190,9 @@ async function emptySearchFallback(a: CatalogSearchArgs, miss: any, g: any, webQ
   // capped now; this is the belt: when the web leg came back degraded rather than genuinely empty, ask Amazon
   // once more on its own, with the slow engine no longer in the way. Unrelated deals are the last resort, never
   // the second one.
-  const degraded = ['unreachable', 'busy', 'cooling', 'blocked', 'error', 'serpapi_busy', 'serpapi_unreachable', 'serpapi_error']
-  const webBroke = degraded.includes(String(g?.sources?.amazon_status || '')) || degraded.includes(String(g?.sources?.google_status || ''))
+  // Any status other than 'ok' means a leg failed rather than answering "nothing matched" — we only get here
+  // with an empty gallery anyway, so a broad check is the safe one.
+  const webBroke = [g?.sources?.amazon_status, g?.sources?.google_status].some((st: any) => st && st !== 'ok')
   if (webQuery && webBroke && g?.reason !== 'skipped') {
     const retry: any = await getAmazonApi(webQuery).catch(() => ({ products: [] }))
     const rows = (retry.products || []).filter((p: any) => p?.title && p?.image)
