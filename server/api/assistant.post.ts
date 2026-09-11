@@ -1032,6 +1032,19 @@ function archetypeFromName(name: string): string | null {
   if (RE_FLAT_SOFT.test(t)) return 'flat_soft'
   return null
 }
+// The last product link the shopper pasted in this conversation — the fallback URL for a box item that has no
+// registry entry. Scans newest-first and skips our own domains. Pure.
+function lastPastedUrl(msgs: any[]): string | null {
+  for (let i = (msgs?.length || 0) - 1; i >= 0; i--) {
+    const m = msgs[i]
+    if (m?.role !== 'user') continue
+    const text = (m.parts || []).filter((p: any) => p?.type === 'text').map((p: any) => p.text).join(' ')
+    const hit = [...String(text).matchAll(/https?:\/\/[^\s<>"')]+/gi)].map((x) => x[0]).filter((u) => !/boxly\.mx|localhost/i.test(u)).pop()
+    if (hit) return hit.replace(/[.,;]+$/, '')
+  }
+  return null
+}
+
 function buildShipment(items: any[]) {
   const norm = (items || []).map((it) => {
     const quantity = Math.max(1, Number(it.quantity) || 1)
@@ -1207,6 +1220,7 @@ Your tools, and when to use them:
   2) CASILLERO / ENVÍO PROPIO (el cliente compra sus propios productos con su tarjeta y los manda a su dirección Boxly en EE. UU.; Boxly solo los consolida y los envía): el cliente paga SOLO el precio de la CAJA (envío fijo de la tabla). **NO hay comisión del 15%.**
   NEVER imply the 15% applies to products the customer bought themselves. The 15% is EXCLUSIVELY the assisted-purchase fee for Boxly doing the buying. When you find/show products and the customer wants Boxly to get them, that's COMPRA ASISTIDA (15% applies). If they only ask about shipping their own stuff, it's just the box price (no 15%).
 - THE CART IS THE WHOLE POINT — BUILD IT UP, FINALIZE AT THE END. Boxly buys, imports and delivers everything the customer adds, consolidated into ONE box. The catalog exists to fill that cart. There is NO "buy it yourself" path in this flow — every product the customer picks goes into their Boxly cart (an assisted purchase). Two clear phases:
+  ⓪ A SIZED PRODUCT IS PICKED FIRST, ADDED SECOND. When a product has real sizes/colours, show_shipment answers "NOT IN THE BOX" and puts the chips on screen instead of adding it. That is deliberate: nothing enters the box unsized. Say one line asking for the pick, never claim it was added, and add it on the NEXT turn with size/color set. A product with nothing to choose is added immediately, as always.
   ① ADDING TO CART (the core loop, where the value is built). When the customer wants a product — they tap "Agregar al carrito Boxly", OR say "agrégalo", "quiero ese", "añádelo", "ese me gusta", "el primero" — ADD it to their running cart and IMMEDIATELY call show_shipment passing EVERY item in the cart so far — for each item pass its saved_id (the registry id of the product you showed) so the box shows the real thumbnail/price without you retyping a long image URL, plus quantity and its packing type. This renders their box filling up. Then confirm warmly and ENCOURAGE THE NEXT ADD — consolidating several items from different stores into one box is exactly how they get the most value, so every add invites another: "📦 ¡Listo! Agregué [item] a tu caja 🛒. ¿Qué más te llevas? Todo se va junto en un solo envío, así aprovechas la caja". Do NOT create the purchase request here — adding to the cart is NOT placing the order. Keep building across as many items/stores as they want, and don't interrogate: DON'T ask for size/colour at add-time (that's for finalize).
   ⚑ "QUIERO AGREGAR ALGO MÁS" — ASK, don't guess a brand. When the customer says they want to add more to their box but does NOT say WHAT (no product/type/brand named), do NOT auto-pick a store and show random products (e.g. don't jump to YoungLA just because it was in context). ASK what they'd like, framed around the box value: "Tienes espacio de sobra en tu caja 📦 — ¿qué más te late sumar para aprovechar el mismo envío? ¿Ropa, tenis, algo de tecnología, para la casa, un regalo…?" Give a few concrete directions and let THEM steer, THEN search that. Only skip the question when they've already named what they want.
   ② FINALIZE = create the purchase request, ONLY when the customer signals they're DONE: "eso es todo", "ya", "ya no quiero más", "créala", "cotízala", "haz el pedido", "ciérralo", "ya estoy listo", "págalo", "finaliza", "finalizar carrito", "finaliza y crea mi pedido" (this last one is exactly what the "Finalizar carrito" button sends). THEN call show_assisted_summary RIGHT AWAY with EVERY item in the cart — do NOT ask for size, colour, variant or quantity first. Our shopping team confirms the exact variant directly with the customer AFTER the request is created, so asking here only adds friction and kills the moment. The customer tapped Finalizar expecting an INSTANT confirmation — give it to them. It is the ONLY way to place the request, and it's a FINALIZE action — never call it just because they added one item. Boxly buys it all, imports it, delivers it; the customer pays product + 15% (on the checkout total) + the box, quoted after.
@@ -1741,6 +1755,9 @@ export default defineEventHandler(async (event) => {
             image: z.string().describe('Product image URL — auto-filled from the registry when saved_id is set; pass it directly only if there is no saved_id.').optional(),
             price: z.number().describe('USD price the customer saw (sale price if on sale) — shown under the item in the box.').optional(),
             type: z.enum(['rigid_small', 'flat_soft', 'medium_soft', 'rigid_medium', 'shoes', 'bulky_soft', 'fragile', 'oversize_long']).describe('Packing archetype by VOLUME, not item count. oversize_long = a LONG rigid item that needs a big box on its own and fills it ~100% (a guitar / other large instrument, a skateboard/longboard/snowboard/surfboard, golf clubs) — it does not consolidate with much else. (two orders with the same number of items can need totally different boxes). rigid_small=ocupan muy poco — cosmetics/makeup/perfume/jewelry/accessories/phone cases/cables/Touchland sanitizers/small wallets (adding several barely changes the box); flat_soft=ocupan poco — t-shirts/leggings/shorts/underwear/socks/swimwear (compress well); medium_soft=ocupan medio — jeans/hoodies/sweatshirts/joggers/light jackets/mid bags/backpacks; rigid_medium=bottles/tumblers/electronics; shoes=a boxed pair; bulky_soft=ocupan mucho — boots/thick coats/blankets/pillows/plush/helmets/appliances (pots, coffee makers); fragile=lamps/glass/decor. A Touchland Power Mist sanitizer is rigid_small.').optional(),
+            url: z.string().describe('The product page URL — REQUIRED when there is no saved_id (a link the shopper pasted). It is how the box reads the real sizes/colours; without it no picker can be shown.').optional(),
+            size: z.string().describe('The size the shopper CHOSE, e.g. "Medium", "34C", "10.5". Pass it as soon as they say it — an item with choosable sizes is NOT added to the box until this is set.').optional(),
+            color: z.string().describe('The colour/finish the shopper CHOSE, e.g. "Black", "Blue Oasis". Same rule as size.').optional(),
           })).min(1),
         }),
         execute: async ({ items }) => {
@@ -1762,7 +1779,10 @@ export default defineEventHandler(async (event) => {
           // live run, which skipped the read. Any product with a stored URL gets one read; a product with no
           // variants comes back as a single SKU and shows nothing extra.
           const saved = last?.saved_id ? savedProducts.find((p: any) => p.id === last.saved_id) : null
-          const url = saved?.url || saved?.product_url || null
+          // A PASTED LINK HAS NO REGISTRY ENTRY (Alex, 2026-09-11: he pasted a YoungLA product and got no picker).
+          // Take the URL the model carried on the item, and failing that the last http(s) link in the conversation,
+          // so a pasted product reads its variants exactly like a gallery one.
+          const url = saved?.url || saved?.product_url || (typeof last?.url === 'string' && /^https?:\/\//i.test(last.url) ? last.url : null) || lastPastedUrl(messages)
           if (url) {
             const cached = variantCache.get(url)
             let r: any = cached && Date.now() - cached.at < 15 * 60_000 ? cached.r : null
@@ -1776,6 +1796,24 @@ export default defineEventHandler(async (event) => {
             if (r?.variants?.length) {
               const avail = r.variants.filter((v: any) => v.available)
               ship.variants_for = { saved_id: last.saved_id, product_title: saved?.title || last.name || null, variants: r.variants, checked_at: r.checked_at, source: r.source }
+              // PICK FIRST, THEN ADD (Alex, 2026-09-11: "it should FIRST pull up the variants and then when you
+              // choose it ONLY THEN does it get added to cart"). A product with a REAL choice to make — some axis
+              // with two or more values — is held out of the box until the shopper's size/colour is known, so an
+              // unsized item can never sit in the cart and go into a purchase request half-specified. Anything
+              // without a real choice (single SKU, one-value axes) is added immediately, as is a read that failed:
+              // our reader must never block a purchase.
+              const axes: any[] = Array.isArray(r.axes) ? r.axes : []
+              const realChoice = axes.some((a: any) => (a?.values?.length || 0) > 1)
+              const picked = !!(last.size || last.color)
+              if (realChoice && !picked) {
+                const held = await buildShipment(items.slice(0, -1))
+                return {
+                  ...held, hold: true,
+                  pending_item: { saved_id: last.saved_id, name: saved?.title || last.name || null, image: saved?.image || null, price: saved?.price ?? last.price ?? null },
+                  variants_for: ship.variants_for,
+                  note: `STOP — "${saved?.title || last.name}" IS NOT IN THE BOX AND YOU MUST NOT SAY IT IS. The words "agregué", "agregado", "ya está en tu caja", "añadí" are FORBIDDEN in this reply. It needs ${axes.filter((a: any) => (a?.values?.length || 0) > 1).map((a: any) => a.name).join(' + ')} first (${avail.length} of ${r.variants.length} combinations available; the chips are already on screen, do NOT list the options in text). Reply with ONE short line in this shape: "Elige la talla y el color y lo agrego a tu caja 👇". Then STOP — no other tool calls. When the shopper picks, call show_shipment again for this product WITH size and color set, and only THEN say it is in the box.`,
+                }
+              }
               ship.note = `SIZES/COLOURS READ for "${saved?.title || last.name}": ${avail.length} of ${r.variants.length} available (chips are on screen). Ask ONE short question — which size/colour they want, naming the available ones: ${avail.slice(0, 30).map((v: any) => v.key).join(' · ')}. When they answer, carry that size/color into show_assisted_summary at finalize.`
             } else if (r) {
               ship.note = `Variant read for "${saved?.title || last.name}" returned nothing (${r.reason || 'no_variants'}) — don't ask for size now; the shopping team confirms it after the request.`

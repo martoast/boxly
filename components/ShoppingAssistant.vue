@@ -397,7 +397,9 @@
 
                   <!-- 3) Action widgets + follow-ups after the reply -->
                   <template v-for="(part, i) in m.parts" :key="'w' + i">
-                    <LazyShipmentCard v-if="part.type === 'tool-show_shipment' && part.state === 'output-available'" :shipment="enrichShipment(part.output)" :requested="!!assistedPr" @order="onFinalizeShipment" @add="onAddMore" />
+                    <!-- An item held for a size/colour pick returns hold:true; with nothing else in the box there is no box to
+                         draw yet, so show the picker alone rather than an empty "Tu caja Boxly 0" card. -->
+                    <LazyShipmentCard v-if="part.type === 'tool-show_shipment' && part.state === 'output-available' && !(part.output?.hold && !part.output?.items?.length)" :shipment="enrichShipment(part.output)" :requested="!!assistedPr" @order="onFinalizeShipment" @add="onAddMore" />
                     <!-- Sizes/colours with LIVE availability for the item just added (read from its stored URL by show_shipment). -->
                     <LazyVariantPicker v-if="part.type === 'tool-show_shipment' && part.state === 'output-available' && part.output?.variants_for?.variants?.length" class="mt-2" :data="variantData(part.output.variants_for)" :busy="isBusy" @pick="sendFollowup" />
 
