@@ -21,13 +21,30 @@ export default defineEventHandler(async (event) => {
   // read. The catalog's stored images stay behind this purely as the instant first paint and the fallback when a
   // store is slow or walled, never as the answer.
   const maxAgeS = Number(body?.max_age_s) >= 0 ? Number(body.max_age_s) : 0
+  // A GOOGLE ROW HAS NO STORE URL. Google Shopping links to google.com, so before anything can be read we resolve
+  // the row to the merchant's own product page via its page token, then fall through and read THAT like any other
+  // store (Alex, 2026-09-11: it has to work for any result we show in the gallery).
+  let readUrl = url
+  let resolved: any = null
+  if (/(^|\.)google\.[a-z.]+$/i.test(hostOf(url)) && body?.page_token) {
+    try {
+      const g: any = await $fetch(`${API_BASE}/catalog/google-product`, { method: 'POST', body: { page_token: body.page_token }, timeout: 20_000 })
+      const offer = (g?.offers || []).find((o: any) => o?.url)
+      if (offer?.url) { readUrl = offer.url; resolved = { merchant: offer.merchant, price: offer.price, images: g.images || [] } }
+      else return { variants: [], axes: [], colorways: [], reason: 'no_merchant_offer', images: g?.images || [] }
+    } catch (e: any) {
+      console.warn('[product-variants] google-product unreachable:', e?.message || e)
+      return { variants: [], axes: [], colorways: [], reason: 'unreachable' }
+    }
+  }
+
   // AMAZON GOES TO ITS OWN PRODUCT PAGE. A gallery row from an Amazon search has one image, no sizes and no
   // stock — but we always have its product URL, so the read is possible and therefore mandatory (Alex, 2026-09-11:
   // "that step is never optional... the page might reveal the product isn't available"). The catalog service
   // cannot do this one: the SerpAPI key lives on the API, so the API reads the page and hands back the same shape.
-  if (/(^|\.)amazon\.[a-z.]+$/i.test(hostOf(url))) {
+  if (/(^|\.)amazon\.[a-z.]+$/i.test(hostOf(readUrl))) {
     try {
-      const a: any = await $fetch(`${API_BASE}/catalog/amazon-product`, { method: 'POST', body: { url }, timeout: 25_000 })
+      const a: any = await $fetch(`${API_BASE}/catalog/amazon-product`, { method: 'POST', body: { url: readUrl }, timeout: 25_000 })
       const variants = Array.isArray(a?.variants) ? a.variants : []
       if (variants.length || (a?.product?.images || []).length) {
         return {
@@ -52,7 +69,7 @@ export default defineEventHandler(async (event) => {
   try {
     const r: any = await $fetch(`${CATALOG_BASE}/catalog/product-variants`, {
       method: 'POST',
-      body: { url, max_age_s: maxAgeS, skip_colorways: !!body?.skip_colorways },
+      body: { url: readUrl, max_age_s: maxAgeS, skip_colorways: !!body?.skip_colorways },
       timeout: 55_000,
     })
     const variants = Array.isArray(r?.variants) ? r.variants : []
@@ -68,6 +85,11 @@ export default defineEventHandler(async (event) => {
       // them all and re-reads the one the shopper picks, because availability is per colourway.
       colorways: Array.isArray(r?.colorways) ? r.colorways : [],
       reason: r?.error || (!variants.length ? (r?.reason || 'no_variants') : null),
+      // When the row came from Google, say which merchant we landed on and keep Google's own gallery as a
+      // fallback for a merchant page that yields no images.
+      ...(resolved ? { resolved_merchant: resolved.merchant, resolved_url: readUrl } : {}),
+      ...(resolved && !(r?.product?.images || []).length && resolved.images?.length
+        ? { product: { ...(r?.product || {}), images: resolved.images, image: resolved.images[0] } } : {}),
     }
   } catch (e: any) {
     // Never block the modal on our reader: no variants simply means the picker stays hidden.

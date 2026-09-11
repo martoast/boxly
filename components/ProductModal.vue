@@ -367,7 +367,7 @@ async function loadVariants(p, overrideUrl) {
   loadingVariants.value = true
   try {
     // max_age_s 0 = a LIVE read of the product page every time it is opened, never a cached row.
-    const r = await $fetch('/api/product-variants', { method: 'POST', body: { url, max_age_s: 0, skip_colorways: !!keep }, timeout: 58000 })
+    const r = await $fetch('/api/product-variants', { method: 'POST', body: { url, max_age_s: 0, skip_colorways: !!keep, page_token: overrideUrl ? null : (p?.page_token || null) }, timeout: 58000 })
     const merged = r && keep?.length ? { ...r, colorways: keep } : r
     if (merged?.variants?.length || merged?.colorways?.length) {
       variantData.value = merged

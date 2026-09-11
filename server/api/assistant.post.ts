@@ -317,6 +317,8 @@ function dropSoldOut<T>(rows: T[]): { rows: T[]; dropped: number } {
 
 function toGalleryProduct(p: any) {
   return {
+    // Carried when the row came from Google: the handle that resolves to the merchant's real product page.
+    ...(p.page_token ? { page_token: p.page_token } : {}),
     id: p.id || pid({ url: p.url, title: p.title, store: p.store }),
     title: p.title,
     url: p.url,
@@ -530,7 +532,9 @@ async function getGoogleShopApi(query: string) {
     : data?.no_results ? 'no_results'
     : null
   return {
-    products: raw.map((p) => ({ ...toGalleryProduct(p), merchant: p.merchant || p.store || null, source: 'google' })),
+    // page_token travels with the row: a Google result links to google.com, so the modal needs this to reach the
+    // merchant's own product page and read its variants (see /catalog/google-product).
+    products: raw.map((p) => ({ ...toGalleryProduct(p), merchant: p.merchant || p.store || null, source: 'google', page_token: p.page_token || null, product_id: p.product_id || null })),
     source: 'google',
     from_web: true,          // the model MUST frame these as found on the web, orderable via Boxly
     reason,                  // null on success; 'cooling'/'blocked'/'no_results'/an error code otherwise
