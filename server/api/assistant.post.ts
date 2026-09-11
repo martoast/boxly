@@ -451,7 +451,7 @@ async function getCollectionApi(id: string, exclude_ids?: string[]) {
 async function liveGrabApi(a: { url?: string; store?: string; query?: string }) {
   let data: any = {}
   try {
-    data = await callApi('/catalog/live-grab', { method: 'POST', body: a, timeoutMs: 58000 })
+    data = await callApi('/catalog/live-grab', { method: 'POST', body: a, timeoutMs: 25000 }) // inside the host's ~30 s stream budget
   } catch { data = { error: 'unreachable' } }
   // Upstream returns {product} (exact) | {products, note:'closest'} | {error|blocked|no_match|busy}.
   const raw: any[] = Array.isArray(data?.products) ? data.products : (data?.product ? [data.product] : [])
@@ -1643,7 +1643,14 @@ export default defineEventHandler(async (event) => {
           // No pasted link → this is a product search, and it gets the full treatment (catalog + Google Shopping +
           // Amazon at once, the store's own site on a miss) — a lone live grab that comes back empty is a dead end.
           if (!/^https?:\/\//i.test(u)) return markGallery(await searchCatalogApi({ query: [store, query].filter(Boolean).join(' ').trim() || undefined, store: store || undefined }))
-          return markGallery(await liveGrabApi({ url: u }))
+          const r: any = await liveGrabApi({ url: u })
+          if (r.products?.length) return markGallery(r)
+          // The page gave nothing (bot wall, a URL the model made up, a dead link): never end on an empty
+          // gallery — run the merged search on the words we have (the URL's own path words as a last resort).
+          const fromUrl = decodeURIComponent(u.replace(/^https?:\/\/[^/]+/, '')).replace(/[^a-z0-9]+/gi, ' ').replace(/\b(?:pd|p|product|products|dp|ip|html?)\b/gi, ' ').replace(/\s+/g, ' ').trim()
+          const q = [store, query].filter(Boolean).join(' ').trim() || fromUrl.slice(0, 80) || undefined
+          const s2: any = await searchCatalogApi({ query: q, store: store || undefined })
+          return markGallery({ ...s2, note: `THE LINK COULD NOT BE READ (${r.reason || 'no product on that page'}), so this is the merged search for "${q}" instead — say that in one line. ${s2.note || ''}` })
         },
         toModelOutput: galleryModelOutput,
       }),

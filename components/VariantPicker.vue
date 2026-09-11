@@ -21,7 +21,12 @@
     <div class="mt-3 flex items-center gap-1.5 text-[11px] text-gray-500">
       <span class="inline-block w-1.5 h-1.5 rounded-full" :class="fresh ? 'bg-emerald-500' : 'bg-amber-400'"></span>
       <span>Disponibilidad {{ data.source === 'live' ? 'en vivo' : 'verificada' }}<template v-if="data.checked_at"> · {{ rel(data.checked_at) }}</template></span>
-      <span class="ml-auto text-gray-400">{{ availableCount }} de {{ variants.length }} disponibles<template v-if="unknownCount"> · {{ unknownCount }} por confirmar</template></span>
+      <!-- Never "0 de 81 disponibles": when the store told us nothing, say so plainly instead of implying
+           the product is sold out (Alex, 2026-09-11 — an in-stock Owala read as a wall of dead chips). -->
+      <span class="ml-auto text-gray-400">
+        <template v-if="allUnknown">disponibilidad por confirmar</template>
+        <template v-else>{{ availableCount }} de {{ variants.length }} disponibles<template v-if="unknownCount"> · {{ unknownCount }} por confirmar</template></template>
+      </span>
     </div>
 
     <!-- one row per axis, in the store's order -->
@@ -54,7 +59,7 @@
       </div>
     </div>
 
-    <p v-if="shownAxes.length" class="mt-2 text-[11px] text-gray-400"><span class="inline-block w-2.5 h-2.5 rounded border border-gray-200 bg-white align-middle mr-1"></span>disponible <span class="inline-block w-2.5 h-2.5 rounded border border-dashed border-gray-300 bg-white align-middle ml-2 mr-1"></span>por confirmar <span class="inline-block w-2.5 h-2.5 rounded border border-gray-100 bg-gray-50 align-middle ml-2 mr-1"></span>agotado</p>
+    <p v-if="shownAxes.length && !allUnknown" class="mt-2 text-[11px] text-gray-400"><span class="inline-block w-2.5 h-2.5 rounded border border-gray-200 bg-white align-middle mr-1"></span>disponible <span class="inline-block w-2.5 h-2.5 rounded border border-dashed border-gray-300 bg-white align-middle ml-2 mr-1"></span>por confirmar <span class="inline-block w-2.5 h-2.5 rounded border border-gray-100 bg-gray-50 align-middle ml-2 mr-1"></span>agotado</p>
     <p v-else class="mt-3 text-[12px] text-gray-600">Talla única · {{ variants[0]?.available ? 'disponible' : 'agotado' }}</p>
 
     <!-- CTA -->
@@ -134,6 +139,9 @@ const independent = computed(() => props.data?.axes_independent === true || prop
 watchEffect(() => { const pre = props.data?.selected; if (pre && typeof pre === 'object') for (const [k, v] of Object.entries(pre)) if (v != null && !sel[k]) sel[k] = String(v) })
 const availableCount = computed(() => variants.value.filter((v) => v.available === true).length)
 const unknownCount = computed(() => variants.value.filter((v) => v.available == null).length)
+// The source told us nothing about stock (a feed without the field, an unreadable page): every chip stays
+// pickable and our buyer confirms at purchase — see normalizeAllUnavailable() in the catalog service.
+const allUnknown = computed(() => variants.value.length > 0 && variants.value.every((v) => v.available == null))
 const fresh = computed(() => { const t = props.data?.checked_at ? Date.now() - new Date(props.data.checked_at).getTime() : Infinity; return t < 15 * 60_000 })
 
 // A value is pickable when some AVAILABLE variant matches it together with everything already selected on OTHER axes.
