@@ -26,12 +26,16 @@ export default defineEventHandler(async (event) => {
   // store (Alex, 2026-09-11: it has to work for any result we show in the gallery).
   let readUrl = url
   let resolved: any = null
+  let offers: any[] = []
   if (/(^|\.)google\.[a-z.]+$/i.test(hostOf(url)) && body?.page_token) {
     try {
       const g: any = await $fetch(`${API_BASE}/catalog/google-product`, { method: 'POST', body: { page_token: body.page_token }, timeout: 20_000 })
-      const offer = (g?.offers || []).find((o: any) => o?.url)
-      if (offer?.url) { readUrl = offer.url; resolved = { merchant: offer.merchant, price: offer.price, images: g.images || [] } }
-      else return { variants: [], axes: [], colorways: [], reason: 'no_merchant_offer', images: g?.images || [] }
+      // A GOOGLE OFFER OUTLIVES ITS LISTING. The top merchant's link is often already dead (the reader answers
+      // page_not_found on its 404), so keep the runners-up: we walk them in order until one reads as a product.
+      offers = (g?.offers || []).filter((o: any) => o?.url).slice(0, 3)
+      if (!offers.length) return { variants: [], axes: [], colorways: [], reason: 'no_merchant_offer', images: g?.images || [] }
+      readUrl = offers[0].url
+      resolved = { merchant: offers[0].merchant, price: offers[0].price, images: g.images || [] }
     } catch (e: any) {
       console.warn('[product-variants] google-product unreachable:', e?.message || e)
       return { variants: [], axes: [], colorways: [], reason: 'unreachable' }
@@ -42,9 +46,9 @@ export default defineEventHandler(async (event) => {
   // stock — but we always have its product URL, so the read is possible and therefore mandatory (Alex, 2026-09-11:
   // "that step is never optional... the page might reveal the product isn't available"). The catalog service
   // cannot do this one: the SerpAPI key lives on the API, so the API reads the page and hands back the same shape.
-  if (/(^|\.)amazon\.[a-z.]+$/i.test(hostOf(readUrl))) {
+  const readAmazon = async (u: string) => {
     try {
-      const a: any = await $fetch(`${API_BASE}/catalog/amazon-product`, { method: 'POST', body: { url: readUrl }, timeout: 25_000 })
+      const a: any = await $fetch(`${API_BASE}/catalog/amazon-product`, { method: 'POST', body: { url: u }, timeout: 25_000 })
       const variants = Array.isArray(a?.variants) ? a.variants : []
       if (variants.length || (a?.product?.images || []).length) {
         return {
@@ -66,34 +70,59 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  try {
-    const r: any = await $fetch(`${CATALOG_BASE}/catalog/product-variants`, {
-      method: 'POST',
-      body: { url: readUrl, max_age_s: maxAgeS, skip_colorways: !!body?.skip_colorways },
-      timeout: 55_000,
-    })
-    const variants = Array.isArray(r?.variants) ? r.variants : []
+  const readStore = async (u: string) => {
+    try {
+      const r: any = await $fetch(`${CATALOG_BASE}/catalog/product-variants`, {
+        method: 'POST',
+        body: { url: u, max_age_s: maxAgeS, skip_colorways: !!body?.skip_colorways },
+        timeout: 55_000,
+      })
+      const variants = Array.isArray(r?.variants) ? r.variants : []
+      return {
+        product: r?.product || null,
+        axes: Array.isArray(r?.axes) ? r.axes : [],
+        variants,
+        axes_independent: r?.axes_independent !== false,
+        selected: r?.selected || null,
+        checked_at: r?.checked_at || null,
+        source: r?.source || null,
+        // Sibling colourways: stores that sell each colour as its own page (DFYNE, Alo, YoungLA) — the modal offers
+        // them all and re-reads the one the shopper picks, because availability is per colourway.
+        colorways: Array.isArray(r?.colorways) ? r.colorways : [],
+        reason: r?.error || (!variants.length ? (r?.reason || 'no_variants') : null),
+      }
+    } catch (e: any) {
+      // Never block the modal on our reader: no variants simply means the picker stays hidden.
+      console.warn('[product-variants] unreachable:', e?.message || e)
+      return { variants: [], axes: [], reason: 'unreachable' } as any
+    }
+  }
+
+  const readAny = (u: string) => (/(^|\.)amazon\.[a-z.]+$/i.test(hostOf(u)) ? readAmazon(u) : readStore(u))
+  // Did we land on a PRODUCT? A dead link answers page_not_found; a walled or empty page answers nothing usable.
+  // Anything with a real axis, several variants, photos or a price is the product page we came for.
+  const isProduct = (r: any) => !!r && !['page_not_found', 'not_a_product_page', 'unreachable'].includes(r.reason)
+    && ((r.axes || []).length > 0 || (r.variants || []).length > 1 || (r.product?.images || []).length > 0 || r.product?.price != null)
+
+  // Walk the merchants in Google's order until one of them actually has the product.
+  if (offers.length) {
+    let last: any = null
+    for (const o of offers) {
+      const r = await readAny(o.url)
+      if (isProduct(r)) { readUrl = o.url; resolved = { ...resolved, merchant: o.merchant, price: o.price }; last = r; break }
+      console.warn('[product-variants] merchant link not a product:', o.merchant, r?.reason)
+      last = last || r
+    }
+    const r = last || { variants: [], axes: [], reason: 'no_merchant_offer' }
     return {
-      product: r?.product || null,
-      axes: Array.isArray(r?.axes) ? r.axes : [],
-      variants,
-      axes_independent: r?.axes_independent !== false,
-      selected: r?.selected || null,
-      checked_at: r?.checked_at || null,
-      source: r?.source || null,
-      // Sibling colourways: stores that sell each colour as its own page (DFYNE, Alo, YoungLA) — the modal offers
-      // them all and re-reads the one the shopper picks, because availability is per colourway.
-      colorways: Array.isArray(r?.colorways) ? r.colorways : [],
-      reason: r?.error || (!variants.length ? (r?.reason || 'no_variants') : null),
-      // When the row came from Google, say which merchant we landed on and keep Google's own gallery as a
-      // fallback for a merchant page that yields no images.
-      ...(resolved ? { resolved_merchant: resolved.merchant, resolved_url: readUrl } : {}),
-      ...(resolved && !(r?.product?.images || []).length && resolved.images?.length
+      ...r,
+      resolved_merchant: resolved?.merchant, resolved_url: readUrl,
+      ...(!(r?.product?.images || []).length && resolved?.images?.length
         ? { product: { ...(r?.product || {}), images: resolved.images, image: resolved.images[0] } } : {}),
     }
-  } catch (e: any) {
-    // Never block the modal on our reader: no variants simply means the picker stays hidden.
-    console.warn('[product-variants] unreachable:', e?.message || e)
-    return { variants: [], axes: [], reason: 'unreachable' }
   }
+
+  if (/(^|\.)amazon\.[a-z.]+$/i.test(hostOf(readUrl))) return await readAmazon(readUrl)
+
+  return await readStore(readUrl)
 })
