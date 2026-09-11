@@ -192,9 +192,19 @@ const variantData = ref(null)
 const loadingVariants = ref(false)
 const broken = ref(new Set())
 
+// THE PRODUCT PAGE'S OWN PHOTOGRAPHY, in order of trust:
+//   1. product.images from /api/product-variants — the catalog row's real product-page images (12 for a Stanley
+//      Quencher, 9 for a YoungLA pant). Added 2026-09-11 after a 28-store bench proved /products/page returns ZERO
+//      images on 84/84 products in production, so the modal had always fallen back to the gallery thumbnail.
+//   2. /products/page's images, if that path ever answers again.
+//   3. the gallery thumbnail, so there is always something.
 const gallery = computed(() => {
-  const base = fetchedImages.value.length ? fetchedImages.value : (props.product?.image ? [props.product.image] : [])
-  return base.filter((u) => !broken.value.has(u))
+  const fromCatalog = variantData.value?.product?.images
+  const base = (Array.isArray(fromCatalog) && fromCatalog.length ? fromCatalog
+    : fetchedImages.value.length ? fetchedImages.value
+    : (props.product?.image ? [props.product.image] : []))
+  const seen = new Set()
+  return base.filter((u) => typeof u === 'string' && !broken.value.has(u) && !seen.has(u) && seen.add(u))
 })
 // Bento: show up to 3 tiles (hero + 2); a "+N" overlay hints at the rest.
 const bentoImgs = computed(() => gallery.value.slice(0, 3))
@@ -219,7 +229,14 @@ const linkPending = computed(() => loadingDetail.value && isGoogleLink(bestLink.
 // fills in behind its own small loader) rather than leave the shopper staring at a skeleton.
 const REVEAL_CAP_MS = 9000
 const revealForced = ref(false)
-const loadingProduct = computed(() => !revealForced.value && (loadingDetail.value || loadingVariants.value))
+// Reveal as soon as we can SHOW something real. Waiting on the variant read too would strand the shopper for up
+// to ~13 s on the stores that need a live product-page read (bench, 2026-09-11); the picker fills in behind its
+// own small loader instead. Still capped, so a slow detail fetch cannot hold the modal either.
+const loadingProduct = computed(() => {
+  if (revealForced.value) return false
+  if (gallery.value.length > 1) return false // real product-page photos are in — show them
+  return loadingDetail.value || loadingVariants.value
+})
 const hasChoices = computed(() => {
   const ax = variantData.value?.axes || []
   return ax.some((a) => (a?.values?.length || 0) > 1)
