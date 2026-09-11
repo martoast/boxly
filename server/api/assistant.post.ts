@@ -610,13 +610,39 @@ function brandRowsOnly(rows: any[], store?: string | null) {
   })
 }
 
+// WHAT WE ASK GOOGLE MUST BE SHORT AND THE SAME EVERY TIME (Alex, 2026-09-11: "I just did the search asking for a
+// soccer ball and I only got amazon results"). Measured with /catalog/serp-diag: SerpAPI answers a query it has
+// CACHED in 0.1–4 s and one it must fetch live in 6–20 s. The model invents a different English phrasing on every
+// turn — "soccer ball soccer ball", "sports kids soccer ball", "sports official match soccer ball fifa pro",
+// "Adidas soccer ball soccer ball" — so nearly every search was a COLD query, and two cold misses in a row put
+// Google into its cooldown, which then blocked the warm queries too. Collapsing those phrasings onto ONE short
+// canonical query makes them share a cache entry: the first shopper pays for the lookup, everyone after is
+// instant. Marketing adjectives carry no search value and only make the string unique, so they go.
+const WEB_FILLER_RE = /^(?:sports?|official|match|pro|professional|premium|quality|best|top|new|genuine|authentic|original|classic|style|item|items|product|products|para|de|the|a|an|for)$/i
+function canonicalWebQuery(raw: string, max = 4) {
+  const seen = new Set<string>()
+  const words: string[] = []
+  for (const w of String(raw || '').trim().split(/\s+/)) {
+    const bare = w.replace(/[^\p{L}\p{N}'&.-]/gu, '')
+    if (!bare) continue
+    const k = bare.toLowerCase()
+    if (seen.has(k)) continue // "soccer ball soccer ball" → "soccer ball"
+    seen.add(k)
+    words.push(bare)
+  }
+  // Filler goes wherever it sits — "sports kids soccer ball" must reduce to "kids soccer ball", and a leading
+  // adjective is exactly where the model likes to put it. Only if NOTHING survives do we keep the original words.
+  const kept = words.filter((w) => !WEB_FILLER_RE.test(w))
+  return ((kept.length ? kept : words).slice(0, max).join(' ') || String(raw || '').trim()).slice(0, 80)
+}
+
 async function getWebApi(rawQuery: string, store?: string) {
   const query = await toEnglishSearchTerms(rawQuery)
   const [g, a]: any[] = await Promise.all([
-    getGoogleShopApi([store, query].filter(Boolean).join(' ').trim()).catch(() => ({ products: [], reason: 'unreachable' })),
+    getGoogleShopApi(canonicalWebQuery([store, query].filter(Boolean).join(' ').trim(), 5)).catch(() => ({ products: [], reason: 'unreachable' })),
     // Amazon is one merchant: a RETAILER's name in the query ("Dick's Sporting Goods cleats") only adds noise,
     // but a BRAND's name is the whole point ("Coach pink bag" → Coach bags; "pink bags" alone → gift bags).
-    getAmazonApi([store && !RETAILER_RE.test(store) ? store : null, query].filter(Boolean).join(' ')).catch(() => ({ products: [], reason: 'unreachable' })),
+    getAmazonApi(canonicalWebQuery([store && !RETAILER_RE.test(store) ? store : null, query].filter(Boolean).join(' '), 5)).catch(() => ({ products: [], reason: 'unreachable' })),
   ])
   const seen = new Set<string>()
   const keep = (p: any) => {
