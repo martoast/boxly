@@ -5,7 +5,7 @@ import { z } from 'zod'
 import { FALLBACK_KNOWLEDGE } from '../utils/boxlyKnowledge'
 import { curateProducts, floatRequestedStore } from '../utils/curate'
 import { chatModel, isAnthropic, providerOptions, hasModelKey } from '../utils/aiProvider'
-import { toEnglishSearchTerms } from '../utils/webQuery'
+import { toEnglishSearchTerms, looksSpanish } from '../utils/webQuery'
 import { ageGalleries, windowMessages, withContextOnLastUser, dropToolParts, contextStats, WINDOW_DEFAULTS } from '../utils/chatContext'
 import { generateFollowups, followupPart, followupsWithin, attachFollowupChips } from '../utils/followups'
 import { readSummary, summaryBlock, summarize, shouldSummarize } from '../utils/chatSummary'
@@ -59,7 +59,18 @@ const LIVE_STORE_BUDGET_MS = 30000
 // but its mirror lacks the item, the store's OWN site joins in through our browser agent, and those rows go
 // right after the catalog's. Filler (catalog rows that did not match their words) never leads a gallery that
 // has real results from elsewhere.
-async function searchCatalogApi(a: CatalogSearchArgs & { web?: boolean }) {
+async function searchCatalogApi(a0: CatalogSearchArgs & { web?: boolean }) {
+  // The catalog is indexed in ENGLISH. The model is told to translate, but a fast model still sends
+  // "rosa" + category "bolsas" for "bolsa rosa de Coach" — which matches nothing, while "pink bag" matches
+  // Coach's pink bags. So: when the words look Spanish, translate query+category once (aux model, ~1 s)
+  // and search with the English phrase (the Spanish category folds into the query; the catalog's category
+  // field would not have matched "bolsas" anyway).
+  const a: CatalogSearchArgs & { web?: boolean } = { ...a0 }
+  const spanishBits = [a.category, a.query].filter((t) => t && looksSpanish(String(t))) as string[]
+  if (spanishBits.length) {
+    const en = await toEnglishSearchTerms([a.category, a.query].filter(Boolean).join(' ')).catch(() => '')
+    if (en && en.trim()) { a.query = en.trim(); a.category = undefined }
+  }
   const qs = new URLSearchParams()
   if (a.query) qs.set('q', a.query)
   if (a.store) qs.set('store', a.store)
@@ -97,7 +108,7 @@ async function searchCatalogApi(a: CatalogSearchArgs & { web?: boolean }) {
       // The catalog's id for the store they named ("New Balance" → new-balance): the live-grab leg needs the id.
       store_id: data?.resolved?.stores?.[0]?.store_id || null,
     }
-  } catch { products = [] }
+  } catch (e: any) { console.warn('[assistant] catalog search failed:', e?.message || e, qs.toString()); products = [] }
   // The store they named is NOT in our catalog (Macy's, ULTA, PINK…): the catalog only RANKED other stores'
   // rows by that word, which is filler. Don't hand the model filler and hope it notices the flag — go get
   // that store from the web right here, so the gallery is that store, every time, in one round-trip.
@@ -111,9 +122,12 @@ async function searchCatalogApi(a: CatalogSearchArgs & { web?: boolean }) {
     ? Promise.race([liveGrabApi({ store: miss.store_id || a.store, query: term }), budget]).catch(() => ({ products: [], reason: 'error' }))
     : Promise.resolve({ products: [], reason: carriedMiss ? 'no_term' : 'not_needed' })
   const [g, live]: any[] = await Promise.all([webP, liveP])
-  // Merge. Catalog rows are REAL only when the mirror matched their words; otherwise they are same-store/deal
-  // filler and go LAST (and are dropped once the real legs have enough).
-  const catalogReal = miss.query_matched !== false
+  // Merge. Catalog rows are REAL when the mirror matched their words — OR when they are the named store's own
+  // products (a "bolsa rosa de Coach" ask must lead with Coach's bags even if none is tagged pink; Amazon
+  // listings are never a better answer than the store they asked for). Store-less non-matches are filler:
+  // they go LAST and are dropped once the real legs have enough.
+  const namedCarriedStore = !!a.store && !miss.unmatched_stores?.length && products.length > 0
+  const catalogReal = miss.query_matched !== false || namedCarriedStore
   const catRows = products.map(toGalleryProduct)
   const storeRows: any[] = live.products || []
   // A sale/promo search takes only MARKED-DOWN web rows — full-price Amazon listings are not "ofertas".
@@ -132,7 +146,7 @@ async function searchCatalogApi(a: CatalogSearchArgs & { web?: boolean }) {
   const store = a.store
   const catStores = [...new Set(catRows.map((p: any) => p.store).filter(Boolean))]
   const catalogLine = catalogReal
-    ? `${catRows.length} from OUR OWN CATALOG (${catStores.join(', ') || 'our stores'} — real stock, first in the list)`
+    ? `${catRows.length} from OUR OWN CATALOG (${catStores.join(', ') || 'our stores'} — real stock, first in the list${miss.query_matched === false ? `; note they are ${store}'s closest items, none matched "${a.query}" exactly — say so honestly` : ''})`
     : `our catalog had NO real match for "${a.query}"${store ? ` at ${store}` : ''}${filler.length && merged.some((p) => filler.includes(p)) ? ` (its ${filler.length} same-store picks are at the END, clearly not the item)` : ''}`
   const siteLine = !carriedMiss ? null
     : storeRows.length ? `${storeRows.length} straight from ${store}'s own site (our agent searched it live just now${live.note === 'closest' ? ', closest matches' : ''})`
@@ -207,8 +221,16 @@ async function hookFallback(context: string) {
 // only as an honest alternative, never presented as the store they named.
 async function uncarriedStoreFallback(store: string, query?: string) {
   const terms = await toEnglishSearchTerms(productTerms(query, store))
-  const g: any = await getGoogleShopApi([store, terms].filter(Boolean).join(' ')).catch(() => ({ products: [], reason: 'unreachable' }))
-  const lc = store.toLowerCase().replace(/[^a-z0-9]/g, '')
+  // ALL LEGS AT ONCE (2026-09-11: "Busco Adidas Sambas" took 51 s and timed out in production because Google
+  // (down, 15–20 s to fail) ran BEFORE the two Amazon searches). Google for the store, Amazon for the terms and
+  // Amazon as a brand search start together; the ordering below is unchanged.
+  const brandKey = store.toLowerCase().replace(/[^a-z0-9]/g, '')
+  const [g, a, b]: any[] = await Promise.all([
+    getGoogleShopApi([store, terms].filter(Boolean).join(' ')).catch(() => ({ products: [], reason: 'unreachable' })),
+    terms ? getAmazonApi(terms).catch(() => ({ products: [], reason: 'unreachable' })) : Promise.resolve({ products: [], reason: 'no_terms' }),
+    getAmazonApi([store, terms].filter(Boolean).join(' ')).catch(() => ({ products: [], reason: 'unreachable' })),
+  ])
+  const lc = brandKey
   const mine = (g.products || []).filter((p: any) => String(p.merchant || p.store || '').toLowerCase().replace(/[^a-z0-9]/g, '').includes(lc))
   const others = (g.products || []).filter((p: any) => !mine.includes(p))
   const ordered = [...mine, ...others].filter((p: any) => !SECOND_HAND_RE.test(String(p.title || '')))
@@ -219,12 +241,9 @@ async function uncarriedStoreFallback(store: string, query?: string) {
   // Google down / nothing → Amazon. With a product term it's an explicit ALTERNATIVE. With only the store
   // name, Amazon is tried as a BRAND search ("Owala" → real Owala bottles) and kept only when most titles
   // carry the brand — a retailer name ("Macy's") returns gift cards and crackers, which we drop.
-  const brandKey = store.toLowerCase().replace(/[^a-z0-9]/g, '')
-  let a: any = terms ? await getAmazonApi(terms).catch(() => ({ products: [], reason: 'unreachable' })) : { products: [], reason: 'no_terms' }
   {
     // Brand search on Amazon: "<store> <terms>" ("PINK Victoria's Secret hoodie" → PINK campus hoodies), or the
     // bare store name when they named only the brand ("Owala" → Owala bottles).
-    const b: any = await getAmazonApi([store, terms].filter(Boolean).join(' ')).catch(() => ({ products: [], reason: 'unreachable' }))
     const rows = (b.products || []).filter((p: any) => !/gift card/i.test(String(p.title || '')))
     const brandTokens = store.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 3)
     const branded = rows.filter((p: any) => { const hay = `${p.brand || ''} ${p.title || ''}`.toLowerCase().replace(/[^a-z0-9]/g, ''); return hay.includes(brandKey) || brandTokens.some((t) => hay.includes(t)) })
@@ -443,7 +462,7 @@ async function getProductVariantsApi(url: string, maxAgeS = 900) {
 async function getGoogleShopApi(query: string) {
   let data: any = {}
   try {
-    data = await callApi('/catalog/google-shop', { method: 'POST', body: { query }, timeoutMs: 58000 })
+    data = await callApi('/catalog/google-shop', { method: 'POST', body: { query }, timeoutMs: 20000 })
   } catch (e: any) { console.warn('[assistant] google-shop unreachable:', e?.message || e); data = { error: 'unreachable' } }
   const raw: any[] = Array.isArray(data?.products) ? data.products : []
   const reason: string | null = data?.error ? String(data.error)
@@ -488,12 +507,17 @@ async function catalogHitsFor(query: string): Promise<any[]> {
   } catch { return [] }
 }
 
+// Stores that are RETAILERS (they sell other brands): their name never goes into an Amazon query. Everything
+// else we carry or get asked for is a brand (Coach, Nike, Alo, New Balance, Adidas…) and its name is the query.
+const RETAILER_RE = /^(?:target|walmart|best ?buy|dick'?s(?: sporting goods)?|macy'?s|nordstrom(?: rack)?|amazon|ebay|ulta(?: beauty)?|sephora|costco|kohl'?s|jc ?penney|sam'?s club|home depot|lowe'?s|foot ?locker|finish line|zappos|revolve|asos|shein|temu|marshalls|tj ?maxx|ross|burlington|academy(?: sports)?|bass pro|cabela'?s|rei|dsw|famous footwear|old navy)$/i
+
 async function getWebApi(rawQuery: string, store?: string) {
   const query = await toEnglishSearchTerms(rawQuery)
   const [g, a]: any[] = await Promise.all([
     getGoogleShopApi([store, query].filter(Boolean).join(' ').trim()).catch(() => ({ products: [], reason: 'unreachable' })),
-    // Amazon is one merchant: a store name in the query ("Dick's Sporting Goods cleats") only adds noise.
-    getAmazonApi(query).catch(() => ({ products: [], reason: 'unreachable' })),
+    // Amazon is one merchant: a RETAILER's name in the query ("Dick's Sporting Goods cleats") only adds noise,
+    // but a BRAND's name is the whole point ("Coach pink bag" → Coach bags; "pink bags" alone → gift bags).
+    getAmazonApi([store && !RETAILER_RE.test(store) ? store : null, query].filter(Boolean).join(' ')).catch(() => ({ products: [], reason: 'unreachable' })),
   ])
   const seen = new Set<string>()
   const keep = (p: any) => {
