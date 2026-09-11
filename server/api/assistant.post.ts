@@ -1050,7 +1050,7 @@ function buildShipment(items: any[]) {
     const quantity = Math.max(1, Number(it.quantity) || 1)
     const type = (it.type && ARCHETYPE_VOL[it.type]) ? it.type : archetypeFromName(it.name || '')
     const vol = type ? ARCHETYPE_VOL[type] : DEFAULT_VOL
-    return { saved_id: it.saved_id || null, name: it.name || 'Producto', quantity, size: type ? ARCH_LABEL[type] : 'Mediano', units: vol * quantity, image: it.image || null, price: it.price ?? null }
+    return { saved_id: it.saved_id || null, name: it.name || 'Producto', quantity, size: type ? ARCH_LABEL[type] : 'Mediano', units: vol * quantity, chosen: [it.color, it.size].filter(Boolean).join(' · ') || null, image: it.image || null, price: it.price ?? null }
   })
   const total = norm.reduce((s, i) => s + i.units, 0)
   // Smallest box that holds it, allowing ~15% overflow so a near-full box reads
@@ -1652,7 +1652,7 @@ export default defineEventHandler(async (event) => {
           const r: any = await getProductVariantsApi(String(target))
           const avail = r.variants.filter((v: any) => v.available)
           const note = r.variants.length
-            ? `VARIANTS READ${r.checked_at ? ' (checked ' + r.checked_at + ')' : ''}: ${avail.length} of ${r.variants.length} available. Offer ONLY these, in this order: ${avail.slice(0, 40).map((v: any) => v.key + (v.price != null ? ' $' + v.price : '')).join(' · ')}. Ask which one they want (one short question), then show_assisted_summary with size/color = their pick. Unavailable ones are shown greyed in the chat — don't list them.`
+            ? `VARIANTS ON SCREEN${r.checked_at ? ' (checked ' + r.checked_at + ')' : ''}: ${avail.length} of ${r.variants.length} available. THE ITEM IS NOT IN THE BOX and you must not say it is — "agregué"/"agregado"/"ya está en tu caja" are FORBIDDEN here. The shopper picks size, colour and QUANTITY on the chips themselves, so do NOT list the options in text. Reply with ONE short line: "Elige la talla y la cantidad y lo agrego a tu caja 👇". Add it only on the NEXT turn, with show_shipment carrying size, color and quantity.`
             : `NO VARIANT DATA (${r.reason}). Do not stall: proceed as before — place the request when they finalize; the shopping team confirms size/colour with them after.`
           return { ...r, product_title: saved?.title || r.product?.title || null, saved_id: saved_id || null, note }
         },
@@ -1804,7 +1804,14 @@ export default defineEventHandler(async (event) => {
               // our reader must never block a purchase.
               const axes: any[] = Array.isArray(r.axes) ? r.axes : []
               const realChoice = axes.some((a: any) => (a?.values?.length || 0) > 1)
-              const picked = !!(last.size || last.color)
+              // A PICK ONLY COUNTS IF THE STORE ACTUALLY OFFERS IT. A fast model filled size with "soporte" in a
+              // local run, which would have waved a junk value straight past this gate and into the box. Every
+              // multi-value axis must be answered by one of ITS OWN values (loose compare: case, accents, spacing).
+              const norm = (v: any) => String(v ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '')
+              const given = [last.size, last.color].filter(Boolean).map(norm)
+              const picked = axes
+                .filter((a: any) => (a?.values?.length || 0) > 1)
+                .every((a: any) => (a.values || []).some((v: any) => given.includes(norm(v))))
               if (realChoice && !picked) {
                 const held = await buildShipment(items.slice(0, -1))
                 return {

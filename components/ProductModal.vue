@@ -102,10 +102,10 @@
                 class="w-full flex items-center justify-center gap-2 rounded-2xl bg-primary-500 hover:bg-primary-600 active:scale-[.98] transition text-white font-bold py-3.5 text-[15px] shadow-sm shadow-primary-500/20"
               >
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-1.5 3h11m-8 3a1 1 0 11-2 0 1 1 0 012 0zm9 0a1 1 0 11-2 0 1 1 0 012 0z"/></svg>
-                Agregar al carrito Boxly
+                Elegir talla y cantidad
               </button>
               <p class="mt-2.5 text-[11.5px] text-gray-500 text-center leading-relaxed">
-                Lo sumamos a tu envío. Sigue agregando lo que quieras — de cualquier tienda 🛒 — y cuando termines, Boxly lo compra e importa todo junto a México. 🇺🇸➜🇲🇽
+Primero eliges talla, color y cantidad — ahí lo agregas a tu carrito. Suma lo que quieras, de cualquier tienda 🛒, y Boxly lo compra e importa todo junto a México. 🇺🇸➜🇲🇽
               </p>
               </template>
             </div>

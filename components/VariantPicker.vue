@@ -63,7 +63,21 @@
     <p v-else class="mt-3 text-[12px] text-gray-600">Talla única · {{ variants[0]?.available ? 'disponible' : 'agotado' }}</p>
 
     <!-- CTA -->
+    <!-- QUANTITY sits WITH the variant choice (Alex, 2026-09-11): size, colour and how many are one decision,
+         and this button is the real add-to-cart — everything before it was only browsing. -->
     <div class="mt-3 flex items-center gap-2">
+      <div class="shrink-0 inline-flex items-center rounded-xl border border-gray-200 bg-white overflow-hidden">
+        <button type="button" @click="qty = Math.max(1, qty - 1)" :disabled="busy || qty <= 1" aria-label="Menos"
+          class="w-9 h-10 grid place-items-center text-gray-600 hover:bg-gray-50 disabled:opacity-30 transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2.4" d="M5 12h14"/></svg>
+        </button>
+        <input v-model.number="qty" type="number" min="1" max="99" inputmode="numeric" aria-label="Cantidad"
+          class="w-10 h-10 text-center text-[14px] font-bold text-gray-900 outline-none border-x border-gray-200 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+        <button type="button" @click="qty = Math.min(99, qty + 1)" :disabled="busy || qty >= 99" aria-label="Más"
+          class="w-9 h-10 grid place-items-center text-gray-600 hover:bg-gray-50 disabled:opacity-30 transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2.4" d="M12 5v14M5 12h14"/></svg>
+        </button>
+      </div>
       <button type="button" @click="confirm" :disabled="busy || !complete"
         class="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary-600 text-white text-[13px] font-bold py-2.5 disabled:opacity-40 hover:bg-primary-700 transition">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 4v16m8-8H4"/></svg>
@@ -75,7 +89,7 @@
 </template>
 
 <script setup>
-import { computed, reactive, watchEffect } from 'vue'
+import { computed, reactive, ref, watchEffect } from 'vue'
 
 // Generic N-axis variant picker. Input (from the catalog's product-page read):
 //   axes:     [{ name: 'Waist', kind: 'size'|'color'|'length'|'width'|'capacity'|'scent'|'pack'|'material'|'other', values: [...] }]  (page order)
@@ -178,16 +192,21 @@ const priceRange = computed(() => {
   const lo = Math.min(...ps), hi = Math.max(...ps)
   return lo !== hi && product.value.price == null ? `$${lo} – $${hi}` : ''
 })
+const qty = ref(1)
 const ctaLabel = computed(() => {
-  if (!axes.value.length) return complete.value ? 'Agregar a mi caja' : 'Agotado'
+  const n = Math.max(1, Number(qty.value) || 1)
+  const many = n > 1 ? ` (${n})` : ''
+  if (!axes.value.length) return complete.value ? `Agregar al carrito${many}` : 'Agotado'
   const missing = axes.value.find((a) => !sel[a.name])
   if (missing) return `Elige ${axisLabel(missing).toLowerCase()}`
-  return complete.value ? `Agregar ${axes.value.map((a) => sel[a.name]).join(' · ')} a mi caja` : 'Combinación agotada'
+  return complete.value ? `Agregar al carrito${many}` : 'Combinación agotada'
 })
 function confirm() {
   if (!complete.value) return
+  const n = Math.max(1, Math.min(99, Number(qty.value) || 1))
   const parts = axes.value.map((a) => `${axisLabel(a).toLowerCase()} ${sel[a.name]}`)
-  emit('pick', `Quiero ${product.value.title ? 'los ' + product.value.title : 'ese producto'}${parts.length ? ' en ' + parts.join(', ') : ''} — agrégalos a mi caja`)
+  const what = product.value.title ? `los ${product.value.title}` : 'ese producto'
+  emit('pick', `Quiero ${n > 1 ? `${n} de ` : ''}${what}${parts.length ? ' en ' + parts.join(', ') : ''}${n > 1 ? ` — cantidad ${n}` : ''} — agrégalos a mi caja`)
 }
 const SWATCH = { black: '#111', negro: '#111', white: '#fff', blanco: '#fff', red: '#dc2626', rojo: '#dc2626', blue: '#2563eb', azul: '#2563eb', navy: '#1e3a8a', green: '#16a34a', verde: '#16a34a', pink: '#ec4899', rosa: '#ec4899', grey: '#9ca3af', gray: '#9ca3af', gris: '#9ca3af', beige: '#d6c7a1', brown: '#92400e', café: '#92400e', yellow: '#eab308', orange: '#f97316', purple: '#7c3aed', tan: '#d2b48c', cream: '#f5f0e1', ivory: '#fffff0', olive: '#6b8e23', burgundy: '#800020', teal: '#0d9488' }
 function swatch(val) { const w = String(val).toLowerCase().split(/[^a-záéíóú]+/).find((t) => SWATCH[t]); return w ? SWATCH[w] : 'linear-gradient(135deg,#e5e7eb,#9ca3af)' }
