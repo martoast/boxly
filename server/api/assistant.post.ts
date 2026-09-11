@@ -125,7 +125,17 @@ async function searchCatalogApi(a0: CatalogSearchArgs & { web?: boolean }) {
   const liveP: Promise<any> = carriedMiss && term
     ? Promise.race([liveGrabApi({ store: miss.store_id || a.store, query: term }), budget]).catch(() => ({ products: [], reason: 'error' }))
     : Promise.resolve({ products: [], reason: carriedMiss ? 'no_term' : 'not_needed' })
-  const [g, live]: any[] = await Promise.all([webP, liveP])
+  // A named store we carry that matched only a FEW rows ("botellas Owala" → 2, because Owala's titles say
+  // "FreeSip", not "bottle") gets the rest of its own items right behind the matches, before any web row.
+  const thin = !!a.store && !miss.unmatched_stores?.length && products.length > 0 && products.length < 12
+  const moreP: Promise<any[]> = thin
+    ? callApi(`/catalog/search?${new URLSearchParams({ store: a.store as string, limit: '24' }).toString()}`, { timeoutMs: 8000 }).then((d: any) => (Array.isArray(d?.products) ? d.products : [])).catch(() => [])
+    : Promise.resolve([])
+  const [g, live, more]: any[] = await Promise.all([webP, liveP, moreP])
+  if (more.length) {
+    const have = new Set(products.map((p: any) => p.id || p.url))
+    for (const p of more) if (!have.has(p.id || p.url)) { products.push(p); have.add(p.id || p.url) }
+  }
   // Merge. Catalog rows are REAL when the mirror matched their words — OR when they are the named store's own
   // products (a "bolsa rosa de Coach" ask must lead with Coach's bags even if none is tagged pink; Amazon
   // listings are never a better answer than the store they asked for). Store-less non-matches are filler:
@@ -135,7 +145,7 @@ async function searchCatalogApi(a0: CatalogSearchArgs & { web?: boolean }) {
   const catRows = products.map(toGalleryProduct)
   const storeRows: any[] = live.products || []
   // A sale/promo search takes only MARKED-DOWN web rows — full-price Amazon listings are not "ofertas".
-  const webRows: any[] = (g.products || []).filter((p: any) => !a.sale || (p.on_sale && p.discount_pct))
+  const webRows: any[] = brandRowsOnly(g.products || [], a.store).filter((p: any) => !a.sale || (p.on_sale && p.discount_pct))
   const seen = new Set<string>()
   const dedupe = (rows: any[]) => rows.filter((p) => {
     const k = String(p?.title || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().slice(0, 60)
@@ -337,7 +347,7 @@ async function curateCatalogApi(a: CurateArgs) {
   const own: any[] = r.products || []
   const key = (p: any) => String(p?.title || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().slice(0, 60)
   const seen = new Set(own.map(key))
-  const webRows = (g.products || []).filter((p: any) => { const k = key(p); if (!k || seen.has(k)) return false; seen.add(k); return true }).slice(0, Math.max(0, GALLERY_MAX - own.length))
+  const webRows = brandRowsOnly(g.products || [], a.store).filter((p: any) => { const k = key(p); if (!k || seen.has(k)) return false; seen.add(k); return true }).slice(0, Math.max(0, GALLERY_MAX - own.length))
   if (!webRows.length) return { ...r, sources: { ...(r.sources || {}), web: 0, ...(g.sources || {}) } }
   const webDeals = webRows.filter((p: any) => p.on_sale && p.discount_pct).length
   const webLine = `PLUS ${webRows.length} from the web (Google Shopping + Amazon${a.store ? `, ${a.store} items sold there` : ''}) AFTER${own.length ? ` the ${own.length} from our own catalog` : ''}: ${webDeals} of them are real markdowns (deals first), the rest are regular price — name each item's store and call only the marked-down ones promos.`
@@ -538,6 +548,19 @@ async function catalogHitsFor(query: string): Promise<any[]> {
 // Stores that are RETAILERS (they sell other brands): their name never goes into an Amazon query. Everything
 // else we carry or get asked for is a brand (Coach, Nike, Alo, New Balance, Adidas…) and its name is the query.
 const RETAILER_RE = /^(?:target|walmart|best ?buy|dick'?s(?: sporting goods)?|macy'?s|nordstrom(?: rack)?|amazon|ebay|ulta(?: beauty)?|sephora|costco|kohl'?s|jc ?penney|sam'?s club|home depot|lowe'?s|foot ?locker|finish line|zappos|revolve|asos|shein|temu|marshalls|tj ?maxx|ross|burlington|academy(?: sports)?|bass pro|cabela'?s|rei|dsw|famous footwear|old navy)$/i
+
+// A named BRAND means that brand only (Alex, 2026-09-11: an Owala ask mixed in Stanley cups from Amazon — "I
+// specifically asked for Owala"). Web engines pad a brand search with look-alikes; keep a row only when the brand
+// is in its brand field, its title, or (Google) its merchant. Retailers pass everything through.
+function brandRowsOnly(rows: any[], store?: string | null) {
+  if (!store || RETAILER_RE.test(store)) return rows
+  const key = store.toLowerCase().replace(/[^a-z0-9]/g, '')
+  const tokens = store.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 3)
+  return rows.filter((p: any) => {
+    const hay = `${p?.brand || ''} ${p?.title || ''} ${p?.merchant || ''} ${p?.store || ''}`.toLowerCase().replace(/[^a-z0-9]/g, '')
+    return hay.includes(key) || tokens.some((t) => hay.includes(t))
+  })
+}
 
 async function getWebApi(rawQuery: string, store?: string) {
   const query = await toEnglishSearchTerms(rawQuery)
