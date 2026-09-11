@@ -132,10 +132,10 @@ async function searchCatalogApi(a0: CatalogSearchArgs & { web?: boolean }) {
     ? callApi(`/catalog/search?${new URLSearchParams({ store: a.store as string, limit: '24' }).toString()}`, { timeoutMs: 8000 }).then((d: any) => (Array.isArray(d?.products) ? d.products : [])).catch(() => [])
     : Promise.resolve([])
   const [g, live, more]: any[] = await Promise.all([webP, liveP, moreP])
-  if (more.length) {
-    const have = new Set(products.map((p: any) => p.id || p.url))
-    for (const p of more) if (!have.has(p.id || p.url)) { products.push(p); have.add(p.id || p.url) }
-  }
+  // The fill goes LAST — after the matches, the store's own site and the web — never between a matched
+  // "9060" and Amazon's 9060 listings.
+  const haveIds = new Set(products.map((p: any) => p.id || p.url))
+  const fillRows: any[] = (more as any[]).filter((p: any) => !haveIds.has(p.id || p.url)).map(toGalleryProduct)
   // Merge. Catalog rows are REAL when the mirror matched their words — OR when they are the named store's own
   // products (a "bolsa rosa de Coach" ask must lead with Coach's bags even if none is tagged pink; Amazon
   // listings are never a better answer than the store they asked for). Store-less non-matches are filler:
@@ -155,12 +155,12 @@ async function searchCatalogApi(a0: CatalogSearchArgs & { web?: boolean }) {
   })
   const real = dedupe(catalogReal ? [...catRows, ...storeRows, ...webRows] : [...storeRows, ...webRows])
   const filler = catalogReal ? [] : dedupe(catRows)
-  const merged = [...real, ...(real.length >= 6 ? [] : filler)].slice(0, GALLERY_MAX)
+  const merged = [...real, ...(real.length >= 6 ? [] : filler), ...dedupe(fillRows)].slice(0, GALLERY_MAX)
   if (!merged.length) return emptySearchFallback(a, miss, g)
   const store = a.store
   const catStores = [...new Set(catRows.map((p: any) => p.store).filter(Boolean))]
   const catalogLine = catalogReal
-    ? `${catRows.length} from OUR OWN CATALOG (${catStores.join(', ') || 'our stores'} — real stock, first in the list${miss.query_matched === false ? `; note they are ${store}'s closest items, none matched "${a.query}" exactly — say so honestly` : ''})`
+    ? `${catRows.length} from OUR OWN CATALOG (${catStores.join(', ') || 'our stores'} — real stock, first in the list${miss.query_matched === false ? `; note they are ${store}'s closest items, none matched "${a.query}" exactly — say so honestly` : ''})${fillRows.length ? `, plus ${fillRows.length} more ${store} items at the END of the gallery (other products of theirs, not the item asked)` : ''}`
     : `our catalog had NO real match for "${a.query}"${store ? ` at ${store}` : ''}${filler.length && merged.some((p) => filler.includes(p)) ? ` (its ${filler.length} same-store picks are at the END, clearly not the item)` : ''}`
   const siteLine = !carriedMiss ? null
     : storeRows.length ? `${storeRows.length} straight from ${store}'s own site (our agent searched it live just now${live.note === 'closest' ? ', closest matches' : ''})`
@@ -751,14 +751,23 @@ function logQuestion(question: string, answer: string, auth: { cookie?: string; 
   }).catch(() => {})
 }
 
+// CATALOG READS GO STRAIGHT TO THE CATALOG SERVICE (2026-09-11). The Laravel API only proxied these verbatim,
+// and its PHP-FPM pool is small: while Google Shopping calls were slow/hung, catalog searches queued behind them
+// and timed out (measured: 8 in-flight Google calls → /catalog/search via the API 40 s, no answer; an Owala
+// promo ask then fell to other stores' deals). The catalog service is public, cloudflared, and answers in ms.
+// Only the SerpAPI legs (google-shop, amazon — the key lives in the API) and account/data routes stay on the API.
+const CATALOG_BASE = 'https://catalog.fullstacklabs.org'
+const CATALOG_DIRECT_RE = /^\/catalog\/(?:search|curate|collection|live-grab|product-variants|store-brief)(?:[/?]|$)/
+
 async function callApi(path: string, opts: { method?: string; body?: any; token?: string; timeoutMs?: number } = {}) {
   // No Origin header: this is a server-to-server call. Sending Origin:api.boxly.mx
   // makes Sanctum treat it as a stateful (browser) request and enforce CSRF,
   // which 419s these tokenless public calls. CORS doesn't apply server-side.
   const headers: Record<string, string> = { Accept: 'application/json' }
   if (opts.body) headers['Content-Type'] = 'application/json'
-  if (opts.token) headers['Authorization'] = `Bearer ${opts.token}`
-  const res = await fetch(`${API_BASE}${path}`, {
+  const direct = CATALOG_DIRECT_RE.test(path)
+  if (opts.token && !direct) headers['Authorization'] = `Bearer ${opts.token}`
+  const res = await fetch(`${direct ? CATALOG_BASE : API_BASE}${path}`, {
     method: opts.method || 'GET',
     headers,
     body: opts.body ? JSON.stringify(opts.body) : undefined,
