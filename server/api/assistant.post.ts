@@ -500,7 +500,10 @@ async function getProductVariantsApi(url: string, maxAgeS = 900) {
   const out = {
     product: data?.product || null,
     axes: Array.isArray(data?.axes) ? data.axes : [],
-    variants: variants.map((v: any) => ({ key: v.key || [v.color, v.size].filter(Boolean).join(' / '), size: v.size ?? null, color: v.color ?? null, available: !!v.available, price: v.price ?? null, list_price: v.list_price ?? null, low_stock: v.low_stock || null })),
+    // TRI-STATE AVAILABILITY, never coerced. `!!v.available` turned every UNKNOWN into SOLD OUT here, so an
+    // Adidas product — whose API never publishes per-size stock — rendered 21 disabled chips reading
+    // "0 de 21 disponibles" and could not be added to a box at all (live test, 2026-09-11).
+    variants: variants.map((v: any) => ({ key: v.key || [v.color, v.size].filter(Boolean).join(' / '), size: v.size ?? null, color: v.color ?? null, available: v.available === true ? true : v.available === false ? false : null, price: v.price ?? null, list_price: v.list_price ?? null, low_stock: v.low_stock || null })),
     selected: data?.selected || null,
     checked_at: data?.checked_at || null,
     source: data?.source || null,
