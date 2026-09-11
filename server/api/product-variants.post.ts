@@ -12,8 +12,13 @@ export default defineEventHandler(async (event) => {
   const body = await readBody(event).catch(() => null)
   const url = typeof body?.url === 'string' ? body.url.trim() : ''
   if (!/^https?:\/\//i.test(url)) return { variants: [], axes: [], reason: 'need_url' }
-  // A stale-but-instant answer beats a spinner: the mirror is authoritative for 15 min.
-  const maxAgeS = Number(body?.max_age_s) > 0 ? Number(body.max_age_s) : 900
+  // LIVE ON EVERY OPEN (Alex, 2026-09-11: "it should be a live read each time to get the variants and images of
+  // the product from the product details page"). max_age_s 0 = never serve a cached row: the shopper who tapped a
+  // product gets that product page as it is right now — its photos, its sizes, its stock, its price. For a feed
+  // store that is a JSON fetch in 0.4–2 s and no browser at all; only a store without a feed pays for a real page
+  // read. The catalog's stored images stay behind this purely as the instant first paint and the fallback when a
+  // store is slow or walled, never as the answer.
+  const maxAgeS = Number(body?.max_age_s) >= 0 ? Number(body.max_age_s) : 0
   try {
     const r: any = await $fetch(`${CATALOG_BASE}/catalog/product-variants`, {
       method: 'POST',

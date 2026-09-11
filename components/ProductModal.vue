@@ -281,7 +281,8 @@ async function loadVariants(p) {
   if (!url) return
   loadingVariants.value = true
   try {
-    const r = await $fetch('/api/product-variants', { method: 'POST', body: { url }, timeout: 58000 })
+    // max_age_s 0 = a LIVE read of the product page every time it is opened, never a cached row.
+    const r = await $fetch('/api/product-variants', { method: 'POST', body: { url, max_age_s: 0 }, timeout: 58000 })
     variantData.value = (r?.variants?.length ? r : null)
   } catch { variantData.value = null } finally { loadingVariants.value = false }
 }
