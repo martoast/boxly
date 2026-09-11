@@ -47,10 +47,11 @@ function brandLineIn(q?: string): string | null {
   return null
 }
 
-// How long the store's OWN site gets on a catalog miss before we answer with what the web returned. The
+// How long the store's OWN site gets on a catalog miss before we answer with what the web returned. The host
+// cuts a reply stream at ~30 s (see prepareStep), so every leg here must land well inside that. The
 // browser read keeps running in the catalog service after this and upserts what it finds into the mirror,
 // so the next ask for the same thing is instant even when this one had to go on without it.
-const LIVE_STORE_BUDGET_MS = 30000
+const LIVE_STORE_BUDGET_MS = 12000
 
 // EVERY SEARCH = CATALOG + GOOGLE SHOPPING + AMAZON AT ONCE (Alex, 2026-09-11: "commit to doing all of the
 // searches in parallel so every gallery is rich in results, even if the user waits a little longer" — the
@@ -153,7 +154,7 @@ async function searchCatalogApi(a0: CatalogSearchArgs & { web?: boolean }) {
     : `nothing from ${store}'s own site (${live.reason === 'budget' ? 'still loading; it keeps going in the background and lands in our catalog for next time' : live.reason || 'no match'})`
   const webLine = g.reason === 'skipped' ? null
     : `${webRows.length} from the web${a.sale ? ' (marked-down only)' : ''} — Google Shopping (other US stores)${g.sources?.google_status && g.sources.google_status !== 'ok' ? ', degraded right now' : ''} + Amazon`
-  const note = `SEARCHED EVERYWHERE AT ONCE: ${[catalogLine, siteLine, webLine].filter(Boolean).join('; ')}. Present ONE gallery in this order — ${catalogReal ? 'our catalog rows first' : (storeRows.length ? `${store}'s own results first` : 'the web results')}, then the best of the rest with deals first — and name each item's store. Every row is real and current. Do NOT call find_on_google, find_on_amazon or find_live_product again for this ask.`
+  const note = `${g.reason === 'skipped' ? 'FROM OUR CATALOG' : 'SEARCHED EVERYWHERE AT ONCE'}: ${[catalogLine, siteLine, webLine].filter(Boolean).join('; ')}. Present ONE gallery in this order — ${catalogReal ? 'our catalog rows first' : (storeRows.length ? `${store}'s own results first` : 'the web results')}, then the best of the rest with deals first — and name each item's store. Every row is real and current. Do NOT call find_on_google, find_on_amazon or find_live_product again for this ask.`
   const rn: any = relaxNote({ ...miss, store })
   return {
     products: merged,
@@ -462,7 +463,7 @@ async function getProductVariantsApi(url: string, maxAgeS = 900) {
 async function getGoogleShopApi(query: string) {
   let data: any = {}
   try {
-    data = await callApi('/catalog/google-shop', { method: 'POST', body: { query }, timeoutMs: 20000 })
+    data = await callApi('/catalog/google-shop', { method: 'POST', body: { query }, timeoutMs: 10000 })
   } catch (e: any) { console.warn('[assistant] google-shop unreachable:', e?.message || e); data = { error: 'unreachable' } }
   const raw: any[] = Array.isArray(data?.products) ? data.products : []
   const reason: string | null = data?.error ? String(data.error)
@@ -482,7 +483,7 @@ async function getGoogleShopApi(query: string) {
 // Amazon-only results (ratings, Prime pricing) for when the shopper specifically wants Amazon.
 async function getAmazonApi(query: string) {
   let data: any = {}
-  try { data = await callApi('/catalog/amazon', { method: 'POST', body: { query }, timeoutMs: 20000 }) } catch (e: any) { console.warn('[assistant] amazon unreachable:', e?.message || e); data = { error: 'unreachable' } }
+  try { data = await callApi('/catalog/amazon', { method: 'POST', body: { query }, timeoutMs: 10000 }) } catch (e: any) { console.warn('[assistant] amazon unreachable:', e?.message || e); data = { error: 'unreachable' } }
   const raw: any[] = Array.isArray(data?.products) ? data.products : []
   const reason: string | null = data?.error ? String(data.error) : data?.no_results ? 'no_results' : null
   return {
