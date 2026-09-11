@@ -157,7 +157,7 @@ async function searchCatalogApi(a0: CatalogSearchArgs & { web?: boolean }) {
   const real = dedupe(catalogReal ? [...catRows, ...storeRows, ...webRows] : [...storeRows, ...webRows])
   const filler = catalogReal ? [] : dedupe(catRows)
   const merged = [...real, ...(real.length >= 6 ? [] : filler), ...dedupe(fillRows)].slice(0, GALLERY_MAX)
-  if (!merged.length) return emptySearchFallback(a, miss, g)
+  if (!merged.length) return emptySearchFallback(a, miss, g, g.web_query || webQuery)
   const store = a.store
   const catStores = [...new Set(catRows.map((p: any) => p.store).filter(Boolean))]
   const catalogLine = catalogReal
@@ -182,7 +182,27 @@ async function searchCatalogApi(a0: CatalogSearchArgs & { web?: boolean }) {
 
 // Nothing from any leg. A store we carry still puts ITS best options on screen (query dropped) with an honest
 // note; otherwise today's top deals (hookFallback) — never an empty screen (Alex: keep the user hooked).
-async function emptySearchFallback(a: CatalogSearchArgs, miss: any, g: any) {
+async function emptySearchFallback(a: CatalogSearchArgs, miss: any, g: any, webQuery?: string) {
+  // AMAZON RESCUE (Alex, 2026-09-11: "una pelota de futbol" answered with Gap jeans). Amazon had 16 real soccer
+  // balls in 3 s that day — it was Google that failed, and it took Amazon down with it: three concurrent Google
+  // calls dragged a 4.3 s Amazon call to 39.5 s by queuing for the API's PHP-FPM workers, so the app's 10 s
+  // timeout fired on BOTH legs and the gallery fell through to today's top deals. Google is single-flighted and
+  // capped now; this is the belt: when the web leg came back degraded rather than genuinely empty, ask Amazon
+  // once more on its own, with the slow engine no longer in the way. Unrelated deals are the last resort, never
+  // the second one.
+  const degraded = ['unreachable', 'busy', 'cooling', 'blocked', 'error', 'serpapi_busy', 'serpapi_unreachable', 'serpapi_error']
+  const webBroke = degraded.includes(String(g?.sources?.amazon_status || '')) || degraded.includes(String(g?.sources?.google_status || ''))
+  if (webQuery && webBroke && g?.reason !== 'skipped') {
+    const retry: any = await getAmazonApi(webQuery).catch(() => ({ products: [] }))
+    const rows = (retry.products || []).filter((p: any) => p?.title && p?.image)
+    if (rows.length) {
+      return {
+        products: rows.slice(0, GALLERY_MAX), source: 'web', from_web: true, ...miss, catalog_miss: true,
+        sources: { catalog: 0, amazon: rows.length, google: 0, google_status: g?.sources?.google_status || 'unreachable', retried: 'amazon' },
+        note: `OUR CATALOG HAS NO "${a.query}"${a.store ? ` at ${a.store}` : ''}, so these ${rows.length} are REAL current listings from US merchants that Boxly buys and delivers. Present them EXACTLY like any other gallery — name each item's store, lead with the best picks. Do NOT say "no está en el catálogo", do NOT apologise, and do NOT call find_on_google, find_on_amazon or find_live_product again for this ask.`,
+      }
+    }
+  }
   const store = a.store
   if (store) {
     let rows: any[] = []
