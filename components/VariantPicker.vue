@@ -25,7 +25,7 @@
     </div>
 
     <!-- one row per axis, in the store's order -->
-    <div v-for="ax in axes" :key="ax.name" class="mt-3">
+    <div v-for="ax in shownAxes" :key="ax.name" class="mt-3">
       <p class="text-[12px] font-semibold text-gray-700 mb-1.5">{{ axisLabel(ax) }}<span v-if="sel[ax.name]" class="font-normal text-gray-500"> · {{ sel[ax.name] }}</span></p>
       <!-- grid for sizes / lengths / widths (dense, scannable); chips for colours, scents, capacities, packs -->
       <div v-if="isGrid(ax)" class="grid gap-1.5" :class="ax.values.length > 12 ? 'grid-cols-5' : 'grid-cols-4'">
@@ -54,7 +54,7 @@
       </div>
     </div>
 
-    <p v-if="axes.length" class="mt-2 text-[11px] text-gray-400"><span class="inline-block w-2.5 h-2.5 rounded border border-gray-200 bg-white align-middle mr-1"></span>disponible <span class="inline-block w-2.5 h-2.5 rounded border border-gray-100 bg-gray-50 align-middle ml-2 mr-1"></span>agotado</p>
+    <p v-if="shownAxes.length" class="mt-2 text-[11px] text-gray-400"><span class="inline-block w-2.5 h-2.5 rounded border border-gray-200 bg-white align-middle mr-1"></span>disponible <span class="inline-block w-2.5 h-2.5 rounded border border-gray-100 bg-gray-50 align-middle ml-2 mr-1"></span>agotado</p>
     <p v-else class="mt-3 text-[12px] text-gray-600">Talla única · {{ variants[0]?.available ? 'disponible' : 'agotado' }}</p>
 
     <!-- CTA -->
@@ -101,8 +101,14 @@ const axes = computed(() => {
     const seen = []; for (const v of variants.value) { const val = v.options[name]; if (val != null && !seen.includes(val)) seen.push(val) }
     const values = Array.isArray(d.values) && d.values.length ? d.values.map(String) : seen
     return { name, kind: d.kind || guessKind(name), values }
-  }).filter((a) => a.values.length)
+  })
+    // Drop reader noise: values with no letters/digits ("#:"), and axes left with nothing to choose.
+    .map((a) => ({ ...a, values: a.values.filter((v) => /[\p{L}\p{N}]/u.test(v)) }))
+    .filter((a) => a.values.length)
 })
+// A single-value axis (Width: "Standard") is information, not a choice: auto-select it and don't render a row.
+const shownAxes = computed(() => axes.value.filter((a) => a.values.length > 1))
+watchEffect(() => { for (const a of axes.value) if (a.values.length === 1 && !sel[a.name]) sel[a.name] = a.values[0] })
 function guessKind(name) {
   const n = String(name).toLowerCase()
   if (/color|colour|shade|wash|finish/.test(n)) return 'color'
