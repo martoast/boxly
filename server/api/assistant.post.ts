@@ -142,7 +142,8 @@ async function searchCatalogApi(a0: CatalogSearchArgs & { web?: boolean }) {
   // they go LAST and are dropped once the real legs have enough.
   const namedCarriedStore = !!a.store && !miss.unmatched_stores?.length && products.length > 0
   const catalogReal = miss.query_matched !== false || namedCarriedStore
-  const catRows = products.map(toGalleryProduct)
+  const soldOut = dropSoldOut(products)
+  const catRows = soldOut.rows.map(toGalleryProduct)
   const storeRows: any[] = live.products || []
   // A sale/promo search takes only MARKED-DOWN web rows — full-price Amazon listings are not "ofertas".
   const webRows: any[] = brandRowsOnly(g.products || [], a.store).filter((p: any) => !a.sale || (p.on_sale && p.discount_pct))
@@ -303,6 +304,17 @@ function pid(raw: { url?: string | null; product_url?: string | null; title?: st
   return 'p' + h.toString(36)
 }
 // One catalog/live SERP row → the gallery's product shape.
+// NEVER SHOW A DEAD PRODUCT (Alex, 2026-09-11: "if none are actually available, I shouldn't have been shown this
+// product in the first place"). Only a row the store itself calls out_of_stock is dropped — `unknown` stays, because
+// after tonight's sweep unknown means "the store told us nothing", not "gone" (a feed without the field, a headless
+// storefront), and dropping those would erase whole stores. If a gallery is ONLY sold-out rows we keep them rather
+// than hand back an empty screen; the note tells the model to say so.
+const isSoldOut = (p: any) => String(p?.availability || '').toLowerCase() === 'out_of_stock'
+function dropSoldOut<T>(rows: T[]): { rows: T[]; dropped: number } {
+  const live = rows.filter((p) => !isSoldOut(p))
+  return live.length ? { rows: live, dropped: rows.length - live.length } : { rows, dropped: 0 }
+}
+
 function toGalleryProduct(p: any) {
   return {
     id: p.id || pid({ url: p.url, title: p.title, store: p.store }),
@@ -403,7 +415,7 @@ async function curateCatalogCore(a: CurateArgs) {
     const r: any = await searchCatalogApi({ store: a.store, query: a.query, category: a.categories?.[0], web: false })
     if (r.products?.length > products.length) return { ...r, relaxed: true, relaxed_filters: ['curate'], note: r.note || `SHOWING ${a.store.toUpperCase()}'S CATALOG (the deals curation had little for this store yet). Present them as ${a.store}'s available options; call out any real markdowns, and say plainly if none is marked down.` }
   }
-  return { products: products.map(toCurateGalleryProduct), source: 'catalog', query_matched, relaxed, relaxed_filters, ...relaxNote({ relaxed, relaxed_filters, store: a.store }) }
+  return { products: dropSoldOut(products).rows.map(toCurateGalleryProduct), source: 'catalog', query_matched, relaxed, relaxed_filters, ...relaxNote({ relaxed, relaxed_filters, store: a.store }) }
 }
 // Curate row → gallery shape + the enrichment fields the model speaks to (why/deal_tier).
 function toCurateGalleryProduct(p: any) {
