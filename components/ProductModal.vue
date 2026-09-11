@@ -20,9 +20,11 @@
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
 
-          <!-- Loading: fetch the high-res images + details FIRST, then reveal it
-               all at once — no flash of the low-res Google thumbnail. -->
-          <div v-if="loadingDetail">
+          <!-- Loading: fetch the high-res PDP images, the details AND the variants FIRST, then reveal it all at
+               once — no flash of the low-res gallery thumbnail, and no button before the sizes exist. The gallery
+               image is only the intro; the product page carries the real photography (Alex, 2026-09-11). Bounded
+               by REVEAL_CAP_MS so a slow store can never hold the modal hostage. -->
+          <div v-if="loadingProduct">
             <div class="h-80 bg-gray-100 animate-pulse"></div>
             <div class="p-5 space-y-3">
               <div class="h-3 w-20 bg-gray-100 rounded animate-pulse"></div>
@@ -213,6 +215,11 @@ function isGoogleLink(u) { return typeof u === 'string' && (u.includes('google.c
 const linkPending = computed(() => loadingDetail.value && isGoogleLink(bestLink.value))
 // "Real choices" = an axis the shopper must actually answer. A single-SKU product (or one whose axes all have one
 // value) shows the plain add button instead of a picker with nothing to pick.
+// Both fetches gate the reveal, but never past REVEAL_CAP_MS: after that we show whatever arrived (the picker
+// fills in behind its own small loader) rather than leave the shopper staring at a skeleton.
+const REVEAL_CAP_MS = 9000
+const revealForced = ref(false)
+const loadingProduct = computed(() => !revealForced.value && (loadingDetail.value || loadingVariants.value))
 const hasChoices = computed(() => {
   const ax = variantData.value?.axes || []
   return ax.some((a) => (a?.values?.length || 0) > 1)
@@ -298,10 +305,13 @@ function assisted(pick) {
 // (size, colour, quantity) so the chat adds it in one turn with everything already decided.
 function onVariantPick(text) { assisted({ text }) }
 
+let revealTimer = null
 watch(() => props.product, (p) => {
   variantData.value = null
   loadingVariants.value = false
-  if (p) loadVariants(p)
+  revealForced.value = false
+  if (revealTimer) clearTimeout(revealTimer)
+  if (p) { revealTimer = setTimeout(() => { revealForced.value = true }, REVEAL_CAP_MS); loadVariants(p) }
   fetchedImages.value = []
   fetchedDesc.value = null
   fetchedLink.value = null
