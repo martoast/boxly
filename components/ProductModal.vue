@@ -158,16 +158,22 @@
                 Cargando tallas y colores…
               </div>
               <LazyVariantPicker v-else-if="hasChoices" :data="variantData" @pick="onVariantPick" />
+              <!-- We could not read the store's options. Say that, do not claim the product has none, and offer a
+                   retry — while still letting them add it, because our reader failing must never block a sale. -->
+              <div v-else-if="variantsRead === 'failed'" class="mb-3 flex items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-3.5 py-2.5">
+                <span class="text-[12.5px] text-amber-800 leading-snug">No pudimos leer las tallas de {{ product.store || 'la tienda' }} en este momento.</span>
+                <button type="button" @click="retryVariants" class="ml-auto shrink-0 text-[12.5px] font-bold text-amber-900 underline underline-offset-2">Reintentar</button>
+              </div>
               <button
-                v-else
+                v-if="!hasChoices || variantsRead === 'failed'"
                 type="button" @click="assisted()"
                 class="w-full flex items-center justify-center gap-2 rounded-2xl bg-primary-500 hover:bg-primary-600 active:scale-[.98] transition text-white font-bold py-3.5 text-[15px] shadow-sm shadow-primary-500/20"
               >
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-1.5 3h11m-8 3a1 1 0 11-2 0 1 1 0 012 0zm9 0a1 1 0 11-2 0 1 1 0 012 0z"/></svg>
-                {{ hasChoices ? 'Elegir talla y cantidad' : 'Agregar al carrito' }}
+                Agregar al carrito
               </button>
               <p class="mt-2.5 text-[11.5px] text-gray-500 text-center leading-relaxed">
-{{ hasChoices ? 'Primero eliges talla, color y cantidad — ahí lo agregas a tu carrito.' : 'Este producto no tiene tallas ni colores que elegir.' }} Suma lo que quieras, de cualquier tienda 🛒, y Boxly lo compra e importa todo junto a México. 🇺🇸➜🇲🇽
+{{ variantsRead === 'failed' ? 'Nuestro equipo confirma la talla contigo antes de comprar.' : 'Este producto no tiene tallas ni colores que elegir.' }} Suma lo que quieras, de cualquier tienda 🛒, y Boxly lo compra e importa todo junto a México. 🇺🇸➜🇲🇽
               </p>
               </template>
             </div>
@@ -244,6 +250,9 @@ const loadingVariants = ref(false)
 // A colourway the shopper picked in this modal. Each colour is its own product page with its OWN sizes and stock,
 // so picking one re-reads that page (Alex, 2026-09-11: "the availability changes depending on the colour").
 const activeColorway = ref(null)
+// 'pending' | 'ok' | 'none' (the store genuinely has nothing to choose) | 'failed' (we could not read it).
+// The difference matters: a failed read must never render as "this product has no sizes".
+const variantsRead = ref('pending')
 const colorways = computed(() => variantData.value?.colorways || [])
 // Which chip reads as chosen before the shopper touches anything: the one the store says we are on.
 const currentColorwayUrl = computed(() => (colorways.value.find((c) => c.current) || {}).url || null)
@@ -353,15 +362,30 @@ function closeLightbox() { lightboxOpen.value = false }
 // Independent of loadDetails so slow images never hold up the picker, and vice versa.
 async function loadVariants(p, overrideUrl) {
   const url = overrideUrl || p?.url || null
-  if (!url) return
+  if (!url) { variantsRead.value = 'none'; return }
   const keep = overrideUrl ? colorways.value : null // switching colour: we already hold the set, don't re-discover
   loadingVariants.value = true
   try {
     // max_age_s 0 = a LIVE read of the product page every time it is opened, never a cached row.
     const r = await $fetch('/api/product-variants', { method: 'POST', body: { url, max_age_s: 0, skip_colorways: !!keep }, timeout: 58000 })
     const merged = r && keep?.length ? { ...r, colorways: keep } : r
-    variantData.value = (merged?.variants?.length || merged?.colorways?.length ? merged : null)
-  } catch { /* keep what we had */ } finally { loadingVariants.value = false }
+    if (merged?.variants?.length || merged?.colorways?.length) {
+      variantData.value = merged
+      variantsRead.value = 'ok'
+    } else {
+      // The call answered but carried nothing. That is only "this product has no options" when the store actually
+      // said so; a reason means we could not read it (walled, unknown store, timeout upstream).
+      variantsRead.value = merged && !merged.reason ? 'none' : 'failed'
+    }
+  } catch {
+    variantsRead.value = 'failed' // never silently downgrade to "no options" — that is a lie the shopper acts on
+  } finally { loadingVariants.value = false }
+}
+
+// Try again after a failed read, without closing the modal.
+async function retryVariants() {
+  variantsRead.value = 'pending'
+  await loadVariants(props.product, activeColorway.value?.url)
 }
 
 // Picking a colour swaps to THAT product page: its photos, its sizes, its stock, its price.
@@ -421,6 +445,7 @@ watch(() => props.product, (p) => {
   variantData.value = null
   loadingVariants.value = false
   activeColorway.value = null
+  variantsRead.value = 'pending'
   revealForced.value = false
   if (revealTimer) clearTimeout(revealTimer)
   if (elapsedTimer) clearInterval(elapsedTimer)
