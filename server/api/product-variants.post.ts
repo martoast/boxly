@@ -113,13 +113,20 @@ export default defineEventHandler(async (event) => {
       console.warn('[product-variants] merchant link not a product:', o.merchant, r?.reason)
       last = last || r
     }
-    const r = last || { variants: [], axes: [], reason: 'no_merchant_offer' }
-    return {
-      ...r,
-      resolved_merchant: resolved?.merchant, resolved_url: readUrl,
-      ...(!(r?.product?.images || []).length && resolved?.images?.length
-        ? { product: { ...(r?.product || {}), images: resolved.images, image: resolved.images[0] } } : {}),
-    }
+    const r: any = last || { variants: [], axes: [], reason: 'no_merchant_offer' }
+    // GOOGLE'S PRICE WINS ON A SINGLE-SKU PAGE. Reading a price off a page is a heuristic, and on a big retailer's
+    // product page it finds add-ons: Target's Switch 2 page answered $11.99 (a protection plan) against Google's
+    // $499.99 for that same merchant. Google's offer price is structured data for the exact listing we followed,
+    // so it replaces the scraped one when nothing on the page told us this product has several prices.
+    const singleSku = !(r.axes || []).length && (r.variants || []).length <= 1
+    const offerPrice = typeof resolved?.price === 'number' ? resolved.price : null
+    const product = { ...(r.product || {}) }
+    if (singleSku && offerPrice != null) product.price = offerPrice
+    if (!(product.images || []).length && resolved?.images?.length) { product.images = resolved.images; product.image = resolved.images[0] }
+    const variants = singleSku && offerPrice != null
+      ? (r.variants || []).map((v: any) => ({ ...v, price: offerPrice }))
+      : r.variants
+    return { ...r, product, variants, resolved_merchant: resolved?.merchant, resolved_url: readUrl }
   }
 
   if (/(^|\.)amazon\.[a-z.]+$/i.test(hostOf(readUrl))) return await readAmazon(readUrl)
