@@ -166,8 +166,11 @@ async function searchCatalogApi(a0: CatalogSearchArgs & { web?: boolean }) {
   const siteLine = !carriedMiss ? null
     : storeRows.length ? `${storeRows.length} straight from ${store}'s own site (our agent searched it live just now${live.note === 'closest' ? ', closest matches' : ''})`
     : `nothing from ${store}'s own site (${live.reason === 'budget' ? 'still loading; it keeps going in the background and lands in our catalog for next time' : live.reason || 'no match'})`
+  // Name the engines that actually answered — the gallery is theirs, and a thin one should be traceable to a
+  // sick engine rather than look like a bad catalog.
+  const answered = Object.entries<any>(g.sources || {}).filter(([, v]) => typeof v === 'number' && v > 0).map(([k]) => ENGINE_LABEL[k] || k)
   const webLine = g.reason === 'skipped' ? null
-    : `${webRows.length} from the web${a.sale ? ' (marked-down only)' : ''} — Google Shopping (other US stores)${g.sources?.google_status && g.sources.google_status !== 'ok' ? ', degraded right now' : ''} + Amazon`
+    : `${webRows.length} from the web${a.sale ? ' (marked-down only)' : ''} — ${answered.length ? answered.join(' + ') : 'no engine answered'}`
   const note = `${g.reason === 'skipped' ? 'FROM OUR CATALOG' : 'SEARCHED EVERYWHERE AT ONCE'}: ${[catalogLine, siteLine, webLine].filter(Boolean).join('; ')}. Present ONE gallery in this order — ${catalogReal ? 'our catalog rows first' : (storeRows.length ? `${store}'s own results first` : 'the web results')}, then the best of the rest with deals first — and name each item's store. Every row is real and current. Do NOT call find_on_google, find_on_amazon or find_live_product again for this ask.`
   const rn: any = relaxNote({ ...miss, store })
   return {
@@ -192,14 +195,16 @@ async function emptySearchFallback(a: CatalogSearchArgs, miss: any, g: any, webQ
   // the second one.
   // Any status other than 'ok' means a leg failed rather than answering "nothing matched" — we only get here
   // with an empty gallery anyway, so a broad check is the safe one.
-  const webBroke = [g?.sources?.amazon_status, g?.sources?.google_status].some((st: any) => st && st !== 'ok')
+  // Sources are now one entry per engine: a NUMBER of rows when it answered, a status word when it did not.
+  // Any word means an engine failed rather than genuinely finding nothing.
+  const webBroke = g?.reason === 'unreachable' || Object.values(g?.sources || {}).some((v: any) => typeof v === 'string')
   if (webQuery && webBroke && g?.reason !== 'skipped') {
     const retry: any = await getAmazonApi(webQuery).catch(() => ({ products: [] }))
     const rows = (retry.products || []).filter((p: any) => p?.title && p?.image)
     if (rows.length) {
       return {
         products: rows.slice(0, GALLERY_MAX), source: 'web', from_web: true, ...miss, catalog_miss: true,
-        sources: { catalog: 0, amazon: rows.length, google: 0, google_status: g?.sources?.google_status || 'unreachable', retried: 'amazon' },
+        sources: { catalog: 0, amazon: rows.length, retried: 'amazon', web: g?.sources || {} },
         note: `OUR CATALOG HAS NO "${a.query}"${a.store ? ` at ${a.store}` : ''}, so these ${rows.length} are REAL current listings from US merchants that Boxly buys and delivers. Present them EXACTLY like any other gallery — name each item's store, lead with the best picks. Do NOT say "no está en el catálogo", do NOT apologise, and do NOT call find_on_google, find_on_amazon or find_live_product again for this ask.`,
       }
     }
@@ -566,6 +571,32 @@ async function getGoogleShopApi(query: string) {
 }
 // AMAZON search via SerpAPI (engine=amazon) — same shape/behavior as getGoogleShopApi, but
 // Amazon-only results (ratings, Prime pricing) for when the shopper specifically wants Amazon.
+// EVERY HEALTHY ENGINE AT ONCE. One call to the API, which fans out to Google Shopping, Amazon, eBay, Bing
+// Shopping and Walmart in parallel (plus Home Depot for tool words) and returns ONE interleaved gallery. This is
+// what makes a slow or sick engine a non-event: the others still fill the screen (Alex, 2026-09-11).
+const ENGINE_LABEL: Record<string, string> = { google_shopping: 'Google Shopping', amazon: 'Amazon', ebay: 'eBay', bing_shopping: 'Bing Shopping', walmart: 'Walmart', home_depot: 'The Home Depot' }
+async function getWebFanoutApi(query: string) {
+  let data: any = {}
+  try { data = await callApi('/catalog/web-search', { method: 'POST', body: { query, limit: 60 }, timeoutMs: 13000 }) } catch (e: any) { console.warn('[assistant] web-search unreachable:', e?.message || e); data = { error: 'unreachable' } }
+  const raw: any[] = Array.isArray(data?.products) ? data.products : []
+  // Per-engine row counts, flattened for the tool result so a thin gallery can be traced to the engine that
+  // was down rather than to the query.
+  const sources: Record<string, any> = {}
+  for (const [name, v] of Object.entries<any>(data?.sources || {})) sources[name] = v?.status === 'ok' || v?.status === 'cached' ? v.rows : v?.status
+  return {
+    products: raw.map((p) => ({
+      ...toGalleryProduct(p),
+      merchant: p.merchant || p.store || null,
+      source: p.engine || p.source || 'web',
+      page_token: p.page_token || null,
+      product_id: p.product_id || null,
+    })),
+    source: 'web', from_web: true,
+    reason: data?.error ? String(data.error) : raw.length ? null : 'no_results',
+    sources,
+  }
+}
+
 async function getAmazonApi(query: string) {
   let data: any = {}
   try { data = await callApi('/catalog/amazon', { method: 'POST', body: { query, limit: 40 }, timeoutMs: 10000 }) } catch (e: any) { console.warn('[assistant] amazon unreachable:', e?.message || e); data = { error: 'unreachable' } }
@@ -638,46 +669,34 @@ function canonicalWebQuery(raw: string, max = 4) {
 
 async function getWebApi(rawQuery: string, store?: string) {
   const query = await toEnglishSearchTerms(rawQuery)
-  // What we actually ask each engine, canonicalized — reported back on the tool result so a gallery can be
-  // traced to the exact strings that produced it.
-  const googleQuery = canonicalWebQuery([store, query].filter(Boolean).join(' ').trim(), 5)
-  // A LONG QUERY THAT MATCHES NOTHING IS STILL A MISS. Google answered "kids youth soccer ball" with zero rows
-  // while "soccer ball" had forty, so when the full phrase comes back empty we ask once more with just its head —
-  // the shorter query is also the one most likely to be cached, so the retry is usually instant.
-  const googleHead = canonicalWebQuery(googleQuery, 2)
-  const googleLeg = getGoogleShopApi(googleQuery)
-    .then(async (r: any) => (!(r?.products || []).length && r?.reason === 'no_results' && googleHead !== googleQuery
-      ? { ...(await getGoogleShopApi(googleHead)), shortened_to: googleHead } : r))
-    .catch(() => ({ products: [], reason: 'unreachable' }))
-  const [g, a]: any[] = await Promise.all([
-    googleLeg,
-    // Amazon is one merchant: a RETAILER's name in the query ("Dick's Sporting Goods cleats") only adds noise,
-    // but a BRAND's name is the whole point ("Coach pink bag" → Coach bags; "pink bags" alone → gift bags).
-    getAmazonApi(canonicalWebQuery([store && !RETAILER_RE.test(store) ? store : null, query].filter(Boolean).join(' '), 5)).catch(() => ({ products: [], reason: 'unreachable' })),
-  ])
+  // What we actually ask the engines, canonicalized — the same short string every time, so SerpAPI serves it
+  // from its own cache instead of fetching it live for 6–20 s.
+  const webQuery = canonicalWebQuery([store, query].filter(Boolean).join(' ').trim(), 5)
+  // A LONG QUERY THAT MATCHES NOTHING IS STILL A MISS: "kids youth soccer ball" came back empty where "soccer
+  // ball" had forty, so an empty fan-out asks once more with just the query's head.
+  const head = canonicalWebQuery(webQuery, 2)
+  let r: any = await getWebFanoutApi(webQuery)
+  if (!(r.products || []).length && head !== webQuery) {
+    const short: any = await getWebFanoutApi(head)
+    if ((short.products || []).length) r = { ...short, shortened_to: head }
+  }
   const seen = new Set<string>()
-  const keep = (p: any) => {
+  const products = (r.products || []).filter((p: any) => {
     if (!p?.title || SECOND_HAND_RE.test(String(p.title))) return false
     const k = String(p.title).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().slice(0, 60)
     if (seen.has(k)) return false
     seen.add(k)
     return true
-  }
-  const gp: any[] = (g.products || []).filter(keep)
-  const ap: any[] = (a.products || []).filter(keep)
-  const all = [...gp, ...ap]
-  const deals = all.filter((p) => p.on_sale && p.discount_pct).sort((x, y) => (y.discount_pct || 0) - (x.discount_pct || 0))
-  const rest: any[] = []
-  const gr = gp.filter((p) => !deals.includes(p)), ar = ap.filter((p) => !deals.includes(p))
-  for (let i = 0; i < Math.max(gr.length, ar.length); i++) { if (gr[i]) rest.push(gr[i]); if (ar[i]) rest.push(ar[i]) }
-  const products = [...deals, ...rest].slice(0, 40)
-  const reason = products.length ? null : (g.reason && a.reason ? `google:${g.reason} amazon:${a.reason}` : g.reason || a.reason || 'no_results')
+  }).slice(0, 60)
   return {
     products,
-    source: 'web', from_web: true, reason,
-    sources: { google: gp.length, amazon: ap.length, google_status: g.reason || 'ok', amazon_status: a.reason || 'ok' },
-    web_query: googleQuery, web_query_raw: query,
-    retry_after_s: g.retry_after_s ?? null,
+    source: 'web', from_web: true,
+    reason: products.length ? null : (r.reason || 'no_results'),
+    // Engine names are kept as they come back, so a gallery says exactly who answered and who did not.
+    sources: r.sources || {},
+    web_query: webQuery, web_query_raw: query,
+    ...(r.shortened_to ? { shortened_to: r.shortened_to } : {}),
+    retry_after_s: null,
   }
 }
 
@@ -1627,7 +1646,7 @@ export default defineEventHandler(async (event) => {
         toModelOutput: galleryModelOutput,
       }),
       find_on_google: tool({
-        description: "WEB PRODUCT SEARCH (fast, ~1-3s) — when the catalog doesn't have what they want, THIS is your move. It searches Google Shopping AND Amazon IN PARALLEL and returns ONE merged gallery (real US merchants: Target, Best Buy, Walmart, brand sites… plus Amazon) with price, was-price, rating, reviews, image and a buyable link; Boxly buys it and delivers to Mexico. Used/refurbished sellers are already removed. YOU curate what leads: read the merged list (store, price, was, rating, reviews), pick the best 1–3 for what they asked (a real discount from a trusted merchant, strong rating/reviews, the exact model) and call feature_products with their exact titles so they show FIRST; mention that options come from several stores including Amazon when that's true. `sources` tells you how many came from each engine — if one engine was down (google_status/amazon_status), just work with what came back. Reach for it the MOMENT the catalog misses: search_products/curate_products came back empty, or no_exact_match:true, or query_matched:false, OR it's clearly something we don't stock (a camera, an LED mask, an appliance, a freeze dryer, a niche brand/model). Just DO IT smoothly: open with ONE short natural line in the SAME turn ('Va, déjame buscarte las mejores opciones 🔎' / 'Ahorita te consigo eso 🔎') and fire it — the loader covers the brief wait. CRITICAL: do NOT tell the shopper it's 'no está en el catálogo' or that results are 'de la web' — to them it's just Boxly finding what they asked for; present the products naturally like any other gallery. Pass the product as `query` (include brand/model). PREFER THIS over find_live_product for anything general — find_live_product is slower and only for a pasted link. If it returns no_results, ask for a direct link; 'cooling'/'blocked' is rare (we use a fast API) — if it happens, say you couldn't pull it this moment and offer to take a link.",
+        description: "WEB PRODUCT SEARCH (fast, ~1-3s) — when the catalog doesn't have what they want, THIS is your move. It searches Google Shopping, Amazon, eBay, Bing Shopping and Walmart ALL IN PARALLEL (plus The Home Depot for tools and home-improvement words) and returns ONE interleaved gallery (real US merchants: Target, Best Buy, Walmart, brand sites, plus Amazon and eBay) with price, was-price, rating, reviews, image and a buyable link; Boxly buys it and delivers to Mexico. Used/refurbished sellers are already removed. YOU curate what leads: read the merged list (store, price, was, rating, reviews), pick the best 1–3 for what they asked (a real discount from a trusted merchant, strong rating/reviews, the exact model) and call feature_products with their exact titles so they show FIRST; mention that options come from several stores including Amazon when that's true. `sources` gives one entry per engine: a NUMBER means it answered with that many rows, a WORD ('timeout', 'cooling') means it did not — just work with what came back, the other engines cover it. Reach for it the MOMENT the catalog misses: search_products/curate_products came back empty, or no_exact_match:true, or query_matched:false, OR it's clearly something we don't stock (a camera, an LED mask, an appliance, a freeze dryer, a niche brand/model). Just DO IT smoothly: open with ONE short natural line in the SAME turn ('Va, déjame buscarte las mejores opciones 🔎' / 'Ahorita te consigo eso 🔎') and fire it — the loader covers the brief wait. CRITICAL: do NOT tell the shopper it's 'no está en el catálogo' or that results are 'de la web' — to them it's just Boxly finding what they asked for; present the products naturally like any other gallery. Pass the product as `query` (include brand/model). PREFER THIS over find_live_product for anything general — find_live_product is slower and only for a pasted link. If it returns no_results, ask for a direct link; 'cooling'/'blocked' is rare (we use a fast API) — if it happens, say you couldn't pull it this moment and offer to take a link.",
         inputSchema: z.object({
           query: z.string().describe('IN ENGLISH (translate: "tele de 55 pulgadas"→"55 inch TV", "tacos de americano"→"football cleats"). The product to find on the web, with brand/model, e.g. "red light led face mask", "Sony ZV-1F camera", "New Balance 9060 grey".'),
         }),
