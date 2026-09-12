@@ -157,7 +157,7 @@
                 <svg class="w-4 h-4 animate-spin text-primary-500" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"/><path class="opacity-80" fill="currentColor" d="M4 12a8 8 0 018-8v3a5 5 0 00-5 5H4z"/></svg>
                 Cargando tallas y colores…
               </div>
-              <LazyVariantPicker v-else-if="hasChoices" :data="variantData" @pick="onVariantPick" />
+              <LazyVariantPicker v-else-if="hasChoices" :data="variantData" @pick="onVariantPick" @show-image="leadWithImage" />
               <!-- We could not read the store's options. Say that, do not claim the product has none, and offer a
                    retry — while still letting them add it, because our reader failing must never block a sale. -->
               <div v-else-if="variantsRead === 'failed'" class="mb-3 flex items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-3.5 py-2.5">
@@ -264,13 +264,22 @@ const broken = ref(new Set())
 //      images on 84/84 products in production, so the modal had always fallen back to the gallery thumbnail.
 //   2. /products/page's images, if that path ever answers again.
 //   3. the gallery thumbnail, so there is always something.
+// The photo the shopper's chosen colour looks like — it jumps to the front of the gallery the moment they pick
+// it, so the big image always matches the chip they just tapped (Alex, 2026-09-12).
+const leadImage = ref(null)
+function leadWithImage(url) {
+  if (typeof url !== 'string' || !url) return
+  leadImage.value = url
+  scrollToImage(0)
+}
 const gallery = computed(() => {
   const fromCatalog = variantData.value?.product?.images
   const base = (Array.isArray(fromCatalog) && fromCatalog.length ? fromCatalog
     : fetchedImages.value.length ? fetchedImages.value
     : (props.product?.image ? [props.product.image] : []))
+  const ordered = leadImage.value ? [leadImage.value, ...base] : base
   const seen = new Set()
-  return base.filter((u) => typeof u === 'string' && !broken.value.has(u) && !seen.has(u) && seen.add(u))
+  return ordered.filter((u) => typeof u === 'string' && !broken.value.has(u) && !seen.has(u) && seen.add(u))
 })
 // Bento: show up to 3 tiles (hero + 2); a "+N" overlay hints at the rest.
 const bentoImgs = computed(() => gallery.value.slice(0, 3))
@@ -445,6 +454,7 @@ watch(() => props.product, (p) => {
   variantData.value = null
   loadingVariants.value = false
   activeColorway.value = null
+  leadImage.value = null   // a colour chosen on the LAST product must not lead this one's gallery
   variantsRead.value = 'pending'
   revealForced.value = false
   if (revealTimer) clearTimeout(revealTimer)

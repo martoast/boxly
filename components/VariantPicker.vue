@@ -35,7 +35,12 @@
           class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[12px] font-medium transition"
           :title="canPick(ax, val) ? (isUnknown(ax, val) ? val + ' — disponibilidad por confirmar' : val) : val + ' — agotado'"
         >
-          <span v-if="ax.kind === 'color'" class="inline-block w-3 h-3 rounded-full border border-black/10" :style="{ background: swatch(val) }"></span>
+          <!-- The STORE'S OWN swatch photo when the page had one (Alex, 2026-09-12: "it's not clear which of the
+               colors is shown, and it doesn't pull any of the other images... I don't know what they look like").
+               A guessed dot cannot describe "URBAN SAFARI" or "TANGLEWOOD"; the real thumbnail can. -->
+          <img v-if="ax.swatches && ax.swatches[val]" :src="ax.swatches[val]" :alt="val" loading="lazy" referrerpolicy="no-referrer"
+            class="w-7 h-7 -ml-1 rounded-full object-cover border border-black/10 bg-gray-50" />
+          <span v-else-if="ax.kind === 'color'" class="inline-block w-3 h-3 rounded-full border border-black/10" :style="{ background: swatch(val) }"></span>
           {{ val }}
         </button>
       </div>
@@ -72,7 +77,7 @@ const props = defineProps({
   data: { type: Object, required: true },
   busy: { type: Boolean, default: false },
 })
-const emit = defineEmits(['pick'])
+const emit = defineEmits(['pick', 'show-image'])
 
 const product = computed(() => ({ title: props.data?.product?.title || props.data?.product_title || '', image: props.data?.product?.image || null, url: props.data?.product?.url || null, store: props.data?.product?.store || null, price: props.data?.product?.price ?? null, list_price: props.data?.product?.list_price ?? null }))
 
@@ -146,6 +151,13 @@ function pick(axisName, val) {
   sel[axisName] = sel[axisName] === val ? null : val
   // Clear later selections that are no longer compatible.
   for (const a of axes.value) if (a.name !== axisName && sel[a.name] && !canPick(a, sel[a.name])) sel[a.name] = null
+  // Picking a colour should CHANGE THE PHOTO — that is the whole point of picking it. The variant rows carry a
+  // per-colour image now, so tell the modal which one to lead with.
+  const ax = axes.value.find((a) => a.name === axisName)
+  if (ax && ax.kind === 'color' && sel[axisName]) {
+    const img = ax.swatches?.[val] || variants.value.find((v) => (v.color || v.options?.[axisName]) === val)?.image
+    if (img) emit('show-image', img)
+  }
 }
 // Matrix reads: the one row matching every axis. Independent reads: the row of the LAST axis (where price/stock live).
 const chosen = computed(() => {
