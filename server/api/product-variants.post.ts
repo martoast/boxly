@@ -89,7 +89,11 @@ export default defineEventHandler(async (event) => {
         // Sibling colourways: stores that sell each colour as its own page (DFYNE, Alo, YoungLA) — the modal offers
         // them all and re-reads the one the shopper picks, because availability is per colourway.
         colorways: Array.isArray(r?.colorways) ? r.colorways : [],
-        reason: r?.error || (!variants.length ? (r?.reason || 'no_variants') : null),
+        // BUSY IS NOT "THIS PRODUCT HAS NO OPTIONS" (2026-09-12, found by pdp-truth-retail). The reader answers
+        // {busy:true} when another read holds the browser, and mapping that to no_variants gave the shopper an
+        // instant, permanent "no sizes" on a product with plenty — indistinguishable from a real single-SKU page,
+        // with no retry offered. It is a failed read, and the modal shows Reintentar for those.
+        reason: r?.busy ? 'busy' : (r?.error || (!variants.length ? (r?.reason || 'no_variants') : null)),
       }
     } catch (e: any) {
       // Never block the modal on our reader: no variants simply means the picker stays hidden.
