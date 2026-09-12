@@ -131,7 +131,17 @@ async function searchCatalogApi(a0: CatalogSearchArgs & { web?: boolean }) {
   const moreP: Promise<any[]> = thin
     ? callApi(`/catalog/search?${new URLSearchParams({ store: a.store as string, limit: '24' }).toString()}`, { timeoutMs: 8000 }).then((d: any) => (Array.isArray(d?.products) ? d.products : [])).catch(() => [])
     : Promise.resolve([])
-  const [g, live, more]: any[] = await Promise.all([webP, liveP, moreP])
+  // THE SAME DEADLINE AS THE UNCARRIED PATH, AND FOR THE SAME REASON (2026-09-12). A cold query — "perfume dior
+  // sauvage", a store nobody has searched — let these legs run past what the reply stream allows, and the turn
+  // ended with NO gallery; warm, the identical query answered in 2.7 s. Whatever has arrived by the deadline is
+  // the gallery. The catalog leg is already awaited above with its own timeout, so this bounds the slow ones.
+  const SEARCH_BUDGET_MS = 10000
+  const byDeadline = <T,>(p: Promise<T>, empty: T) => Promise.race([p, new Promise<T>((r) => setTimeout(() => r(empty), SEARCH_BUDGET_MS))])
+  const [g, live, more]: any[] = await Promise.all([
+    byDeadline(webP, { products: [], sources: {}, reason: 'slow' }),
+    byDeadline(liveP, { products: [], reason: 'slow' }),
+    byDeadline(moreP, [] as any[]),
+  ])
   // The fill goes LAST — after the matches, the store's own site and the web — never between a matched
   // "9060" and Amazon's 9060 listings.
   const haveIds = new Set(products.map((p: any) => p.id || p.url))
