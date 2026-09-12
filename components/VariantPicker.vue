@@ -77,7 +77,7 @@ const props = defineProps({
   data: { type: Object, required: true },
   busy: { type: Boolean, default: false },
 })
-const emit = defineEmits(['pick', 'show-image'])
+const emit = defineEmits(['pick', 'show-image', 'price'])
 
 const product = computed(() => ({ title: props.data?.product?.title || props.data?.product_title || '', image: props.data?.product?.image || null, url: props.data?.product?.url || null, store: props.data?.product?.store || null, price: props.data?.product?.price ?? null, list_price: props.data?.product?.list_price ?? null }))
 
@@ -105,6 +105,7 @@ const axes = computed(() => {
 })
 // A single-value axis (Width: "Standard") is information, not a choice: auto-select it and don't render a row.
 const shownAxes = computed(() => axes.value.filter((a) => a.values.length > 1))
+watchEffect(() => { if (variants.value.length) emit('price', priceForSelection()) })
 watchEffect(() => { for (const a of axes.value) if (a.values.length === 1 && !sel[a.name]) sel[a.name] = a.values[0] })
 function guessKind(name) {
   const n = String(name).toLowerCase()
@@ -158,6 +159,18 @@ function pick(axisName, val) {
     const img = ax.swatches?.[val] || variants.value.find((v) => (v.color || v.options?.[axisName]) === val)?.image
     if (img) emit('show-image', img)
   }
+  emit('price', priceForSelection())
+}
+// THE PRICE MUST FOLLOW THE CHOICE (Alex's Owala, 2026-09-12): the header showed $23.99 — the cheapest colour on
+// the page — while the pre-selected "Water in the Desert" actually starts at $27.99. A shopper reads the big
+// number, picks a colour, and is quoted something else. With a full selection this is that variant's price; with
+// a partial one it is the cheapest still reachable, which is the honest "from".
+function priceForSelection() {
+  const matching = variants.value.filter((v) => axes.value.every((a) => !sel[a.name] || (v.options?.[a.name] ?? v[a.kind]) === sel[a.name]))
+  const prices = (matching.length ? matching : variants.value).map((v) => v.price).filter((p) => typeof p === 'number')
+  if (!prices.length) return null
+  const lo = Math.min(...prices), hi = Math.max(...prices)
+  return { price: lo, from: lo !== hi }
 }
 // Matrix reads: the one row matching every axis. Independent reads: the row of the LAST axis (where price/stock live).
 const chosen = computed(() => {

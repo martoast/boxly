@@ -43,7 +43,11 @@
             <div class="p-5">
               <p v-if="product.store" class="text-[11px] uppercase tracking-wider text-primary-500 font-bold">{{ product.store }}</p>
               <h2 class="text-lg font-bold text-gray-900 leading-snug mt-1">{{ product.title }}</h2>
-              <p v-if="product.price != null" class="text-xl font-extrabold text-gray-900 mt-1.5">${{ product.price }} <span class="text-[12px] font-semibold text-gray-400">USD</span></p>
+              <!-- The price follows the chosen variant; before a full choice it is an honest "desde" (Alex's Owala
+                   read $23.99 in the header while the selected colour started at $27.99). -->
+              <p v-if="headerPrice != null" class="text-xl font-extrabold text-gray-900 mt-1.5">
+                <span v-if="headerFrom" class="text-[12px] font-semibold text-gray-400 mr-0.5">desde</span>${{ headerPrice }} <span class="text-[12px] font-semibold text-gray-400">USD</span>
+              </p>
 
               <!-- the step we are actually on -->
               <div class="mt-4 rounded-2xl border border-gray-100 bg-gray-50/70 px-4 py-3">
@@ -157,7 +161,7 @@
                 <svg class="w-4 h-4 animate-spin text-primary-500" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"/><path class="opacity-80" fill="currentColor" d="M4 12a8 8 0 018-8v3a5 5 0 00-5 5H4z"/></svg>
                 Cargando tallas y colores…
               </div>
-              <LazyVariantPicker v-else-if="hasChoices" :data="variantData" @pick="onVariantPick" @show-image="leadWithImage" />
+              <LazyVariantPicker v-else-if="hasChoices" :data="variantData" @pick="onVariantPick" @show-image="leadWithImage" @price="onPickPrice" />
               <!-- We could not read the store's options. Say that, do not claim the product has none, and offer a
                    retry — while still letting them add it, because our reader failing must never block a sale. -->
               <div v-else-if="variantsRead === 'failed'" class="mb-3 flex items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-3.5 py-2.5">
@@ -335,7 +339,12 @@ const hasChoices = computed(() => {
   return ax.some((a) => (a?.values?.length || 0) > 1)
 })
 
-const displayPrice = computed(() => fetchedPrice.value ?? props.product?.price ?? null)
+// What the picker says the current selection costs, and whether that is a floor rather than an exact price.
+const pickedPrice = ref(null)
+function onPickPrice(p) { pickedPrice.value = p && typeof p.price === 'number' ? p : null }
+const headerPrice = computed(() => pickedPrice.value?.price ?? fetchedPrice.value ?? props.product?.price ?? null)
+const headerFrom = computed(() => !!pickedPrice.value?.from)
+const displayPrice = computed(() => pickedPrice.value?.price ?? fetchedPrice.value ?? props.product?.price ?? null)
 const displayWas = computed(() => fetchedWas.value ?? props.product?.was ?? null)
 const displayOnSale = computed(() => fetchedOnSale.value ?? props.product?.onSale ?? false)
 const displayDiscount = computed(() => {
@@ -455,6 +464,7 @@ watch(() => props.product, (p) => {
   loadingVariants.value = false
   activeColorway.value = null
   leadImage.value = null   // a colour chosen on the LAST product must not lead this one's gallery
+  pickedPrice.value = null
   variantsRead.value = 'pending'
   revealForced.value = false
   if (revealTimer) clearTimeout(revealTimer)
