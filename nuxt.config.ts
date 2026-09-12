@@ -78,7 +78,7 @@ export default defineNuxtConfig({
   app: {
     head: {
       charset: 'utf-8',
-      viewport: 'width=device-width, initial-scale=1',
+      viewport: 'width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content',
       // Warms the connection to the API host ahead of the client-side
       // calls that follow hydration (conversations, starter-prompts,
       // chat token) — those still hit the API separately from SSR.
@@ -124,7 +124,10 @@ export default defineNuxtConfig({
           // Dropped maximum-scale=1 — that disables pinch-zoom and is
           // an accessibility regression for low-vision users. Keep
           // viewport-fit=cover for iPhone notch handling.
-          content: 'width=device-width, initial-scale=1, viewport-fit=cover'
+          // interactive-widget=resizes-content: on Android Chrome the on-screen keyboard SHRINKS the layout
+          // viewport instead of floating over it, so 100dvh already excludes the keyboard and the chat needs no
+          // correction there. iOS Safari ignores this and is handled in ShoppingAssistant's visualViewport hook.
+          content: 'width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content'
         },
         { 
           name: 'description', 

@@ -1,5 +1,9 @@
 <template>
-  <div class="flex bg-gray-50 overflow-hidden relative" :class="standalone ? 'h-[100dvh]' : (fullscreenMobile ? 'h-[100dvh] md:h-[calc(100dvh-4rem)]' : 'h-[calc(100dvh-4rem)]')">
+  <!-- --kb is how much of the viewport the on-screen keyboard is covering, measured live from
+       window.visualViewport (see trackKeyboard). Subtracting it keeps the composer sitting on top of the
+       keyboard and lets the height return cleanly when the keyboard closes — the blank strip Alex saw was the
+       document left scrolled with nothing under it. -->
+  <div class="flex bg-gray-50 overflow-hidden relative" :class="standalone ? 'h-[calc(100dvh_-_var(--kb,0px))]' : (fullscreenMobile ? 'h-[calc(100dvh_-_var(--kb,0px))] md:h-[calc(100dvh_-_4rem)]' : 'h-[calc(100dvh_-_4rem_-_var(--kb,0px))]')">
     <!-- Error toast (e.g. a failed send) — otherwise a failure looks like silence -->
     <Transition name="pop">
       <div v-if="chatError" class="absolute bottom-24 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-2 rounded-xl bg-red-600 text-white text-sm font-semibold px-4 py-2.5 shadow-lg">
@@ -737,7 +741,7 @@ const showMemory = ref(false)
 function closeMemory() { showMemory.value = false; loadProfile() }
 let openSeq = 0
 let hubPhraseTimer = null
-onBeforeUnmount(() => { if (hubPhraseTimer) clearInterval(hubPhraseTimer) })
+onBeforeUnmount(() => { if (hubPhraseTimer) clearInterval(hubPhraseTimer); if (kbCleanup) { kbCleanup(); kbCleanup = null } })
 // In-memory cache of opened conversations (id -> { messages, oldestId, hasMore,
 // products }) for instant re-open. Pagination state for the ACTIVE thread:
 const msgCache = new Map()
@@ -1481,7 +1485,41 @@ if (import.meta.client) $fetch('/api/ping').catch(() => {})
 // so the sidebar shows fast; the chat token is only needed to SEND (authed
 // tools), so it's minted in the background, off the load path.
 let inited = false
+// THE MOBILE KEYBOARD (Alex, 2026-09-11: "the screen kind of slides up when you click on the input... then it
+// glitches out when you're done, it doesn't go back down fully, it leaves some blank room there").
+// On iOS Safari the keyboard does NOT resize the layout viewport: it floats over it and Safari scrolls the
+// document to reveal the focused input. 100dvh therefore keeps describing the FULL screen, the chat stays that
+// tall behind the keyboard, and when the keyboard closes the document is often still scrolled — which is the
+// empty strip under the composer. visualViewport is the only thing that reports the real visible box, so we
+// publish the covered height as --kb and scroll the document back to the top the moment the keyboard is gone.
+let kbCleanup = null
+function trackKeyboard() {
+  const vv = typeof window !== 'undefined' ? window.visualViewport : null
+  if (!vv) return null
+  const root = document.documentElement
+  let raf = 0
+  const apply = () => {
+    raf = 0
+    const covered = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop))
+    // Under ~80px is browser chrome moving (the URL bar collapsing), not a keyboard — reacting to that would
+    // make the layout jump on every scroll.
+    root.style.setProperty('--kb', (covered > 80 ? covered : 0) + 'px')
+    if (covered <= 80 && window.scrollY !== 0) window.scrollTo(0, 0)
+  }
+  const onChange = () => { if (!raf) raf = requestAnimationFrame(apply) }
+  vv.addEventListener('resize', onChange)
+  vv.addEventListener('scroll', onChange)
+  apply()
+  return () => {
+    vv.removeEventListener('resize', onChange)
+    vv.removeEventListener('scroll', onChange)
+    if (raf) cancelAnimationFrame(raf)
+    root.style.removeProperty('--kb')
+  }
+}
+
 onMounted(() => {
+  kbCleanup = trackKeyboard()
   watch(user, (u) => { if (u && !inited) initLoggedIn() }, { immediate: true })
   // Guest entry points (logged-in users go through initLoggedIn):
   //  1) arrived from the landing hero with ?q=... → already fired in setup, or
