@@ -262,29 +262,44 @@ async function hookFallback(context: string) {
 // only as an honest alternative, never presented as the store they named.
 async function uncarriedStoreFallback(store: string, query?: string) {
   const terms = await toEnglishSearchTerms(productTerms(query, store))
-  // ALL LEGS AT ONCE (2026-09-11: "Busco Adidas Sambas" took 51 s and timed out in production because Google
-  // (down, 15–20 s to fail) ran BEFORE the two Amazon searches). Google for the store, Amazon for the terms and
-  // Amazon as a brand search start together; the ordering below is unchanged.
   const brandKey = store.toLowerCase().replace(/[^a-z0-9]/g, '')
-  const [g, a, b]: any[] = await Promise.all([
-    getGoogleShopApi([store, terms].filter(Boolean).join(' ')).catch(() => ({ products: [], reason: 'unreachable' })),
-    terms ? getAmazonApi(terms).catch(() => ({ products: [], reason: 'unreachable' })) : Promise.resolve({ products: [], reason: 'no_terms' }),
-    getAmazonApi([store, terms].filter(Boolean).join(' ')).catch(() => ({ products: [], reason: 'unreachable' })),
+  // THE STORE CARDS MUST WORK (Alex, 2026-09-11, on the Nordstrom Rack card answering with Coach Outlet and
+  // Dick's: "it's really unacceptable that all these stores we advertised... a lot of them don't even work").
+  // Seven of the 25 cards name stores we do not harvest — Nordstrom Rack, Macy's, ULTA, PINK, Karl Lagerfeld,
+  // Amazon, eBay — and this is their whole path. It used to ask GOOGLE alone for the store's own rows, so when
+  // Google went slow and then left the fan-out, the path had nothing and fell through to today's top deals: a
+  // gallery of other stores under a Nordstrom Rack heading. The fan-out answers it properly — Bing carries the
+  // merchant name, and eBay, Walmart and Amazon are merchants themselves — and a live check finds 11 real
+  // Nordstrom Rack rows for "Nordstrom Rack deals".
+  const ask = [store, terms || 'deals'].filter(Boolean).join(' ')
+  const [g, b]: any[] = await Promise.all([
+    getWebFanoutApi(canonicalWebQuery(ask, 5)).catch(() => ({ products: [], reason: 'unreachable' })),
+    // Kept for the cards that name a BRAND rather than a retailer (PINK, Owala): Amazon sells the brand itself.
+    getAmazonApi(canonicalWebQuery([store, terms].filter(Boolean).join(' '), 5)).catch(() => ({ products: [], reason: 'unreachable' })),
   ])
-  const lc = brandKey
-  const mine = (g.products || []).filter((p: any) => String(p.merchant || p.store || '').toLowerCase().replace(/[^a-z0-9]/g, '').includes(lc))
-  const others = (g.products || []).filter((p: any) => !mine.includes(p))
-  const ordered = [...mine, ...others].filter((p: any) => !SECOND_HAND_RE.test(String(p.title || '')))
-  if (ordered.length) {
-    return { products: ordered, source: 'web', from_web: true, reason: null, unmatched_stores: [store], store_fallback: store,
-      note: `STORE NOT IN OUR CATALOG: "${store}" isn't a store we harvest, so these are web results for ${store} (Boxly buys + delivers them)${mine.length ? '' : ' — note none of them is sold by ' + store + ' itself, so present them as options from other US stores'}. Never say "no está en el catálogo" or "de la web".` }
+  const hostOf = (u: any) => { try { return new URL(String(u)).hostname.replace(/^www\./, '') } catch { return '' } }
+  // A RETAILER is recognised by who sells it; a BRAND is recognised by what the product is. "Nordstrom Rack"
+  // must match the merchant, but a PINK or Owala row is theirs no matter which merchant ships it — so for a
+  // brand we also accept the title. Retailer names are excluded from the title test, or every row that happens
+  // to mention Target would count as Target's.
+  const isRetailer = RETAILER_RE.test(store)
+  const isMine = (p: any) => {
+    const who = `${p.merchant || ''} ${p.store || ''} ${hostOf(p.url)}`.toLowerCase().replace(/[^a-z0-9]/g, '')
+    if (who.includes(brandKey)) return true
+    if (isRetailer) return false
+    const what = `${p.brand || ''} ${p.title || ''}`.toLowerCase().replace(/[^a-z0-9]/g, '')
+    return what.includes(brandKey)
   }
-  // Google down / nothing → Amazon. With a product term it's an explicit ALTERNATIVE. With only the store
-  // name, Amazon is tried as a BRAND search ("Owala" → real Owala bottles) and kept only when most titles
-  // carry the brand — a retailer name ("Macy's") returns gift cards and crackers, which we drop.
+  const clean = (g.products || []).filter((p: any) => !SECOND_HAND_RE.test(String(p.title || '')))
+  const mine = clean.filter(isMine)
+  const others = clean.filter((p: any) => !mine.includes(p))
+  if (mine.length) {
+    return { products: [...mine, ...others].slice(0, GALLERY_MAX), source: 'web', from_web: true, reason: null,
+      unmatched_stores: [store], store_fallback: store, sources: g.sources || {},
+      note: `${store.toUpperCase()}'S OWN ITEMS: the first ${mine.length} of these are sold by ${store} itself and the rest are the same kind of thing from other US stores — Boxly buys and delivers any of them. Present it as ONE gallery for ${store}, lead with the markdowns, and never say "no está en el catálogo" or "de la web".` }
+  }
+  // The store itself had nothing, but a BRAND card (PINK, Owala) is genuinely answered by the brand's products.
   {
-    // Brand search on Amazon: "<store> <terms>" ("PINK Victoria's Secret hoodie" → PINK campus hoodies), or the
-    // bare store name when they named only the brand ("Owala" → Owala bottles).
     const rows = (b.products || []).filter((p: any) => !/gift card/i.test(String(p.title || '')))
     const brandTokens = store.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 3)
     const branded = rows.filter((p: any) => { const hay = `${p.brand || ''} ${p.title || ''}`.toLowerCase().replace(/[^a-z0-9]/g, ''); return hay.includes(brandKey) || brandTokens.some((t) => hay.includes(t)) })
@@ -293,9 +308,12 @@ async function uncarriedStoreFallback(store: string, query?: string) {
         note: `${store.toUpperCase()} VIA AMAZON: we don't harvest ${store}'s own store yet, but these are genuine ${store} products${terms ? ` for "${terms}"` : ''} sold on Amazon (Boxly buys + delivers). Present them naturally as ${store} options, mention they ship via Amazon, and lead with any real markdowns.` }
     }
   }
-  if (a.products?.length) {
-    return { ...a, unmatched_stores: [store], store_fallback: store, alternative_source: 'amazon',
-      note: `COULD NOT REACH ${store.toUpperCase()} RIGHT NOW (${g.reason || 'no_results'}). These are AMAZON options for "${terms}" instead — say in one line that you couldn't pull ${store} at this moment and that these are Amazon alternatives; never present them as ${store}.` }
+  // Nothing of theirs anywhere, but the engines did return the right KIND of thing — far better than an apology
+  // plus a gallery of unrelated deals, which is what this path used to do.
+  if (others.length) {
+    return { products: others.slice(0, GALLERY_MAX), source: 'web', from_web: true, reason: null,
+      unmatched_stores: [store], store_fallback: store, sources: g.sources || {},
+      note: `NOTHING FROM ${store.toUpperCase()} ITSELF right now, so these are the same kind of products from other US stores. Say in ONE honest line that you couldn't pull ${store}'s own items this moment and offer these, and do NOT call them ${store}.` }
   }
   const context = terms
     ? `COULD NOT REACH ${store.toUpperCase()} RIGHT NOW (${g.reason || 'no_results'}) and no alternative came back for "${terms}".`
@@ -1299,6 +1317,7 @@ Your tools, and when to use them:
   • "en oferta" / "on sale" / "deals" / "promociones" → curate_products({intent:'deals', store}) or a NORMAL search_products (no sale flag): results already lead with the deals AND keep the full selection. Use sale:true / min_discount ONLY if they say "SOLO ofertas / only on sale" or name a discount depth — and if that comes back relaxed:true, show it and say the store has no markdowns right now (PROMOS rule). NEVER let a promo ask end without a gallery.
   NEVER try to re-show or hand-pick a subset of the previous gallery (past search_products items can't be re-displayed — they all drop and you show an empty result, the #1 failure). Every change on screen = a fresh search_products call with the updated params.
 - web_search + show_products — the FALLBACK when the catalog returns nothing, and the way to RESOLVE a real buy URL at order time. web_search the store + item, then pass 5-8 real product-page URLs (paths like /p/… or /products/…, copied verbatim — never category pages or invented slugs) to show_products, which pulls image + price from each page.
+- A NAMED STORE ALWAYS GOES THROUGH THE PRODUCT TOOLS — never web_search. If the shopper names a store or brand at all ("ofertas en Nordstrom Rack", "promociones de Macy's", "las mejores opciones en eBay", "algo de ULTA"), your FIRST and usually ONLY call is curate_products({intent:'deals', store}) for a deals ask or search_products({store}) for a specific item, with the store name in the store param. That path already handles stores we don't harvest: it returns THAT store's own items from real US merchants. web_search returns no gallery at all, and a store card that answers with a wall of text or with other stores' deals is a broken promise — the store cards on the home screen are advertised, so every one of them must end in a gallery of that store. This holds even when the wording sounds like research ("ayúdame a encontrar y comparar las mejores opciones en X") — that is still a shopping ask about store X.
 - CATALOG-MISS = FAIL FAST, NEVER LOOP (speed rule): a relaxed:true result is NOT a miss (show it). When the catalog is genuinely EMPTY for a named store, take AT MOST ONE fallback and then STOP — find_on_google({query:"<store> <what they asked>"}) is that fallback (fast, always returns something to look at); browse_store ONCE only for a Shopify directory brand that find_on_google missed; ONE web_search (+ show_products) as the very last resort. NEVER chain multiple web_searches, and NEVER loop search_products→web_search→search_products again — that's a 20-second broken experience. If that single fallback still yields nothing, tell the customer plainly we don't carry that store yet and offer to take a direct link (find_live_product) — do NOT keep trying tools.
 - browse_store(store_url, query?) / browse_stores([...], query?, sale?) — the LAST-RESORT LIVE fallback for the verified Shopify DIRECTORY, and it is SLOW (it hits the store live, several seconds). PREFER THE CATALOG FIRST: our catalog already holds harvested products for the stores we carry (with clean titles, images and deal data), and curate_products/search_products come back INSTANTLY — so "promos/ofertas en [store]" or "muéstrame [store]" → curate_products with that store FIRST (curate handles a full-price store gracefully). Reach for browse_store ONLY when the catalog genuinely came back EMPTY or clearly too thin for that store, OR the customer EXPLICITLY wants the freshest live drop ("lo más nuevo / lo recién sacado"). NEVER call browse_store in a turn where curate_products or search_products already returned usable results — that just adds seconds and a duplicate gallery. When you DO use it: on-sale items show first with real compare_at was-prices; pass sale:true only for SOLELY discounted items; its search matches PRODUCT TITLES so use short category keywords ("shorts", "hoodie"), not phrases/gender; many gym stores prefix women's item CODES with "W" (men's un-prefixed) — use that SILENTLY to infer gender and filter, but NEVER mention W-prefixes, style/model codes, or this convention to the customer (a note like "los modelos con prefijo W son de mujer" is wrong — talk about the products, never our internal codes).
   STORE DIRECTORY: Gym & activewear — YoungLA https://www.youngla.com (men+women) · Alphalete https://www.alphaleteathletics.com · NVGTN https://www.nvgtn.com (women) · Ryderwear https://www.ryderwear.com · DARC SPORT https://www.darcsport.com · Ten Thousand https://www.tenthousand.cc (men's training).
@@ -1651,6 +1670,11 @@ export default defineEventHandler(async (event) => {
           query: z.string().describe('IN ENGLISH (translate: "tele de 55 pulgadas"→"55 inch TV", "tacos de americano"→"football cleats"). The product to find on the web, with brand/model, e.g. "red light led face mask", "Sony ZV-1F camera", "New Balance 9060 grey".'),
         }),
         execute: async ({ query }: any) => {
+          // A LINE INSIDE A STORE (PINK → Victoria's Secret) has its own path, and it has to apply HERE too:
+          // search_products and curate_products both check it, but the model often reaches straight for this
+          // tool, and the PINK card then came back as plain Amazon rows (Alex, 2026-09-11 card audit).
+          const line = brandLineIn(question)
+          if (line) return markGallery(await uncarriedStoreFallback(line, query))
           // CATALOG FIRST EVEN HERE (Alex, 2026-09-11: the model sometimes reaches for the web on a product our
           // mirror actually has — "New Balance 9060" went to Amazon while newbalance.com's row sat in the catalog).
           // The mirror's REAL matches lead the gallery; the web fills in around them. Both run at once.
@@ -1660,9 +1684,9 @@ export default defineEventHandler(async (event) => {
             const key = (p: any) => String(p?.title || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().slice(0, 60)
             const products = [...c, ...r.products].filter((p) => { const k = key(p); if (!k || seen.has(k)) return false; seen.add(k); return true }).slice(0, GALLERY_MAX)
             const note = c.length
-              ? `${c.length} of these are from OUR OWN CATALOG (stores we carry, real stock, first in the list) — lead with them and say they're from ${[...new Set(c.map((p: any) => p.store))].join(', ')}; the rest are web results (Google Shopping + Amazon), deals first.${r.note ? ' ' + r.note : ''}`
+              ? `${c.length} of these are from OUR OWN CATALOG (stores we carry, real stock, first in the list) — lead with them and say they're from ${[...new Set(c.map((p: any) => p.store))].join(', ')}; the rest are web results, deals first.${r.note ? ' ' + r.note : ''}`
               : r.note
-            return markGallery({ ...r, products, source: c.length ? 'catalog+web' : r.source, sources: { ...(r.sources || {}), catalog: c.length }, ...(note ? { note } : {}) })
+            return markGallery({ ...r, products, note })
           }
           const hook = await hookFallback(`WEB SEARCH CAME BACK EMPTY for "${query}" (${r.reason || 'no_results'}).`)
           return markGallery(hook ? { ...hook, web_reason: r.reason, sources: r.sources } : r)
