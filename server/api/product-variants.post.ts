@@ -93,7 +93,11 @@ export default defineEventHandler(async (event) => {
         // {busy:true} when another read holds the browser, and mapping that to no_variants gave the shopper an
         // instant, permanent "no sizes" on a product with plenty — indistinguishable from a real single-SKU page,
         // with no retry offered. It is a failed read, and the modal shows Reintentar for those.
-        reason: r?.busy ? 'busy' : (r?.error || (!variants.length ? (r?.reason || 'no_variants') : null)),
+        // BLOCKED IS NOT "NO OPTIONS" EITHER (2026-09-12). Kohl's answers our reader with an Access Denied wall,
+        // and flattening that to no_variants told the shopper the product has no sizes or colours — a lie about
+        // the product when the truth is about us. The reader already reports blocked; the modal renders any
+        // reason as "we could not read this" with a retry, which is what a wall deserves.
+        reason: r?.busy ? 'busy' : (r?.blocked ? 'blocked' : (r?.error || (!variants.length ? (r?.reason || 'no_variants') : null))),
       }
     } catch (e: any) {
       // Never block the modal on our reader: no variants simply means the picker stays hidden.
