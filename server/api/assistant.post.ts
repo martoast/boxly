@@ -272,10 +272,16 @@ async function uncarriedStoreFallback(store: string, query?: string) {
   // merchant name, and eBay, Walmart and Amazon are merchants themselves — and a live check finds 11 real
   // Nordstrom Rack rows for "Nordstrom Rack deals".
   const ask = [store, terms || 'deals'].filter(Boolean).join(' ')
+  // A DEADLINE, BECAUSE A COLD QUERY MUST STILL ANSWER (2026-09-12). Asking for a store nobody has searched before
+  // — JCPenney, Lowe's, Foot Locker, REI, Costco, Sur La Table — took longer than the reply stream allows, so the
+  // tool never returned and the shopper got NOTHING; the same store answered in under three seconds once the
+  // engines had it cached. Whatever has arrived by the deadline is what we use, and a slow leg simply misses out.
+  const UNCARRIED_BUDGET_MS = 9000
+  const byDeadline = <T,>(p: Promise<T>, empty: T) => Promise.race([p, new Promise<T>((r) => setTimeout(() => r(empty), UNCARRIED_BUDGET_MS))])
   const [g, b]: any[] = await Promise.all([
-    getWebFanoutApi(canonicalWebQuery(ask, 5)).catch(() => ({ products: [], reason: 'unreachable' })),
+    byDeadline(getWebFanoutApi(canonicalWebQuery(ask, 5)).catch(() => ({ products: [], reason: 'unreachable' })), { products: [], reason: 'slow' }),
     // Kept for the cards that name a BRAND rather than a retailer (PINK, Owala): Amazon sells the brand itself.
-    getAmazonApi(canonicalWebQuery([store, terms].filter(Boolean).join(' '), 5)).catch(() => ({ products: [], reason: 'unreachable' })),
+    byDeadline(getAmazonApi(canonicalWebQuery([store, terms].filter(Boolean).join(' '), 5)).catch(() => ({ products: [], reason: 'unreachable' })), { products: [], reason: 'slow' }),
   ])
   const hostOf = (u: any) => { try { return new URL(String(u)).hostname.replace(/^www\./, '') } catch { return '' } }
   // A RETAILER is recognised by who sells it; a BRAND is recognised by what the product is. "Nordstrom Rack"
