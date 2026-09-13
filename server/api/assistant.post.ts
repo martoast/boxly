@@ -392,6 +392,26 @@ function dropSoldOut<T>(rows: T[]): { rows: T[]; dropped: number } {
   return live.length ? { rows: live, dropped: rows.length - live.length } : { rows, dropped: 0 }
 }
 
+// A GALLERY CARD IS 200px WIDE — DO NOT SEND IT A 3MB ORIGINAL. YoungLA's rows come
+// straight off cdn.shopify.com with no size parameter, so the card was downloading the
+// full-resolution studio shot: up to 2.85MB each, ~700KB average, and 48 of them at once
+// is 30MB+ on a phone. Enough of those requests stall or get cancelled that @error fires,
+// and a card that errors latches to a grey store-name tile with no retry — which is what
+// "the results showed no images" actually was (Alex's demo, 2026-09-13). Shopify serves a
+// resized copy from the same URL for a width parameter: 522KB → 110KB for one measured
+// image. Only rewrite CDNs whose parameter we have verified; everything else is untouched.
+function thumb(url: any): string | null {
+  if (typeof url !== 'string' || !url) return null
+  try {
+    const u = new URL(url)
+    if (/(^|\.)cdn\.shopify\.com$/.test(u.hostname) && !u.searchParams.has('width')) {
+      u.searchParams.set('width', '600')
+      return u.toString()
+    }
+  } catch { /* not a URL we can parse — leave it exactly as it came */ }
+  return url
+}
+
 function toGalleryProduct(p: any) {
   return {
     // Carried when the row came from Google: the handle that resolves to the merchant's real product page.
@@ -405,8 +425,8 @@ function toGalleryProduct(p: any) {
     was: p.was,
     on_sale: p.on_sale,
     discount_pct: p.discount_pct,
-    image: p.image || null,
-    images: p.image ? [p.image] : [],
+    image: thumb(p.image),
+    images: p.image ? [thumb(p.image)] : [],
     store: p.store,
     availability: p.availability,
     see_in_cart: p.see_in_cart,
