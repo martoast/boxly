@@ -7,7 +7,11 @@
 // Catalog reads go DIRECT to the catalog service (see CATALOG_DIRECT_RE in assistant.post.ts): the Laravel API's
 // small PHP-FPM pool stalls them behind slow SerpAPI calls.
 const CATALOG_BASE = 'https://catalog.fullstacklabs.org'
-const API_BASE = 'https://api.boxly.mx'
+// Hardcoding production here meant a local stack still called the live API for Amazon
+// variant reads, so a fix could be verified locally and appear not to work — and testing
+// that was supposed to stay off production quietly did not. Honour API_URL exactly as
+// assistant.post.ts does; production sets it, so nothing changes there.
+const API_BASE = (process.env.API_URL || 'https://api.boxly.mx').replace(/\/$/, '')
 const hostOf = (u: string) => { try { return new URL(u).hostname.replace(/^www\./, '') } catch { return '' } }
 
 export default defineEventHandler(async (event) => {
