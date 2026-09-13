@@ -55,6 +55,14 @@ const LIVE_STORE_BUDGET_MS = 12000
 // Gallery size. Alex (2026-09-11): "I don't care if it's a bunch — I'd rather swipe through all of them than see a
 // few catalog results": every source's rows go in, merged, up to this many.
 const GALLERY_MAX = 48
+// A full gallery must never be narrated as a miss. The prompt already forbids this in
+// general terms, but the model still opened with "No encontré juguetes específicos para
+// niños de 2 años en Walmart" over 48 good rows — and once apologised for "Glenlambert",
+// a brand the shopper never mentioned. It is intermittent, which is worse in a live demo
+// than a consistent bug, so the per-result note has to close the door where the miss
+// flags are read rather than rely on a rule hundreds of lines up the prompt.
+const NO_APOLOGY = 'This gallery is FULL and answers what they asked: do NOT apologise, do NOT open with "no encontré", and do NOT name any store or brand the shopper did not name themselves.'
+const galleryIsHealthy = (rows: any[]) => rows.length >= 8
 
 // EVERY SEARCH = CATALOG + GOOGLE SHOPPING + AMAZON AT ONCE (Alex, 2026-09-11: "commit to doing all of the
 // searches in parallel so every gallery is rich in results, even if the user waits a little longer" — the
@@ -90,7 +98,7 @@ async function searchCatalogApi(a0: CatalogSearchArgs & { web?: boolean }) {
   // ("football cleats") but often leaves the shopper's own words in `query` — lead with the category, strip
   // intent words and the store name (Amazon turns "Macy's" into gift cards; getWebApi translates the rest).
   const term = productTerms(a.query, a.store)
-  const webQuery = [a.category, term].filter(Boolean).join(' ').trim() || String(a.query || '').trim()
+  const webQuery = [webCategory(a.category, term), term].filter(Boolean).join(' ').trim() || String(a.query || '').trim()
   const webP: Promise<any> = a.web === false || !webQuery
     ? Promise.resolve({ products: [], sources: {}, reason: 'skipped' })
     : getWebApi(webQuery, a.store).catch(() => ({ products: [], sources: {}, reason: 'error' }))
@@ -189,7 +197,7 @@ async function searchCatalogApi(a0: CatalogSearchArgs & { web?: boolean }) {
     from_web: webRows.length > 0, live: storeRows.length > 0, catalog_miss: !catalogReal, ...miss,
     sources: { catalog: catalogReal ? catRows.length : 0, catalog_filler: filler.length, store_site: storeRows.length, store_site_status: carriedMiss ? (storeRows.length ? 'ok' : live.reason || 'no_match') : 'not_needed', ...(g.sources || {}) },
     web_query: g.web_query || webQuery, retry_after_s: g.retry_after_s ?? null,
-    note: [note, rn.note].filter(Boolean).join(' '),
+    note: [note, rn.note, galleryIsHealthy(merged) ? NO_APOLOGY : null].filter(Boolean).join(' '),
   }
 }
 
@@ -413,7 +421,7 @@ interface CurateArgs {
 // its rows come deals-first (getWebApi orders them so), deduped by title, appended AFTER the store's own.
 async function curateCatalogApi(a: CurateArgs) {
   const term = productTerms(a.query, a.store)
-  const webQuery = [a.categories?.[0] || a.department, term].filter(Boolean).join(' ').trim()
+  const webQuery = [webCategory(a.categories?.[0] || a.department, term), term].filter(Boolean).join(' ').trim()
   const webP: Promise<any> = (webQuery || a.store)
     ? getWebApi(webQuery, a.store).catch(() => ({ products: [], sources: {}, reason: 'error' }))
     : Promise.resolve({ products: [], sources: {}, reason: 'skipped' })
@@ -428,7 +436,7 @@ async function curateCatalogApi(a: CurateArgs) {
   return {
     ...r, products: [...own, ...webRows], source: own.length ? `${r.source || 'catalog'}+web` : 'web', from_web: true,
     sources: { ...(r.sources || {}), catalog: own.length, web: webRows.length, web_deals: webDeals, ...(g.sources || {}) },
-    note: [r.note, webLine].filter(Boolean).join(' '),
+    note: [r.note, webLine, galleryIsHealthy([...own, ...webRows]) ? NO_APOLOGY : null].filter(Boolean).join(' '),
   }
 }
 
@@ -788,6 +796,65 @@ function lastUserText(messages: any[]): string {
   return ''
 }
 
+// The model fills `store` in even when the shopper never named one: "vitaminas para el
+// cabello" came back as store:"Amazon", "juguetes para niño de 2 años" as store:"Walmart".
+// The catalog then reports unmatched_stores:["Amazon"] and the reply opens with "No
+// encontré vitaminas para el cabello en Target" over a perfectly good 48-row gallery —
+// the audience hears a failure while the screen shows the opposite. Keep a store filter
+// only when the shopper actually said it. Match anywhere in the conversation so STICKY
+// STORE still works on follow-ups, on whole words so "regalo" never resolves "Alo", and
+// on any one word of the name so "vicky secret" still keeps Victoria's Secret.
+const plain = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+function shopperNamed(name: string | undefined, messages: any[]): boolean {
+  if (!name) return false
+  const said = plain(messages.filter((m: any) => m?.role === 'user')
+    .map((m: any) => typeof m.content === 'string' ? m.content
+      : Array.isArray(m.parts) ? m.parts.filter((p: any) => p?.type === 'text').map((p: any) => p.text).join(' ') : '')
+    .join(' '))
+  const words = plain(name).match(/[a-z0-9]{3,}/g) || []
+  if (!words.length) return true // a name too short to test safely — leave it alone
+  return words.some((w) => new RegExp(`\\b${w}\\b`).test(said))
+}
+
+// Things Boxly does not bring (Alex, 2026-09-13). The prompt says so too, but a prompt
+// rule is a suggestion: "cigarros marlboro" once answered with a live link to buy a
+// carton, and after the rule was added "vape desechable de sandía" still came back with
+// 48 products. So the search tools refuse these outright, before any engine is called.
+// Deliberately narrow and whole-word: vitamins, OTC remedies, kitchen knives, heat guns,
+// water/nerf guns, airsoft, pet supplies and alcohol are all normal products and must
+// keep working — alcohol stays on the knowledge base's own "a riesgo del cliente" rule.
+const RESTRICTED_RE = new RegExp([
+  String.raw`\b(?:cigarr?o|cigarros|cigarrillos?|cigarettes?|marlboro|newport|lucky strike)\b`,
+  String.raw`\b(?:vape|vapes|vapeador(?:es)?|vaper|vapear|e-?cigs?|e-?cigarettes?|nicotina|nicotine|zyn|tabaco|hookah|shisha|narguile|cigars?)\b`,
+  String.raw`\b(?:municion(?:es)?|ammo|ammunition|balas?|rifles?|escopetas?|revolver(?:es)?|firearms?|glock|ar-?15|ak-?47|silenciador|taser|pepper spray|gas pimienta)\b`,
+  String.raw`\bpistolas?\b(?!\s+(?:de\s+)?(?:agua|calor|silic|pintura|clavos|pegamento|juguete|nerf))`,
+  String.raw`\b(?:medicamentos?\s+controlados?|con\s+receta|receta\s+m[eé]dica|prescription\s+(?:drugs?|medication)|adderall|oxycodone|oxicodona|xanax|tramadol)\b`,
+  String.raw`\b(?:animal(?:es)?\s+vivos?|cachorros?\s+(?:de\s+)?venta|comprar\s+un\s+(?:perro|gato|perico|loro|conejo|h[aá]mster))\b`,
+].join('|'), 'i')
+
+// Leading the web query with the model's English `category` is what makes a Spanish ask
+// return US products ("tacos de futbol" → "football cleats"). It only works when the
+// category is a PRODUCT TYPE. When the model reaches for a department-level bucket
+// instead, the bucket becomes a search term and takes the gallery with it: "cinturón de
+// piel para hombre" went out as "leather belt accessories" and came back full of belt
+// keepers, loops and pouches with one actual belt buried at row 2. If we already have
+// the shopper's own product words, a bucket adds nothing — drop it.
+const BUCKET_CATEGORY = /^(?:accessor(?:y|ies)|accesorios?|apparel|clothing|ropa|home|hogar|beauty|belleza|health|salud|electronics|electr[oó]nica|toys|juguetes|sports|deportes|outdoors|tools|herramientas|grocery|abarrotes|general|misc(?:ellaneous)?|other|otros|products?|items?)$/i
+const webCategory = (category: string | undefined, term: string) =>
+  category && term && BUCKET_CATEGORY.test(category.trim()) ? undefined : category
+
+const plainText = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '')
+function restrictedAsk(messages: any[]): boolean {
+  return RESTRICTED_RE.test(plainText(lastUserText(messages)))
+}
+// What a refusing tool hands back: no products, and an instruction the model cannot
+// turn into a shopping answer.
+const REFUSAL = {
+  products: [],
+  refused: true,
+  note: 'BOXLY DOES NOT BRING THIS (tobacco/nicotine, weapons and ammunition, prescription or controlled medication, or live animals). Decline in ONE warm line and offer to help with something else. Do NOT call another tool for it, do NOT name a store, do NOT give a link, and do NOT explain how to get it another way.',
+}
+
 const PRODUCT_TOOLS = new Set(['search_products', 'curate_products', 'show_collection', 'find_live_product', 'find_on_google', 'find_on_amazon', 'browse_store', 'browse_stores', 'show_products', 'show_saved_products', 'extract_product', 'web_search'])
 
 // Is this search a PURE store/brand lookup (e.g. "Rhode", "Gymshark", "productos
@@ -909,7 +976,13 @@ async function callApi(path: string, opts: { method?: string; body?: any; token?
     method: opts.method || 'GET',
     headers,
     body: opts.body ? JSON.stringify(opts.body) : undefined,
-    signal: opts.timeoutMs ? AbortSignal.timeout(opts.timeoutMs) : undefined,
+    // NEVER unbounded. A call with no deadline that never answers takes the whole turn
+    // with it: the tool never returns, so the SSE stream just ends and the shopper is
+    // left staring at a loader with no gallery, no text and no error — the exact shape
+    // of the failures seen on 2026-09-12. Most call sites pass their own budget; the
+    // ones that did not (profile, orders, shopping-trips, extract) were the unguarded
+    // ones, and they hang hardest precisely when the API is already struggling.
+    signal: AbortSignal.timeout(opts.timeoutMs ?? 15000),
   })
   const text = await res.text()
   let data: any
@@ -1265,7 +1338,21 @@ MODE 1 — EXPERT (answer questions). Use the KNOWLEDGE BASE below to answer any
    USE THE SPECIFICS — THIS IS CRITICAL. When the knowledge base covers the question, answer with its EXACT details: the concrete timeframes, numbers, days, conditions, rules and steps it states — repeat them faithfully. Do NOT give a vague, generic, or "safe" paraphrase that drops the specifics (e.g. if the base says "el cruce tarda 2–3 días" and "los embarques aéreos salen solo de lunes a jueves", you MUST say exactly that — not just "no hay entrega el mismo día"). A correct answer includes the actual figures and conditions from the base, not a softened summary. Being concrete is more important than being short; only stay brief by trimming filler, never by dropping the real facts. If the base has a specific rule for the exact situation asked, lead with that rule. After answering, gently move forward ("¿Qué te gustaría comprar?").
    RESTRICTED / SPECIAL ITEMS — CHECK THE BASE FIRST. When the customer asks to buy or bring a specific KIND of item (alcohol/bebidas alcohólicas, perfumes, supplements, electronics, etc.), first check whether the knowledge base has a RULE or restriction for it. If it does, answer with THAT rule — do NOT run a product search instead, and do NOT state a policy that contradicts the base. Example: the base says alcoholic beverages "se manejan a riesgo del cliente, sin garantías" — so you say exactly that; you must NOT claim "Boxly no puede importar alcohol" (that contradicts the base) nor promise disponibilidad/aprobación/entrega. NEVER contradict the knowledge base: never say something is impossible/prohibited, or guaranteed, unless the base says so.
 
-MODE 2 — PRODUCT DISCOVERY (find things). When the customer wants to see/buy products, SEARCH IMMEDIATELY with what they said — call search_products right away (no "te busco" preamble line; the loader already signals you're searching). NEVER ask a clarifying question before the first gallery: "unos tenis" → search "tenis" now; "promos en GAP" → browse/search GAP now. Vague is fine — show something, then refine. Once the gallery is back you can SEE the items returned — so your reply RECOMMENDS from them (name a standout/best deal) and you can answer follow-ups about them ("¿la primera trae popote?", "compara la 1 y la 3", "¿cuál es más barata?").
+  ⛔ BOXLY DOES NOT BRING THESE, EVER — decline, in one warm line, and move on (Alex, 2026-09-13). This is the ONE place you may say something is not possible without the base saying it, because the base is silent on them and silence was being answered with a purchase link:
+  • tobacco and nicotine — cigarettes/cigarros, puros, vapes, e-cigarettes, nicotine pouches, hookah/shisha
+  • weapons — firearms, ammunition, gun parts, tasers, pepper spray
+  • prescription and controlled medication — anything needing a prescription, plus controlled substances
+  • live animals of any kind
+  Say plainly that Boxly cannot bring that, then offer to help with something else ("Eso no lo podemos traer, pero dime qué más buscas y te lo consigo 🛒"). Do NOT run ANY tool for it, do NOT show a gallery, do NOT name a store or link where it could be bought, and do NOT describe how someone might get it another way. A shopper asked for "cigarros marlboro" and got a live link to buy a carton — that must never happen again.
+  This list is EXACT, not a theme. Vitamins, supplements and over-the-counter remedies are NORMAL products — sell them. So are kitchen knives, tools, toy/water/nerf guns, airsoft and paintball gear, pet food and pet supplies, and alcohol (alcohol stays on the knowledge base's rule above, NOT on this list).
+
+MODE 2 — PRODUCT DISCOVERY (find things). When the customer wants to see/buy products, SEARCH IMMEDIATELY with what they said — call search_products right away (no "te busco" preamble line; the loader already signals you're searching). NEVER ask a clarifying question before the first gallery: "unos tenis" → search "tenis" now; "promos en GAP" → browse/search GAP now. Vague is fine — show something, then refine.
+  THESE ARE ALL PRODUCT ASKS TOO, and each one has answered with NO GALLERY at least once — that is a failure every time (Alex, 2026-09-13):
+  • A COMPARISON naming two things — "cuál es mejor iPhone o Samsung", "¿Nike o Adidas?", "compara X y Y". Do NOT answer with an encyclopedia paragraph. SEARCH so the gallery holds BOTH, then compare the real items on screen with their real prices. A shopping assistant that cannot show either phone when asked which is better is broken.
+  • ONE WORD, a bare brand, or an EMOJI — "audífonos", "Nike", "🎮", "👟", "💄". Search the obvious reading immediately (🎮 → video games and consoles, 👟 → sneakers, 💄 → makeup) and show it. NEVER reply "¿qué buscas exactamente?" to a one-word or emoji ask — the gallery IS the question you are asking them.
+  • A STORE with no item — "algo para eBay", "qué hay en Target". That is a request to SEE the store: curate_products({intent:'deals', store}) and show it.
+  In every one of these, products on screen come FIRST and the narrowing question comes after, if at all.
+  Once the gallery is back you can SEE the items returned — so your reply RECOMMENDS from them (name a standout/best deal) and you can answer follow-ups about them ("¿la primera trae popote?", "compara la 1 y la 3", "¿cuál es más barata?").
 
 MODE 3 — BUILD THE CART, THEN CLOSE (where the money is made). When they like a product ("quiero ese", "agrégalo", the "Agregar al carrito" tap), ADD it to their Boxly cart and encourage the next add — build a fuller box across items and stores (that's how they get the most value). Only when they say they're DONE do you FINALIZE into ONE Purchase Request (create the account if they're a guest, then show_assisted_summary right away — no size/colour questions; the shopping team handles variants afterward). Adding ≠ ordering — accumulate first, finalize last. This whole loop is your most important job.
 
@@ -1446,7 +1533,7 @@ export default defineEventHandler(async (event) => {
     : tool({
         description: "Search the web (Google) for stores, product pages and general info. FALLBACK when search_products returns nothing, and the way to find a real merchant product-page URL at order time. Returns results with title, url and snippet — pass good product-page URLs to show_products or extract_product.",
         inputSchema: z.object({ query: z.string().describe('What to search for, e.g. "YoungLA joggers men", "owala 24oz official site".') }),
-        execute: async ({ query }) => callApi('/products/web-search', { method: 'POST', body: { query }, timeoutMs: 12000 }),
+        execute: async ({ query }) => restrictedAsk(messages) ? REFUSAL : callApi('/products/web-search', { method: 'POST', body: { query }, timeoutMs: 12000 }),
       })
 
   // Identity for analytics question-logging (searches log themselves server-side).
@@ -1568,6 +1655,15 @@ export default defineEventHandler(async (event) => {
       // suggest_followups is never offered to the model (chips come from followupsPromise).
       return { activeTools: galleryAttempts >= 2 ? NON_GALLERY_TOOLS : LOOP_TOOLS }
     },
+    // THE TURN MUST END. The model stream had no deadline of any kind, and the provider
+    // connection can simply stall: across 200 logged turns the slowest to COMPLETE was
+    // 18.3s, yet a few requests hung past 90s and never reached onFinish or onError at
+    // all — no gallery, no text, no error, just a spinner. It is bimodal (fast, or
+    // forever), it happened once before any tool had run, and it still happened after
+    // every callApi was given a deadline, so it is this call and not ours. 45s is far
+    // past any healthy turn; anything beyond it is a stall, and a bounded failure the
+    // client can react to beats an open-ended one it cannot.
+    abortSignal: AbortSignal.timeout(45000),
     onError: ({ error }) => console.error('[assistant] error:', error instanceof Error ? error.message : error),
     onFinish: async ({ text, steps, totalUsage }) => {
       // Prompt-size + cache telemetry (one line per turn) so the effect of the
@@ -1667,6 +1763,9 @@ export default defineEventHandler(async (event) => {
           sale: z.boolean().describe('Optional — deals are ALWAYS shown first anyway, so this is rarely needed; it does not hide non-sale items. Use only for "SOLO ofertas / only on sale".').optional(),
         }),
         execute: async ({ query, store, brands, category, min_price, max_price, min_discount, sale, sort }) => {
+          if (restrictedAsk(messages)) return REFUSAL
+          if (!shopperNamed(store, messages)) store = undefined
+          if (brands?.length) brands = brands.filter((b: string) => shopperNamed(b, messages))
           if (!(min_price! > 0)) min_price = undefined
           if (!(max_price! > 0) || max_price! >= 5000) max_price = undefined
           // SERP replacement: our OWN catalog, harvested by the computer-use agents
@@ -1738,6 +1837,10 @@ export default defineEventHandler(async (event) => {
         execute: async (a: any) => {
           // The model fills EVERY optional param with a placeholder (min_price:0, max_price:9999, brand_tier:"mass"
           // on "promos de Alo"). Those aren't the shopper's filters — strip them so they can't empty a store.
+          // A store nobody named is the same kind of placeholder, and a costlier one: it turns a full gallery
+          // into "no encontré X en <store>".
+          if (restrictedAsk(messages)) return REFUSAL
+          if (!shopperNamed(a.store, messages)) a.store = undefined
           if (!(a.min_price > 0)) a.min_price = undefined
           if (!(a.max_price > 0) || a.max_price >= 5000) a.max_price = undefined
           const genders = a.gender === 'men' ? ['men', 'unisex'] : a.gender === 'women' ? ['women', 'unisex'] : a.gender === 'kids' ? ['kids'] : undefined
