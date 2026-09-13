@@ -174,7 +174,7 @@
                 class="w-full flex items-center justify-center gap-2 rounded-2xl bg-primary-500 hover:bg-primary-600 active:scale-[.98] transition text-white font-bold py-3.5 text-[15px] shadow-sm shadow-primary-500/20"
               >
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-1.5 3h11m-8 3a1 1 0 11-2 0 1 1 0 012 0zm9 0a1 1 0 11-2 0 1 1 0 012 0z"/></svg>
-                Agregar al carrito
+                {{ missingSize ? 'Elegir talla' : 'Agregar al carrito' }}
               </button>
               <!-- The footer line is gone for good (Alex, 2026-09-11: "we see the message on the bottom saying we
                    don't have the colors or variants when we do — remove that message completely"). It sat outside
@@ -333,6 +333,16 @@ const loadingProduct = computed(() => {
   if (gallery.value.length > 1) return false // real product-page photos are in — show them
   return loadingDetail.value || loadingVariants.value
 })
+// A SIZED PRODUCT MUST NOT LEAVE HERE WITHOUT A SIZE. The picker requires every axis it
+// was handed, but it can only require what the reader found — measured on eight real Nike
+// running shoes, three came back with no Size axis at all (Fit+Color, Color only, and one
+// with nothing), so the choice looked complete and an unsized shoe could go into the box.
+// Nobody can buy "the Pegasus 41 in black". When the product is obviously sized and no
+// size is on offer, the button stops pretending and takes the shopper to the assistant to
+// settle the size — which is what a normal store makes you do before it lets you pay.
+const axisNames = computed(() => (variantData.value?.axes || []).map((a) => a?.name).filter(Boolean))
+const missingSize = computed(() => sizeMissing(props.product?.title, axisNames.value, props.product?.category))
+
 const hasChoices = computed(() => {
   if (colorways.value.length > 1) return true // the colour itself is a choice, even if this page has one size
   const ax = variantData.value?.axes || []
@@ -437,6 +447,9 @@ async function loadDetails(p) {
 // "Boxly lo compra" — hand the product to the chat so the assistant creates a
 // Purchase Request (assisted purchase, +15%). Pass the resolved merchant link.
 function assisted(pick) {
+  // Both paths funnel through here — the picker's CTA and the plain button — so the guard
+  // only has to exist once.
+  if (missingSize.value) pick = { text: askForSize(pick?.text) }
   emit('assisted', {
     ...props.product,
     url: bestLink.value,
@@ -448,6 +461,17 @@ function assisted(pick) {
 }
 // The picker's own CTA is the add-to-cart for a product that HAS choices: it hands up the exact sentence
 // (size, colour, quantity) so the chat adds it in one turn with everything already decided.
+// Keep whatever the shopper DID choose (colour, fit) and turn the closing promise into the
+// question that is actually outstanding, so the assistant asks for the size instead of the
+// buyer receiving an order they cannot place.
+function askForSize(chosenText) {
+  const what = props.product?.title ? `los ${props.product.title}` : 'ese producto'
+  const base = chosenText
+    ? chosenText.replace(/\s*—\s*agr[eé]galos a mi caja\s*$/i, '')
+    : `Quiero ${what}`
+  return `${base} — ¿qué tallas tienen disponibles? Dime las opciones y te digo cuál quiero.`
+}
+
 function onVariantPick(text) {
   // Name the colourway the shopper actually chose here — the picker only knows this page's own axes, and for a
   // store that sells each colour as a separate page the colour lives in the chip, not in the size chips.

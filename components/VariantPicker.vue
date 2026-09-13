@@ -185,10 +185,15 @@ const complete = computed(() => {
 })
 // Price and photo live in the modal's header now, so the card no longer computes them.
 const ctaLabel = computed(() => {
-  if (!axes.value.length) return complete.value ? 'Agregar al carrito' : 'Agotado'
+  // The store shows sizes for this kind of product but the read did not find them, so the
+  // modal will take the shopper to the assistant to settle it. Say that here rather than
+  // promising a cart add that is about to turn into a question.
+  const sizeOwed = sizeMissing(product.value?.title, axes.value.map((a) => a.name))
+  if (!axes.value.length) return complete.value ? (sizeOwed ? 'Elegir talla' : 'Agregar al carrito') : 'Agotado'
   const missing = axes.value.find((a) => !sel[a.name])
   if (missing) return `Elige ${axisLabel(missing).toLowerCase()}`
-  return complete.value ? 'Agregar al carrito' : 'Combinación agotada'
+  if (!complete.value) return 'Combinación agotada'
+  return sizeOwed ? 'Elegir talla' : 'Agregar al carrito'
 })
 function confirm() {
   if (!complete.value) return
