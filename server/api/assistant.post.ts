@@ -2,6 +2,7 @@ import { streamText, tool, convertToModelMessages, stepCountIs, createUIMessageS
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { extractText, getDocumentProxy } from 'unpdf'
 import { z } from 'zod'
+import { itemUnits, boxFor, loadBoxPrices } from '../utils/boxMath'
 import { FALLBACK_KNOWLEDGE } from '../utils/boxlyKnowledge'
 import { curateProducts, floatRequestedStore } from '../utils/curate'
 import { chatModel, isAnthropic, providerOptions, hasModelKey } from '../utils/aiProvider'
@@ -410,6 +411,41 @@ function thumb(url: any): string | null {
     }
   } catch { /* not a URL we can parse — leave it exactly as it came */ }
   return url
+}
+
+// WHAT WILL THIS ACTUALLY COST ME, DELIVERED? The summary card said "Caja / envío a
+// México — se cotiza aparte", so the one number a shopper cares about was the one number
+// missing: they saw $237.97 + $35.70 and still could not tell whether the answer was four
+// thousand pesos or eight. Boxly already models this everywhere else — the pricing page,
+// the landing calculator and the shopper panel all size a box with the same archetype
+// volumes — so the quote uses that same math rather than a second opinion, and the same
+// live Stripe prices. The box stays an ESTIMATE (the packers confirm it when everything
+// physically lands in the warehouse) and the card says so; an estimate the shopper can
+// plan around beats a blank.
+async function quoteBox(items: any[]) {
+  const units = (items || []).reduce(
+    (n, it) => n + itemUnits(String(it?.name || ''), (it as any)?.type) * (Number(it?.quantity) || 1),
+    0,
+  )
+  const tier = boxFor(units)
+  const prices = await loadBoxPrices(() =>
+    fetch(`${API_BASE}/products`, { signal: AbortSignal.timeout(8000) })
+      .then((r) => r.json())
+      .then((d: any) => d?.data ?? d),
+  ).catch(() => ({} as Record<string, number>))
+  const price = prices?.[tier.key]
+  if (!Number.isFinite(price)) return null
+  return { key: tier.key, label: tier.label, price_mxn: price, units: Number(units.toFixed(2)) }
+}
+
+// One rate for the whole quote so the card never mixes two. Falls back to null rather than
+// a guessed number — a wrong total is worse than an honest "se cotiza aparte".
+async function usdMxn(): Promise<number | null> {
+  try {
+    const d: any = await callApi('/fx-rate', { timeoutMs: 6000 })
+    const r = Number(d?.rate ?? d?.data?.rate)
+    return Number.isFinite(r) && r > 0 ? r : null
+  } catch { return null }
 }
 
 function toGalleryProduct(p: any) {
@@ -2263,6 +2299,10 @@ export default defineEventHandler(async (event) => {
             const bits = [size ? `Talla ${size}` : null, color ? `Color ${color}` : null, notes || null].filter(Boolean)
             return { ...it, size: size || undefined, color: color || undefined, quantity: it.quantity || 1, notes: bits.join(' · ') || undefined }
           }),
+          // The delivered cost, so the card can stop saying "se cotiza aparte". Both legs
+          // fail soft to null and the card simply falls back to the old line.
+          box: await quoteBox(items || []),
+          fx_usd_mxn: await usdMxn(),
           }
         },
       }),
