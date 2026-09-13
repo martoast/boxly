@@ -74,6 +74,50 @@ export default defineEventHandler(async (event) => {
     }
   }
 
+  // STORES WE CANNOT READ AT ALL GET READ FROM THE FEED INSTEAD.
+  // New Balance answers every server fetch with 403, and in the headless browser its page
+  // loads but exposes an EMPTY accessibility tree — measured three times on 2026-09-13 at
+  // 7s, +3s and +8s, all "this page exposes no content". So no retry reads it, and the
+  // modal fell back to a mirror with no colour photos: pick a colour, nothing moves.
+  // Google's feed knows the product, and knows per-option availability the mirror never
+  // had. Keyed by host so adding the next bot-walled store is one line.
+  const FEED_STORES: Record<string, string> = { 'newbalance.com': 'New Balance' }
+  const feedBrand = (u: string) => {
+    const h = hostOf(u)
+    for (const [dom, brand] of Object.entries(FEED_STORES)) if (h === dom || h.endsWith('.' + dom)) return brand
+    return null
+  }
+  const readFeed = async (u: string, brand: string) => {
+    // The shopper's own title is the best query; a New Balance url still carries the model
+    // ("/pd/9060/…") when the modal did not send one.
+    const fromUrl = (u.match(/\/pd\/([^/]+)/)?.[1] || '').replace(/[-_]+/g, ' ').trim()
+    // Do not say the brand twice: gallery titles usually already start with it, and
+    // "New Balance New Balance 9060" matches nothing in the shopping feed.
+    const name = String(body?.title || fromUrl || '').slice(0, 80).trim()
+    const query = (new RegExp(`^${brand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(name) ? name : `${brand} ${name}`).trim()
+    try {
+      const f: any = await $fetch(`${API_BASE}/catalog/feed-product`, { method: 'POST', body: { query, brand }, timeout: 60_000 })
+      const variants = Array.isArray(f?.variants) ? f.variants : []
+      if (!variants.length) return { variants: [], axes: [], colorways: [], reason: f?.error || 'no_variants' }
+      return {
+        // Keep the STORE's own url and photos — the feed's link points at Google, and the
+        // shopper is buying from New Balance, not from a search result.
+        product: { ...(f.product || {}), url: u },
+        axes: Array.isArray(f.axes) ? f.axes : [],
+        variants,
+        axes_independent: f.axes_independent !== false,
+        selected: f.selected || null,
+        checked_at: f.checked_at || null,
+        source: f.source || 'feed',
+        colorways: [],
+        reason: null,
+      }
+    } catch (e: any) {
+      console.warn('[product-variants] feed unreachable:', e?.message || e)
+      return { variants: [], axes: [], colorways: [], reason: 'unreachable' }
+    }
+  }
+
   const readStore = async (u: string) => {
     try {
       const r: any = await $fetch(`${CATALOG_BASE}/catalog/product-variants`, {
@@ -110,7 +154,11 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  const readAny = (u: string) => (/(^|\.)amazon\.[a-z.]+$/i.test(hostOf(u)) ? readAmazon(u) : readStore(u))
+  const readAny = (u: string) => {
+    const brand = feedBrand(u)
+    if (brand) return readFeed(u, brand)
+    return /(^|\.)amazon\.[a-z.]+$/i.test(hostOf(u)) ? readAmazon(u) : readStore(u)
+  }
   // Did we land on a PRODUCT? A dead link answers page_not_found; a walled or empty page answers nothing usable.
   // Anything with a real axis, several variants, photos or a price is the product page we came for.
   const isProduct = (r: any) => !!r && !['page_not_found', 'not_a_product_page', 'unreachable'].includes(r.reason)
@@ -141,6 +189,8 @@ export default defineEventHandler(async (event) => {
     return { ...r, product, variants, resolved_merchant: resolved?.merchant, resolved_url: readUrl }
   }
 
+  const readUrlBrand = feedBrand(readUrl)
+  if (readUrlBrand) return await readFeed(readUrl, readUrlBrand)
   if (/(^|\.)amazon\.[a-z.]+$/i.test(hostOf(readUrl))) return await readAmazon(readUrl)
 
   return await readStore(readUrl)
