@@ -547,7 +547,14 @@ const COLLECTION_IDS = COLLECTION_MENU.map((c) => c.id) as [string, ...string[]]
 // the same gallery shape as curate, plus the collection header (title/subtitle) so the
 // gallery can headline it. Fails SOFT to empty.
 async function getCollectionApi(id: string, exclude_ids?: string[]) {
-  const body: any = { id, limit: 12, seed: (Math.random() * 1e9) | 0 }
+  // A STORE CARD SHOULD NOT LOOK EMPTIER THAN A SEARCH. The spotlight cards (Gap, Old
+  // Navy, Coach Outlet, Kipling, Bath & Body Works) asked for 12 and so showed a quarter
+  // of what every other advertised card shows, from a single store — next to a 48-row
+  // Nike or Target gallery it reads as "we barely carry this store". There is no shortage
+  // behind them: each has 100+ discounted items in the catalog, and all five return a
+  // full 48 priced and imaged rows at this limit, so the curation is not being diluted
+  // into filler — it is choosing 48 out of a pool of ~190 instead of 12 out of ~48.
+  const body: any = { id, limit: GALLERY_MAX, seed: (Math.random() * 1e9) | 0 }
   if (exclude_ids?.length) body.exclude_ids = exclude_ids
   let data: any = {}
   try { data = await callApi('/catalog/collection', { method: 'POST', body, timeoutMs: 12000 }) } catch { data = {} }
