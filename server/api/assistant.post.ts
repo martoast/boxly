@@ -1703,6 +1703,15 @@ export default defineEventHandler(async (event) => {
     // ("no encontré, ¿probamos otra marca?") instead of a hang.
     prepareStep: ({ steps }: any) => {
       if (galleryShown) return { activeTools: NON_GALLERY_TOOLS }
+      // web_search IS A FALLBACK, NEVER AN OPENING MOVE. The eBay store card sends
+      // "Ayúdame a encontrar y comparar las mejores opciones en eBay." and the model
+      // answered it with web_search({query:"ebay"}) — which returns articles about the
+      // company, not products — then apologised with an empty screen, on a card we
+      // advertise. The prompt forbids exactly this and even quotes that phrasing, and it
+      // was ignored anyway, so take the tool away for the first move: with no gallery yet
+      // and nothing tried, the model has to reach for a product tool. It gets web_search
+      // back on the next step, which is the fallback role it is documented for.
+      if (!(steps || []).length) return { activeTools: LOOP_TOOLS.filter((t: string) => t !== 'web_search') }
       const galleryAttempts = (steps || []).reduce(
         (n: number, s: any) => n + (s.toolCalls || []).filter((c: any) => GALLERY_TOOLS.includes(c.toolName)).length,
         0
