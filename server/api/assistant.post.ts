@@ -159,8 +159,17 @@ async function searchCatalogApi(a0: CatalogSearchArgs & { web?: boolean }) {
   // listings are never a better answer than the store they asked for). Store-less non-matches are filler:
   // they go LAST and are dropped once the real legs have enough.
   const namedCarriedStore = !!a.store && !miss.unmatched_stores?.length && products.length > 0
-  const catalogReal = miss.query_matched !== false || namedCarriedStore
   const soldOut = dropSoldOut(products)
+  // …but the catalog calls it a match on ONE incidental word. "work boots with steel toe"
+  // came back query_matched:true with Victoria's Secret "Closed-Toe Slippers" and two
+  // pairs of kids' sneakers — matched on "toe" — and those four rows then sat above
+  // Amazon's actual steel-toe boot. So judge the SET, not the flag alone: a coherent
+  // catalog answer has several rows carrying the shopper's words (3 of 5 "water bottle"
+  // rows say Bottle, and Owala's "FreeSip" rides along with them); an incidental one has
+  // almost none. A named store keeps its protection — its own products lead whatever
+  // their titles say, because Amazon is never a better answer than the store they asked for.
+  const catalogReal = (miss.query_matched !== false || namedCarriedStore)
+    && (namedCarriedStore || catalogEchoesQuery(soldOut.rows, String(a.query || '')))
   const catRows = soldOut.rows.map(toGalleryProduct)
   const storeRows: any[] = live.products || []
   // A sale/promo search takes only MARKED-DOWN web rows — full-price Amazon listings are not "ofertas".
@@ -844,6 +853,23 @@ const webCategory = (category: string | undefined, term: string) =>
   category && term && BUCKET_CATEGORY.test(category.trim()) ? undefined : category
 
 const plainText = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '')
+
+// Do the catalog's rows, as a group, actually echo what was asked? Substring matching on
+// a 4+ letter stem so "boot" catches "boots" and "bottle" catches "Bottles"; one third of
+// the rows is enough, because a real match brings siblings whose titles use the brand's
+// own vocabulary. Empty query or no rows → nothing to judge, leave the decision alone.
+const QUERY_STOP = new Set(['with', 'without', 'para', 'and', 'the', 'for', 'from', 'your', 'best', 'mens', 'womens'])
+function catalogEchoesQuery(rows: any[], query: string): boolean {
+  const terms = [...new Set((plainText(query).toLowerCase().match(/[a-z0-9]{4,}/g) || [])
+    .filter((w) => !QUERY_STOP.has(w))
+    .map((w) => w.replace(/s$/, '')))]
+  if (!terms.length || !rows.length) return true
+  const hits = rows.filter((r) => {
+    const title = plainText(String(r?.title || '')).toLowerCase()
+    return terms.some((w) => title.includes(w))
+  }).length
+  return hits * 3 >= rows.length
+}
 function restrictedAsk(messages: any[]): boolean {
   return RESTRICTED_RE.test(plainText(lastUserText(messages)))
 }
@@ -1508,6 +1534,14 @@ export default defineEventHandler(async (event) => {
   const body = await readBody(event)
   const messages = body?.messages ?? []
   const token: string | undefined = body?.token || undefined
+  // PHASE MARKERS. A few turns per hundred hang and never reach onFinish or onError, so
+  // nothing about them appears in the logs at all — and one hung the full 90s even after
+  // the model stream was given a 45s abort, which means the stall is NOT inside
+  // streamText. These two lines cost nothing and say which side of setup it died on: a
+  // "start" with no "stream" is the handler; a "stream" with no "usage" is the provider.
+  const turnId = Math.random().toString(36).slice(2, 8)
+  const turnStartedAt = Date.now()
+  console.log(`[assistant] start ${turnId} ${JSON.stringify(String(lastUserText(messages)).slice(0, 60))}`)
   // The chat thread this turn belongs to — logged onto each search/question event
   // so admins can open the full conversation from the AI-search view. Null for guests.
   const conversationId: number | undefined = Number(body?.conversationId) > 0 ? Number(body.conversationId) : undefined
@@ -1604,6 +1638,7 @@ export default defineEventHandler(async (event) => {
   const t0 = Date.now()
   let firstChunkAt = 0
   let firstTextAt = 0
+  console.log(`[assistant] stream ${turnId} setup=${Date.now() - turnStartedAt}ms`)
   const result = streamText({
     model: chatModel(),
     providerOptions: providerOptions(),
