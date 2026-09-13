@@ -18,7 +18,7 @@
             loading="lazy"
             referrerpolicy="no-referrer"
             class="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
-            @error="p.broken = true"
+            @error="retryImage(p, $event)"
           />
           <span v-else class="text-[13px] font-bold text-gray-400 uppercase tracking-wide leading-tight line-clamp-3 text-center px-1">{{ p.store || p.title }}</span>
         </div>
@@ -63,6 +63,22 @@ const normalized = computed(() =>
     rating: p.rating ?? null,
     reviews: p.reviews ?? null,
     broken: false,
+    retried: false,
   }))
 )
+// ONE STALLED REQUEST MUST NOT COST THE CARD ITS PHOTO. @error fired once and the tile
+// became a grey store-name box for the rest of the session, with no second attempt — so
+// a transient failure (a phone on mobile data, a cancelled request, a CDN hiccup) looked
+// exactly like a dead image. That is what made the heavy-image bug read as "no images at
+// all" in a live demo. Retry once, a beat later, with the SAME url — no cache-busting
+// parameter, because some CDNs sign their urls and an extra param would turn a working
+// retry into a 403. Only a second failure marks the card broken.
+function retryImage(p, e) {
+  if (p.retried) { p.broken = true; return }
+  p.retried = true
+  const el = e.target
+  const src = el.src
+  el.src = ''
+  setTimeout(() => { el.src = src }, 1200)
+}
 </script>
