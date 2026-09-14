@@ -118,6 +118,10 @@ async function searchCatalogApi(a0: CatalogSearchArgs & { web?: boolean }) {
       relaxed: !!data?.relaxed, relaxed_filters: data?.relaxed_filters || [],
       // Stores/brands we could not resolve to a catalog store (PINK, ULTA, Macy's…) → the model goes to the web.
       unmatched_stores: data?.resolved?.unmatched || [],
+      // EVIDENCE, not just intent: the brand they named resolved to no store AND no row carries
+      // it, so the catalog returned nothing rather than another brand's products. unmatched_stores
+      // says what we could not resolve; this says we genuinely have nothing for it.
+      brand_unmatched: data?.brand_unmatched || [],
       // The catalog's id for the store they named ("New Balance" → new-balance): the live-grab leg needs the id.
       store_id: data?.resolved?.stores?.[0]?.store_id || null,
     }
@@ -125,7 +129,7 @@ async function searchCatalogApi(a0: CatalogSearchArgs & { web?: boolean }) {
   // The store they named is NOT in our catalog (Macy's, ULTA, PINK…): the catalog only RANKED other stores'
   // rows by that word, which is filler. Don't hand the model filler and hope it notices the flag — go get
   // that store from the web right here, so the gallery is that store, every time, in one round-trip.
-  if (a.store && miss.unmatched_stores?.includes(a.store)) return uncarriedStoreFallback(a.store, a.query)
+  if (a.store && (miss.unmatched_stores?.includes(a.store) || miss.brand_unmatched?.length)) return uncarriedStoreFallback(a.store, a.query)
   // CONTENT MISS AT A STORE WE CARRY ("tacos de americano en Dick's", "New Balance 2002R"): the mirror is
   // honestly empty for those words, so the store's OWN site joins the web leg — our browser agent on its
   // search page (7–30 s; every row it finds is upserted into the mirror for next time).
