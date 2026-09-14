@@ -1028,11 +1028,16 @@ function galleryModelOutput({ output }: { output: any }) {
 // replayed as the FULL product objects (~3× the compact size, per gallery, per turn).
 const HISTORY_TOOLS: any = Object.fromEntries(GALLERY_TOOLS.map((t) => [t, { toModelOutput: galleryModelOutput }]))
 
-// Analytics: a turn that used a product tool is a SEARCH (already logged server-side
-// by /products/search); a turn with no product tool is a business QUESTION. Log the
-// latter to /search-events, forwarding the user's identity so it's attributed.
-function logQuestion(question: string, answer: string, auth: { cookie?: string; origin?: string; token?: string }, conversationId?: number) {
-  if (!question?.trim()) return
+// Analytics: a turn that used a product tool is a SEARCH, a turn with no product tool is
+// a business QUESTION. BOTH are reported from here.
+//
+// The search half used to be written server-side inside /products/search, which saw the
+// rows it served. Catalog reads now go straight to the catalog service (see below), so
+// that endpoint stopped being called and search telemetry went dark on 2026-09-04 — the
+// admin dashboard read 0 searches for ten days while questions kept flowing, which is
+// precisely why nobody noticed. Reporting both from the same place means a future change
+// of read path cannot silently take the analytics with it again.
+function logEvent(body: Record<string, unknown>, auth: { cookie?: string; origin?: string; token?: string }) {
   const headers: Record<string, string> = { Accept: 'application/json', 'Content-Type': 'application/json' }
   if (auth.cookie) headers.Cookie = auth.cookie
   if (auth.origin) headers.Origin = auth.origin
@@ -1040,9 +1045,53 @@ function logQuestion(question: string, answer: string, auth: { cookie?: string; 
   fetch(`${API_BASE}/search-events`, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ type: 'question', query: question, answer, conversation_id: conversationId }),
+    body: JSON.stringify(body),
     signal: AbortSignal.timeout(8000),
   }).catch(() => {})
+}
+
+function logQuestion(question: string, answer: string, auth: { cookie?: string; origin?: string; token?: string }, conversationId?: number) {
+  if (!question?.trim()) return
+  logEvent({ type: 'question', query: question, answer, conversation_id: conversationId }, auth)
+}
+
+/** The product tool this turn actually searched with, and what it served back. */
+export function searchFromSteps(steps: any[]): { query: string; results: number; broadened: boolean; served_query: string | null; results_sample: any[] } | null {
+  for (const step of steps || []) {
+    const results = new Map((step?.toolResults || []).map((r: any) => [r.toolCallId, r]))
+    for (const call of (step?.toolCalls || [])) {
+      if (!PRODUCT_TOOLS.has(call.toolName)) continue
+      const input: any = call.input ?? call.args ?? {}
+      // What the SHOPPER asked for. curate_products drives the catalog with facets and
+      // no free-text at all, so fall back to the store/category it was steered by rather
+      // than logging an empty query nobody can act on.
+      const query = String(input.query ?? input.q ?? input.store ?? input.category ?? '').trim()
+      if (!query) continue
+      const out: any = (results.get(call.toolCallId) as any)?.output ?? (results.get(call.toolCallId) as any)?.result ?? {}
+      const rows: any[] = Array.isArray(out?.products) ? out.products : Array.isArray(out) ? out : []
+      return {
+        query,
+        results: rows.length,
+        // The catalog says so itself when it dropped the shopper's facets to avoid an
+        // empty gallery; those rows are store filler, not matches for `query`.
+        broadened: !!(out?.broadened ?? out?.relaxed),
+        served_query: out?.served_query ?? null,
+        results_sample: rows.slice(0, 12).map((p: any) => ({
+          store: p?.store ?? p?.store_id ?? null,
+          title: typeof p?.title === 'string' ? p.title.slice(0, 140) : null,
+          price: typeof p?.price === 'number' ? p.price : null,
+        })),
+      }
+    }
+  }
+  return null
+}
+
+function logSearch(steps: any[], auth: { cookie?: string; origin?: string; token?: string }, conversationId?: number) {
+  const s = searchFromSteps(steps)
+  // A search that served NOTHING is the most useful row in the table — it is demand we
+  // failed — so it is reported exactly like one that served rows.
+  if (s) logEvent({ type: 'search', ...s, conversation_id: conversationId }, auth)
 }
 
 // CATALOG READS GO STRAIGHT TO THE CATALOG SERVICE (2026-09-11). The Laravel API only proxied these verbatim,
@@ -1792,10 +1841,11 @@ export default defineEventHandler(async (event) => {
       // The chips ride on the message via the stream (see the end of this handler);
       // wait for the same bounded promise so the persisted turn carries them too.
       const chips = await followupsWithin(followupsPromise)
-      // A turn that used a product tool is a SEARCH (logged server-side by
-      // /products/search). A turn with no product tool is a business QUESTION.
+      // A turn that used a product tool is a SEARCH; a turn with no product tool is a
+      // business QUESTION. Both are reported from here (see logEvent).
       const usedProductTool = (steps || []).some((s: any) => (s.toolCalls || []).some((c: any) => PRODUCT_TOOLS.has(c.toolName)))
-      if (!usedProductTool) logQuestion(question, text || '', auth, conversationId)
+      if (usedProductTool) logSearch(steps || [], auth, conversationId)
+      else logQuestion(question, text || '', auth, conversationId)
       // Durably save the turn server-side (awaited so it completes within the
       // stream lifecycle — see persistTurn). Authoritative writer of chat history.
       await persistTurn(conversationId, token, messages, steps, text || '', chips)
