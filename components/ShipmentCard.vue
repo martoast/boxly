@@ -17,7 +17,11 @@
         </div>
         <div class="min-w-0 flex-1">
           <p class="text-[13px] text-gray-800 truncate leading-tight"><span v-if="it.quantity > 1" class="font-semibold">{{ it.quantity }}× </span>{{ it.name }}</p>
-          <p class="text-[11px] text-gray-400 leading-tight mt-0.5">{{ it.size }}<span v-if="it.price"> · ${{ it.price }} USD</span></p>
+          <!-- The shopper's OWN choice leads (size · colour), then the packing size and price — a box item must
+               show back exactly what they picked (Alex, 2026-09-11). -->
+          <p class="text-[11px] leading-tight mt-0.5">
+            <span v-if="it.chosen" class="font-semibold text-gray-600">{{ it.chosen }}</span><span v-if="it.chosen" class="text-gray-300"> · </span><span class="text-gray-400">{{ it.size }}<span v-if="it.price"> · ${{ it.price }} USD</span></span>
+          </p>
         </div>
       </li>
     </ul>

@@ -1,5 +1,9 @@
 <template>
-  <div class="flex bg-gray-50 overflow-hidden relative" :class="standalone ? 'h-[100dvh]' : (fullscreenMobile ? 'h-[100dvh] md:h-[calc(100dvh-4rem)]' : 'h-[calc(100dvh-4rem)]')">
+  <!-- --kb is how much of the viewport the on-screen keyboard is covering, measured live from
+       window.visualViewport (see trackKeyboard). Subtracting it keeps the composer sitting on top of the
+       keyboard and lets the height return cleanly when the keyboard closes — the blank strip Alex saw was the
+       document left scrolled with nothing under it. -->
+  <div class="flex bg-gray-50 overflow-hidden relative" :class="standalone ? 'h-[calc(100dvh_-_var(--kb,0px))]' : (fullscreenMobile ? 'h-[calc(100dvh_-_var(--kb,0px))] md:h-[calc(100dvh_-_4rem)]' : 'h-[calc(100dvh_-_4rem_-_var(--kb,0px))]')">
     <!-- Error toast (e.g. a failed send) — otherwise a failure looks like silence -->
     <Transition name="pop">
       <div v-if="chatError" class="absolute bottom-24 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-2 rounded-xl bg-red-600 text-white text-sm font-semibold px-4 py-2.5 shadow-lg">
@@ -397,7 +401,14 @@
 
                   <!-- 3) Action widgets + follow-ups after the reply -->
                   <template v-for="(part, i) in m.parts" :key="'w' + i">
-                    <LazyShipmentCard v-if="part.type === 'tool-show_shipment' && part.state === 'output-available'" :shipment="enrichShipment(part.output)" :requested="!!assistedPr" @order="onFinalizeShipment" @add="onAddMore" />
+                    <!-- An item held for a size/colour pick returns hold:true; with nothing else in the box there is no box to
+                         draw yet, so show the picker alone rather than an empty "Tu caja Boxly 0" card. -->
+                    <LazyShipmentCard v-if="part.type === 'tool-show_shipment' && part.state === 'output-available' && !(part.output?.hold && !part.output?.items?.length)" :shipment="enrichShipment(part.output)" :requested="!!assistedPr" @order="onFinalizeShipment" @add="onAddMore" />
+                    <!-- Sizes/colours with LIVE availability for the item just added (read from its stored URL by show_shipment). -->
+                    <!-- The picker NEVER renders inline in the chat (Alex, 2026-09-11: "this UI/UX of the variant
+                         selection should never be in the chat, it should be in the modal"). When the box holds an item
+                         for a pick, we OPEN THE PRODUCT MODAL for it — one place to choose, every time. -->
+                    <span v-if="part.type === 'tool-show_shipment' && part.state === 'output-available' && part.output?.variants_for?.variants?.length" class="hidden" :data-open-picker="openPickerFor(part.output.variants_for)"></span>
 
                     <template v-else-if="part.type === 'tool-show_assisted_summary' && part.state === 'output-available'">
                       <!-- Once the request is actually created (deterministically, on
@@ -453,6 +464,9 @@
                         <NuxtLink to="/app/pricing" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-gray-200 text-gray-700 text-[12.5px] font-semibold hover:bg-gray-50 active:scale-95 transition-all">💰 Precios de cajas</NuxtLink>
                       </div>
                     </div>
+
+                    <!-- Variant picker: sizes/colours with LIVE availability for the product the shopper chose. -->
+                    <span v-else-if="part.type === 'tool-get_product_variants' && part.state === 'output-available' && part.output?.variants?.length" class="hidden" :data-open-picker="openPickerFor(part.output)"></span>
 
                     <!-- Tappable follow-ups (cross-sell / build-the-set) -->
                     <div v-else-if="part.type === 'tool-suggest_followups' && part.state === 'output-available' && part.output?.suggestions?.length" class="flex flex-wrap gap-2 mt-1">
@@ -727,7 +741,7 @@ const showMemory = ref(false)
 function closeMemory() { showMemory.value = false; loadProfile() }
 let openSeq = 0
 let hubPhraseTimer = null
-onBeforeUnmount(() => { if (hubPhraseTimer) clearInterval(hubPhraseTimer) })
+onBeforeUnmount(() => { if (hubPhraseTimer) clearInterval(hubPhraseTimer); if (kbCleanup) { kbCleanup(); kbCleanup = null } })
 // In-memory cache of opened conversations (id -> { messages, oldestId, hasMore,
 // products }) for instant re-open. Pagination state for the ACTIVE thread:
 const msgCache = new Map()
@@ -1307,6 +1321,44 @@ function primaryGalleryIndex(m) {
 // Show the "no results" line ONLY once the turn has fully settled — never while the
 // current message is still streaming (a second search may still be loading), which
 // caused a false "no encontré opciones" to flash before the real results arrived.
+// The message a variant chip sends — the model reads it as the shopper's pick and fills size/color.
+function variantPickText(v) {
+  const parts = []
+  if (v.size) parts.push('talla ' + v.size)
+  if (v.color) parts.push('color ' + v.color)
+  return 'Quiero ' + (parts.length ? parts.join(', ') : v.key)
+}
+// The picker's data: the tool output plus the registry product (image / price / store / url) so the card
+// shows the product the shopper chose, not just its variants.
+// A variant payload that arrives in the chat means the shopper still has to choose — so open the PRODUCT MODAL
+// on that product (photos + sizes + quantity + add to cart), which is the single place a pick ever happens.
+// Idempotent: each tool call opens once, and never while another modal is already up.
+const pickerOpened = new Set()
+function openPickerFor(o) {
+  if (!import.meta.client || !o) return ''
+  const d = variantData(o)
+  const key = o.saved_id || d.product?.url || d.product_title || JSON.stringify(o.axes || []).slice(0, 60)
+  if (!key || pickerOpened.has(key)) return ''
+  pickerOpened.add(key)
+  if (selectedProduct.value) return ''
+  const p = d.product || {}
+  if (!p.url) return '' // nothing to open a product page on
+  nextTick(() => { selectedProduct.value = { title: d.product_title || p.title, url: p.url, image: p.image || null, price: p.price ?? null, was: p.list_price ?? null, store: p.store || null } })
+  return ''
+}
+
+function variantData(o) {
+  const saved = o?.saved_id ? savedProducts.value.find((p) => p.id === o.saved_id) : null
+  const product = { ...(o?.product || {}) }
+  if (saved) { product.title ||= saved.title; product.image ||= saved.image; product.url ||= saved.url; product.store ||= saved.store; if (product.price == null) product.price = saved.price; if (product.list_price == null && saved.was) product.list_price = saved.was }
+  return { ...o, product, product_title: o?.product_title || product.title }
+}
+function relTime(iso) {
+  const ms = Date.now() - new Date(iso).getTime()
+  if (!Number.isFinite(ms) || ms < 0) return 'ahora'
+  const m = Math.round(ms / 60000)
+  return m < 1 ? 'ahora' : m < 60 ? `hace ${m} min` : `hace ${Math.round(m / 60)} h`
+}
 function showNoResults(m, part) {
   if (!isGalleryTool(part) || part.state !== 'output-available' || hasProducts(m)) return false
   // Two empty searches in one reply used to draw TWO "No encontré opciones" cards stacked
@@ -1321,7 +1373,7 @@ function showNoResults(m, part) {
 // running — for these we don't also show the bottom dots (that'd double up).
 const TOOLS_WITH_LOADER = new Set([
   'tool-search_products', 'tool-curate_products', 'tool-show_collection', 'tool-find_live_product', 'tool-find_on_google', 'tool-find_on_amazon', 'tool-browse_store', 'tool-browse_stores',
-  'tool-web_search', 'tool-show_orders', 'tool-plan_in_person',
+  'tool-web_search', 'tool-show_orders', 'tool-plan_in_person', 'tool-get_product_variants',
 ])
 // Keep a loading indicator visible WHENEVER the assistant is working, so the chat
 // never goes blank between steps (the "did my click do anything?" confusion). Hide
@@ -1433,7 +1485,41 @@ if (import.meta.client) $fetch('/api/ping').catch(() => {})
 // so the sidebar shows fast; the chat token is only needed to SEND (authed
 // tools), so it's minted in the background, off the load path.
 let inited = false
+// THE MOBILE KEYBOARD (Alex, 2026-09-11: "the screen kind of slides up when you click on the input... then it
+// glitches out when you're done, it doesn't go back down fully, it leaves some blank room there").
+// On iOS Safari the keyboard does NOT resize the layout viewport: it floats over it and Safari scrolls the
+// document to reveal the focused input. 100dvh therefore keeps describing the FULL screen, the chat stays that
+// tall behind the keyboard, and when the keyboard closes the document is often still scrolled — which is the
+// empty strip under the composer. visualViewport is the only thing that reports the real visible box, so we
+// publish the covered height as --kb and scroll the document back to the top the moment the keyboard is gone.
+let kbCleanup = null
+function trackKeyboard() {
+  const vv = typeof window !== 'undefined' ? window.visualViewport : null
+  if (!vv) return null
+  const root = document.documentElement
+  let raf = 0
+  const apply = () => {
+    raf = 0
+    const covered = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop))
+    // Under ~80px is browser chrome moving (the URL bar collapsing), not a keyboard — reacting to that would
+    // make the layout jump on every scroll.
+    root.style.setProperty('--kb', (covered > 80 ? covered : 0) + 'px')
+    if (covered <= 80 && window.scrollY !== 0) window.scrollTo(0, 0)
+  }
+  const onChange = () => { if (!raf) raf = requestAnimationFrame(apply) }
+  vv.addEventListener('resize', onChange)
+  vv.addEventListener('scroll', onChange)
+  apply()
+  return () => {
+    vv.removeEventListener('resize', onChange)
+    vv.removeEventListener('scroll', onChange)
+    if (raf) cancelAnimationFrame(raf)
+    root.style.removeProperty('--kb')
+  }
+}
+
 onMounted(() => {
+  kbCleanup = trackKeyboard()
   watch(user, (u) => { if (u && !inited) initLoggedIn() }, { immediate: true })
   // Guest entry points (logged-in users go through initLoggedIn):
   //  1) arrived from the landing hero with ?q=... → already fired in setup, or
@@ -1729,7 +1815,11 @@ function onAssistedProduct(p) {
   ensureChatToken()
   if (isBusy.value) { pendingPick.value = { p, assisted: true }; return }
   const { store, price, urlPart } = productTail(p)
-  const text = `Agrégalo a mi carrito Boxly: ${p.title}${store}${price}${urlPart}`
+  // The modal is the product page now: when the shopper chose size/colour/quantity there, its sentence already
+  // says everything, so send THAT and the item lands in the box in one turn instead of being held for a pick.
+  const text = p?.pick?.text
+    ? `${p.pick.text}${urlPart}`
+    : `Agrégalo a mi carrito Boxly: ${p.title}${store}${price}${urlPart}`
   ensureConversation(text)
   chat.sendMessage({ text })
   scrollDown()
@@ -1816,6 +1906,10 @@ async function confirmAssisted(part) {
       product_image_url: saved?.image || it.image || it.product_image_url || null,
       price: Number(saved?.price ?? it.price) || 0,
       quantity: Math.max(1, Number(it.quantity) || 1),
+      // Variant choice → the API's per-item `options` (rendered in the PR email and the admin as
+      // "Talla: 9.5 US · Color: negro"). Was dropped here, so a size the shopper volunteered never
+      // reached the shopping team. The live variant picker (store-knowledge work) will fill these.
+      options: (() => { const o = {}; if (it.size) o.Talla = String(it.size).trim(); if (it.color) o.Color = String(it.color).trim(); if (it.variant) o.Variante = String(it.variant).trim(); return Object.keys(o).length ? o : undefined })(),
       notes: it.notes || undefined,
     }
   }).filter((it) => it.product_name)
@@ -1896,8 +1990,10 @@ function autoCreateAssisted() {
   for (const m of chat.messages) {
     if (m.role !== 'assistant') continue
     for (const part of (m.parts || [])) {
+      // `blocked` = the server refused the request because an item still needs a size/colour it actually sells.
+      // Never auto-create in that case (Alex's rails: nothing is bought without a real pick).
       if (part?.type === 'tool-show_assisted_summary' && part.state === 'output-available'
-          && part.toolCallId && (part.output?.items?.length)
+          && !part.output?.blocked && part.toolCallId && (part.output?.items?.length)
           && !assistedHandled.has(part.toolCallId)
           && !assistedResults[part.toolCallId] && !assistedErrors[part.toolCallId]
           && assistedCreatingId.value !== part.toolCallId) {

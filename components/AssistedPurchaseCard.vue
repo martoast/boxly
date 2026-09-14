@@ -22,9 +22,24 @@
     <div class="mt-3 pt-3 border-t border-primary-100 space-y-1 text-[12.5px]">
       <div class="flex items-center justify-between text-gray-600"><span>Productos (ref.)</span><span class="font-semibold text-gray-800">${{ subtotal.toFixed(2) }} USD</span></div>
       <div class="flex items-center justify-between text-gray-600"><span>Comisión Boxly (15%)</span><span class="font-semibold text-gray-800">${{ commission.toFixed(2) }} USD</span></div>
-      <div class="flex items-center justify-between text-gray-400"><span>Caja / envío a México</span><span>se cotiza aparte</span></div>
+      <!-- The delivered cost. "Se cotiza aparte" left the one number a shopper actually
+           wants — what this costs at their door — as the only one missing. -->
+      <template v-if="box">
+        <div class="flex items-center justify-between text-gray-600">
+          <span>Caja {{ box.label }} <span class="text-gray-400">(est.)</span></span>
+          <span class="font-semibold text-gray-800">${{ box.price_mxn.toLocaleString('es-MX') }} MXN</span>
+        </div>
+        <!-- No rate, no total: the box price alone is not what this costs, and a number
+             that looks like a total but is not one is worse than no number. -->
+        <div v-if="fx" class="flex items-center justify-between pt-1.5 mt-1.5 border-t border-primary-100">
+          <span class="text-[13px] font-extrabold text-primary-900">Total estimado</span>
+          <span class="text-[13px] font-extrabold text-primary-900">${{ totalMxn.toLocaleString('es-MX', { maximumFractionDigits: 0 }) }} MXN</span>
+        </div>
+        <p v-if="fx" class="text-[11px] text-gray-400">Producto + comisión ${{ (subtotal + commission).toFixed(2) }} USD al tipo de cambio ${{ fx.toFixed(2) }} + caja</p>
+      </template>
+      <div v-else class="flex items-center justify-between text-gray-400"><span>Caja / envío a México</span><span>se cotiza aparte</span></div>
     </div>
-    <p class="mt-2 text-[11px] text-gray-400 leading-snug">El 15% se calcula sobre el total final al hacer checkout en la tienda (producto + envío que cobre la tienda). Este es un estimado — el total exacto va en tu cotización, no pagas nada todavía.</p>
+    <p class="mt-2 text-[11px] text-gray-400 leading-snug">El 15% se calcula sobre el total final al hacer checkout en la tienda (producto + envío que cobre la tienda). La caja es una estimación por el volumen de tus productos y se confirma cuando todo llega a nuestra bodega. No pagas nada todavía.</p>
 
     <!-- The request is created AUTOMATICALLY the moment this card appears (the
          customer already asked Boxly to buy it) — no extra "Continuar" tap. On
@@ -70,6 +85,20 @@ const items = computed(() => (props.summary?.items || []).map((it) => ({
 })))
 const subtotal = computed(() => items.value.reduce((s, it) => s + it.price * it.quantity, 0))
 const commission = computed(() => subtotal.value * 0.15)
+// Sized server-side with the same archetype volumes and the same live Stripe prices the
+// pricing page and the landing calculator use, so the shopper is never quoted two
+// different numbers for the same box. Either leg missing → the card keeps the old line
+// rather than showing a total built on a guessed rate.
+const box = computed(() => props.summary?.box || null)
+const fx = computed(() => {
+  const r = Number(props.summary?.fx_usd_mxn)
+  return Number.isFinite(r) && r > 0 ? r : null
+})
+const totalMxn = computed(() => {
+  if (!box.value) return 0
+  const usd = subtotal.value + commission.value
+  return (fx.value ? usd * fx.value : 0) + box.value.price_mxn
+})
 </script>
 
 <style scoped>

@@ -18,7 +18,7 @@
             loading="lazy"
             referrerpolicy="no-referrer"
             class="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
-            @error="p.broken = true"
+            @error="retryImage(p, $event)"
           />
           <span v-else class="text-[13px] font-bold text-gray-400 uppercase tracking-wide leading-tight line-clamp-3 text-center px-1">{{ p.store || p.title }}</span>
         </div>
@@ -63,6 +63,33 @@ const normalized = computed(() =>
     rating: p.rating ?? null,
     reviews: p.reviews ?? null,
     broken: false,
+    retried: false,
   }))
 )
+// ONE STALLED REQUEST MUST NOT COST THE CARD ITS PHOTO. @error fired once and the tile
+// became a grey store-name box for the rest of the session, with no second attempt — so
+// a transient failure (a phone on mobile data, a cancelled request, a CDN hiccup) looked
+// exactly like a dead image. That is what made the heavy-image bug read as "no images at
+// all" in a live demo. Retry once, a beat later, with the SAME url — no cache-busting
+// parameter, because some CDNs sign their urls and an extra param would turn a working
+// retry into a 403. Only a second failure marks the card broken.
+function retryImage(p, e) {
+  // ONE STALLED REQUEST MUST NOT COST THE CARD ITS PHOTO — but do NOT clear src to force
+  // the reload. `el.src = ''` resolves to the PAGE url, the browser fetches the HTML
+  // document as an image, and that fires @error again within milliseconds; with `retried`
+  // already set, the card broke faster than doing nothing at all. Probe the url on a
+  // detached Image instead, and only touch what the shopper can see once it has actually
+  // come back. By then it is in cache, so the swap is instant.
+  if (p.retried) { p.broken = true; return }
+  p.retried = true
+  const el = e.target
+  const src = el.currentSrc || el.src
+  if (!src) { p.broken = true; return }
+  setTimeout(() => {
+    const probe = new Image()
+    probe.onload = () => { el.removeAttribute('src'); el.src = src }
+    probe.onerror = () => { p.broken = true }
+    probe.src = src
+  }, 1200)
+}
 </script>

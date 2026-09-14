@@ -10,7 +10,8 @@
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "test:ebay": "node --experimental-strip-types server/utils/ebay.test.mjs",
-    "test:feeds": "node --experimental-strip-types server/utils/ebay.test.mjs && node --experimental-strip-types server/utils/bestbuy.test.mjs"
+    "test:feeds": "node --experimental-strip-types server/utils/ebay.test.mjs && node --experimental-strip-types server/utils/bestbuy.test.mjs",
+    "test:sizing": "node --experimental-strip-types utils/sizing.test.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.84",

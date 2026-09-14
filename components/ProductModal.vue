@@ -20,21 +20,60 @@
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
 
-          <!-- Loading: fetch the high-res images + details FIRST, then reveal it
-               all at once — no flash of the low-res Google thumbnail. -->
-          <div v-if="loadingDetail">
-            <div class="h-80 bg-gray-100 animate-pulse"></div>
-            <div class="p-5 space-y-3">
-              <div class="h-3 w-20 bg-gray-100 rounded animate-pulse"></div>
-              <div class="h-5 w-3/4 bg-gray-100 rounded animate-pulse"></div>
-              <div class="h-7 w-28 bg-gray-100 rounded animate-pulse"></div>
-              <div class="grid grid-cols-2 gap-3 pt-3">
-                <div class="h-[4.5rem] bg-gray-100 rounded-2xl animate-pulse"></div>
-                <div class="h-[4.5rem] bg-gray-100 rounded-2xl animate-pulse"></div>
+          <!-- Loading: fetch the high-res PDP images, the details AND the variants FIRST, then reveal it all at
+               once — no flash of the low-res gallery thumbnail, and no button before the sizes exist. The gallery
+               image is only the intro; the product page carries the real photography (Alex, 2026-09-11). Bounded
+               by REVEAL_CAP_MS so a slow store can never hold the modal hostage. -->
+          <div v-if="loadingProduct">
+            <!-- WAITING WELL (Alex, 2026-09-11: "make the animation better so the user knows what is going on and
+                 they don't leave while waiting"). Three rules: show the product they tapped IMMEDIATELY — its own
+                 photo, name, store and price, which we already have — so the wait never looks like a blank app;
+                 say in plain words which step we are on, because "reading the sizes from DFYNE" is a reason to
+                 wait and a spinner is not; and keep a bar moving so the screen is visibly alive. -->
+            <div class="relative h-64 bg-gray-50 overflow-hidden">
+              <img v-if="product.image" :src="product.image" :alt="product.title" referrerpolicy="no-referrer"
+                   class="w-full h-full object-contain opacity-60 scale-[0.98] blur-[1px] transition-all duration-700" />
+              <div v-else class="absolute inset-0 grid place-items-center">
+                <span class="text-base font-bold text-gray-300 uppercase tracking-wide">{{ product.store || product.title }}</span>
               </div>
-              <div class="flex items-center justify-center gap-2 pt-2 text-gray-400">
-                <svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
-                <span class="text-xs font-medium">Cargando producto…</span>
+              <!-- a light sweeping across the photo: motion tied to nothing, purely "we are working" -->
+              <div class="absolute inset-0 pointer-events-none loading-sweep"></div>
+            </div>
+
+            <div class="p-5">
+              <p v-if="product.store" class="text-[11px] uppercase tracking-wider text-primary-500 font-bold">{{ product.store }}</p>
+              <h2 class="text-lg font-bold text-gray-900 leading-snug mt-1">{{ product.title }}</h2>
+              <!-- The price follows the chosen variant; before a full choice it is an honest "desde" (Alex's Owala
+                   read $23.99 in the header while the selected colour started at $27.99). -->
+              <p v-if="headerPrice != null" class="text-xl font-extrabold text-gray-900 mt-1.5">
+                <span v-if="headerFrom" class="text-[12px] font-semibold text-gray-400 mr-0.5">desde</span>${{ headerPrice }} <span class="text-[12px] font-semibold text-gray-400">USD</span>
+              </p>
+
+              <!-- the step we are actually on -->
+              <div class="mt-4 rounded-2xl border border-gray-100 bg-gray-50/70 px-4 py-3">
+                <div class="flex items-center gap-2.5">
+                  <span class="relative flex h-2.5 w-2.5 shrink-0">
+                    <span class="absolute inline-flex h-full w-full rounded-full bg-primary-400 opacity-75 animate-ping"></span>
+                    <span class="relative inline-flex h-2.5 w-2.5 rounded-full bg-primary-500"></span>
+                  </span>
+                  <p class="text-[13px] font-semibold text-gray-700">{{ loadingStage.title }}</p>
+                </div>
+                <p class="text-[11.5px] text-gray-500 mt-1 ml-[1.35rem] leading-snug">{{ loadingStage.detail }}</p>
+                <div class="mt-2.5 ml-[1.35rem] h-1 rounded-full bg-gray-200 overflow-hidden">
+                  <div class="h-full rounded-full bg-primary-500 transition-[width] duration-700 ease-out" :style="{ width: loadingStage.pct + '%' }"></div>
+                </div>
+              </div>
+
+              <!-- shapes of what is coming, so the layout does not jump when it lands -->
+              <div class="mt-4 space-y-2.5">
+                <div class="h-2.5 w-16 bg-gray-100 rounded animate-pulse"></div>
+                <div class="flex gap-2">
+                  <div v-for="n in 5" :key="'c'+n" class="w-[3.25rem] h-[4rem] rounded-xl bg-gray-100 animate-pulse" :style="{ animationDelay: (n * 90) + 'ms' }"></div>
+                </div>
+                <div class="h-2.5 w-12 bg-gray-100 rounded animate-pulse mt-3"></div>
+                <div class="flex gap-2">
+                  <div v-for="n in 4" :key="'s'+n" class="h-9 w-14 rounded-xl bg-gray-100 animate-pulse" :style="{ animationDelay: (n * 120) + 'ms' }"></div>
+                </div>
               </div>
             </div>
           </div>
@@ -97,16 +136,49 @@
               <!-- ONE action: add to the Boxly cart. Boxly buys + imports everything the
                    customer adds (across stores) in a single consolidated purchase request.
                    No self-buy option — the whole point of the catalog is to build the cart. -->
+              <!-- A product with real choices becomes a PRODUCT PAGE right here: sizes, colours and quantity, then
+                   one add-to-cart. Only a product with nothing to choose (or an unreadable one) keeps the plain
+                   button below — our reader must never block a purchase. -->
+              <!-- COLOURWAYS: each colour is its own product page, so these are real siblings, and picking one
+                   re-reads that page for its own sizes and stock. Shown even while the sizes are still loading. -->
+              <div v-if="colorways.length > 1" class="mb-3">
+                <p class="text-[12px] font-semibold text-gray-700 mb-1.5">
+                  Color<span v-if="activeColorway" class="font-normal text-gray-500"> · {{ activeColorway.name }}</span>
+                </p>
+                <div class="flex gap-2 overflow-x-auto pb-1 -mx-0.5 px-0.5 scrollbar-thin">
+                  <button v-for="c in colorways" :key="c.url" type="button" @click="pickColorway(c)" :disabled="loadingVariants"
+                    :title="c.name"
+                    :class="[(activeColorway?.url || currentColorwayUrl) === c.url ? 'border-primary-500 ring-2 ring-primary-200' : 'border-gray-200 hover:border-gray-300', 'shrink-0 w-[4.25rem] rounded-xl border overflow-hidden bg-white text-left disabled:opacity-50 transition']">
+                    <span class="block aspect-square bg-gray-50">
+                      <img v-if="c.image" :src="c.image" :alt="c.name" referrerpolicy="no-referrer" loading="lazy" class="w-full h-full object-cover" />
+                    </span>
+                    <span class="block px-1 py-1 text-[10px] font-medium text-gray-600 truncate">{{ c.name }}</span>
+                  </button>
+                </div>
+              </div>
+
+              <div v-if="loadingVariants" class="flex items-center justify-center gap-2 rounded-2xl border border-gray-100 bg-gray-50/60 py-4 text-[13px] text-gray-500">
+                <svg class="w-4 h-4 animate-spin text-primary-500" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"/><path class="opacity-80" fill="currentColor" d="M4 12a8 8 0 018-8v3a5 5 0 00-5 5H4z"/></svg>
+                Cargando tallas y colores…
+              </div>
+              <LazyVariantPicker v-else-if="hasChoices" :data="variantData" @pick="onVariantPick" @show-image="leadWithImage" @price="onPickPrice" />
+              <!-- We could not read the store's options. Say that, do not claim the product has none, and offer a
+                   retry — while still letting them add it, because our reader failing must never block a sale. -->
+              <div v-else-if="variantsRead === 'failed'" class="mb-3 flex items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-3.5 py-2.5">
+                <span class="text-[12.5px] text-amber-800 leading-snug">No pudimos leer las tallas de {{ product.store || 'la tienda' }} en este momento.</span>
+                <button type="button" @click="retryVariants" class="ml-auto shrink-0 text-[12.5px] font-bold text-amber-900 underline underline-offset-2">Reintentar</button>
+              </div>
               <button
-                type="button" @click="assisted"
+                v-if="!hasChoices || variantsRead === 'failed'"
+                type="button" @click="assisted()"
                 class="w-full flex items-center justify-center gap-2 rounded-2xl bg-primary-500 hover:bg-primary-600 active:scale-[.98] transition text-white font-bold py-3.5 text-[15px] shadow-sm shadow-primary-500/20"
               >
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-1.5 3h11m-8 3a1 1 0 11-2 0 1 1 0 012 0zm9 0a1 1 0 11-2 0 1 1 0 012 0z"/></svg>
-                Agregar al carrito Boxly
+                {{ missingSize ? 'Elegir talla' : 'Agregar al carrito' }}
               </button>
-              <p class="mt-2.5 text-[11.5px] text-gray-500 text-center leading-relaxed">
-                Lo sumamos a tu envío. Sigue agregando lo que quieras — de cualquier tienda 🛒 — y cuando termines, Boxly lo compra e importa todo junto a México. 🇺🇸➜🇲🇽
-              </p>
+              <!-- The footer line is gone for good (Alex, 2026-09-11: "we see the message on the bottom saying we
+                   don't have the colors or variants when we do — remove that message completely"). It sat outside
+                   the v-if that produced the picker, so a product WITH sizes still got told it had none. -->
               </template>
             </div>
           </div>
@@ -175,11 +247,43 @@ const fetchedWas = ref(null)
 const fetchedOnSale = ref(false)
 const available = ref(true) // live stock from the store (Shopify .js); true = unknown/in-stock
 const loadingDetail = ref(false)
+// THE MODAL IS THE PRODUCT PAGE (Alex, 2026-09-11): sizes/colours/quantity are chosen HERE, then added to the cart
+// in one step — the same shape as any store's product page, instead of a round trip through chat.
+const variantData = ref(null)
+const loadingVariants = ref(false)
+// A colourway the shopper picked in this modal. Each colour is its own product page with its OWN sizes and stock,
+// so picking one re-reads that page (Alex, 2026-09-11: "the availability changes depending on the colour").
+const activeColorway = ref(null)
+// 'pending' | 'ok' | 'none' (the store genuinely has nothing to choose) | 'failed' (we could not read it).
+// The difference matters: a failed read must never render as "this product has no sizes".
+const variantsRead = ref('pending')
+const colorways = computed(() => variantData.value?.colorways || [])
+// Which chip reads as chosen before the shopper touches anything: the one the store says we are on.
+const currentColorwayUrl = computed(() => (colorways.value.find((c) => c.current) || {}).url || null)
 const broken = ref(new Set())
 
+// THE PRODUCT PAGE'S OWN PHOTOGRAPHY, in order of trust:
+//   1. product.images from /api/product-variants — the catalog row's real product-page images (12 for a Stanley
+//      Quencher, 9 for a YoungLA pant). Added 2026-09-11 after a 28-store bench proved /products/page returns ZERO
+//      images on 84/84 products in production, so the modal had always fallen back to the gallery thumbnail.
+//   2. /products/page's images, if that path ever answers again.
+//   3. the gallery thumbnail, so there is always something.
+// The photo the shopper's chosen colour looks like — it jumps to the front of the gallery the moment they pick
+// it, so the big image always matches the chip they just tapped (Alex, 2026-09-12).
+const leadImage = ref(null)
+function leadWithImage(url) {
+  if (typeof url !== 'string' || !url) return
+  leadImage.value = url
+  scrollToImage(0)
+}
 const gallery = computed(() => {
-  const base = fetchedImages.value.length ? fetchedImages.value : (props.product?.image ? [props.product.image] : [])
-  return base.filter((u) => !broken.value.has(u))
+  const fromCatalog = variantData.value?.product?.images
+  const base = (Array.isArray(fromCatalog) && fromCatalog.length ? fromCatalog
+    : fetchedImages.value.length ? fetchedImages.value
+    : (props.product?.image ? [props.product.image] : []))
+  const ordered = leadImage.value ? [leadImage.value, ...base] : base
+  const seen = new Set()
+  return ordered.filter((u) => typeof u === 'string' && !broken.value.has(u) && !seen.has(u) && seen.add(u))
 })
 // Bento: show up to 3 tiles (hero + 2); a "+N" overlay hints at the rest.
 const bentoImgs = computed(() => gallery.value.slice(0, 3))
@@ -190,7 +294,7 @@ function bentoClass(idx) {
   if (n === 2) return idx === 0 ? 'col-span-2 row-span-2' : 'col-span-1 row-span-2'
   return idx === 0 ? 'col-span-2 row-span-2' : 'col-span-1 row-span-1'
 }
-const bestLink = computed(() => fetchedLink.value || props.product?.url || '#')
+const bestLink = computed(() => activeColorway.value?.url || fetchedLink.value || props.product?.url || '#')
 
 // Search-result products carry a GOOGLE SHOPPING link as their url; the real
 // merchant link only arrives after the detail fetch resolves it. Don't let the
@@ -198,8 +302,59 @@ const bestLink = computed(() => fetchedLink.value || props.product?.url || '#')
 // click opens a Google page / the wrong product).
 function isGoogleLink(u) { return typeof u === 'string' && (u.includes('google.com') || u.includes('gstatic.com')) }
 const linkPending = computed(() => loadingDetail.value && isGoogleLink(bestLink.value))
+// "Real choices" = an axis the shopper must actually answer. A single-SKU product (or one whose axes all have one
+// value) shows the plain add button instead of a picker with nothing to pick.
+// Both fetches gate the reveal, but never past REVEAL_CAP_MS: after that we show whatever arrived (the picker
+// fills in behind its own small loader) rather than leave the shopper staring at a skeleton.
+const REVEAL_CAP_MS = 9000
 
-const displayPrice = computed(() => fetchedPrice.value ?? props.product?.price ?? null)
+// WHAT WE ARE DOING, IN WORDS. The wait is real work — opening the store's page, reading its colours, checking
+// each one's sizes — and naming the step is what keeps someone on the screen. Stages advance on elapsed time
+// because the fetches do not report progress, but the wording matches what is genuinely happening in each window,
+// and the last stage is honest about a slow store rather than pretending it is nearly done.
+const elapsed = ref(0)
+let elapsedTimer = null
+const storeName = computed(() => props.product?.store || 'la tienda')
+const loadingStage = computed(() => {
+  const t = elapsed.value
+  if (t < 1200) return { title: `Abriendo ${storeName.value}…`, detail: 'Entrando a la página del producto en la tienda.', pct: 12 }
+  if (t < 3000) return { title: 'Trayendo las fotos reales…', detail: 'Las de la ficha del producto, no la miniatura del buscador.', pct: 38 }
+  if (t < 5500) return { title: 'Revisando colores y tallas…', detail: 'Cada color tiene sus propias tallas y su propio inventario.', pct: 62 }
+  if (t < 9000) return { title: 'Confirmando disponibilidad…', detail: 'Verificando qué tallas quedan realmente en stock ahora mismo.', pct: 82 }
+  return { title: 'Casi listo…', detail: `${storeName.value} está tardando un poco más de lo normal — seguimos en eso.`, pct: 93 }
+})
+const revealForced = ref(false)
+// Reveal as soon as we can SHOW something real. Waiting on the variant read too would strand the shopper for up
+// to ~13 s on the stores that need a live product-page read (bench, 2026-09-11); the picker fills in behind its
+// own small loader instead. Still capped, so a slow detail fetch cannot hold the modal either.
+watch(() => loadingProduct.value, (v) => { if (!v && elapsedTimer) { clearInterval(elapsedTimer); elapsedTimer = null } })
+const loadingProduct = computed(() => {
+  if (revealForced.value) return false
+  if (gallery.value.length > 1) return false // real product-page photos are in — show them
+  return loadingDetail.value || loadingVariants.value
+})
+// A SIZED PRODUCT MUST NOT LEAVE HERE WITHOUT A SIZE. The picker requires every axis it
+// was handed, but it can only require what the reader found — measured on eight real Nike
+// running shoes, three came back with no Size axis at all (Fit+Color, Color only, and one
+// with nothing), so the choice looked complete and an unsized shoe could go into the box.
+// Nobody can buy "the Pegasus 41 in black". When the product is obviously sized and no
+// size is on offer, the button stops pretending and takes the shopper to the assistant to
+// settle the size — which is what a normal store makes you do before it lets you pay.
+const axisNames = computed(() => (variantData.value?.axes || []).map((a) => a?.name).filter(Boolean))
+const missingSize = computed(() => sizeMissing(props.product?.title, axisNames.value, props.product?.category))
+
+const hasChoices = computed(() => {
+  if (colorways.value.length > 1) return true // the colour itself is a choice, even if this page has one size
+  const ax = variantData.value?.axes || []
+  return ax.some((a) => (a?.values?.length || 0) > 1)
+})
+
+// What the picker says the current selection costs, and whether that is a floor rather than an exact price.
+const pickedPrice = ref(null)
+function onPickPrice(p) { pickedPrice.value = p && typeof p.price === 'number' ? p : null }
+const headerPrice = computed(() => pickedPrice.value?.price ?? fetchedPrice.value ?? props.product?.price ?? null)
+const headerFrom = computed(() => !!pickedPrice.value?.from)
+const displayPrice = computed(() => pickedPrice.value?.price ?? fetchedPrice.value ?? props.product?.price ?? null)
 const displayWas = computed(() => fetchedWas.value ?? props.product?.was ?? null)
 const displayOnSale = computed(() => fetchedOnSale.value ?? props.product?.onSale ?? false)
 const displayDiscount = computed(() => {
@@ -231,6 +386,44 @@ async function openLightbox(idx) {
 }
 function closeLightbox() { lightboxOpen.value = false }
 
+// Variants for this product, straight from the catalog service (mirror when fresh, a live read otherwise).
+// Independent of loadDetails so slow images never hold up the picker, and vice versa.
+async function loadVariants(p, overrideUrl) {
+  const url = overrideUrl || p?.url || null
+  if (!url) { variantsRead.value = 'none'; return }
+  const keep = overrideUrl ? colorways.value : null // switching colour: we already hold the set, don't re-discover
+  loadingVariants.value = true
+  try {
+    // max_age_s 0 = a LIVE read of the product page every time it is opened, never a cached row.
+    const r = await $fetch('/api/product-variants', { method: 'POST', body: { url, max_age_s: 0, skip_colorways: !!keep, page_token: overrideUrl ? null : (p?.page_token || null), title: p?.title || null }, timeout: 58000 })
+    const merged = r && keep?.length ? { ...r, colorways: keep } : r
+    if (merged?.variants?.length || merged?.colorways?.length) {
+      variantData.value = merged
+      variantsRead.value = 'ok'
+    } else {
+      // The call answered but carried nothing. That is only "this product has no options" when the store actually
+      // said so; a reason means we could not read it (walled, unknown store, timeout upstream).
+      variantsRead.value = merged && !merged.reason ? 'none' : 'failed'
+    }
+  } catch {
+    variantsRead.value = 'failed' // never silently downgrade to "no options" — that is a lie the shopper acts on
+  } finally { loadingVariants.value = false }
+}
+
+// Try again after a failed read, without closing the modal.
+async function retryVariants() {
+  variantsRead.value = 'pending'
+  await loadVariants(props.product, activeColorway.value?.url)
+}
+
+// Picking a colour swaps to THAT product page: its photos, its sizes, its stock, its price.
+async function pickColorway(c) {
+  if (!c?.url || loadingVariants.value) return
+  activeColorway.value = c
+  broken.value = new Set()
+  await loadVariants(props.product, c.url)
+}
+
 async function loadDetails(p) {
   loadingDetail.value = true
   try {
@@ -253,17 +446,60 @@ async function loadDetails(p) {
 
 // "Boxly lo compra" — hand the product to the chat so the assistant creates a
 // Purchase Request (assisted purchase, +15%). Pass the resolved merchant link.
-function assisted() {
+function assisted(pick) {
+  // Both paths funnel through here — the picker's CTA and the plain button — so the guard
+  // only has to exist once.
+  if (missingSize.value) pick = { text: askForSize(pick?.text) }
   emit('assisted', {
     ...props.product,
     url: bestLink.value,
     price: displayPrice.value,
     was: displayWas.value,
     onSale: displayOnSale.value,
+    ...(pick ? { pick } : {}),
   })
 }
+// The picker's own CTA is the add-to-cart for a product that HAS choices: it hands up the exact sentence
+// (size, colour, quantity) so the chat adds it in one turn with everything already decided.
+// Keep whatever the shopper DID choose (colour, fit) and turn the closing promise into the
+// question that is actually outstanding, so the assistant asks for the size instead of the
+// buyer receiving an order they cannot place.
+function askForSize(chosenText) {
+  const what = props.product?.title ? `los ${props.product.title}` : 'ese producto'
+  const base = chosenText
+    ? chosenText.replace(/\s*—\s*agr[eé]galos a mi caja\s*$/i, '')
+    : `Quiero ${what}`
+  return `${base} — ¿qué tallas tienen disponibles? Dime las opciones y te digo cuál quiero.`
+}
 
+function onVariantPick(text) {
+  // Name the colourway the shopper actually chose here — the picker only knows this page's own axes, and for a
+  // store that sells each colour as a separate page the colour lives in the chip, not in the size chips.
+  const c = activeColorway.value?.name || (colorways.value.find((x) => x.current) || {}).name
+  const withColour = c && !new RegExp(`color\\s+${c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i').test(text)
+    ? text.replace(/ — agrégalos a mi caja$/, `, color ${c} — agrégalos a mi caja`)
+    : text
+  assisted({ text: withColour })
+}
+
+let revealTimer = null
 watch(() => props.product, (p) => {
+  variantData.value = null
+  loadingVariants.value = false
+  activeColorway.value = null
+  leadImage.value = null   // a colour chosen on the LAST product must not lead this one's gallery
+  pickedPrice.value = null
+  variantsRead.value = 'pending'
+  revealForced.value = false
+  if (revealTimer) clearTimeout(revealTimer)
+  if (elapsedTimer) clearInterval(elapsedTimer)
+  elapsed.value = 0
+  if (p) {
+    const t0 = Date.now()
+    elapsedTimer = setInterval(() => { elapsed.value = Date.now() - t0 }, 250)
+    revealTimer = setTimeout(() => { revealForced.value = true }, REVEAL_CAP_MS)
+    loadVariants(p)
+  }
   fetchedImages.value = []
   fetchedDesc.value = null
   fetchedLink.value = null
@@ -277,7 +513,13 @@ watch(() => props.product, (p) => {
   lightboxOpen.value = false
   if (imgTrack.value) imgTrack.value.scrollLeft = 0
   if (p?.url || p?.token) loadDetails(p)
-})
+// IMMEDIATE, and this is not a detail. The modal is mounted with `v-if="selectedProduct"`, so the component is
+// CREATED with its product already set — a plain watcher never fires, because nothing ever changes after mount.
+// The result: loadVariants() and loadDetails() never ran on first open, so the modal showed the gallery thumbnail
+// and "este producto no tiene tallas ni colores" for products that have plenty (Alex, live, 2026-09-11: the DFYNE
+// Impact Shorts, which have 14 colourways and 5 sizes). Production's tunnel log proves it — opening the modal
+// produced no /catalog/product-variants request at all.
+}, { immediate: true })
 
 // --- Swipe down to close (only when the sheet is scrolled to the top) ---
 const card = ref(null)
@@ -314,6 +556,15 @@ onBeforeUnmount(() => setLock(false))
 </script>
 
 <style scoped>
+/* A light sweeping across the product photo while we read the store's page — the screen stays alive without a
+   spinner, and it costs one compositor-only transform. */
+.loading-sweep {
+  background: linear-gradient(100deg, transparent 35%, rgba(255,255,255,.62) 50%, transparent 65%);
+  background-size: 250% 100%;
+  animation: pm-sweep 1.7s ease-in-out infinite;
+}
+@keyframes pm-sweep { 0% { background-position: 160% 0; } 100% { background-position: -60% 0; } }
+
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
@@ -325,6 +576,7 @@ onBeforeUnmount(() => setLock(false))
 .lb-enter-from, .lb-leave-to { opacity: 0; }
 .lb-enter-active, .lb-leave-active { transition: opacity .2s ease; }
 @media (prefers-reduced-motion: reduce) {
+  .loading-sweep { animation: none; background: none; }
   .pm-enter-active, .pm-leave-active, .pm-enter-active .pm-card, .pm-leave-active .pm-card { transition: none; }
 }
 </style>
