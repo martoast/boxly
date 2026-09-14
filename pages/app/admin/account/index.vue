@@ -82,6 +82,9 @@
 
             <!-- Connect your AI (MCP) -->
             <AiConnectCard />
+
+            <!-- API keys (admin-only: full programmatic admin access) -->
+            <ApiKeysCard />
   
            
           </div>
