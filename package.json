@@ -12,7 +12,8 @@
     "test:ebay": "node --experimental-strip-types server/utils/ebay.test.mjs",
     "test:feeds": "node --experimental-strip-types server/utils/ebay.test.mjs && node --experimental-strip-types server/utils/bestbuy.test.mjs",
     "test:sizing": "node --experimental-strip-types utils/sizing.test.mjs",
-    "test:search-logging": "node --experimental-strip-types server/api/search-logging.test.mjs"
+    "test:search-logging": "node --experimental-strip-types server/api/search-logging.test.mjs",
+    "test:landed": "node --experimental-strip-types utils/landed.test.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.84",

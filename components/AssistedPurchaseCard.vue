@@ -36,6 +36,12 @@
           <span class="text-[13px] font-extrabold text-primary-900">${{ totalMxn.toLocaleString('es-MX', { maximumFractionDigits: 0 }) }} MXN</span>
         </div>
         <p v-if="fx" class="text-[11px] text-gray-400">Producto + comisión ${{ (subtotal + commission).toFixed(2) }} USD al tipo de cambio ${{ fx.toFixed(2) }} + caja</p>
+        <!-- The number someone buying in volume is actually working with. -->
+        <div v-if="perUnitMxn" class="mt-1.5 flex items-center justify-between rounded-lg bg-primary-50 px-2 py-1.5">
+          <span class="text-[11.5px] font-semibold text-primary-900">Costo por pieza (todo incluido)</span>
+          <span class="text-[12.5px] font-extrabold text-primary-900">{{ perUnitMxn.toLocaleString('es-MX', { maximumFractionDigits: 0 }) }} MXN</span>
+        </div>
+        <p v-if="perUnitMxn" class="text-[11px] text-gray-400 mt-0.5">{{ totalUnits }} piezas · la caja se reparte entre todas, así que cada pieza extra sale más barata</p>
       </template>
       <div v-else class="flex items-center justify-between text-gray-400"><span>Caja / envío a México</span><span>se cotiza aparte</span></div>
     </div>
@@ -84,7 +90,7 @@ const items = computed(() => (props.summary?.items || []).map((it) => ({
   image: it.image || it.product_image_url || null,
 })))
 const subtotal = computed(() => items.value.reduce((s, it) => s + it.price * it.quantity, 0))
-const commission = computed(() => subtotal.value * 0.15)
+const commission = computed(() => subtotal.value * BOXLY_COMMISSION)
 // Sized server-side with the same archetype volumes and the same live Stripe prices the
 // pricing page and the landing calculator use, so the shopper is never quoted two
 // different numbers for the same box. Either leg missing → the card keeps the old line
@@ -94,11 +100,21 @@ const fx = computed(() => {
   const r = Number(props.summary?.fx_usd_mxn)
   return Number.isFinite(r) && r > 0 ? r : null
 })
+// The delivered cost and what it works out to per piece — see utils/landed.ts for why the
+// per-piece figure matters to someone buying in volume. Null when the box price or the FX
+// rate is missing, and the card then keeps its old "se cotiza aparte" line.
+const landed = computed(() => landedCost({
+  items: items.value.map((it) => ({ price: it.price, quantity: it.quantity })),
+  boxPriceMxn: box.value?.price_mxn ?? null,
+  fx: fx.value,
+}))
 const totalMxn = computed(() => {
   if (!box.value) return 0
-  const usd = subtotal.value + commission.value
-  return (fx.value ? usd * fx.value : 0) + box.value.price_mxn
+  // Without an FX rate there is no product leg to convert, but the box price is still real.
+  return landed.value ? landed.value.totalMxn : box.value.price_mxn
 })
+const totalUnits = computed(() => landed.value?.units ?? 0)
+const perUnitMxn = computed(() => landed.value?.perUnitMxn ?? null)
 </script>
 
 <style scoped>
