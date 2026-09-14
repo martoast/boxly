@@ -6,8 +6,12 @@
          appear when the store actually told us stock; when it did not, the read still happened and the line
          says so once. -->
     <div class="flex items-center gap-1.5 text-[11px] text-gray-500">
-      <span class="inline-block w-1.5 h-1.5 rounded-full" :class="fresh ? 'bg-emerald-500' : 'bg-amber-400'"></span>
-      <span>Disponibilidad {{ data.source === 'live' ? 'en vivo' : 'verificada' }}<template v-if="data.checked_at"> · {{ rel(data.checked_at) }}</template></span>
+      <span class="inline-block w-1.5 h-1.5 rounded-full" :class="!allUnknown && fresh ? 'bg-emerald-500' : 'bg-amber-400'"></span>
+      <!-- Some stores publish the size list but never the stock (adidas: 22 sizes, 0 of them with an
+           availability flag). Saying "Disponibilidad verificada" there is a claim we cannot back, so when every
+           variant came back unknown the line says what we actually have: the store's own size list. -->
+      <span v-if="allUnknown">Tallas del sitio · disponibilidad por confirmar<template v-if="data.checked_at"> · {{ rel(data.checked_at) }}</template></span>
+      <span v-else>Disponibilidad {{ data.source === 'live' ? 'en vivo' : 'verificada' }}<template v-if="data.checked_at"> · {{ rel(data.checked_at) }}</template></span>
       <span v-if="!allUnknown && variants.length > 1" class="ml-auto text-gray-400 tabular-nums">{{ availableCount }} de {{ variants.length }}</span>
     </div>
 
