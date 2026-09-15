@@ -60,5 +60,36 @@ check('slides still owe a size', needsSize('adidas Adilette Slides'), true)
 check('bootcut jeans owe a size on "jeans", not on "boot"', needsSize('Bootcut Jeans'), true)
 check('a hoodie owes a size even beside a flask', needsSize('Hydro Flask Hoodie'), true)
 
+// --- sized apparel the list did not name (audit of 31 single-SKU products, 2026-09-15) ----------------------
+// A reader that finds no variant widget emits ONE row with no axes, and needsSize is the net that
+// catches it. These walked straight through the net: a Lacoste polo and a Nike Pegasus 41 were both
+// mirrored as a single SKU with no size axis and no size asked for.
+check('a polo owes a size', needsSize("Men's Regular Fit Trim Accent L.12.12 Polo"), true)
+check('a tank top owes a size', needsSize('Ribbed Tank Top'), true)
+check('a bodysuit owes a size', needsSize('Seamless Bodysuit'), true)
+check('sweatpants owe a size', needsSize('Cargo Sweatpants'), true)
+check('a blouse owes a size', needsSize('Linen Blouse'), true)
+check('a romper owes a size', needsSize('Denim Romper'), true)
+check('pajamas owe a size', needsSize('Fleece Pajama Set'), true)
+check('tights owe a size', needsSize('Running Tights'), true)
+check('a windbreaker owes a size', needsSize('Windbreaker'), true)
+check('a crop top owes a size', needsSize('Crop Top'), true)
+check('overalls owe a size', needsSize('Overalls'), true)
+check('flip flops owe a size', needsSize('Flip Flops'), true)
+check('loafers owe a size', needsSize('Loafers'), true)
+check('slippers owe a size', needsSize('Slippers'), true)
+check('a bralette owes a size', needsSize('Lace Bralette'), true)
+
+// The single-SKU products that are GENUINELY one SKU must stay unasked — asking there is the
+// Stanley-boot dead end again.
+check('a LEGO set is one SKU', needsSize('Millennium Falcon'), false)
+check('a Funko Pop is one SKU', needsSize('Pop! Roboute Guilliman'), false)
+check('a 3-wick candle is one SKU', needsSize('Black Cherry Merlot 3-Wick Candle'), false)
+check('a lip tint shade is its own product', needsSize('peptide lip tint colada'), false)
+check('a hand sanitizer is one SKU', needsSize('Berry Bliss Hand Sanitizer'), false)
+check('body WASH is not a bodysuit', needsSize('Body Wash Vanilla'), false)
+check('a pet bowl bundle is one SKU', needsSize('Pet Bowl Bundle'), false)
+check('a water tank is not a tank top', needsSize('Water Tank 5 Gallon'), false)
+
 console.log(bad ? `${bad} check(s) FAILED` : 'sizing: all checks pass')
 process.exit(bad ? 1 : 0)

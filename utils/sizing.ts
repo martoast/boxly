@@ -15,17 +15,23 @@
 const SIZED = new RegExp([
   // footwear
   'shoes?', 'sneakers?', 'trainers?', 'boots?', 'sandals?', 'cleats?', 'spikes?', 'slides?',
-  'tenis', 'zapatos?', 'zapatillas?', 'botas?', 'huaraches?', 'tacos',
+  'loafers?', 'slippers?', 'flip[- ]?flops?', 'mules?', 'heels?', 'flats?', 'moccasins?',
+  'tenis', 'zapatos?', 'zapatillas?', 'botas?', 'huaraches?', 'tacos', 'pantuflas?', 'sandalias?',
   // tops
-  'shirts?', 'tee', 't-shirts?', 'hoodies?', 'sweatshirts?', 'sweaters?', 'jerseys?',
+  'shirts?', 'tee', 'tees', 't-shirts?', 'hoodies?', 'sweatshirts?', 'sweaters?', 'jerseys?',
   'jackets?', 'coats?', 'blazers?', 'cardigans?', 'vests?',
+  'polos?', 'blouses?', 'tank tops?', 'tanks?', 'crop tops?', 'camisoles?', 'windbreakers?',
+  'pullovers?', 'anoraks?', 'parkas?', 'turtlenecks?',
   'playeras?', 'camisas?', 'camisetas?', 'sudaderas?', 'chamarras?', 'sueteres?', 'su[eé]ter',
+  'blusas?', 'chalecos?',
   // bottoms
   'pants?', 'trousers?', 'jeans?', 'shorts?', 'leggings?', 'joggers?', 'skirts?', 'dress(?:es)?',
-  'pantalones?', 'faldas?', 'vestidos?', 'mallas',
+  'sweatpants', 'sweat pants', 'tights', 'chinos?', 'khakis?', 'overalls', 'jumpsuits?', 'rompers?',
+  'pantalones?', 'faldas?', 'vestidos?', 'mallas', 'jardineras?',
   // everything else worn
-  'bra', 'bras', 'socks?', 'underwear', 'briefs?', 'boxers?', 'swimsuits?', 'bikinis?',
-  'calcetines', 'ropa interior', 'trajes? de ba[nñ]o', 'sujetador',
+  'bra', 'bras', 'bralettes?', 'bodysuits?', 'socks?', 'underwear', 'briefs?', 'boxers?',
+  'swimsuits?', 'bikinis?', 'onesies?', 'pyjamas?', 'pajamas?', 'robes?', 'gloves?', 'beanies?',
+  'calcetines', 'ropa interior', 'trajes? de ba[nñ]o', 'sujetador', 'pijamas?',
 ].join('|'), 'i')
 
 // Word-bounded so "boot" does not fire on "bootcut trim" and "tee" not on "teether".
@@ -41,8 +47,8 @@ const SIZED_RE = new RegExp(`(^|[^\\p{L}])(?:${SIZED.source})([^\\p{L}]|$)`, 'iu
 // So the ambiguous words alone cannot owe a size when the title is plainly drinkware or an
 // accessory for it. A title that ALSO names a real garment is unaffected ("Bootcut Jeans" owes
 // one on "jeans"), and so is anything matched by an unambiguous word.
-const AMBIGUOUS_ONLY = /\b(boots?|slides?)\b/i
-const DRINKWARE = /\b(tumbler|bottle|quencher|straw|lid|sleeve|mug|flask|cup|jug|thermos|canteen|keychain|ornament)\b/i
+const AMBIGUOUS_ONLY = /\b(boots?|slides?|tanks?)\b/i
+const DRINKWARE = /\b(tumbler|bottle|quencher|straw|lid|sleeve|mug|flask|cup|jug|thermos|canteen|keychain|ornament|wash|lotion|spray|mist|scrub|butter|oil|gel|cream|fuel|gas|propane|water tank|air)\b/i
 
 export function needsSize(title?: string | null, category?: string | null): boolean {
   const text = `${title || ''} ${category || ''}`
