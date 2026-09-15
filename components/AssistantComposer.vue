@@ -60,7 +60,7 @@
         ref="ta"
         :value="text"
         @input="$emit('update:text', $event.target.value)"
-        @keydown.enter.exact.prevent="doSend"
+        @keydown.enter.exact="onEnter"
         @paste="onPaste"
         rows="1"
         :placeholder="placeholder"
@@ -153,6 +153,22 @@ function buildFileList() {
   const dt = new DataTransfer()
   attachments.value.forEach((f) => dt.items.add(f))
   return dt.files
+}
+
+// ENTER MUST NOT SEND A HALF-TYPED MESSAGE.
+//
+// A predictive-text suggestion, an autocorrect accept, or a dead-key accent on a Spanish
+// keyboard all fire keydown with Enter while the text is still BEING COMPOSED — and Vue's
+// `.exact` only guards ctrl/alt/shift/meta, so we sent whatever was in the box. Customers
+// sent "Cuál es el" and "Me refiero al" mid-sentence and had to retype the question
+// (2026-08-24; ~1% of messages across three customers in six weeks).
+//
+// While composing we must ALSO not preventDefault — swallowing that Enter is how the IME
+// loses the candidate the shopper just picked.
+function onEnter(e) {
+  if (e.isComposing || e.keyCode === 229) return
+  e.preventDefault()
+  doSend()
 }
 
 function doSend() {
