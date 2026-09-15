@@ -31,9 +31,26 @@ const SIZED = new RegExp([
 // Word-bounded so "boot" does not fire on "bootcut trim" and "tee" not on "teether".
 const SIZED_RE = new RegExp(`(^|[^\\p{L}])(?:${SIZED.source})([^\\p{L}]|$)`, 'iu')
 
+// A WORD CAN NAME A GARMENT AND A GADGET. "Boot" is footwear, and it is also the rubber base
+// Stanley sells for a Quencher — "Stanley Quencher Boot and Straw Cover Set" read as footwear
+// and owed a size, so the modal offered "Elegir talla" on a product that has no sizes and the
+// shopper had nothing to answer with (audit, 2026-09-15). The comment above is right that a
+// false positive is usually the cheap direction, but only while the question is answerable;
+// here it is a dead end.
+//
+// So the ambiguous words alone cannot owe a size when the title is plainly drinkware or an
+// accessory for it. A title that ALSO names a real garment is unaffected ("Bootcut Jeans" owes
+// one on "jeans"), and so is anything matched by an unambiguous word.
+const AMBIGUOUS_ONLY = /\b(boots?|slides?)\b/i
+const DRINKWARE = /\b(tumbler|bottle|quencher|straw|lid|sleeve|mug|flask|cup|jug|thermos|canteen|keychain|ornament)\b/i
+
 export function needsSize(title?: string | null, category?: string | null): boolean {
   const text = `${title || ''} ${category || ''}`
-  return SIZED_RE.test(text)
+  if (!SIZED_RE.test(text)) return false
+  // Would it still read as sized with the ambiguous words removed? If yes, a real garment
+  // word carried it and the drinkware context is incidental.
+  if (SIZED_RE.test(text.replace(AMBIGUOUS_ONLY, ' '))) return true
+  return !DRINKWARE.test(text)
 }
 
 // A size axis by any of the names stores actually use for one.

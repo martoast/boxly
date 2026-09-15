@@ -44,5 +44,21 @@ check('Shoe Size', isSizeAxis('Shoe Size'), true)
 check('Color is not a size', isSizeAxis('Color'), false)
 check('Fit is not a size', isSizeAxis('Fit'), false)
 
+// --- a word can name a garment and a gadget (2026-09-15) -----------------------------------------------------
+// "Boot" is footwear and also the rubber base Stanley sells for a Quencher. The tumbler read as
+// footwear, so the modal offered "Elegir talla" on a product with no sizes — a dead end, not the
+// answerable question a false positive is supposed to be.
+check('a tumbler boot is not footwear', needsSize('Stanley Quencher Boot and Straw Cover Set | 30 OZ & 40 OZ'), false)
+check('nor is a silicone boot for a tumbler', needsSize('Silicone Boot for Tumbler'), false)
+check('nor is a water bottle boot', needsSize('Water Bottle Boot'), false)
+check('a plain tumbler never owed one anyway', needsSize('Stanley IceFlow Tumbler'), false)
+// Real footwear is untouched.
+check('chelsea boots still owe a size', needsSize('Chelsea Boots'), true)
+check('an ankle boot still owes a size', needsSize("Women's Ankle Boot"), true)
+check('slides still owe a size', needsSize('adidas Adilette Slides'), true)
+// A title carrying a REAL garment word is unaffected by the drinkware context.
+check('bootcut jeans owe a size on "jeans", not on "boot"', needsSize('Bootcut Jeans'), true)
+check('a hoodie owes a size even beside a flask', needsSize('Hydro Flask Hoodie'), true)
+
 console.log(bad ? `${bad} check(s) FAILED` : 'sizing: all checks pass')
 process.exit(bad ? 1 : 0)
