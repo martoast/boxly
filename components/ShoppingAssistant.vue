@@ -1510,22 +1510,15 @@ function trackKeyboard() {
   vv.addEventListener('resize', onChange)
   vv.addEventListener('scroll', onChange)
   apply()
-  // AND STOP SAFARI SCROLLING THE PAGE. iOS reveals a focused input by scrolling the DOCUMENT, which slides the
-  // composer out of the top of the screen — the container being the right height does not help if the page it
-  // sits in has been scrolled away. With the body locked there is nothing to scroll and nothing to restore,
-  // which is also what leaves the blank strip behind when the keyboard closes.
-  const body = document.body
-  const prev = { overflow: body.style.overflow, position: body.style.position, width: body.style.width, top: body.style.top }
-  body.style.overflow = 'hidden'
-  body.style.position = 'fixed'
-  body.style.width = '100%'
-  body.style.top = '0'
+  // NO BODY LOCK. `position: fixed` on the body collapses the document and throws the page to the top — the
+  // composer jumping to the top of the screen instead of sitting above the keyboard (Alex, 2026-09-15). This
+  // chat scrolls inside its own flex child, not on the body, so the body never needed touching: sizing the
+  // container to the visible box is the whole fix.
   return () => {
     vv.removeEventListener('resize', onChange)
     vv.removeEventListener('scroll', onChange)
     if (raf) cancelAnimationFrame(raf)
     root.style.removeProperty('--app-h')
-    Object.assign(body.style, prev)
   }
 }
 
