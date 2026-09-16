@@ -3,7 +3,7 @@
        window.visualViewport (see trackKeyboard). Subtracting it keeps the composer sitting on top of the
        keyboard and lets the height return cleanly when the keyboard closes — the blank strip Alex saw was the
        document left scrolled with nothing under it. -->
-  <div class="flex bg-gray-50 overflow-hidden relative" :class="standalone ? 'h-[calc(100dvh_-_var(--kb,0px))]' : (fullscreenMobile ? 'h-[calc(100dvh_-_var(--kb,0px))] md:h-[calc(100dvh_-_4rem)]' : 'h-[calc(100dvh_-_4rem_-_var(--kb,0px))]')">
+  <div class="flex bg-gray-50 overflow-hidden relative" :class="standalone ? 'h-[var(--app-h,100dvh)]' : (fullscreenMobile ? 'h-[var(--app-h,100dvh)] md:h-[calc(100dvh_-_4rem)]' : 'h-[calc(var(--app-h,100dvh)_-_4rem)]')">
     <!-- Error toast (e.g. a failed send) — otherwise a failure looks like silence -->
     <Transition name="pop">
       <div v-if="chatError" class="absolute bottom-24 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-2 rounded-xl bg-red-600 text-white text-sm font-semibold px-4 py-2.5 shadow-lg">
@@ -1500,25 +1500,32 @@ function trackKeyboard() {
   let raf = 0
   const apply = () => {
     raf = 0
-    // offsetTop is a SCROLL POSITION, not a covered height — it used to be subtracted here, which shrank the
-    // answer as Safari scrolled and eventually published 0, snapping the container back to full height with the
-    // input behind the keyboard (Alex, iPhone/Safari, 2026-09-15). See utils/keyboard.ts.
-    const covered = keyboardInset({ innerHeight: window.innerHeight, viewportHeight: vv.height })
-    root.style.setProperty('--kb', covered + 'px')
-    // The container is now exactly the visible box, so there is nothing the document needs to scroll to reveal
-    // — and Safari's own scroll is what pushes the composer out of sight. Pin it both while the keyboard is up
-    // and after it closes (the leftover scroll is the blank strip under the composer).
-    if (window.scrollY !== 0) window.scrollTo(0, 0)
+    // THE VISIBLE BOX, DIRECTLY. Not 100dvh minus a keyboard we compute — visualViewport.height IS what the
+    // user can see, keyboard or no keyboard, and using it needs no chrome guard, no arithmetic and no
+    // assumption about what dvh means while a keyboard is up. The earlier version measured a "covered" height
+    // and subtracted it, and every part of that was another way to be wrong.
+    root.style.setProperty('--app-h', Math.round(vv.height) + 'px')
   }
   const onChange = () => { if (!raf) raf = requestAnimationFrame(apply) }
   vv.addEventListener('resize', onChange)
   vv.addEventListener('scroll', onChange)
   apply()
+  // AND STOP SAFARI SCROLLING THE PAGE. iOS reveals a focused input by scrolling the DOCUMENT, which slides the
+  // composer out of the top of the screen — the container being the right height does not help if the page it
+  // sits in has been scrolled away. With the body locked there is nothing to scroll and nothing to restore,
+  // which is also what leaves the blank strip behind when the keyboard closes.
+  const body = document.body
+  const prev = { overflow: body.style.overflow, position: body.style.position, width: body.style.width, top: body.style.top }
+  body.style.overflow = 'hidden'
+  body.style.position = 'fixed'
+  body.style.width = '100%'
+  body.style.top = '0'
   return () => {
     vv.removeEventListener('resize', onChange)
     vv.removeEventListener('scroll', onChange)
     if (raf) cancelAnimationFrame(raf)
-    root.style.removeProperty('--kb')
+    root.style.removeProperty('--app-h')
+    Object.assign(body.style, prev)
   }
 }
 
