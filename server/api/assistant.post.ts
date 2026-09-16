@@ -2225,7 +2225,28 @@ export default defineEventHandler(async (event) => {
                 return ''
               })()
               const saidNorm = norm(said)
-              const fromWords = axes.flatMap((a: any) => (a.values || []).filter((v: any) => norm(v).length >= 1 && saidNorm.includes(norm(v))))
+              // A STORE'S VALUE IS USUALLY RICHER THAN WHAT THE SHOPPER TYPES. They write "talla 8.5"; Amazon
+              // calls it "8.5 Women". Requiring the whole value to appear in their sentence missed that, so a
+              // shopper who had already given size AND colour was asked for both again and the item stayed held
+              // (Alex, On Cloudultra, 2026-09-15). So match the other way too: a value counts as chosen when one
+              // of ITS OWN tokens is exactly something they said. Token-exact, never substring — "talla 8" must
+              // not satisfy "8.5".
+              const saidTokens = new Set(String(said).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(/[^a-z0-9.]+/).map((t) => norm(t)).filter(Boolean))
+              const valueTokens = (v: any) => String(v).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(/[^a-z0-9.]+/).map((t) => norm(t)).filter(Boolean)
+              const saidIt = (v: any) => {
+                const n = norm(v)
+                if (!n) return false
+                // A ONE- OR TWO-LETTER VALUE CANNOT BE MATCHED BY SUBSTRING. "S", "M", "L" live inside ordinary
+                // words — "quiero el negro" contains the "l" of "el" and used to pick size L. Short values must
+                // be said as their own word.
+                if (n.length <= 2) return saidTokens.has(n)
+                if (saidNorm.includes(n)) return true                           // they typed the value verbatim
+                const parts = valueTokens(v)
+                // Every token of a one-word value must be said; for a multi-word value one exact token is enough
+                // ("8.5" out of "8.5 Women"), which is how people actually write a size.
+                return parts.length > 1 ? parts.some((t) => saidTokens.has(t)) : false
+              }
+              const fromWords = axes.flatMap((a: any) => (a.values || []).filter(saidIt))
               const given = [last.size, last.color, ...fromWords].filter(Boolean).map(norm)
               const picked = axes
                 .filter((a: any) => (a?.values?.length || 0) > 1)
