@@ -1,9 +1,9 @@
 <template>
-  <!-- --kb is how much of the viewport the on-screen keyboard is covering, measured live from
-       window.visualViewport (see trackKeyboard). Subtracting it keeps the composer sitting on top of the
-       keyboard and lets the height return cleanly when the keyboard closes — the blank strip Alex saw was the
-       document left scrolled with nothing under it. -->
-  <div class="flex bg-gray-50 overflow-hidden relative" :class="standalone ? 'h-[var(--app-h,100dvh)]' : (fullscreenMobile ? 'h-[var(--app-h,100dvh)] md:h-[calc(100dvh_-_4rem)]' : 'h-[calc(var(--app-h,100dvh)_-_4rem)]')">
+  <!-- MOBILE LETS THE PAGE SCROLL, so iOS Safari does what it already does for free: scroll a focused input into
+       view. The app-shell version (fixed height + overflow-hidden) removed the page scroll, which is the thing
+       Safari acts on — so the keyboard covered the composer and no amount of viewport arithmetic fixed it.
+       Desktop keeps the shell: it has a sidebar and wants the chat to scroll inside itself. -->
+  <div class="flex bg-gray-50 relative overflow-visible md:overflow-hidden" :class="standalone ? 'min-h-[100dvh] md:h-[100dvh]' : (fullscreenMobile ? 'min-h-[100dvh] md:h-[calc(100dvh_-_4rem)]' : 'min-h-[100dvh] md:h-[calc(100dvh_-_4rem)]')">
     <!-- Error toast (e.g. a failed send) — otherwise a failure looks like silence -->
     <Transition name="pop">
       <div v-if="chatError" class="absolute bottom-24 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-2 rounded-xl bg-red-600 text-white text-sm font-semibold px-4 py-2.5 shadow-lg">
@@ -61,7 +61,7 @@
                  action cards. Tapping a card primes that workflow (placeholder +
                  routing hint); the AI runs once the user provides input. ===== -->
       <Transition name="fade-fast">
-        <div v-if="hub && !loadingChat && !chat.messages.length && !activeId" class="flex-1 overflow-y-auto px-4 md:px-5 pt-6 pb-6">
+        <div v-if="hub && !loadingChat && !chat.messages.length && !activeId" class="md:flex-1 md:overflow-y-auto px-4 md:px-5 pt-6 pb-6">
           <div class="max-w-2xl mx-auto">
             <!-- ===== WOW HERO — the promise, in one glance: all of the US, at your door in MX ===== -->
             <div v-if="!activePipeline" class="relative overflow-hidden rounded-[1.8rem] bg-gradient-to-br from-primary-600 via-primary-600 to-indigo-700 text-white p-6 md:p-8 shadow-xl shadow-primary-600/25 mb-3 transition-all duration-300 ease-out hover:-translate-y-1 hover:scale-[1.008] hover:shadow-2xl hover:shadow-primary-600/40">
@@ -222,7 +222,7 @@
       <!-- ===== EMPTY STATE — ChatGPT-style: title, subtitle, the input box, then
                  the picture cards. Tapping a card sends its prompt. ===== -->
       <Transition name="fade-fast">
-        <div v-if="!hub && !loadingChat && !chat.messages.length && !activeId" class="flex-1 overflow-y-auto px-4 md:px-5 pt-5 pb-6">
+        <div v-if="!hub && !loadingChat && !chat.messages.length && !activeId" class="md:flex-1 md:overflow-y-auto px-4 md:px-5 pt-5 pb-6">
           <div class="max-w-2xl mx-auto">
             <h1 class="text-[26px] md:text-3xl font-extrabold text-gray-900 tracking-tight">Compra en Estados Unidos</h1>
             <p class="text-gray-500 mt-1 mb-4 text-[14px] md:text-[15px]">Escribe lo que buscas o toca una idea — Boxly lo consigue, lo importa y te lo entrega en México.</p>
@@ -290,7 +290,7 @@
 
       <!-- ===== CHAT STATE ===== -->
       <template v-if="!loadingChat && (chat.messages.length || activeId)">
-        <div ref="scroller" @scroll.passive="onScroll" class="flex-1 overflow-y-auto overscroll-contain px-3 md:px-4 py-5 scroll-smooth">
+        <div ref="scroller" @scroll.passive="onScroll" class="md:flex-1 md:overflow-y-auto md:overscroll-contain px-3 md:px-4 py-5 scroll-smooth">
           <div v-if="loadingOlder" class="flex justify-center pb-3">
             <svg class="w-5 h-5 animate-spin text-gray-300" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
           </div>
@@ -572,7 +572,7 @@
           </Transition>
         </div>
 
-        <div class="bg-gradient-to-t from-gray-50 via-gray-50 to-transparent px-3 md:px-4 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <div class="sticky bottom-0 z-10 md:static bg-gradient-to-t from-gray-50 via-gray-50 to-transparent px-3 md:px-4 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           <div class="max-w-2xl mx-auto">
             <AssistantComposer v-model:text="input" :mic-recording="micRecording" :mic-transcribing="micTranscribing" :mic-levels="micLevels" :mic-error="micError" :busy="isBusy" :placeholder="composerPlaceholder" @send="onComposerSend" @mic="toggleMic" />
           </div>
@@ -721,6 +721,14 @@ const input = ref('')
 // composer placeholder and rides to the server as a one-turn routing hint. null = none.
 const activePipeline = ref(null)
 const scroller = ref(null)
+// WHICHEVER THING ACTUALLY SCROLLS. On mobile the PAGE scrolls (so Safari reveals a focused input by itself);
+// on desktop the chat pane does. The paging below — load-older-at-the-top, pin-the-position, jump-to-bottom —
+// has to act on the real scroller or it silently stops working on one of the two.
+function scrollHost() {
+  const el = scroller.value
+  if (el && el.clientHeight && el.scrollHeight > el.clientHeight + 1) return el
+  return (import.meta.client && document.scrollingElement) || el
+}
 const drawerOpen = ref(false)
 // Desktop conversations sidebar — collapsed (icon rail) by default, ChatGPT-style.
 // Remembers the user's choice across visits.
@@ -741,7 +749,7 @@ const showMemory = ref(false)
 function closeMemory() { showMemory.value = false; loadProfile() }
 let openSeq = 0
 let hubPhraseTimer = null
-onBeforeUnmount(() => { if (hubPhraseTimer) clearInterval(hubPhraseTimer); if (kbCleanup) { kbCleanup(); kbCleanup = null } })
+onBeforeUnmount(() => { if (hubPhraseTimer) clearInterval(hubPhraseTimer); if (import.meta.client) window.removeEventListener('scroll', onScroll) })
 // In-memory cache of opened conversations (id -> { messages, oldestId, hasMore,
 // products }) for instant re-open. Pagination state for the ACTIVE thread:
 const msgCache = new Map()
@@ -1492,38 +1500,10 @@ let inited = false
 // tall behind the keyboard, and when the keyboard closes the document is often still scrolled — which is the
 // empty strip under the composer. visualViewport is the only thing that reports the real visible box, so we
 // publish the covered height as --kb and scroll the document back to the top the moment the keyboard is gone.
-let kbCleanup = null
-function trackKeyboard() {
-  const vv = typeof window !== 'undefined' ? window.visualViewport : null
-  if (!vv) return null
-  const root = document.documentElement
-  let raf = 0
-  const apply = () => {
-    raf = 0
-    // THE VISIBLE BOX, DIRECTLY. Not 100dvh minus a keyboard we compute — visualViewport.height IS what the
-    // user can see, keyboard or no keyboard, and using it needs no chrome guard, no arithmetic and no
-    // assumption about what dvh means while a keyboard is up. The earlier version measured a "covered" height
-    // and subtracted it, and every part of that was another way to be wrong.
-    root.style.setProperty('--app-h', Math.round(vv.height) + 'px')
-  }
-  const onChange = () => { if (!raf) raf = requestAnimationFrame(apply) }
-  vv.addEventListener('resize', onChange)
-  vv.addEventListener('scroll', onChange)
-  apply()
-  // NO BODY LOCK. `position: fixed` on the body collapses the document and throws the page to the top — the
-  // composer jumping to the top of the screen instead of sitting above the keyboard (Alex, 2026-09-15). This
-  // chat scrolls inside its own flex child, not on the body, so the body never needed touching: sizing the
-  // container to the visible box is the whole fix.
-  return () => {
-    vv.removeEventListener('resize', onChange)
-    vv.removeEventListener('scroll', onChange)
-    if (raf) cancelAnimationFrame(raf)
-    root.style.removeProperty('--app-h')
-  }
-}
 
 onMounted(() => {
-  kbCleanup = trackKeyboard()
+  // On mobile the scroll happens on the PAGE, and the pane's own @scroll never fires — load-older needs this.
+  if (import.meta.client) window.addEventListener('scroll', onScroll, { passive: true })
   watch(user, (u) => { if (u && !inited) initLoggedIn() }, { immediate: true })
   // Guest entry points (logged-in users go through initLoggedIn):
   //  1) arrived from the landing hero with ?q=... → already fired in setup, or
@@ -2217,7 +2197,7 @@ async function openChat(id) {
 async function loadOlder() {
   if (loadingOlder.value || !hasMoreOlder.value || !activeId.value || !oldestLoadedId.value) return
   loadingOlder.value = true
-  const el = scroller.value
+  const el = scrollHost()
   const prevHeight = el ? el.scrollHeight : 0
   try {
     const r = await $customFetch(`/conversations/${activeId.value}?limit=${PAGE}&before=${oldestLoadedId.value}`)
@@ -2243,7 +2223,8 @@ async function loadOlder() {
 }
 
 function onScroll() {
-  if (scroller.value && scroller.value.scrollTop < 120 && hasMoreOlder.value && !loadingOlder.value) loadOlder()
+  const el = scrollHost()
+  if (el && el.scrollTop < 120 && hasMoreOlder.value && !loadingOlder.value) loadOlder()
 }
 
 async function deleteConversation(id) {
@@ -2281,7 +2262,7 @@ function cleanParts(parts) {
 }
 
 function scrollDown() {
-  nextTick(() => { if (scroller.value) scroller.value.scrollTop = scroller.value.scrollHeight })
+  nextTick(() => { const el = scrollHost(); if (el) el.scrollTop = el.scrollHeight })
 }
 </script>
 
