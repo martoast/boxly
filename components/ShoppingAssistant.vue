@@ -408,7 +408,7 @@
                     <!-- The picker NEVER renders inline in the chat (Alex, 2026-09-11: "this UI/UX of the variant
                          selection should never be in the chat, it should be in the modal"). When the box holds an item
                          for a pick, we OPEN THE PRODUCT MODAL for it — one place to choose, every time. -->
-                    <span v-if="part.type === 'tool-show_shipment' && part.state === 'output-available' && part.output?.variants_for?.variants?.length" class="hidden" :data-open-picker="openPickerFor(part.output.variants_for)"></span>
+                    <span v-if="part.type === 'tool-show_shipment' && part.state === 'output-available' && part.output?.hold && part.output?.variants_for?.variants?.length" class="hidden" :data-open-picker="openPickerFor(part.output.variants_for)"></span>
 
                     <template v-else-if="part.type === 'tool-show_assisted_summary' && part.state === 'output-available'">
                       <!-- Once the request is actually created (deterministically, on
@@ -1344,6 +1344,9 @@ function variantPickText(v) {
 const pickerOpened = new Set()
 function openPickerFor(o) {
   if (!import.meta.client || !o) return ''
+  // NOTHING TO PICK, NOTHING TO OPEN. The picker hides any axis with a single value, so a one-size product
+  // would open a modal with no chips in it — and the shopper has no way to answer what it asks.
+  if (!(o.axes || []).some((a) => (a?.values?.length || 0) > 1)) return ''
   const d = variantData(o)
   const key = o.saved_id || d.product?.url || d.product_title || JSON.stringify(o.axes || []).slice(0, 60)
   if (!key || pickerOpened.has(key)) return ''

@@ -17,7 +17,8 @@
     "test:composer": "node components/composer-enter.test.mjs",
     "test:variant-read": "node components/variant-read.test.mjs",
     "test:variant-pick": "node --experimental-strip-types server/api/variant-pick.test.mjs",
-    "test:variant-note": "node --experimental-strip-types server/api/variant-note.test.mjs"
+    "test:variant-note": "node --experimental-strip-types server/api/variant-note.test.mjs",
+    "test:picker-open": "node components/picker-open.test.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.84",
