@@ -469,6 +469,18 @@
                     <span v-else-if="part.type === 'tool-get_product_variants' && part.state === 'output-available' && part.output?.variants?.length" class="hidden" :data-open-picker="openPickerFor(part.output)"></span>
 
                     <!-- Tappable follow-ups (cross-sell / build-the-set) -->
+                    <!-- ONE TAPPABLE QUESTION. The shopper answers by choosing, not by typing — the thing
+                         that makes a clarifying question feel helpful instead of like an interrogation. -->
+                    <div v-else-if="part.type === 'tool-ask_to_narrow' && part.state === 'output-available' && part.output?.options?.length" class="mt-1 rounded-2xl border border-gray-200 bg-white p-3 max-w-sm">
+                      <p class="text-[13.5px] font-semibold text-gray-800 mb-2">{{ part.output.question }}</p>
+                      <div class="flex flex-col gap-1.5">
+                        <button
+                          v-for="(o, oi) in part.output.options" :key="oi"
+                          @click="sendFollowup(o)" :disabled="isBusy"
+                          class="w-full text-left px-3 py-2 rounded-xl border border-gray-200 text-[13px] text-gray-700 font-medium hover:border-primary-300 hover:bg-primary-50 hover:text-primary-700 active:scale-[.99] transition disabled:opacity-50 disabled:cursor-not-allowed"
+                        >{{ o }}</button>
+                      </div>
+                    </div>
                     <div v-else-if="part.type === 'tool-suggest_followups' && part.state === 'output-available' && part.output?.suggestions?.length" class="flex flex-wrap gap-2 mt-1">
                       <button
                         v-for="(s, si) in part.output.suggestions" :key="si"

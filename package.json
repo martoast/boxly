@@ -19,7 +19,9 @@
     "test:variant-pick": "node --experimental-strip-types server/api/variant-pick.test.mjs",
     "test:variant-note": "node --experimental-strip-types server/api/variant-note.test.mjs",
     "test:picker-open": "node components/picker-open.test.mjs",
-    "test:web-rows": "node --experimental-strip-types server/api/web-rows.test.mjs"
+    "test:web-rows": "node --experimental-strip-types server/api/web-rows.test.mjs",
+    "test:narrow": "node server/api/narrow.test.mjs",
+    "test:web-query": "node --experimental-strip-types server/api/web-query.test.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.84",

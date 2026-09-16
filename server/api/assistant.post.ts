@@ -269,8 +269,14 @@ async function emptySearchFallback(a: CatalogSearchArgs, miss: any, g: any, webQ
 const INTENT_WORDS_RE = /\b(promociones?|promos?|ofertas?|descuentos?|rebajas?|rebajad[oa]s?|deals?|sale|clearance|barat[oa]s?|actuales?|quiero|busco|ver|de|en|del|la|el|los|las|para|articulos|artículos)\b/gi
 const productTerms = (q?: string, store?: string) => {
   let t = String(q || '').replace(INTENT_WORDS_RE, ' ')
-  // The store is handled separately — its name left in the terms sends Amazon "Macy's" → gift cards.
-  for (const w of String(store || '').toLowerCase().split(/[^a-z0-9']+/).filter((w) => w.length > 2)) t = t.replace(new RegExp(`\\b${w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:'s)?\\b`, 'gi'), ' ')
+  // A RETAILER'S NAME COMES OUT; A BRAND'S STAYS IN. Sending "Macy's" to Amazon returns gift cards, so a
+  // retailer is handled separately — but Alo, Nike and Puma are BRANDS, and the brand is the product's
+  // identity. Stripping it turned "alo yoga mat" into a web search for "yoga mat", which came back led by
+  // eBay and Amazon mats that were not Alo's at all (Alex, 2026-09-15; confirmed in the search log, which
+  // recorded the query we actually sent as "yoga mat").
+  if (store && RETAILER_RE.test(String(store).trim())) {
+    for (const w of String(store).toLowerCase().split(/[^a-z0-9']+/).filter((w) => w.length > 2)) t = t.replace(new RegExp(`\\b${w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:'s)?\\b`, 'gi'), ' ')
+  }
   return t.replace(/\s+/g, ' ').trim()
 }
 
@@ -1574,6 +1580,7 @@ MODE 3 — BUILD THE CART, THEN CLOSE (where the money is made). When they like 
 
 SHOW FIRST, REFINE AFTER. You're a trusted expert, but the customer came to SEE products: every product request gets a gallery in the same turn, and your questions come as follow-ups next to it, never as a gate before it. Keep momentum and never interrogate. Trust and helpfulness first; the order follows naturally.
 
+ONE QUESTION BEFORE A VAGUE SEARCH, NEVER MORE. When the ask is too broad to shop well AND the answer would change WHICH PRODUCTS come back — "un disfraz de Batman" (hombre, mujer o niño: three different products), "un regalo", "ropa deportiva" — call ask_to_narrow with ONE question and 2-4 tappable answers, in a turn of its own, and say nothing else. The card asks it; do not repeat the question in your text and do not call a product tool in the same turn. Then search with what they tapped. NEVER ask when you can reasonably assume, never about size or colour (the picker handles those), never twice in a row, and never for an ask that is already specific — "tenis Nike Pegasus 41" goes straight to the gallery. A shopper who wanted to browse should not be interrogated: if in doubt, search first and let them refine.
 BUYING IN VOLUME IS A DIFFERENT CONVERSATION. When someone asks for a QUANTITY of one product ("quiero traer 130 piezas", "cuántas caben", "para revender"), they are pricing inventory, not shopping — so talk in COST PER PIECE, not just a total. The assisted-purchase card computes the landed per-piece cost itself (product + 15% + the box divided across every piece), so call show_assisted_summary with the real quantity and let the card show the number; NEVER divide it yourself in text. The one thing worth saying out loud is the direction: the box is a single cost spread over every piece, so each extra piece lands cheaper — at 10 pieces a $12 bottle lands near 715 MXN each, at 140 near 307. And DO NOT invent how many fit: give the box guide (show_box_guide) and the live box estimate (show_shipment), say the final size is confirmed when we pack it, and never state a piece-count capacity as fact — a guessed "caben entre 100 y 140" is a number the customer will hold us to. For a large order, offer the human: our purchasing team can confirm stock, price at volume and lead time before anything is paid.
 CONSOLIDATION IS THE CORE VALUE — YOU BUILD SHIPMENTS, NOT SINGLE PRODUCTS. Boxly's real magic is buying multiple items from multiple US stores and CONSOLIDATING them into ONE box to Mexico — so the customer does NOT pay per-product shipping. Frame everything as building ONE Boxly shipment: when they add an item, treat it as adding to their shipment, note it consolidates cheaply with the rest, and INVITE them to add more to make the most of the box ("¿Quieres agregar algo más a tu envío? Lo juntamos todo en una sola caja y te ahorras en envío 📦"). Think Costco/Amazon: a fuller box is better value. NEVER imply each product ships separately, and NEVER quote a per-product shipping cost as final — the real shipping depends on the whole consolidated box and is quoted at the end. EVERY time the shipment changes (an item added/removed or a quantity changed), call show_shipment with ALL items currently in the shipment — it renders the live box (recommended size, volume bar, capacity left). For EACH item set its packing type (archetype) by the physical VOLUME it occupies, NOT by item count — two orders with the same number of products can need completely different boxes. The tiers: OCUPAN MUY POCO → rigid_small (cosméticos, maquillaje, perfumes, joyería, accesorios, fundas de celular, cables, sanitizers tipo Touchland, carteras pequeñas — agregar varios casi nunca cambia el tamaño de caja); OCUPAN POCO → flat_soft (playeras, leggings, shorts, ropa interior, calcetines, trajes de baño — se comprimen muy bien); OCUPAN MEDIO → medium_soft (jeans, sudaderas, pants/joggers, chamarras ligeras, bolsas medianas, mochilas); OCUPAN MUCHO → bulky_soft (botas, chamarras gruesas, cobijas, almohadas, peluches, cascos, electrodomésticos como ollas o cafeteras — suben rápido el tamaño). So e.g. 10 hand sanitizers barely move the bar (NO box-tier bump), but a single peluche gigante can take more space than veinte playeras. Present the box as PROVISIONAL: say it's an estimate of how the box is filling and that the FINAL size is confirmed when Boxly receives and packs everything — never claim an exact size. Then nudge: lots of room left → suggest adding more; nearly full → suggest finalizing. And when they ask about box SIZES or SHIPPING PRICES ("¿cuánto cuesta el envío?", "¿qué cajas hay?", "¿cuánto cuesta mandar una caja?"), call show_box_guide to drop the price table into the chat, then answer briefly — clarify the box price is the shipping for the whole consolidated box (product + 15% comisión aparte).
 
@@ -2366,6 +2373,20 @@ export default defineEventHandler(async (event) => {
         }),
         execute: async ({ reason }: any) => ({ whatsapp: 'https://wa.me/16195591910', reason: reason || 'Para este tipo de artículo, nuestro equipo te ayuda directo por WhatsApp.' }),
       }),
+      // ONE TAPPABLE QUESTION BEATS A VAGUE GALLERY. "Un disfraz de Batman" could be for a man, a woman or a
+      // five-year-old, and those are three different products — searching before knowing spends the turn on
+      // rows that are mostly wrong. Asking in TEXT is worse than not asking, because the shopper then has to
+      // type; these render as buttons they tap (Alex, 2026-09-15, comparing how Meta's assistant does it).
+      ask_to_narrow: tool({
+        description: "Ask ONE short question with 2-4 tappable answers, when the ask is too broad for a good gallery and the answer would genuinely change WHICH PRODUCTS you return — who it is for (hombre / mujer / niño), a category fork (disfraz completo / solo la máscara), an occasion. Use it BEFORE searching, in a turn of its own: do NOT call a product tool in the same turn, and do NOT repeat the question in your text — the card shows it. Never use it for size or colour (the variant picker does that), never for anything you can reasonably assume, and never twice in a row — one question, then search with what they answered. A specific ask ('tenis Nike Pegasus 41 talla 9') must go straight to the search.",
+        inputSchema: z.object({
+          question: z.string().describe('The question, short and in the shopper\'s language, e.g. "¿Para quién es el disfraz?"'),
+          options: z.array(z.string().describe('One tappable answer, 1-4 words, e.g. "Para hombre". It is sent as the shopper\'s next message, so write it as something they would say.')).min(2).max(4),
+        }),
+        // UI-only, exactly like suggest_followups: the card is the answer, there is nothing to fetch.
+        execute: async ({ question, options }: any) => ({ question, options }),
+      }),
+
       show_box_guide: tool({
         description: "Show Boxly's box SIZES and SHIPPING PRICES as a table in the chat. Call this whenever the customer asks about box sizes, shipping/box prices or cost — '¿cuánto cuesta el envío?', '¿qué cajas tienen?', '¿cuánto cuesta mandar una caja?', '¿cuáles son las medidas/precios?', 'how much is shipping'. The box price is the shipping cost for the WHOLE consolidated box (the product cost + Boxly's 15% commission are SEPARATE). After showing it, answer their question briefly and steer them to consolidate into the smallest box that fits.",
         inputSchema: z.object({}),
