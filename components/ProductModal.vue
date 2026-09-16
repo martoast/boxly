@@ -256,6 +256,9 @@ const loadingVariants = ref(false)
 const activeColorway = ref(null)
 // 'pending' | 'ok' | 'none' (the store genuinely has nothing to choose) | 'failed' (we could not read it).
 // The difference matters: a failed read must never render as "this product has no sizes".
+// Reasons that mean THE READ WAS FINE and the product simply has nothing to pick. Anything else means we could
+// not read it, which is the only case that earns a warning and a retry.
+const READ_SUCCEEDED_EMPTY = new Set(['no_variants', 'need_url'])
 const variantsRead = ref('pending')
 const colorways = computed(() => variantData.value?.colorways || [])
 // Which chip reads as chosen before the shopper touches anything: the one the store says we are on.
@@ -401,9 +404,13 @@ async function loadVariants(p, overrideUrl) {
       variantData.value = merged
       variantsRead.value = 'ok'
     } else {
-      // The call answered but carried nothing. That is only "this product has no options" when the store actually
-      // said so; a reason means we could not read it (walled, unknown store, timeout upstream).
-      variantsRead.value = merged && !merged.reason ? 'none' : 'failed'
+      // The call answered but carried nothing, and there are two very different ways that happens. A read that
+      // WORKED and found nothing to choose is a single-SKU product — a BMX tire whose title already pins the
+      // colour, size, bead and count has no sizes to read, and telling the shopper we failed to read them (with
+      // a Retry that can never change the answer) is just wrong (Alex, Dans Comp tire, 2026-09-15). A read that
+      // could not happen — walled, busy, upstream timeout — is the failure this warning was written for.
+      // No response at all is still a failure — only an ANSWER that carried nothing counts as "nothing to pick".
+      variantsRead.value = merged && (!merged.reason || READ_SUCCEEDED_EMPTY.has(merged.reason)) ? 'none' : 'failed'
     }
   } catch {
     variantsRead.value = 'failed' // never silently downgrade to "no options" — that is a lie the shopper acts on
