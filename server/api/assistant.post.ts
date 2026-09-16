@@ -178,7 +178,10 @@ async function searchCatalogApi(a0: CatalogSearchArgs & { web?: boolean }) {
   const catRows = soldOut.rows.map(toGalleryProduct)
   const storeRows: any[] = live.products || []
   // A sale/promo search takes only MARKED-DOWN web rows — full-price Amazon listings are not "ofertas".
-  const webRows: any[] = brandRowsOnly(g.products || [], a.store).filter((p: any) => !a.sale || (p.on_sale && p.discount_pct))
+  const webRows: any[] = byMerchantTrust(
+    onlyWhatTheyAsked(brandRowsOnly(g.products || [], a.store).filter((p: any) => !a.sale || (p.on_sale && p.discount_pct)), a.query),
+    a.query || a.store,
+  )
   const seen = new Set<string>()
   const dedupe = (rows: any[]) => rows.filter((p) => {
     const k = String(p?.title || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().slice(0, 60)
@@ -749,6 +752,77 @@ const RETAILER_RE = /^(?:target|walmart|best ?buy|dick'?s(?: sporting goods)?|ma
 // A named BRAND means that brand only (Alex, 2026-09-11: an Owala ask mixed in Stanley cups from Amazon — "I
 // specifically asked for Owala"). Web engines pad a brand search with look-alikes; keep a row only when the brand
 // is in its brand field, its title, or (Google) its merchant. Retailers pass everything through.
+// THE BRAND'S OWN SHOP BEFORE A MARKETPLACE STALL.
+//
+// A search for an Alo yoga mat led with eBay while Alo Yoga's own listing sat further down
+// (Alex, 2026-09-15). A marketplace row is a third party reselling — the price is less
+// trustworthy, the stock is one seller's, and for a shopper who asked for a brand it reads
+// as if we could not find the real thing. So order the web rows by who is selling:
+//
+//   1. the brand itself ("Alo Yoga" for an Alo mat, "Nike" for a Pegasus)
+//   2. an ordinary retailer (Nordstrom, Dick's, REI…)
+//   3. a marketplace or one of its sellers (eBay, Etsy, "Walmart - JBay Treasures")
+//
+// Stable within each tier, so whatever ordering the engines already gave survives inside it.
+const MARKETPLACE_RE = /\b(ebay|etsy|aliexpress|alibaba|wish|temu|mercado ?libre|poshmark|mercari|depop|bonanza|reverb|stockx|goat|walmart marketplace|amazon marketplace)\b/i;
+/** A marketplace SELLER: SerpAPI reports these as "eBay - seller123" / "Walmart - JBay Treasures". */
+const MARKETPLACE_SELLER_RE = /^(ebay|walmart|amazon|etsy)\s*[-–]\s*\S/i;
+
+export function merchantTier(row: any, query?: string | null): number {
+  const merchant = String(row?.merchant || row?.store || '').trim();
+  if (!merchant) return 1;
+  if (MARKETPLACE_SELLER_RE.test(merchant) || MARKETPLACE_RE.test(merchant)) return 2;
+  // The brand's own shop: the merchant name appears in the product's brand/title, or in what was asked.
+  const m = merchant.toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (m.length >= 3) {
+    const hay = `${row?.brand || ''} ${row?.title || ''} ${query || ''}`.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (hay.includes(m)) return 0;
+  }
+  return 1;
+}
+
+// A WEB ROW HAS TO BE THE THING THEY ASKED FOR.
+//
+// "Puma shorts de mujer" came back as PUMA sneakers (Alex, 2026-09-15). The catalog already
+// has to echo the shopper's words — that gate was added when "work boots with steel toe"
+// answered with closed-toe slippers — but web rows went straight through unchecked, so a
+// brand match alone was enough for Google to hand back the wrong product type.
+//
+// Rows that echo the ask come first, and once ENOUGH of them do, the ones that do not are
+// dropped: a gallery of the wrong category is worse than a shorter right one. When none
+// echo, nothing is dropped — that is a thin engine answer, not a reason to show nothing.
+export function askTerms(query?: string | null): string[] {
+  return [...new Set((plainText(String(query || '')).toLowerCase().match(/[a-z0-9]{4,}/g) || [])
+    .filter((w) => !QUERY_STOP.has(w))
+    .map((w) => w.replace(/s$/, '')))]
+}
+
+/** How many of the shopper's words this row actually carries. */
+export function echoScore(row: any, query?: string | null): number {
+  const hay = plainText(`${row?.title || ''} ${row?.brand || ''}`).toLowerCase()
+  return askTerms(query).filter((w) => hay.includes(w)).length
+}
+
+export function onlyWhatTheyAsked(rows: any[], query?: string | null): any[] {
+  const list = rows || []
+  if (!list.length || !askTerms(query).length) return list
+  // COUNT the words, do not just look for one. "Puma shorts de mujer" matched a PUMA SNEAKER on the brand
+  // alone — every row in a brand search echoes the brand, so "any word" is no filter at all. The rows that
+  // carry the MOST of what was asked are the answer; a row carrying strictly fewer is a different product.
+  const scored = list.map((r) => ({ r, n: echoScore(r, query) }))
+  const best = Math.max(...scored.map((x) => x.n))
+  if (best === 0) return list          // nothing echoed anything: a thin engine answer, not a reason to show none
+  return scored.filter((x) => x.n === best).map((x) => x.r)
+}
+
+/** Official shops first, marketplaces last. Stable within a tier. Pure. */
+export function byMerchantTrust(rows: any[], query?: string | null): any[] {
+  return (rows || [])
+    .map((r, i) => ({ r, i, t: merchantTier(r, query) }))
+    .sort((a, b) => a.t - b.t || a.i - b.i)
+    .map((x) => x.r);
+}
+
 function brandRowsOnly(rows: any[], store?: string | null) {
   if (!store || RETAILER_RE.test(store)) return rows
   const key = store.toLowerCase().replace(/[^a-z0-9]/g, '')
