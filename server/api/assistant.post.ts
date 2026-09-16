@@ -2048,9 +2048,16 @@ export default defineEventHandler(async (event) => {
           if (!target) return { variants: [], reason: 'no_url', note: 'No stored URL for that product. Proceed to the purchase request as usual; the shopping team confirms the size/colour after.' }
           const r: any = await getProductVariantsApi(String(target))
           const avail = r.variants.filter((v: any) => v.available)
-          const note = r.variants.length
-            ? `VARIANTS ON SCREEN${r.checked_at ? ' (checked ' + r.checked_at + ')' : ''}: ${avail.length} of ${r.variants.length} available. THE ITEM IS NOT IN THE BOX and you must not say it is — "agregué"/"agregado"/"ya está en tu caja" are FORBIDDEN here. The shopper picks size, colour and QUANTITY on the chips themselves, so do NOT list the options in text. Reply with ONE short line: "Elige la talla y la cantidad y lo agrego a tu caja 👇". Add it only on the NEXT turn, with show_shipment carrying size, color and quantity.`
-            : `NO VARIANT DATA (${r.reason}). Do not stall: proceed as before — place the request when they finalize; the shopping team confirms size/colour with them after.`
+          // THERE ARE ONLY CHIPS WHEN THERE IS A CHOICE. The picker hides any axis with a single value — there
+          // is nothing to pick — so a one-size product renders NO chips. Telling the shopper to "elige la talla"
+          // while also forbidding the options in text left them staring at a screen with neither (Alex, PUMA
+          // 6-Pack Crew Socks, One Size, 2026-09-15). A real choice means an axis with more than one value.
+          const realChoice = (r.axes || []).some((a: any) => (a?.values?.length || 0) > 1)
+          const note = !r.variants.length
+            ? `NO VARIANT DATA (${r.reason}). Do not stall: proceed as before — place the request when they finalize; the shopping team confirms size/colour with them after.`
+            : !realChoice
+              ? `READ OK, NOTHING TO CHOOSE: this product comes one way only${r.axes?.[0]?.values?.[0] ? ` (${r.axes[0].name}: ${r.axes[0].values[0]})` : ''}. There are NO chips on screen, so never tell them to pick — say what it comes as in one short line and add it with show_shipment now, carrying that value.`
+              : `VARIANTS ON SCREEN${r.checked_at ? ' (checked ' + r.checked_at + ')' : ''}: ${avail.length} of ${r.variants.length} available. THE ITEM IS NOT IN THE BOX and you must not say it is — "agregué"/"agregado"/"ya está en tu caja" are FORBIDDEN here. The shopper picks size, colour and QUANTITY on the chips themselves, so do NOT list the options in text. Reply with ONE short line: "Elige la talla y la cantidad y lo agrego a tu caja 👇". Add it only on the NEXT turn, with show_shipment carrying size, color and quantity.`
           return { ...r, product_title: saved?.title || r.product?.title || null, saved_id: saved_id || null, note }
         },
       }),
@@ -2161,9 +2168,18 @@ export default defineEventHandler(async (event) => {
           // The registry is the truth for anything the model would otherwise retype: the box card must show the
           // REAL thumbnail / price / name for a saved_id (the model invented "https://example.com/nike_ultrafly.jpg"
           // in a live run), so resolve before building the card.
+          // A saved_id can go stale — the item was added turns ago and the registry the client sent has moved
+          // on — so fall back to matching the product by URL and then by name. And a registry hit that carries
+          // NO image must not erase one the model did pass: the box card showed a grey placeholder for an item
+          // whose name, colour and size were all correct (Alex, BMX handlebar, 2026-09-15).
+          const sameUrl = (a: any, b: any) => a && b && String(a).split('?')[0] === String(b).split('?')[0]
+          const sameName = (a: any, b: any) => a && b && String(a).trim().toLowerCase() === String(b).trim().toLowerCase()
           items = (items || []).map((it: any) => {
-            const saved = it.saved_id ? savedProducts.find((p: any) => p.id === it.saved_id) : null
-            return saved ? { ...it, name: saved.title || it.name, image: saved.image || null, price: saved.price ?? it.price } : it
+            const saved = (it.saved_id ? savedProducts.find((p: any) => p.id === it.saved_id) : null)
+              || (it.url ? savedProducts.find((p: any) => sameUrl(p.url, it.url)) : null)
+              || (it.name ? savedProducts.find((p: any) => sameName(p.title, it.name)) : null)
+            if (!saved) return it
+            return { ...it, name: saved.title || it.name, image: saved.image || it.image || null, price: saved.price ?? it.price }
           })
           const ship: any = await buildShipment(items)
           // ENFORCED IN CODE (Alex): the moment a sized/coloured product lands in the box is THE moment to read
@@ -2255,7 +2271,7 @@ export default defineEventHandler(async (event) => {
                 const held = await buildShipment(items.slice(0, -1))
                 return {
                   ...held, hold: true,
-                  pending_item: { saved_id: last.saved_id, name: saved?.title || last.name || null, image: saved?.image || null, price: saved?.price ?? last.price ?? null },
+                  pending_item: { saved_id: last.saved_id, name: saved?.title || last.name || null, image: saved?.image || last.image || null, price: saved?.price ?? last.price ?? null },
                   variants_for: ship.variants_for,
                   note: `STOP — "${saved?.title || last.name}" IS NOT IN THE BOX AND YOU MUST NOT SAY IT IS. The words "agregué", "agregado", "ya está en tu caja", "añadí" are FORBIDDEN in this reply. It needs ${axes.filter((a: any) => (a?.values?.length || 0) > 1).map((a: any) => a.name).join(' + ')} first (${avail.length} of ${r.variants.length} combinations available; the chips are already on screen, do NOT list the options in text). Reply with ONE short line in this shape: "Elige la talla y el color y lo agrego a tu caja 👇". Then STOP — no other tool calls. When the shopper picks, call show_shipment again for this product WITH size and color set, and only THEN say it is in the box.`,
                 }
