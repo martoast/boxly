@@ -14,7 +14,8 @@
     "test:sizing": "node --experimental-strip-types utils/sizing.test.mjs",
     "test:search-logging": "node --experimental-strip-types server/api/search-logging.test.mjs",
     "test:landed": "node --experimental-strip-types utils/landed.test.mjs",
-    "test:composer": "node components/composer-enter.test.mjs"
+    "test:composer": "node components/composer-enter.test.mjs",
+    "test:keyboard": "node --experimental-strip-types utils/keyboard.test.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.84",

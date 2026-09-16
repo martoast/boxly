@@ -1500,11 +1500,15 @@ function trackKeyboard() {
   let raf = 0
   const apply = () => {
     raf = 0
-    const covered = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop))
-    // Under ~80px is browser chrome moving (the URL bar collapsing), not a keyboard — reacting to that would
-    // make the layout jump on every scroll.
-    root.style.setProperty('--kb', (covered > 80 ? covered : 0) + 'px')
-    if (covered <= 80 && window.scrollY !== 0) window.scrollTo(0, 0)
+    // offsetTop is a SCROLL POSITION, not a covered height — it used to be subtracted here, which shrank the
+    // answer as Safari scrolled and eventually published 0, snapping the container back to full height with the
+    // input behind the keyboard (Alex, iPhone/Safari, 2026-09-15). See utils/keyboard.ts.
+    const covered = keyboardInset({ innerHeight: window.innerHeight, viewportHeight: vv.height })
+    root.style.setProperty('--kb', covered + 'px')
+    // The container is now exactly the visible box, so there is nothing the document needs to scroll to reveal
+    // — and Safari's own scroll is what pushes the composer out of sight. Pin it both while the keyboard is up
+    // and after it closes (the leftover scroll is the blank strip under the composer).
+    if (window.scrollY !== 0) window.scrollTo(0, 0)
   }
   const onChange = () => { if (!raf) raf = requestAnimationFrame(apply) }
   vv.addEventListener('resize', onChange)
