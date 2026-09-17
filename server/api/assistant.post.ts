@@ -102,7 +102,7 @@ async function searchCatalogApi(a0: CatalogSearchArgs & { web?: boolean }) {
   const webQuery = [webCategory(a.category, term), term].filter(Boolean).join(' ').trim() || String(a.query || '').trim()
   const webP: Promise<any> = a.web === false || !webQuery
     ? Promise.resolve({ products: [], sources: {}, reason: 'skipped' })
-    : getWebApi(webQuery, a.store).catch(() => ({ products: [], sources: {}, reason: 'error' }))
+    : getWebApi(webQuery, a.store, a.query).catch(() => ({ products: [], sources: {}, reason: 'error' }))
   let products: any[] = []
   let miss: any = {}
   try {
@@ -320,7 +320,7 @@ async function uncarriedStoreFallback(store: string, query?: string) {
   const UNCARRIED_BUDGET_MS = 9000
   const byDeadline = <T,>(p: Promise<T>, empty: T) => Promise.race([p, new Promise<T>((r) => setTimeout(() => r(empty), UNCARRIED_BUDGET_MS))])
   const [g, b]: any[] = await Promise.all([
-    byDeadline(getWebFanoutApi(canonicalWebQuery(ask, 5)).catch(() => ({ products: [], reason: 'unreachable' })), { products: [], reason: 'slow' }),
+    byDeadline(getWebFanoutApi(canonicalWebQuery(ask, 5), ask).catch(() => ({ products: [], reason: 'unreachable' })), { products: [], reason: 'slow' }),
     // Kept for the cards that name a BRAND rather than a retailer (PINK, Owala): Amazon sells the brand itself.
     byDeadline(getAmazonApi(canonicalWebQuery([store, terms].filter(Boolean).join(' '), 5)).catch(() => ({ products: [], reason: 'unreachable' })), { products: [], reason: 'slow' }),
   ])
@@ -509,7 +509,7 @@ async function curateCatalogApi(a: CurateArgs) {
   const term = productTerms(a.query, a.store)
   const webQuery = [webCategory(a.categories?.[0] || a.department, term), term].filter(Boolean).join(' ').trim()
   const webP: Promise<any> = (webQuery || a.store)
-    ? getWebApi(webQuery, a.store).catch(() => ({ products: [], sources: {}, reason: 'error' }))
+    ? getWebApi(webQuery, a.store, a.query).catch(() => ({ products: [], sources: {}, reason: 'error' }))
     : Promise.resolve({ products: [], sources: {}, reason: 'skipped' })
   const [r, g]: any[] = await Promise.all([curateCatalogCore(a), webP])
   const own: any[] = r.products || []
@@ -681,7 +681,7 @@ async function getProductVariantsApi(url: string, maxAgeS = 900) {
 // buyable link) — the shopper orders it through Boxly. Heavy (~16-32s) + rate-limited
 // (Google walls sustained use → {blocked, cooling}). Fails SOFT: any block/miss/error comes
 // back as empty products + a reason the model explains.
-async function getGoogleShopApi(query: string) {
+async function getGoogleShopApi(query: string, asked?: string | null) {
   let data: any = {}
   try {
     // 12 s, above the API's own 11 s Google budget — a shorter timeout here would throw away a result the API
@@ -697,7 +697,9 @@ async function getGoogleShopApi(query: string) {
   return {
     // page_token travels with the row: a Google result links to google.com, so the modal needs this to reach the
     // merchant's own product page and read its variants (see /catalog/google-product).
-    products: raw.map((p) => ({ ...toGalleryProduct(p), merchant: p.merchant || p.store || null, source: 'google', page_token: p.page_token || null, product_id: p.product_id || null })),
+    // Google Shopping resells eBay listings under its own engine name, so the merchant is
+    // the only tell here — isEbayRow reads it.
+    products: dropEbay(raw.map((p) => ({ ...toGalleryProduct(p), merchant: p.merchant || p.store || null, source: 'google', page_token: p.page_token || null, product_id: p.product_id || null })), asked ?? query),
     source: 'google',
     from_web: true,          // the model MUST frame these as found on the web, orderable via Boxly
     reason,                  // null on success; 'cooling'/'blocked'/'no_results'/an error code otherwise
@@ -710,22 +712,28 @@ async function getGoogleShopApi(query: string) {
 // Shopping and Walmart in parallel (plus Home Depot for tool words) and returns ONE interleaved gallery. This is
 // what makes a slow or sick engine a non-event: the others still fill the screen (Alex, 2026-09-11).
 const ENGINE_LABEL: Record<string, string> = { google_shopping: 'Google Shopping', amazon: 'Amazon', ebay: 'eBay', bing_shopping: 'Bing Shopping', walmart: 'Walmart', home_depot: 'The Home Depot' }
-async function getWebFanoutApi(query: string) {
+async function getWebFanoutApi(query: string, asked?: string | null) {
   let data: any = {}
   try { data = await callApi('/catalog/web-search', { method: 'POST', body: { query, limit: 60 }, timeoutMs: 13000 }) } catch (e: any) { console.warn('[assistant] web-search unreachable:', e?.message || e); data = { error: 'unreachable' } }
   const raw: any[] = Array.isArray(data?.products) ? data.products : []
+  // `asked` is the RAW ask (+ store), not the outgoing query — see wantsEbay.
+  const ebayOk = wantsEbay(asked ?? query)
   // Per-engine row counts, flattened for the tool result so a thin gallery can be traced to the engine that
-  // was down rather than to the query.
+  // was down rather than to the query. eBay is omitted when its rows were dropped: left in, the model reads
+  // "ebay: 14" and tells the shopper the gallery includes eBay listings that are not on screen.
   const sources: Record<string, any> = {}
-  for (const [name, v] of Object.entries<any>(data?.sources || {})) sources[name] = v?.status === 'ok' || v?.status === 'cached' ? v.rows : v?.status
+  for (const [name, v] of Object.entries<any>(data?.sources || {})) {
+    if (!ebayOk && EBAY_RE.test(name)) continue
+    sources[name] = v?.status === 'ok' || v?.status === 'cached' ? v.rows : v?.status
+  }
   return {
-    products: raw.map((p) => ({
+    products: dropEbay(raw.map((p) => ({
       ...toGalleryProduct(p),
       merchant: p.merchant || p.store || null,
       source: p.engine || p.source || 'web',
       page_token: p.page_token || null,
       product_id: p.product_id || null,
-    })),
+    })), asked ?? query),
     source: 'web', from_web: true,
     reason: data?.error ? String(data.error) : raw.length ? null : 'no_results',
     sources,
@@ -781,6 +789,44 @@ const RETAILER_RE = /^(?:target|walmart|best ?buy|dick'?s(?: sporting goods)?|ma
 const MARKETPLACE_RE = /\b(ebay|etsy|aliexpress|alibaba|wish|temu|mercado ?libre|poshmark|mercari|depop|bonanza|reverb|stockx|goat|walmart marketplace|amazon marketplace)\b/i;
 /** A marketplace SELLER: SerpAPI reports these as "eBay - seller123" / "Walmart - JBay Treasures". */
 const MARKETPLACE_SELLER_RE = /^(ebay|walmart|amazon|etsy)\s*[-–]\s*\S/i;
+
+// ── eBAY IS NOT A DEFAULT ANSWER ─────────────────────────────────────────────
+//
+// Ranking marketplaces LAST was not enough (Alex, 2026-09-17: "I don't want us to be
+// searching for eBay, that's kind of making it look bad"). Tiering fixed which row led;
+// it still left third-party eBay listings sitting in a gallery for a shopper who never
+// asked for eBay, and that makes Boxly read as a reseller aggregator rather than a way
+// to buy from real US stores.
+//
+// So eBay is opt-in. It appears only when the ask actually named it — and it must still
+// appear then, because the eBay STORE CARD on the home screen is advertised: it sends
+// "Ayúdame a encontrar y comparar las mejores opciones en eBay", and a card that answers
+// with an empty gallery is the broken promise we already fixed once.
+//
+// The permission travels SEPARATELY from the query, and that is the whole subtlety here:
+// productTerms() strips a retailer's own name out of the web query (it has to — Amazon
+// turns "Macy's" into gift cards), so by the time the words reach the engines the word
+// "eBay" is gone. Asking the outgoing query whether the shopper wanted eBay would answer
+// no every single time, including on the store card.
+const EBAY_RE = /\bebay\b/i
+
+/** Did the shopper actually name eBay? Pass the RAW ask and store, not the web query. */
+export function wantsEbay(...asked: (string | null | undefined)[]): boolean {
+  return asked.some((s) => EBAY_RE.test(String(s || '')))
+}
+
+/** An eBay row: the engine that produced it, the merchant selling it, or where it links. */
+export function isEbayRow(row: any): boolean {
+  return EBAY_RE.test(String(row?.source || row?.engine || ''))
+    || EBAY_RE.test(String(row?.merchant || row?.store || ''))
+    || EBAY_RE.test(String(row?.url || row?.link || ''))
+}
+
+/** Every eBay row out, unless this ask asked for eBay. */
+export function dropEbay(rows: any[], ...asked: (string | null | undefined)[]): any[] {
+  if (wantsEbay(...asked)) return rows || []
+  return (rows || []).filter((r) => !isEbayRow(r))
+}
 
 export function merchantTier(row: any, query?: string | null): number {
   const merchant = String(row?.merchant || row?.store || '').trim();
@@ -873,7 +919,7 @@ function canonicalWebQuery(raw: string, max = 4) {
   return ((kept.length ? kept : words).slice(0, max).join(' ') || String(raw || '').trim()).slice(0, 80)
 }
 
-async function getWebApi(rawQuery: string, store?: string) {
+async function getWebApi(rawQuery: string, store?: string, asked?: string | null) {
   const query = await toEnglishSearchTerms(rawQuery)
   // What we actually ask the engines, canonicalized — the same short string every time, so SerpAPI serves it
   // from its own cache instead of fetching it live for 6–20 s.
@@ -881,9 +927,13 @@ async function getWebApi(rawQuery: string, store?: string) {
   // A LONG QUERY THAT MATCHES NOTHING IS STILL A MISS: "kids youth soccer ball" came back empty where "soccer
   // ball" had forty, so an empty fan-out asks once more with just the query's head.
   const head = canonicalWebQuery(webQuery, 2)
-  let r: any = await getWebFanoutApi(webQuery)
+  // The store is the half that matters: productTerms() has already taken "eBay" out of
+  // rawQuery by the time a store card's ask gets here. `asked` lets a caller add the
+  // shopper's own words on top, for the tools that get a model-written query instead.
+  const ebayAsk = [rawQuery, store, asked].filter(Boolean).join(' ')
+  let r: any = await getWebFanoutApi(webQuery, ebayAsk)
   if (!(r.products || []).length && head !== webQuery) {
-    const short: any = await getWebFanoutApi(head)
+    const short: any = await getWebFanoutApi(head, ebayAsk)
     if ((short.products || []).length) r = { ...short, shortened_to: head }
   }
   const seen = new Set<string>()
@@ -2130,7 +2180,7 @@ export default defineEventHandler(async (event) => {
         toModelOutput: galleryModelOutput,
       }),
       find_on_google: tool({
-        description: "WEB PRODUCT SEARCH (fast, ~1-3s) — when the catalog doesn't have what they want, THIS is your move. It searches Google Shopping, Amazon, eBay, Bing Shopping and Walmart ALL IN PARALLEL (plus The Home Depot for tools and home-improvement words) and returns ONE interleaved gallery (real US merchants: Target, Best Buy, Walmart, brand sites, plus Amazon and eBay) with price, was-price, rating, reviews, image and a buyable link; Boxly buys it and delivers to Mexico. Used/refurbished sellers are already removed. YOU curate what leads: read the merged list (store, price, was, rating, reviews), pick the best 1–3 for what they asked (a real discount from a trusted merchant, strong rating/reviews, the exact model) and call feature_products with their exact titles so they show FIRST; mention that options come from several stores including Amazon when that's true. `sources` gives one entry per engine: a NUMBER means it answered with that many rows, a WORD ('timeout', 'cooling') means it did not — just work with what came back, the other engines cover it. Reach for it the MOMENT the catalog misses: search_products/curate_products came back empty, or no_exact_match:true, or query_matched:false, OR it's clearly something we don't stock (a camera, an LED mask, an appliance, a freeze dryer, a niche brand/model). Just DO IT smoothly: open with ONE short natural line in the SAME turn ('Va, déjame buscarte las mejores opciones 🔎' / 'Ahorita te consigo eso 🔎') and fire it — the loader covers the brief wait. CRITICAL: do NOT tell the shopper it's 'no está en el catálogo' or that results are 'de la web' — to them it's just Boxly finding what they asked for; present the products naturally like any other gallery. Pass the product as `query` (include brand/model). PREFER THIS over find_live_product for anything general — find_live_product is slower and only for a pasted link. If it returns no_results, ask for a direct link; 'cooling'/'blocked' is rare (we use a fast API) — if it happens, say you couldn't pull it this moment and offer to take a link.",
+        description: "WEB PRODUCT SEARCH (fast, ~1-3s) — when the catalog doesn't have what they want, THIS is your move. It searches Google Shopping, Amazon, Bing Shopping and Walmart ALL IN PARALLEL (plus The Home Depot for tools and home-improvement words) and returns ONE interleaved gallery (real US merchants: Target, Best Buy, Walmart, brand sites, plus Amazon) with price, was-price, rating, reviews, image and a buyable link; Boxly buys it and delivers to Mexico. Used/refurbished sellers are already removed, and so are eBay listings unless the shopper named eBay themselves — never tell them the gallery includes eBay. YOU curate what leads: read the merged list (store, price, was, rating, reviews), pick the best 1–3 for what they asked (a real discount from a trusted merchant, strong rating/reviews, the exact model) and call feature_products with their exact titles so they show FIRST; mention that options come from several stores including Amazon when that's true. `sources` gives one entry per engine: a NUMBER means it answered with that many rows, a WORD ('timeout', 'cooling') means it did not — just work with what came back, the other engines cover it. Reach for it the MOMENT the catalog misses: search_products/curate_products came back empty, or no_exact_match:true, or query_matched:false, OR it's clearly something we don't stock (a camera, an LED mask, an appliance, a freeze dryer, a niche brand/model). Just DO IT smoothly: open with ONE short natural line in the SAME turn ('Va, déjame buscarte las mejores opciones 🔎' / 'Ahorita te consigo eso 🔎') and fire it — the loader covers the brief wait. CRITICAL: do NOT tell the shopper it's 'no está en el catálogo' or that results are 'de la web' — to them it's just Boxly finding what they asked for; present the products naturally like any other gallery. Pass the product as `query` (include brand/model). PREFER THIS over find_live_product for anything general — find_live_product is slower and only for a pasted link. If it returns no_results, ask for a direct link; 'cooling'/'blocked' is rare (we use a fast API) — if it happens, say you couldn't pull it this moment and offer to take a link.",
         inputSchema: z.object({
           query: z.string().describe('IN ENGLISH (translate: "tele de 55 pulgadas"→"55 inch TV", "tacos de americano"→"football cleats"). The product to find on the web, with brand/model, e.g. "red light led face mask", "Sony ZV-1F camera", "New Balance 9060 grey".'),
         }),
@@ -2143,7 +2193,7 @@ export default defineEventHandler(async (event) => {
           // CATALOG FIRST EVEN HERE (Alex, 2026-09-11: the model sometimes reaches for the web on a product our
           // mirror actually has — "New Balance 9060" went to Amazon while newbalance.com's row sat in the catalog).
           // The mirror's REAL matches lead the gallery; the web fills in around them. Both run at once.
-          const [c, r]: any[] = await Promise.all([catalogHitsFor(query), getWebApi(query)])
+          const [c, r]: any[] = await Promise.all([catalogHitsFor(query), getWebApi(query, undefined, question)])
           if (c.length || r.products.length) {
             const seen = new Set<string>()
             const key = (p: any) => String(p?.title || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().slice(0, 60)

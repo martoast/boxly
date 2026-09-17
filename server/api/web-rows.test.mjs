@@ -20,10 +20,14 @@ const mod = [
   pick(/export function onlyWhatTheyAsked\([\s\S]*?\n\}/),
   pick(/export function merchantTier\([\s\S]*?\n\}/),
   pick(/export function byMerchantTrust\([\s\S]*?\n\}/),
+  pick(/const EBAY_RE = [^\n]*\n/),
+  pick(/export function wantsEbay\([\s\S]*?\n\}/),
+  pick(/export function isEbayRow\([\s\S]*?\n\}/),
+  pick(/export function dropEbay\([\s\S]*?\n\}/),
 ].join('\n');
 const f = join(mkdtempSync(join(tmpdir(), 'webrows-')), 'm.ts');
 writeFileSync(f, mod);
-const { onlyWhatTheyAsked, byMerchantTrust, merchantTier } = await import(f);
+const { onlyWhatTheyAsked, byMerchantTrust, merchantTier, wantsEbay, isEbayRow, dropEbay } = await import(f);
 
 // ── the wrong product type ────────────────────────────────────────────────────────────────
 {
@@ -69,4 +73,52 @@ ok('an ordinary retailer sits between', merchantTier({ merchant: "Dick's Sportin
   const sorted = byMerchantTrust([{ title: 't', merchant: 'eBay' }, { title: 't', merchant: 'Etsy' }], 'x');
   ok('order inside a tier is preserved', sorted[0].merchant === 'eBay' && sorted[1].merchant === 'Etsy');
 }
+
+// ── eBAY IS OPT-IN ───────────────────────────────────────────────────────────
+//
+// Ranking marketplaces last still left eBay listings on screen for shoppers who never
+// asked ("I don't want us to be searching for eBay, that's kind of making it look bad"
+// — Alex, 2026-09-17). They are dropped now, except when the ask named eBay.
+{
+  const rows = [
+    { title: 'Alo Yoga Warrior Mat', merchant: 'Alo Yoga', source: 'google' },
+    { title: 'Alo Warrior Mat 5mm', merchant: 'eBay', source: 'google' },       // Google reselling eBay
+    { title: 'Alo Yoga Mat Purple', merchant: 'ThriftySeller', source: 'ebay' }, // the eBay engine
+    { title: 'Alo Warrior Mat', merchant: 'eBay - matdealz', source: 'web' },    // a marketplace seller
+    { title: 'Alo Yoga Mat', merchant: 'Nordstrom', source: 'google' },
+    { title: 'Alo Mat', merchant: 'Shop', url: 'https://www.ebay.com/itm/12345' },
+  ];
+  const kept = dropEbay(rows, 'alo yoga mat');
+  ok('a plain search keeps no eBay row at all', kept.every((r) => !isEbayRow(r)));
+  ok('…and keeps everything that is not eBay', kept.length === 2);
+  ok('the eBay ENGINE is caught', isEbayRow({ merchant: 'ThriftySeller', source: 'ebay' }));
+  ok('an eBay MERCHANT under another engine is caught', isEbayRow({ merchant: 'eBay', source: 'google' }));
+  ok('an eBay SELLER row is caught', isEbayRow({ merchant: 'eBay - matdealz' }));
+  ok('and a row that merely LINKS to ebay.com is caught', isEbayRow({ merchant: 'Shop', url: 'https://www.ebay.com/itm/12345' }));
+
+  // The advertised store card has to keep working.
+  ok('asking for eBay keeps every eBay row', dropEbay(rows, 'Ayúdame a encontrar y comparar las mejores opciones en eBay.').length === rows.length);
+  ok('a store param naming eBay is consent too', dropEbay(rows, null, 'eBay').length === rows.length);
+  ok('"búscalo en ebay" is consent', wantsEbay('búscalo en ebay'));
+  ok('but an ordinary ask is not', !wantsEbay('alo yoga mat', null, undefined));
+
+  // THE TRAP: productTerms() strips a retailer's own name out of the web query, so by the
+  // time the words reach the engines "eBay" is gone. Consent has to travel separately or
+  // the store card silently suppresses its own results.
+  const outgoing = 'yoga mat';            // what productTerms('mats en eBay', 'eBay') leaves
+  ok('the stripped outgoing query alone would wrongly suppress', !wantsEbay(outgoing));
+  ok('so the raw ask + store is what is asked', wantsEbay(outgoing, 'eBay'));
+
+  // Nothing else that merely mentions a marketplace gets dragged in.
+  ok('Etsy is unaffected by this rule', !isEbayRow({ merchant: 'Etsy', source: 'google' }));
+  ok('a Best Buy row is untouched', !isEbayRow({ merchant: 'Best Buy', source: 'google' }));
+}
+
+// ── The wiring, not just the helper ─────────────────────────────────────────
+ok('the fan-out drops them before they reach the gallery', /products: dropEbay\(raw\.map/.test(src));
+ok('Google Shopping rows go through it too', /products: dropEbay\(raw\.map\(\(p\) => \(\{ \.\.\.toGalleryProduct\(p\), merchant/.test(src));
+ok('and the ebay engine is not reported as a source once dropped', /if \(!ebayOk && EBAY_RE\.test\(name\)\) continue/.test(src));
+ok('the store card carries its consent past productTerms', /const ebayAsk = \[rawQuery, store, asked\]/.test(src));
+ok('the tool description no longer promises eBay', !/plus Amazon and eBay\)/.test(src));
+
 console.log(`\n${pass} checks passed`);

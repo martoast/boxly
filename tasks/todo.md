@@ -1,54 +1,54 @@
-# "Camisa polo" searched blind instead of asking who it was for
+# eBay is opt-in
 
-Alex searched *Camisa poll* and got a gallery led by a **girls'** Ralph Lauren
-polo (2026-09-17). The man/woman toggle never appeared — the second time he has
-reported this.
+> "Let's suppress eBay results unless they explicitly asked for it. I don't want
+> us to be searching for eBay. That's kind of making it look bad." — Alex,
+> 2026-09-17
 
-## Why it didn't ask
-`ask_to_narrow` was reachable (fixed in 6763062), had a card, a prompt rule and
-tests. Two OTHER prompt rules outranked it:
-
-1. The narrowing rule ends *"if in doubt, search first and let them refine"*.
-2. The long-term memory block said *"use their saved **gender**, sizes, favorite
-   brands … automatically, and **never re-ask for anything already here**"* —
-   absolute, and it names gender first. Alex spotted this one himself.
-
-A rule with an escape hatch is a suggestion. This is the third prompt-only
-guarantee in this file to lose (see prepareStep's web_search note and
-show_shipment's forced variant read).
+Ranking marketplaces last (1140bc5) fixed WHICH row led. It still left
+third-party eBay listings sitting in the gallery for shoppers who never asked,
+which makes Boxly read as a reseller aggregator instead of a way to buy from
+real US stores.
 
 ## Todo
-- [x] `audienceGap()` — does this ask have an audience-shaped hole in it?
-- [x] `prepareStep`: when it fires, `ask_to_narrow` is the ONLY tool + `toolChoice: 'required'`
-- [x] `narrowBlock()` tells the model what the question is about; it still writes it
-- [x] Memory stops answering "¿para quién es?" — a saved gender is the shopper's, not the recipient's
-- [x] Tests run the real `audienceGap`, not a copy
+- [x] `wantsEbay()` / `isEbayRow()` / `dropEbay()` next to the marketplace ranking
+- [x] The web fan-out and Google Shopping both filter before the gallery
+- [x] Consent travels separately from the query (see below)
+- [x] The `ebay` engine stops being reported as a source once its rows are gone
+- [x] Tool description stops promising eBay to the shopper
+- [x] The eBay store card still works
+
+## The subtlety worth keeping in mind
+
+`productTerms()` strips a **retailer's** own name out of the outgoing web query
+— it has to, because Amazon turns "Macy's" into gift cards. So by the time the
+words reach the engines, "eBay" is gone.
+
+Asking the outgoing query whether the shopper wanted eBay answers **no every
+time**, including on the advertised eBay store card, which would have silently
+suppressed its own results. Consent is therefore passed separately: the raw ask
+plus the store param (`getWebApi(webQuery, a.store, a.query)`), and the
+shopper's own sentence for `find_on_google`, whose query is model-written.
+
+There is a test for exactly this, because it is the failure that would have
+shipped quietly.
 
 ## Review
 
-**The decision moved from the prompt into code.** `audienceGap(messages)` returns
-true only when the shopper named a category whose men's and women's versions are
-different products (ropa, calzado, relojes, perfumes, disfraces) and never said
-who it's for. It stays quiet for an ask that is already specific (a size, a
-pasted link, a sentence over 14 words), for a category gendered by its own name
-(vestido, falda, corbata, bikini), and for a second question in a row.
+Three small pure functions beside `merchantTier`, where the marketplace rules
+already live. A row counts as eBay by its **engine** (`source: 'ebay'`), its
+**merchant** (Google resells eBay listings under its own engine name), or its
+**link** (`ebay.com`) — one of the three catches every shape we see.
 
-When it fires, `prepareStep` hands the model **one** tool and `toolChoice:
-'required'`. It cannot search. It still writes the question and picks the
-language — code decides *whether*, the model decides *how*.
+Filtering happens in `getWebFanoutApi` and `getGoogleShopApi`, so every gallery
+path inherits it: `search_products`, `curate_products`, `find_on_google`,
+`web_search` and the uncarried-store fallback. `getAmazonApi` is Amazon-only and
+needs nothing.
 
-**Memory keeps everything except the veto.** Sizes, brands, budget and interests
-still apply silently and are still never re-asked. A saved gender no longer
-answers "who is this for", because it is the *shopper's* gender and people buy
-for other people — a man shopping for a polo may be shopping for his wife. It is
-now used only to put his own option first in the list.
+`sources` no longer reports `ebay: 14` when those 14 rows were dropped —
+otherwise the model reads the count and tells the shopper the gallery includes
+eBay listings that are not on screen.
 
-**The test runs the real `audienceGap`**, lifted out of the source, not a copy
-beside it. 45 checks. It also caught two of my own bugs: `relojes?` is
-"reloje"+s, which matches the plural and misses the singular (same in pantalón,
-calcetín, bañador, tacón); and my new code comment began with the same words as
-the prompt rule, so the existing prompt assertions silently re-anchored onto the
-comment and passed against the wrong text. That match is now anchored on the
-full heading.
+Etsy, Poshmark, Mercari and the rest are untouched: they are still ranked last
+by `merchantTier`, not removed. Alex asked about eBay.
 
-**Not done:** removing long-term memory outright — Alex chose to keep it.
+30 checks in web-rows. All 13 suites green, build clean.
