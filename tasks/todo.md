@@ -1,79 +1,54 @@
-# A bowling ball and an above-ground pool are not 23% of a Caja Chica
+# "Camisa polo" searched blind instead of asking who it was for
 
-Alex added a Hammer Black Widow bowling ball and an Intex Rectangular Frame
-Above Ground Pool. The card said **Caja Chica, 23% usada, te queda 77%** and
-invited him to add more (2026-09-16).
+Alex searched *Camisa poll* and got a gallery led by a **girls'** Ralph Lauren
+polo (2026-09-17). The man/woman toggle never appeared — the second time he has
+reported this.
 
-Two separate defects produced that one number.
+## Why it didn't ask
+`ask_to_narrow` was reachable (fixed in 6763062), had a card, a prompt rule and
+tests. Two OTHER prompt rules outranked it:
 
-## 1. A pool does not fit in ANY box, and nothing could say so
-The largest box is 52x62x53 cm. The model filed the pool as `bulky_soft` — the
-tier whose examples are pillows and blankets — worth 0.80 shoe-units. There was
-no classification meaning "no box takes this", so the estimator had no way to
-answer anything but a box size.
+1. The narrowing rule ends *"if in doubt, search first and let them refine"*.
+2. The long-term memory block said *"use their saved **gender**, sizes, favorite
+   brands … automatically, and **never re-ask for anything already here**"* —
+   absolute, and it names gender first. Alex spotted this one himself.
 
-## 2. Weight was never modelled
-A bowling ball is ~5% of a Caja Chica by volume and **7 kg** against that box's
-**15 kg** limit. The 15 kg cap was written down in a comment in `boxMath.ts`
-explaining why `fits` is capped — understood, never enforced. Two balls exceed
-the S box while the bar reads ~11%.
-
-## 3. (found on the way) Two packing models that had drifted
-`server/utils/boxMath.ts` calls itself "the one implementation"; the assistant
-kept a private copy. `rigid_large` / `oversize_long` were added to the copy on
-2026-09-15 and never to boxMath — so the chat's box card sized a PlayStation at
-2.20 while the cost card beside it sized the same console at the 0.40 default.
+A rule with an escape hatch is a suggestion. This is the third prompt-only
+guarantee in this file to lose (see prepareStep's web_search note and
+show_shipment's forced variant read).
 
 ## Todo
-- [x] Fold the archetype model back into `boxMath.ts`, one table
-- [x] `oversize_freight` archetype + `isUnboxable()` (pool, mattress, fridge, sofa, 65" TV...)
-- [x] Weight: `ARCHETYPE_KG`, `DENSE_KG` overrides, `max_kg` per tier, `fitTier()` = larger of the two lids
-- [x] `buildShipment` imports it; freight items leave the box and are named
-- [x] `quoteBox` must not price a shipment it cannot ship
-- [x] ShipmentCard: show the binding lid; show freight items as NOT in the box
-- [x] Tool schema + prompt: `oversize_freight` -> `show_contact_whatsapp`
-- [x] Tests: the exact shipment from the screenshot, plus the old ones still green
+- [x] `audienceGap()` — does this ask have an audience-shaped hole in it?
+- [x] `prepareStep`: when it fires, `ask_to_narrow` is the ONLY tool + `toolChoice: 'required'`
+- [x] `narrowBlock()` tells the model what the question is about; it still writes it
+- [x] Memory stops answering "¿para quién es?" — a saved gender is the shopper's, not the recipient's
+- [x] Tests run the real `audienceGap`, not a copy
 
 ## Review
 
-**`server/utils/boxMath.ts`** is now the only packing model. It gained
-`rigid_large` and `oversize_long` (which existed only in the assistant's copy),
-a weight model (`ARCHETYPE_KG` + a short `DENSE_KG` override list), `max_kg` on
-every tier, and `fitTier()` — the box is the larger of what volume needs and
-what weight needs. Volume keeps its 15% packing squeeze; weight gets none.
+**The decision moved from the prompt into code.** `audienceGap(messages)` returns
+true only when the shopper named a category whose men's and women's versions are
+different products (ropa, calzado, relojes, perfumes, disfraces) and never said
+who it's for. It stays quiet for an ask that is already specific (a size, a
+pasted link, a sentence over 14 words), for a category gendered by its own name
+(vestido, falda, corbata, bikini), and for a second question in a row.
 
-**`oversize_freight`** is a new archetype meaning *no box takes this*. Two
-guards: a freight regex (pool, mattress, fridge, washer, sofa, bed frame,
-treadmill, kayak, grill, ...) and a separate big-TV rule, both vetoed by
-`RE_FREIGHT_ACCESSORY` so a pool float, a mattress topper and a TV wall mount
-stay ordinary box items. The name beats the model here — it called the pool
-`bulky_soft`, which is what a pillow is.
+When it fires, `prepareStep` hands the model **one** tool and `toolChoice:
+'required'`. It cannot search. It still writes the question and picks the
+language — code decides *whether*, the model decides *how*.
 
-**`server/api/assistant.post.ts`** deleted its copy of the model and imports it.
-Only the four-size display ladder stays local (pricing uses all seven).
-`buildShipment` drops freight out of the volume sum, reports it by name, and
-returns `limited_by` / `weight_kg` / `max_kg`. `quoteBox` returns null for a
-shipment containing freight — the card already reads that as "se cotiza
-aparte", which is the true answer. The tool result appends an instruction to
-call `show_contact_whatsapp`; the enum and the prompt gained the tier.
+**Memory keeps everything except the veto.** Sizes, brands, budget and interests
+still apply silently and are still never re-asked. A saved gender no longer
+answers "who is this for", because it is the *shopper's* gender and people buy
+for other people — a man shopping for a polo may be shopping for his wife. It is
+now used only to put his own option first in the list.
 
-**`ShipmentCard.vue`** draws freight in its own amber block outside the box with
-the real reason (52×62×53 cm), hides the box chip when nothing fits one, and
-labels the bar "Peso usado N%" with `kg / max kg` when weight is the binding
-lid. The "te queda bastante espacio" nudge is replaced when the limit is weight
-— the room is real and the allowance is not.
+**The test runs the real `audienceGap`**, lifted out of the source, not a copy
+beside it. 45 checks. It also caught two of my own bugs: `relojes?` is
+"reloje"+s, which matches the plural and misses the singular (same in pantalón,
+calcetín, bañador, tacón); and my new code comment began with the same words as
+the prompt rule, so the existing prompt assertions silently re-anchored onto the
+comment and passed against the wrong text. That match is now anchored on the
+full heading.
 
-**The test** no longer re-implements the maths beside the code. It lifts the
-real `buildShipment` out of the source and runs that, because a second copy of
-the model is what caused this in the first place. 48 checks.
-
-Alex's exact shipment now reads:
-
-    ✗ OUT  Intex Rectangular Frame Above Ground Outdoor Pool
-      in   Hammer Black Widow 3.0 Solid Bowling Ball   0.25u  7kg
-    caja Chica · 47% usada (peso, 7/15 kg) · te queda 53%
-
-**Not covered:** `server/utils/boxState.ts` (the shopper panel) sums volume only
-and has no UI for either freight or weight. It reads the same corrected table,
-so its archetypes are right now, but a panel box holding a bowling ball still
-reads by volume alone.
+**Not done:** removing long-term memory outright — Alex chose to keep it.

@@ -1025,6 +1025,70 @@ function catalogEchoesQuery(rows: any[], query: string): boolean {
   }).length
   return hits * 3 >= rows.length
 }
+// ── AN AUDIENCE-SHAPED HOLE IN THE ASK — DECIDED IN CODE ─────────────────────
+//
+// "Camisa polo" returned a girls' Ralph Lauren polo as the first result (Alex,
+// 2026-09-17). The ask_to_narrow tool existed, was reachable, had a card, had
+// tests and had a prompt rule — and the model searched anyway, because two other
+// rules gave it permission to:
+//
+//   · the narrowing rule itself ends "if in doubt, search first and let them refine"
+//   · the long-term memory block says "use their saved gender … automatically,
+//     and never re-ask for anything already here"
+//
+// A rule with an escape hatch is a suggestion, and this is the third time in this
+// file that a prompt-only guarantee has lost (see prepareStep's web_search note and
+// show_shipment's forced variant read). So the decision moves here: CODE decides
+// whether there is a question to ask, the MODEL still decides how to phrase it and
+// in which language. When this fires, prepareStep hands it no tool but ask_to_narrow.
+
+/** Says who the product is for. Any of these and there is nothing left to ask. */
+const RE_AUDIENCE = /\b(?:hombres?|caballeros?|masculin[oa]s?|men|mens|man|male|mujer(?:es)?|damas?|femenin[oa]s?|women|womens|woman|female|nin[oa]s?|kids?|child(?:ren)?|toddler|bebes?|baby|infant|junior|juvenil|unisex|para ella|para mi (?:hijo|hija|esposa|esposo|novio|novia|mama|papa))\b/i
+
+/**
+ * Categories where the men's and the women's product are DIFFERENT PRODUCTS, so
+ * guessing wrong wastes the whole gallery. Not a list of everything ambiguous —
+ * a list of things where the answer changes the rows.
+ */
+const RE_GENDERED_CATEGORY = /\b(?:camisas?|camisetas?|playeras?|polos?|shirts?|tees?|t-shirts?|pantalon(?:es)?|jeans|mezclilla|shorts?|bermudas?|sudaderas?|hoodies?|sweat(?:er|shirt)s?|sueter(?:es)?|chamarras?|jackets?|abrigos?|coats?|chalecos?|trajes? de bano|swimsuits?|banador(?:es)?|ropa interior|underwear|calcetin(?:es)?|socks?|tenis|sneakers?|zapatos?|shoes?|botas?|boots?|sandalias?|sandals?|pijamas?|pajamas|disfra(?:z|ces)|costumes?|reloj(?:es)?|watch(?:es)?|lentes|gafas|sunglasses|perfumes?|colonias?|fragancias?|fragrances?|colognes?|ropa deportiva|activewear|ropa)\b/i
+
+/** Gendered by the word itself — asking "¿hombre o mujer?" about a vestido is silly. */
+const RE_SELF_GENDERED = /\b(?:vestidos?|faldas?|blusas?|brasier(?:es)?|bras?|bikinis?|tacon(?:es)?|heels?|corbatas?|tuxedos?|esmoquin|calzoncillos?|boxers?|lenceria|lingerie|maternidad|maternity)\b/i
+
+/** Did we already put a narrowing card on screen in the last assistant turn? */
+function askedToNarrowLast(messages: any[]): boolean {
+  for (let i = (messages?.length || 0) - 1; i >= 0; i--) {
+    const m = messages[i]
+    if (m?.role === 'user') continue
+    if (m?.role !== 'assistant') break
+    return (m.parts || []).some((p: any) => p?.type === 'tool-ask_to_narrow')
+  }
+  return false
+}
+
+/**
+ * True when the shopper named a category whose answer depends on WHO IT IS FOR,
+ * and never said who.
+ *
+ * Deliberately narrow, because a shopper who wanted to browse must not be
+ * interrogated. It stays quiet for an ask that is already specific (a size, a
+ * pasted link, a long detailed sentence), for a category that is gendered by its
+ * own name, and for a second question in a row.
+ *
+ * NOT quiet for a shopper whose profile has a saved gender. A saved gender is the
+ * SHOPPER's, and people buy for other people — the polo may be for his wife.
+ */
+function audienceGap(messages: any[]): boolean {
+  const t = plainText(lastUserText(messages)).toLowerCase()
+  if (!t || /https?:\/\//i.test(t)) return false
+  if (t.trim().split(/\s+/).length > 14) return false
+  if (/\b(?:talla|size|medida)\b/i.test(t)) return false
+  if (RE_SELF_GENDERED.test(t)) return false
+  if (RE_AUDIENCE.test(t)) return false
+  if (!RE_GENDERED_CATEGORY.test(t)) return false
+  return !askedToNarrowLast(messages)
+}
+
 function restrictedAsk(messages: any[]): boolean {
   return RESTRICTED_RE.test(plainText(lastUserText(messages)))
 }
@@ -1558,11 +1622,23 @@ async function boxGuide() {
 // registry. Kept SEPARATE from systemPrompt() so it can be sent as its own
 // (uncached) system block — it changes during a conversation, while the big
 // static instructions above stay byte-identical and stay cached.
+/**
+ * What the model is told when audienceGap() has fired.
+ *
+ * prepareStep already guarantees it CAN only call ask_to_narrow; this says what
+ * the question is about, so it doesn't ask about colour or budget instead. The
+ * wording, the language and the option order are still its own.
+ */
+function narrowBlock(mustNarrow: boolean): string {
+  if (!mustNarrow) return ''
+  return 'THIS ASK IS MISSING WHO IT IS FOR, and that changes which products come back. Call ask_to_narrow — nothing else — with ONE short question asking who the item is for, in the shopper\'s own language, and 2-3 tappable answers (hombre / mujer / niño, or whichever fit this category). Write NO other text: the card asks it. If their profile has a saved gender, put that option FIRST but still offer the others — they may be buying for someone else. The moment they tap, search with it.'
+}
+
 function shopperContext(loggedIn: boolean, shoppingProfile: any, savedProducts: any[] = []): string {
   const profileBlock = !loggedIn
     ? ''
     : (shoppingProfile && Object.keys(shoppingProfile).length
-      ? `\n\nLONG-TERM MEMORY FOR THIS SHOPPER (persists across EVERY chat — this is what makes you feel personal). Apply it on every search WITHOUT being asked: use their saved gender, sizes, favorite brands, budget and interests automatically, and never re-ask for anything already here. Keep it current with update_shopping_profile the moment you learn something new:\n${JSON.stringify(shoppingProfile)}`
+      ? `\n\nLONG-TERM MEMORY FOR THIS SHOPPER (persists across EVERY chat — this is what makes you feel personal). Apply it on every search WITHOUT being asked: use their saved sizes, favorite brands, budget and interests automatically, and never re-ask for those. ONE EXCEPTION — WHO THE PURCHASE IS FOR. A saved gender is the SHOPPER's own, not the recipient's, and people buy for other people: a man shopping for a polo may be shopping for his wife. So a saved gender NEVER answers "¿para quién es?" for a category where it changes which products come back (ropa, calzado, relojes, perfumes, disfraces) — ask that one with ask_to_narrow and let them tap. Use the saved gender only to ORDER the options, putting theirs first. Keep it current with update_shopping_profile the moment you learn something new:\n${JSON.stringify(shoppingProfile)}`
       : `\n\nLONG-TERM MEMORY FOR THIS SHOPPER: empty so far. As you learn durable facts (gender, sizes, favorite/disliked brands, the categories they shop for, budget, style), save them with update_shopping_profile so future chats feel personal and you never have to ask twice. Never ask or record why they buy.`)
   const savedBlock = savedProducts && savedProducts.length
     ? `\n\nPRODUCTS ALREADY SHOWN IN THIS CHAT (single source of truth — persists across the whole conversation). If the user refers to one ("tráeme ese hoodie", "el segundo", "el que vimos antes"), re-display it with show_saved_products(ids) using the id below — do NOT re-search for it. You can also order one directly using its listed (exact) price:\n`
@@ -1803,7 +1879,10 @@ export default defineEventHandler(async (event) => {
   // product registry change mid-conversation, so they ride at the very END of the
   // prompt (on the newest user message, see below) — keeping everything before
   // them byte-identical for Anthropic's breakpoint AND Gemini's implicit cache.
-  const ctx = [summaryBlock(summaryState), shopperContext(!!token, shoppingProfile, savedProducts)].filter(Boolean).join('\n\n')
+  // Is there an audience-shaped hole in this ask? Decided before the loop starts,
+  // because prepareStep must know it on step 0 (see audienceGap).
+  const mustNarrow = audienceGap(messages)
+  const ctx = [summaryBlock(summaryState), shopperContext(!!token, shoppingProfile, savedProducts), narrowBlock(mustNarrow)].filter(Boolean).join('\n\n')
   // History → model, bounded (see server/utils/chatContext.ts):
   //  1. old galleries collapse to a one-line marker (the products stay in the registry),
   //  2. hysteresis window (MAX 14 msgs / 6k tokens → keep 8; hard cap 9k),
@@ -1903,6 +1982,12 @@ export default defineEventHandler(async (event) => {
     // ("no encontré, ¿probamos otra marca?") instead of a hang.
     prepareStep: ({ steps }: any) => {
       if (galleryShown) return { activeTools: NON_GALLERY_TOOLS }
+      // THE QUESTION IS NOT OPTIONAL when the ask has an audience-shaped hole in it
+      // (see audienceGap). Offering ask_to_narrow alongside the search tools is what
+      // we did before, and the model searched every time — searching is the obvious
+      // move and the prompt gave it an out. Here it is the ONLY move: one tool, and
+      // toolChoice makes calling it mandatory. The model still writes the question.
+      if (mustNarrow && !(steps || []).length) return { activeTools: ['ask_to_narrow'], toolChoice: 'required' }
       // web_search IS A FALLBACK, NEVER AN OPENING MOVE. The eBay store card sends
       // "Ayúdame a encontrar y comparar las mejores opciones en eBay." and the model
       // answered it with web_search({query:"ebay"}) — which returns articles about the
