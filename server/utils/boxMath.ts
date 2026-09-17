@@ -14,30 +14,96 @@
  * Volumes are in "shoe-units": one boxed pair of shoes = 1.0.
  */
 
-/** How much room an item takes. Calibrated so the prenda counts below land right. */
+/**
+ * How much room an item takes. Calibrated so the prenda counts below land right.
+ *
+ * THIS TABLE IS THE ONLY ONE. It used to be copied into the assistant, and the
+ * copies drifted: `rigid_large` and `oversize_long` were added there in
+ * September 2026 and never here, so the chat's box card sized a PlayStation at
+ * 2.20 while the cost card beside it — which reads THIS file — sized the same
+ * console at the 0.40 default. Two cards, one shipment, two different boxes.
+ * Add an archetype here and nowhere else.
+ */
 export const ARCHETYPE_VOL: Record<string, number> = {
   rigid_small: 0.05, // cosmetics, perfume, jewelry, accessories, cables
   flat_soft: 0.30, // tees, leggings, shorts, underwear, swimwear
   medium_soft: 0.45, // jeans, hoodies, joggers, light jackets, backpacks
-  rigid_medium: 0.25, // bottles, tumblers, electronics
+  rigid_medium: 0.25, // bottles, tumblers, small electronics (speaker, camera)
+  // A GAMES CONSOLE IS NOT A WATER BOTTLE (Alex, 2026-09-15). Boxed consumer
+  // electronics are rigid, they do not compress, and the carton is most of the
+  // volume.
+  rigid_large: 2.20, // console, monitor, printer, microwave, air fryer, vacuum
   shoes: 1.50, // a boxed pair
   bulky_soft: 0.80, // boots, thick coats, blankets, pillows, helmets
   fragile: 2.00, // lamps, glass, decor — awkward, poor packing efficiency
+  oversize_long: 21, // guitar, skateboard, golf clubs, handlebar — its own box, ~full
+  // NOT A VOLUME. An above-ground pool, a mattress, a fridge, a sofa: no box on
+  // the ladder has a side long enough, so there is no number of shoe-units that
+  // makes the answer true. Freight items are EXCLUDED from the volume sum and
+  // reported by name — see isUnboxable(). The zero is here so a caller that
+  // sums blindly under-counts loudly rather than quoting an XL for a pool.
+  oversize_freight: 0,
 }
 export const DEFAULT_VOL = 0.40
 
 export const ARCH_LABEL: Record<string, string> = {
   rigid_small: 'Pequeño', flat_soft: 'Ropa', medium_soft: 'Mediano',
-  rigid_medium: 'Mediano', shoes: 'Calzado', bulky_soft: 'Voluminoso', fragile: 'Frágil',
+  rigid_medium: 'Mediano', rigid_large: 'Voluminoso', shoes: 'Calzado',
+  bulky_soft: 'Voluminoso', fragile: 'Frágil', oversize_long: 'Grande y largo',
+  oversize_freight: 'No cabe en caja',
 }
 
-/** `usable` = volume at which the box is full, in shoe-units. */
+/**
+ * WEIGHT, THE OTHER LID.
+ *
+ * A box has two limits and we modelled one. A Hammer Black Widow bowling ball is
+ * a 22 cm sphere — about 5% of a Caja Chica by volume, and 7 kg of solid resin
+ * against that box's 15 kg limit. Alex put one in a box with a pool and the bar
+ * read 23% (2026-09-16); by weight the ball ALONE was at 47%, and two of them
+ * would have been over the limit while the bar still showed a tenth full.
+ *
+ * The 15 kg cap was already written down — in a code comment in this very file,
+ * explaining why `fits` is capped at 20 because "100 perfumes fit an S, which is
+ * true of the space and false of the 15 kg limit". It was understood and never
+ * enforced. Now it is.
+ *
+ * Boxed weight per unit, in kg. Deliberately rough: these decide which LID binds
+ * first, not what the carrier charges.
+ */
+export const ARCHETYPE_KG: Record<string, number> = {
+  rigid_small: 0.15, flat_soft: 0.25, medium_soft: 0.6, rigid_medium: 0.8,
+  rigid_large: 6, shoes: 1.2, bulky_soft: 1.5, fragile: 2, oversize_long: 4,
+  oversize_freight: 0, // never counted — it isn't in the box
+}
+export const DEFAULT_KG = 0.5
+
+/**
+ * Things whose weight their archetype cannot guess.
+ *
+ * Every entry is an item where the volume is ordinary and the mass is not, so
+ * the archetype alone would let the shopper fill a box they cannot ship. Add
+ * here only when that gap is real — an ordinary heavy-ish item is fine at its
+ * archetype weight.
+ */
+const DENSE_KG: Array<[RegExp, number]> = [
+  [/bowling ball|bola de boliche/i, 7],
+  [/dumbbell|mancuerna|kettlebell|pesa rusa|weight plate|disco de peso|barbell|barra ol[ií]mpica/i, 10],
+  [/car battery|bater[ií]a (?:de|para) (?:auto|coche|carro)/i, 15],
+  [/cast iron|hierro fundido|dutch oven/i, 3.5],
+  [/tool ?(?:box|set|kit)|caja de herramientas|juego de herramientas/i, 8],
+  [/brake (?:rotor|disc)|disco de freno/i, 6],
+]
+
+/**
+ * `usable` = volume at which the box is full, in shoe-units.
+ * `max_kg`  = the weight the box is allowed to leave with.
+ */
 //
 // The XS box is DISCONTINUED (2026-08-16): Chica is the smallest thing we sell,
 // so it is the floor of the ladder. XS survives in Stripe and in the admin order
 // flow for boxes already in flight — it must simply never be QUOTED again.
 export const BOX_TIERS = [
-  { key: 'S', label: 'Chica', usable: 4.5 },
+  { key: 'S', label: 'Chica', usable: 4.5, max_kg: 15 },
   // ── The half sizes ────────────────────────────────────────────────────────
   //
   // Boxly ships SEVEN box sizes, not four. Between each of the listed ones sits
@@ -64,44 +130,137 @@ export const BOX_TIERS = [
   // reading of "in between" and keeps the ladder monotonic. They are the only
   // judgement calls in this file; move them if the warehouse prices differently
   // in practice. Everything downstream reads this table.
-  { key: 'SM', label: 'Mediana chica', usable: 7.25 },
-  { key: 'M', label: 'Mediana', usable: 10 },
-  { key: 'ML', label: 'Grande chica', usable: 12.25 },
-  { key: 'L', label: 'Grande', usable: 14.5 },
-  { key: 'LXL', label: 'Extra grande chica', usable: 18 },
-  { key: 'XL', label: 'Extra grande', usable: 21.5 },
+  //
+  // max_kg for the four SHOWN sizes is what the box guide advertises (15/25/
+  // 35/50). The half sizes take the midpoint of their neighbours, exactly as
+  // their volume does — they are price boundaries, not new cartons.
+  { key: 'SM', label: 'Mediana chica', usable: 7.25, max_kg: 20 },
+  { key: 'M', label: 'Mediana', usable: 10, max_kg: 25 },
+  { key: 'ML', label: 'Grande chica', usable: 12.25, max_kg: 30 },
+  { key: 'L', label: 'Grande', usable: 14.5, max_kg: 35 },
+  { key: 'LXL', label: 'Extra grande chica', usable: 18, max_kg: 42 },
+  { key: 'XL', label: 'Extra grande', usable: 21.5, max_kg: 50 },
 ]
 
+/**
+ * TOO BIG FOR ANY BOX.
+ *
+ * The largest box Boxly ships is 52×62×53 cm. An Intex above-ground pool, a
+ * mattress, a fridge, a sofa, a 65" TV — none of them have a side that fits, so
+ * the honest answer is not a bigger box, it is a human. These route to
+ * show_contact_whatsapp; the box card refuses to draw them inside the box.
+ *
+ * `pool` needs a qualifier because a pool float and a pool towel are not pools.
+ */
+const RE_OVERSIZE_FREIGHT = /(?:above[ -]?ground|swimming|frame set|inflatable|intex|bestway)[\w ,-]*\bpools?\b|\bpools?\b[\w ,-]*(?:frame|liner|above[ -]?ground)|alberca|piscina|mattress|colch[oó]n|box spring|refrigerator|refrigerador|\bfridge\b|nevera|freezer|congelador|washer|washing machine|lavadora|\bdryer\b|secadora|dishwasher|lavavajillas|\bsofa\b|\bcouch\b|sof[aá]|sill[oó]n|loveseat|sectional|dining table|mesa de comedor|bed frame|headboard|cabecera|\bdresser\b|wardrobe|armario|ropero|treadmill|caminadora|elliptical|el[ií]ptica|exercise bike|bicicleta fija|home gym|\bkayak\b|canoe|canoa|paddle ?boat|trampoline|trampol[ií]n|swing set|columpio|playhouse|casita de juegos|lawn ?mower|podadora|\bgrill\b|asador|\bbbq\b|patio set|gazebo|\bshed\b|cobertizo|air conditioner|aire acondicionado|minisplit|water heater|boiler|calent[aá]n/i
+
+/**
+ * A BIG TELEVISION.
+ *
+ * Its own check because one regex cannot say "a size AND the word TV" without
+ * tangling: "TCL 65\" Class QLED 4K Smart TV" puts four words between the two,
+ * and every attempt to span them also swallowed "Sony 55 Inch Headphones Stand".
+ * Two lookaheads say it plainly.
+ *
+ * 40 inches, not 60: the box's longest inner side is 62 cm, and a 40" panel is
+ * ~89 cm wide. Below that the size is usually unstated and the set stays
+ * rigid_large, which is what it was before — this only catches the ones that
+ * announce a size we know cannot fit.
+ */
+const RE_BIG_TV = /(?=[\s\S]*\b(?:4\d|[5-9]\d|1\d\d)\s*(?:["”]|-? ?inch(?:es)?\b|-? ?in\b|pulgadas))(?=[\s\S]*\b(?:tv|television|televisi[oó]n)\b)/i
+
+/**
+ * AN ACCESSORY FOR A FREIGHT ITEM IS NOT THE FREIGHT ITEM.
+ *
+ * "Intex Pool Float Lounger" is an Intex, and a pool, and it packs flat. So do a
+ * pool cover, a mattress topper, a grill brush and a TV wall mount. This vetoes
+ * the freight branch — every one of these is an ordinary box item that happens to
+ * be named after something that is not.
+ */
+const RE_FREIGHT_ACCESSORY = /\b(?:float|floatie|lounger|flotador|noodle|cover|funda|slipcover|protector|topper|pad|filter|filtro|pump|bomba|skimmer|hose|manguera|net|brush|cepillo|cleaner|limpiador|chemical|cloro|chlorine|towel|toalla|toy|juguete|mount|soporte|bracket|remote|replacement|repuesto|accessor|refacci[oó]n|sheets?|s[aá]banas?|pillowcase|air mattress|colch[oó]n inflable)\b|test strips?|control remoto|inflatable (?:mattress|bed)/i
+
+const RE_OVERSIZE_LONG = /guitar|guitarra|\bbass guitar|skateboard|patineta|longboard|\bskate\b|snowboard|surfboard|tabla de surf|golf club|palos de golf|hockey stick|fishing rod|ca[nñ]a de pescar|violonc|\bcello\b|keyboard piano|\bpiano\b|handlebar|manubrio|bike frame|cuadro de bici|bicycle frame|\bfork(?:s)? (?:bike|bicycle|bmx)|seatpost|tija|\bskis?\b|esqu[ií]|baseball bat|bate de b[eé]isbol|paddle ?board|remo/i
 const RE_SHOES = /shoe|sneaker|tenis|boot|bota|cleat|sandal|heel|loafer|zapat/i
 const RE_FRAGILE = /lamp|l[aá]mpara|glass|vidrio|vase|florero|mirror|espejo|frame|cuadro|ceramic|porcelain|decor/i
 const RE_RIGID_SMALL = /saniti|mist|antibac|perfume|cologne|fragran|skincare|serum|lipstick|labial|mascara|cosmetic|maquillaje|cream|crema|lotion|loci[oó]n|cards?|cartas|pok[eé]mon|wallet|cartera|watch|reloj|jewel|joy|ring|anillo|necklace|collar|earring|arete|sunglass|lentes|case|funda|charger|cargador|earbuds|airpods|keychain|llavero/i
+// "console" lived in RE_RIGID_MEDIUM until 2026-09-15 and made a PS3 a tumbler.
+const RE_RIGID_LARGE = /console|consola|playstation|\bps[345]\b|xbox|nintendo switch|monitor|printer|impresora|microwave|microondas|air ?fryer|freidora|vacuum|aspiradora|blender|licuadora|toaster oven|horno|\btv\b|television|televisi[oó]n/i
 const RE_BULKY = /coat|parka|abrigo|puffer|\bdown\b|blanket|comforter|duvet|cobija|plush|peluche|pillow|almohada|duffel|luggage|maleta|suitcase|tent|sleeping bag|appliance|electrodom|coffee maker|cafetera|\bpot\b|olla|helmet|casco/i
 const RE_MEDIUM = /jean|pant|pantal[oó]n|jogger|sudadera|hoodie|sweater|sweatshirt|jacket|chamarra|backpack|mochila|handbag|bolsa|\bbag\b|purse/i
-const RE_RIGID_MEDIUM = /bottle|botella|tumbler|termo|\bcup\b|\bmug\b|taza|owala|stanley|hydro|flask|speaker|bocina|camera|c[aá]mara|console|consola|electronic|electr[oó]nico/i
+const RE_RIGID_MEDIUM = /bottle|botella|tumbler|termo|\bcup\b|\bmug\b|taza|owala|stanley|hydro|flask|speaker|bocina|camera|c[aá]mara|electronic|electr[oó]nico/i
 const RE_FLAT_SOFT = /legging|mall[oó]n|shirt|camiset|camisa|\btee\b|playera|\btop\b|blouse|blusa|dress|vestido|short|skirt|falda|underwear|ropa interior|sock|calcet|\bbra\b|brasier|swim|traje de ba/i
 
 /** Guess the archetype from a product name. Order matters — narrowest first. */
 export function archetypeFromName(name: string): string | null {
   const t = name || ''
+  // Freight first: a "65 inch TV" is also a TV, and an above-ground pool frame
+  // is also a frame. The biggest classification has to win.
+  if ((RE_OVERSIZE_FREIGHT.test(t) || RE_BIG_TV.test(t)) && !RE_FREIGHT_ACCESSORY.test(t)) return 'oversize_freight'
+  if (RE_OVERSIZE_LONG.test(t)) return 'oversize_long'
   if (RE_SHOES.test(t)) return 'shoes'
   if (RE_FRAGILE.test(t)) return 'fragile'
   if (RE_RIGID_SMALL.test(t)) return 'rigid_small'
+  if (RE_RIGID_LARGE.test(t)) return 'rigid_large'
   if (RE_BULKY.test(t)) return 'bulky_soft'
-  if (RE_RIGID_MEDIUM.test(t)) return 'rigid_medium'
   if (RE_MEDIUM.test(t)) return 'medium_soft'
+  if (RE_RIGID_MEDIUM.test(t)) return 'rigid_medium'
   if (RE_FLAT_SOFT.test(t)) return 'flat_soft'
   return null
 }
 
+/**
+ * The archetype we will actually use for this item.
+ *
+ * A model-supplied `type` normally wins — it has seen the product page and we
+ * have seen a title. The exception is freight: the model called an Intex
+ * above-ground pool `bulky_soft`, which is what a pillow is, so when the NAME
+ * says freight the name wins. Nothing the model can pass makes a pool fit.
+ */
+export function archetypeOf(name: string, type?: string | null): string | null {
+  const byName = archetypeFromName(name || '')
+  if (byName === 'oversize_freight') return byName
+  return (type && ARCHETYPE_VOL[type] !== undefined) ? type : byName
+}
+
+/** True when no box on the ladder can take this item at all. */
+export function isUnboxable(name: string, type?: string | null): boolean {
+  return archetypeOf(name, type) === 'oversize_freight'
+}
+
 /** Volume of one unit of this product, in shoe-units. */
 export function itemUnits(name: string, type?: string | null): number {
-  const t = type && ARCHETYPE_VOL[type] ? type : archetypeFromName(name || '')
+  const t = archetypeOf(name, type)
   return t ? ARCHETYPE_VOL[t] : DEFAULT_VOL
+}
+
+/** Boxed weight of one unit, in kg. A dense-item override beats the archetype. */
+export function itemKg(name: string, type?: string | null): number {
+  for (const [re, kg] of DENSE_KG) if (re.test(name || '')) return kg
+  const t = archetypeOf(name, type)
+  return t ? ARCHETYPE_KG[t] : DEFAULT_KG
 }
 
 /** The smallest box that holds this volume (15% squeeze, as the packers do). */
 export function boxFor(units: number) {
   return BOX_TIERS.find((b) => units <= b.usable * 1.15) || BOX_TIERS[BOX_TIERS.length - 1]
+}
+
+/**
+ * The smallest box that holds this volume AND this weight.
+ *
+ * Both lids are hard: the shipment needs the larger of the two answers. There is
+ * no 15% squeeze on weight — you cannot compress a bowling ball.
+ */
+export function fitTier<T extends { usable: number; max_kg: number }>(tiers: T[], units: number, kg: number): T {
+  const last = tiers.length - 1
+  const byVol = tiers.findIndex((b) => units <= b.usable * 1.15)
+  const byKg = tiers.findIndex((b) => kg <= b.max_kg)
+  return tiers[Math.max(byVol < 0 ? last : byVol, byKg < 0 ? last : byKg)]
+}
+
+/** The same two-lid answer on the PRICING ladder (all seven sizes). */
+export function boxForLoad(units: number, kg: number) {
+  return fitTier(BOX_TIERS, units, kg)
 }
 
 export type BoxEconomics = {

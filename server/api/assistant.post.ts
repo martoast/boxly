@@ -2,7 +2,7 @@ import { streamText, tool, convertToModelMessages, stepCountIs, createUIMessageS
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { extractText, getDocumentProxy } from 'unpdf'
 import { z } from 'zod'
-import { itemUnits, boxFor, loadBoxPrices } from '../utils/boxMath'
+import { itemUnits, itemKg, isUnboxable, archetypeOf, fitTier, boxForLoad, ARCH_LABEL, loadBoxPrices } from '../utils/boxMath'
 import { FALLBACK_KNOWLEDGE } from '../utils/boxlyKnowledge'
 import { curateProducts, floatRequestedStore } from '../utils/curate'
 import { chatModel, isAnthropic, providerOptions, hasModelKey } from '../utils/aiProvider'
@@ -436,11 +436,19 @@ function thumb(url: any): string | null {
 // physically lands in the warehouse) and the card says so; an estimate the shopper can
 // plan around beats a blank.
 async function quoteBox(items: any[]) {
+  // An above-ground pool has no box price because it has no box (Alex, 2026-09-16).
+  // Returning null here is not a gap — the card already says "se cotiza aparte" for a
+  // missing quote, which is the true answer, and a human takes it from there.
+  if ((items || []).some((it: any) => isUnboxable(String(it?.name || ''), it?.type))) return null
   const units = (items || []).reduce(
     (n, it) => n + itemUnits(String(it?.name || ''), (it as any)?.type) * (Number(it?.quantity) || 1),
     0,
   )
-  const tier = boxFor(units)
+  const kg = (items || []).reduce(
+    (n, it) => n + itemKg(String(it?.name || ''), (it as any)?.type) * (Number(it?.quantity) || 1),
+    0,
+  )
+  const tier = boxForLoad(units, kg)
   const prices = await loadBoxPrices(() =>
     fetch(`${API_BASE}/products`, { signal: AbortSignal.timeout(8000) })
       .then((r) => r.json())
@@ -1413,62 +1421,28 @@ function interleave(arrays: any[][]) {
 // flat_soft = 0.30 shoe-units/garment. VOLUME, not count: 10 small sanitizers
 // barely move the bar; one thick coat fills more than many shirts. Shoes are boxed
 // pairs and are NOT part of the prenda capacity.
-const ARCHETYPE_VOL: Record<string, number> = {
-  rigid_small: 0.05,  // OCUPAN MUY POCO: cosmetics, makeup, perfume, jewelry, accessories, phone cases, cables, Touchland sanitizers, small wallets
-  flat_soft: 0.30,    // OCUPAN POCO: t-shirts, leggings, shorts, underwear, socks, swimwear (compress well)
-  medium_soft: 0.45,  // OCUPAN MEDIO: jeans, hoodies/sweatshirts, joggers, light jackets, mid bags, backpacks
-  rigid_medium: 0.25, // bottles, tumblers, small electronics (speakers, cameras)
-  // A GAMES CONSOLE IS NOT A WATER BOTTLE. "console" used to land in rigid_medium, so a PlayStation 3 Slim
-  // (~29x23x6 cm, in a retail carton) counted the same as a tumbler and a PS3 + a BMX handlebar together read
-  // as 16% of a Caja Chica (Alex, 2026-09-15). Boxed consumer electronics are rigid, they do not compress, and
-  // the carton is most of the volume.
-  rigid_large: 2.20,  // console, monitor, printer, microwave, air fryer, vacuum, boxed small appliances
-  shoes: 1.50,        // a boxed pair
-  bulky_soft: 0.80,   // OCUPAN MUCHO: boots, thick coats, blankets, pillows, plush, helmets, appliances (pots, coffee makers)
-  fragile: 2.00,      // lamps, glass, decor (awkward, low packing efficiency)
-  oversize_long: 21,  // LONG rigid item (guitar, skateboard, golf clubs, snowboard) — a large box on its own, ~100% full; doesn't consolidate
-}
-const DEFAULT_VOL = 0.40 // unknown item → a generic medium
-const ARCH_LABEL: Record<string, string> = {
-  rigid_small: 'Pequeño', flat_soft: 'Ropa', medium_soft: 'Mediano', rigid_medium: 'Mediano', rigid_large: 'Voluminoso', shoes: 'Calzado', bulky_soft: 'Voluminoso', fragile: 'Frágil', oversize_long: 'Grande y largo',
-}
+// The archetype model itself lives in server/utils/boxMath.ts — ONE table, because
+// this file used to keep a second copy of it and the two drifted: rigid_large and
+// oversize_long were added here on 2026-09-15 and never there, so this card sized a
+// PlayStation at 2.20 while the cost card beside it (which reads boxMath) sized the
+// same console at the 0.40 default. Only the DISPLAY ladder is local — chat shows the
+// four sizes the box guide lists, while pricing uses all seven.
+//
 // usable = volume at which the box is full (in shoe-units), calibrated so the
-// flat_soft prenda counts above land on the right box.
+// flat_soft prenda counts above land on the right box. max_kg is the box guide's
+// published weight limit, and it is a real lid: a bowling ball is ~5% of a Chica by
+// volume and half of its 15 kg allowance.
 //
 // The XS box is DISCONTINUED (2026-08-16) — Chica is the floor. A tiny shipment
 // now reads "S, barely full" instead of quoting a box we no longer sell; the
 // concierge told a customer a set shipped "en una caja Extra Chica" for $1,300
 // while the site had already stopped listing it.
 const BOXES = [
-  { key: 'S', label: 'Chica', usable: 4.5 },
-  { key: 'M', label: 'Mediana', usable: 10 },
-  { key: 'L', label: 'Grande', usable: 14.5 },
-  { key: 'XL', label: 'Extra grande', usable: 21.5 },
+  { key: 'S', label: 'Chica', usable: 4.5, max_kg: 15 },
+  { key: 'M', label: 'Mediana', usable: 10, max_kg: 25 },
+  { key: 'L', label: 'Grande', usable: 14.5, max_kg: 35 },
+  { key: 'XL', label: 'Extra grande', usable: 21.5, max_kg: 50 },
 ]
-
-// Fallback classification from the product name when the model didn't pass a type.
-const RE_OVERSIZE_LONG = /guitar|guitarra|\bbass guitar|skateboard|patineta|longboard|\bskate\b|snowboard|surfboard|tabla de surf|golf club|palos de golf|hockey stick|fishing rod|ca[nñ]a de pescar|violonc|\bcello\b|keyboard piano|\bpiano\b|handlebar|manubrio|bike frame|cuadro de bici|bicycle frame|\bfork(?:s)? (?:bike|bicycle|bmx)|seatpost|tija|\bskis?\b|esqu[ií]|baseball bat|bate de b[eé]isbol|paddle ?board|remo/i
-const RE_SHOES = /shoe|sneaker|tenis|boot|bota|cleat|sandal|heel|loafer|zapat/i
-const RE_FRAGILE = /lamp|l[aá]mpara|glass|vidrio|vase|florero|mirror|espejo|frame|cuadro|ceramic|porcelain|decor/i
-const RE_RIGID_SMALL = /saniti|mist|antibac|perfume|cologne|fragran|skincare|serum|lipstick|labial|mascara|cosmetic|maquillaje|cream|crema|lotion|loci[oó]n|cards?|cartas|pok[eé]mon|wallet|cartera|watch|reloj|jewel|joy|ring|anillo|necklace|collar|earring|arete|sunglass|lentes|case|funda|charger|cargador|earbuds|airpods|keychain|llavero/i
-const RE_BULKY = /coat|parka|abrigo|puffer|\bdown\b|blanket|comforter|duvet|cobija|plush|peluche|pillow|almohada|duffel|luggage|maleta|suitcase|tent|sleeping bag|appliance|electrodom|coffee maker|cafetera|\bpot\b|olla|helmet|casco/i
-const RE_MEDIUM = /jean|pant|pantal[oó]n|jogger|sudadera|hoodie|sweater|sweatshirt|jacket|chamarra|backpack|mochila|handbag|bolsa|\bbag\b|purse/i
-const RE_RIGID_LARGE = /console|consola|playstation|\bps[345]\b|xbox|nintendo switch|monitor|printer|impresora|microwave|microondas|air ?fryer|freidora|vacuum|aspiradora|blender|licuadora|toaster oven|horno|\btv\b|television|televisi[oó]n/i
-const RE_RIGID_MEDIUM = /bottle|botella|tumbler|termo|\bcup\b|\bmug\b|taza|owala|stanley|hydro|flask|speaker|bocina|camera|c[aá]mara|electronic|electr[oó]nico/i
-const RE_FLAT_SOFT = /legging|mall[oó]n|shirt|camisa|\btee\b|playera|\btop\b|blouse|blusa|dress|vestido|short|skirt|falda|underwear|ropa interior|sock|calcet|\bbra\b|brasier|swim|traje de ba/i
-function archetypeFromName(name: string): string | null {
-  const t = name || ''
-  if (RE_OVERSIZE_LONG.test(t)) return 'oversize_long'
-  if (RE_SHOES.test(t)) return 'shoes'
-  if (RE_FRAGILE.test(t)) return 'fragile'
-  if (RE_RIGID_SMALL.test(t)) return 'rigid_small'
-  if (RE_RIGID_LARGE.test(t)) return 'rigid_large'
-  if (RE_BULKY.test(t)) return 'bulky_soft'
-  if (RE_MEDIUM.test(t)) return 'medium_soft'
-  if (RE_RIGID_MEDIUM.test(t)) return 'rigid_medium'
-  if (RE_FLAT_SOFT.test(t)) return 'flat_soft'
-  return null
-}
 // The last product link the shopper pasted in this conversation — the fallback URL for a box item that has no
 // registry entry. Scans newest-first and skips our own domains. Pure.
 function lastPastedUrl(msgs: any[]): string | null {
@@ -1485,21 +1459,53 @@ function lastPastedUrl(msgs: any[]): string | null {
 function buildShipment(items: any[]) {
   const norm = (items || []).map((it) => {
     const quantity = Math.max(1, Number(it.quantity) || 1)
-    const type = (it.type && ARCHETYPE_VOL[it.type]) ? it.type : archetypeFromName(it.name || '')
-    const vol = type ? ARCHETYPE_VOL[type] : DEFAULT_VOL
-    return { saved_id: it.saved_id || null, name: it.name || 'Producto', quantity, size: type ? ARCH_LABEL[type] : 'Mediano', units: vol * quantity, chosen: [it.color, it.size].filter(Boolean).join(' · ') || null, image: it.image || null, price: it.price ?? null }
+    const type = archetypeOf(it.name || '', it.type)
+    return {
+      saved_id: it.saved_id || null,
+      name: it.name || 'Producto',
+      quantity,
+      size: type ? ARCH_LABEL[type] : 'Mediano',
+      units: itemUnits(it.name || '', it.type) * quantity,
+      kg: itemKg(it.name || '', it.type) * quantity,
+      // No box on the ladder takes this one, whatever the model called it.
+      unboxable: isUnboxable(it.name || '', it.type),
+      chosen: [it.color, it.size].filter(Boolean).join(' · ') || null,
+      image: it.image || null,
+      price: it.price ?? null,
+    }
   })
-  const total = norm.reduce((s, i) => s + i.units, 0)
-  // Smallest box that holds it, allowing ~15% overflow so a near-full box reads
-  // "S llena" instead of jumping to "M 30%". This prevents the bad tier jumps.
-  const box = BOXES.find((b) => total <= b.usable * 1.15) || BOXES[BOXES.length - 1]
-  const usedPct = Math.max(3, Math.min(100, Math.round((total / box.usable) * 100)))
+
+  // A pool is not a big item in the box, it is an item that is not in the box.
+  // Sizing it as one is how "Intex Rectangular Frame Above Ground Pool" came out
+  // as 0.80 shoe-units and the card invited Alex to add more (2026-09-16).
+  const packed = norm.filter((i) => !i.unboxable)
+  const freight = norm.filter((i) => i.unboxable)
+
+  const total = packed.reduce((s, i) => s + i.units, 0)
+  const kg = packed.reduce((s, i) => s + i.kg, 0)
+  // Smallest box that holds it, allowing ~15% overflow on VOLUME so a near-full
+  // box reads "S llena" instead of jumping to "M 30%" — this prevents the bad
+  // tier jumps. Weight gets no such squeeze: you cannot compress a bowling ball.
+  const box = fitTier(BOXES, total, kg)
+  const volPct = Math.round((total / box.usable) * 100)
+  const kgPct = Math.round((kg / box.max_kg) * 100)
+  // The bar shows whichever lid is closer, because that is the one that decides
+  // whether the next item fits. Seven kilos of bowling ball is 5% of a Caja Chica
+  // by volume and 47% of what it may weigh.
+  const usedPct = Math.max(3, Math.min(100, Math.max(volPct, kgPct)))
   return {
     items: norm,
     box_key: box.key,
     box_label: box.label,
     capacity_used_pct: usedPct,
     capacity_left_pct: 100 - usedPct,
+    limited_by: kgPct > volPct ? 'weight' : 'volume',
+    weight_kg: Math.round(kg * 10) / 10,
+    max_kg: box.max_kg,
+    // Named, so the card can say so and the model can hand them to a human.
+    unboxable: freight.map((i) => i.name),
+    // Everything in this shipment is freight — there is no box to draw at all.
+    all_unboxable: !!freight.length && !packed.length,
   }
 }
 
@@ -1598,7 +1604,7 @@ SHOW FIRST, REFINE AFTER. You're a trusted expert, but the customer came to SEE 
 
 ONE QUESTION BEFORE A VAGUE SEARCH, NEVER MORE. When the ask is too broad to shop well AND the answer would change WHICH PRODUCTS come back — "un disfraz de Batman" (hombre, mujer o niño: three different products), "un regalo", "ropa deportiva" — call ask_to_narrow with ONE question and 2-4 tappable answers, in a turn of its own, and say nothing else. The card asks it; do not repeat the question in your text and do not call a product tool in the same turn. Then search with what they tapped. NEVER ask when you can reasonably assume, never about size or colour (the picker handles those), never twice in a row, and never for an ask that is already specific — "tenis Nike Pegasus 41" goes straight to the gallery. A shopper who wanted to browse should not be interrogated: if in doubt, search first and let them refine.
 BUYING IN VOLUME IS A DIFFERENT CONVERSATION. When someone asks for a QUANTITY of one product ("quiero traer 130 piezas", "cuántas caben", "para revender"), they are pricing inventory, not shopping — so talk in COST PER PIECE, not just a total. The assisted-purchase card computes the landed per-piece cost itself (product + 15% + the box divided across every piece), so call show_assisted_summary with the real quantity and let the card show the number; NEVER divide it yourself in text. The one thing worth saying out loud is the direction: the box is a single cost spread over every piece, so each extra piece lands cheaper — at 10 pieces a $12 bottle lands near 715 MXN each, at 140 near 307. And DO NOT invent how many fit: give the box guide (show_box_guide) and the live box estimate (show_shipment), say the final size is confirmed when we pack it, and never state a piece-count capacity as fact — a guessed "caben entre 100 y 140" is a number the customer will hold us to. For a large order, offer the human: our purchasing team can confirm stock, price at volume and lead time before anything is paid.
-CONSOLIDATION IS THE CORE VALUE — YOU BUILD SHIPMENTS, NOT SINGLE PRODUCTS. Boxly's real magic is buying multiple items from multiple US stores and CONSOLIDATING them into ONE box to Mexico — so the customer does NOT pay per-product shipping. Frame everything as building ONE Boxly shipment: when they add an item, treat it as adding to their shipment, note it consolidates cheaply with the rest, and INVITE them to add more to make the most of the box ("¿Quieres agregar algo más a tu envío? Lo juntamos todo en una sola caja y te ahorras en envío 📦"). Think Costco/Amazon: a fuller box is better value. NEVER imply each product ships separately, and NEVER quote a per-product shipping cost as final — the real shipping depends on the whole consolidated box and is quoted at the end. EVERY time the shipment changes (an item added/removed or a quantity changed), call show_shipment with ALL items currently in the shipment — it renders the live box (recommended size, volume bar, capacity left). For EACH item set its packing type (archetype) by the physical VOLUME it occupies, NOT by item count — two orders with the same number of products can need completely different boxes. The tiers: OCUPAN MUY POCO → rigid_small (cosméticos, maquillaje, perfumes, joyería, accesorios, fundas de celular, cables, sanitizers tipo Touchland, carteras pequeñas — agregar varios casi nunca cambia el tamaño de caja); OCUPAN POCO → flat_soft (playeras, leggings, shorts, ropa interior, calcetines, trajes de baño — se comprimen muy bien); OCUPAN MEDIO → medium_soft (jeans, sudaderas, pants/joggers, chamarras ligeras, bolsas medianas, mochilas); OCUPAN MUCHO → bulky_soft (botas, chamarras gruesas, cobijas, almohadas, peluches, cascos, electrodomésticos como ollas o cafeteras — suben rápido el tamaño); ELECTRÓNICA GRANDE EN CAJA → rigid_large (consolas PlayStation/Xbox/Switch, monitores, impresoras, microondas, freidoras de aire, aspiradoras — son rígidos, NO se comprimen y la caja del producto es casi todo el volumen; una consola NO es un termo); LARGO Y RÍGIDO → oversize_long (manubrios de bici, patinetas, palos de golf, esquís, guitarras — no caben junto con lo demás y prácticamente piden su propia caja). So e.g. 10 hand sanitizers barely move the bar (NO box-tier bump), but a single peluche gigante can take more space than veinte playeras. Present the box as PROVISIONAL: say it's an estimate of how the box is filling and that the FINAL size is confirmed when Boxly receives and packs everything — never claim an exact size. Then nudge: lots of room left → suggest adding more; nearly full → suggest finalizing. And when they ask about box SIZES or SHIPPING PRICES ("¿cuánto cuesta el envío?", "¿qué cajas hay?", "¿cuánto cuesta mandar una caja?"), call show_box_guide to drop the price table into the chat, then answer briefly — clarify the box price is the shipping for the whole consolidated box (product + 15% comisión aparte).
+CONSOLIDATION IS THE CORE VALUE — YOU BUILD SHIPMENTS, NOT SINGLE PRODUCTS. Boxly's real magic is buying multiple items from multiple US stores and CONSOLIDATING them into ONE box to Mexico — so the customer does NOT pay per-product shipping. Frame everything as building ONE Boxly shipment: when they add an item, treat it as adding to their shipment, note it consolidates cheaply with the rest, and INVITE them to add more to make the most of the box ("¿Quieres agregar algo más a tu envío? Lo juntamos todo en una sola caja y te ahorras en envío 📦"). Think Costco/Amazon: a fuller box is better value. NEVER imply each product ships separately, and NEVER quote a per-product shipping cost as final — the real shipping depends on the whole consolidated box and is quoted at the end. EVERY time the shipment changes (an item added/removed or a quantity changed), call show_shipment with ALL items currently in the shipment — it renders the live box (recommended size, volume bar, capacity left). For EACH item set its packing type (archetype) by the physical VOLUME it occupies, NOT by item count — two orders with the same number of products can need completely different boxes. The tiers: OCUPAN MUY POCO → rigid_small (cosméticos, maquillaje, perfumes, joyería, accesorios, fundas de celular, cables, sanitizers tipo Touchland, carteras pequeñas — agregar varios casi nunca cambia el tamaño de caja); OCUPAN POCO → flat_soft (playeras, leggings, shorts, ropa interior, calcetines, trajes de baño — se comprimen muy bien); OCUPAN MEDIO → medium_soft (jeans, sudaderas, pants/joggers, chamarras ligeras, bolsas medianas, mochilas); OCUPAN MUCHO → bulky_soft (botas, chamarras gruesas, cobijas, almohadas, peluches, cascos, electrodomésticos como ollas o cafeteras — suben rápido el tamaño); ELECTRÓNICA GRANDE EN CAJA → rigid_large (consolas PlayStation/Xbox/Switch, monitores, impresoras, microondas, freidoras de aire, aspiradoras — son rígidos, NO se comprimen y la caja del producto es casi todo el volumen; una consola NO es un termo); LARGO Y RÍGIDO → oversize_long (manubrios de bici, patinetas, palos de golf, esquís, guitarras — no caben junto con lo demás y prácticamente piden su propia caja); NO CABE EN NINGUNA CAJA → oversize_freight (albercas armables, colchones, refrigeradores, lavadoras, sofás, camas, caminadoras, asadores, TVs de 55" o más — la caja más grande mide 52×62×53 cm, así que NO existe caja para esto: el artículo NO entra a la caja, no lo presentes como si cupiera, y llama show_contact_whatsapp para que el equipo lo cotice como carga especial). Y EL PESO TAMBIÉN ES UN LÍMITE: la caja Chica aguanta 15 kg, Mediana 25, Grande 35, Extra grande 50. Una bola de boliche pesa ~7 kg y ocupa casi nada, así que la barra puede ir por PESO y no por volumen — cuando la tarjeta diga que el límite es el peso, no invites a agregar más cosas pesadas. So e.g. 10 hand sanitizers barely move the bar (NO box-tier bump), but a single peluche gigante can take more space than veinte playeras. Present the box as PROVISIONAL: say it's an estimate of how the box is filling and that the FINAL size is confirmed when Boxly receives and packs everything — never claim an exact size. Then nudge: lots of room left → suggest adding more; nearly full → suggest finalizing. And when they ask about box SIZES or SHIPPING PRICES ("¿cuánto cuesta el envío?", "¿qué cajas hay?", "¿cuánto cuesta mandar una caja?"), call show_box_guide to drop the price table into the chat, then answer briefly — clarify the box price is the shipping for the whole consolidated box (product + 15% comisión aparte).
 
 YOUR VOICE — a U.S. BUYING CONCIERGE, not a shopping search engine and not a product reviewer. Frame everything as helping them ACQUIRE U.S. products and get them to Mexico — most customers aren't browsing for fun, they want a way to GET U.S. stuff that they otherwise can't. Naturally remind them what Boxly does end-to-end: lo COMPRA por ellos (sin tarjeta de EE. UU.), lo RECIBE en Estados Unidos, lo IMPORTA a México y lo ENTREGA a su puerta. NEVER use reviewer language ("¡qué bonita!", "me encanta", "qué linda opción", "excelente colección").
 
@@ -1647,7 +1653,7 @@ Your tools, and when to use them:
 - ⚑ A PICK IS A PICK. When the shopper's message names a size/colour for a product already in the box or just shown — "Quiero los X en talla 9", "talla M, color negro", a tapped chip — that IS their choice: do NOT call get_product_variants again and do NOT re-add the item; confirm in one short line ("Listo: talla 9 ✔") and REMEMBER it — at finalize, pass it as size/color on that item in show_assisted_summary. Only re-read variants if they ask about a different product or say the size they want isn't listed.
 - ⚑ BIG ITEMS — two cases, and BOTH still show options:
   (a) LARGE-BUT-SHIPPABLE (a guitar or other instrument, a skateboard/longboard/snowboard, golf clubs, a small appliance): this DOES ship — find_on_google it like anything else and, when they add it, mark it type:"oversize_long" so the box shows it as its own big box (~100% full, it doesn't consolidate). Do NOT send these to WhatsApp.
-  (b) TRULY UN-BOXABLE (a 60"+ flat-screen TV, a fridge/washer/large appliance, furniture, a mattress, tires, a vehicle/golf cart): standard box shipping can't cover it → call show_contact_whatsapp (one short line + the WhatsApp button, no essay). Even here, keep them ENGAGED: you may still find_on_google to show what's out there so they keep browsing, and note the shipping for the big one needs a special quote via WhatsApp. Normal-sized goods (clothing, shoes, bags, most electronics, beauty, toys) are business as usual — never route those to WhatsApp.
+  (b) TRULY UN-BOXABLE (a 60"+ flat-screen TV, a fridge/washer/large appliance, furniture, a mattress, an ABOVE-GROUND POOL or anything else longer than 52 cm on every side, tires, a vehicle/golf cart): standard box shipping can't cover it → call show_contact_whatsapp. If it is already in their shipment, ALSO pass type "oversize_freight" on that item in show_shipment so the box card stops counting it as if it fit (one short line + the WhatsApp button, no essay). Even here, keep them ENGAGED: you may still find_on_google to show what's out there so they keep browsing, and note the shipping for the big one needs a special quote via WhatsApp. Normal-sized goods (clothing, shoes, bags, most electronics, beauty, toys) are business as usual — never route those to WhatsApp.
 - STICKY STORE — REMEMBER WHICH STORE THEY'RE SHOPPING (critical context bug to avoid). Once the customer is browsing a specific store — they named it ("ofertas en Nike", "muéstrame Coach"), or a previous search this conversation was scoped to it — KEEP that store on EVERY following product search UNTIL they either (a) name a DIFFERENT store, or (b) explicitly ask to look across all stores ("en todas las tiendas", "en cualquier tienda", "en general", "busca en todo el catálogo"). Their next message NOT repeating the store name does NOT mean drop it — they're still in that store. Examples: "promos en Nike" → then "¿y tenis para correr?" → STILL search store:"Nike" (running shoes in Nike), NOT the whole catalog. "ahora en Adidas" → switch store to Adidas. "muéstrame en todas" → then drop the store filter. When in doubt, carry the store forward.
 - REFINING / FILTERING (CRITICAL — this is where your intelligence shows). YOU do the semantic understanding of what the shopper means, then express it as STRUCTURED FILTERS. Don't dump everything into one text query — map each part of their request to the RIGHT param, because the structured filters are reliable and the query text only ranks. Whenever they narrow, run a NEW search_products call carrying ALL still-active filters (keep the old ones — INCLUDING the store — and add the new one). Map each kind:
   • product TYPE ("jeans", "hoodies", "running shoes", "dresses") → category (the strongest, most dependable filter — always set it when they name a type; keeps the gallery on-topic).
@@ -2255,7 +2261,7 @@ export default defineEventHandler(async (event) => {
             quantity: z.number().int().min(1).default(1),
             image: z.string().describe('Product image URL — auto-filled from the registry when saved_id is set; pass it directly only if there is no saved_id.').optional(),
             price: z.number().describe('USD price the customer saw (sale price if on sale) — shown under the item in the box.').optional(),
-            type: z.enum(['rigid_small', 'flat_soft', 'medium_soft', 'rigid_medium', 'shoes', 'bulky_soft', 'fragile', 'oversize_long']).describe('Packing archetype by VOLUME, not item count. oversize_long = a LONG rigid item that needs a big box on its own and fills it ~100% (a guitar / other large instrument, a skateboard/longboard/snowboard/surfboard, golf clubs) — it does not consolidate with much else. (two orders with the same number of items can need totally different boxes). rigid_small=ocupan muy poco — cosmetics/makeup/perfume/jewelry/accessories/phone cases/cables/Touchland sanitizers/small wallets (adding several barely changes the box); flat_soft=ocupan poco — t-shirts/leggings/shorts/underwear/socks/swimwear (compress well); medium_soft=ocupan medio — jeans/hoodies/sweatshirts/joggers/light jackets/mid bags/backpacks; rigid_medium=bottles/tumblers/electronics; shoes=a boxed pair; bulky_soft=ocupan mucho — boots/thick coats/blankets/pillows/plush/helmets/appliances (pots, coffee makers); fragile=lamps/glass/decor. A Touchland Power Mist sanitizer is rigid_small.').optional(),
+            type: z.enum(['rigid_small', 'flat_soft', 'medium_soft', 'rigid_medium', 'rigid_large', 'shoes', 'bulky_soft', 'fragile', 'oversize_long', 'oversize_freight']).describe('Packing archetype by VOLUME and WEIGHT, not item count. oversize_freight = it does NOT FIT IN ANY BOXLY BOX at all (an above-ground pool, a mattress, a fridge or washer, a sofa or bed frame, a treadmill, a 55"+ TV, a BBQ grill, a kayak) — the biggest box is 52x62x53 cm, so the answer is a human, not a bigger box: set this and then call show_contact_whatsapp. rigid_large = boxed big electronics/appliances that do not compress (PlayStation/Xbox/Switch consoles, monitors, printers, microwaves, air fryers, vacuums) — a console is NOT a water bottle. oversize_long = a LONG rigid item that needs a big box on its own and fills it ~100% (a guitar / other large instrument, a skateboard/longboard/snowboard/surfboard, golf clubs) — it does not consolidate with much else. (two orders with the same number of items can need totally different boxes). rigid_small=ocupan muy poco — cosmetics/makeup/perfume/jewelry/accessories/phone cases/cables/Touchland sanitizers/small wallets (adding several barely changes the box); flat_soft=ocupan poco — t-shirts/leggings/shorts/underwear/socks/swimwear (compress well); medium_soft=ocupan medio — jeans/hoodies/sweatshirts/joggers/light jackets/mid bags/backpacks; rigid_medium=bottles/tumblers/electronics; shoes=a boxed pair; bulky_soft=ocupan mucho — boots/thick coats/blankets/pillows/plush/helmets/appliances (pots, coffee makers); fragile=lamps/glass/decor. A Touchland Power Mist sanitizer is rigid_small.').optional(),
             url: z.string().describe('The product page URL — REQUIRED when there is no saved_id (a link the shopper pasted). It is how the box reads the real sizes/colours; without it no picker can be shown.').optional(),
             size: z.string().describe('The size the shopper CHOSE, e.g. "Medium", "34C", "10.5". Pass it as soon as they say it — an item with choosable sizes is NOT added to the box until this is set.').optional(),
             color: z.string().describe('The colour/finish the shopper CHOSE, e.g. "Black", "Blue Oasis". Same rule as size.').optional(),
@@ -2377,6 +2383,13 @@ export default defineEventHandler(async (event) => {
             } else if (r) {
               ship.note = `Variant read for "${saved?.title || last.name}" returned nothing (${r.reason || 'no_variants'}) — don't ask for size now; the shopping team confirms it after the request.`
             }
+          }
+          // A FREIGHT ITEM IN THE BOX IS A HANDOFF, NOT A SIZE. The card already draws it
+          // outside the box; the model has to be told to stop selling it as a shipment and
+          // hand it to a person — appended, so a variant note above survives.
+          if (ship.unboxable?.length) {
+            const freightNote = `NOT SHIPPABLE IN ANY BOX: ${ship.unboxable.join(', ')}. The biggest Boxly box is 52×62×53 cm, so there is no box size that works and you must NOT present one${ship.all_unboxable ? ' — there is no box in this shipment at all' : ' (the rest of the shipment is boxed normally)'}. Say ONE short line that this goes as carga especial, then call show_contact_whatsapp so the team can quote it. Do NOT invite them to add more to "aprovechar la caja" for this item.`
+            ship.note = ship.note ? `${ship.note}\n\n${freightNote}` : freightNote
           }
           return ship
         },
