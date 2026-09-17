@@ -697,9 +697,9 @@ async function getGoogleShopApi(query: string, asked?: string | null) {
   return {
     // page_token travels with the row: a Google result links to google.com, so the modal needs this to reach the
     // merchant's own product page and read its variants (see /catalog/google-product).
-    // Google Shopping resells eBay listings under its own engine name, so the merchant is
-    // the only tell here — isEbayRow reads it.
-    products: dropEbay(raw.map((p) => ({ ...toGalleryProduct(p), merchant: p.merchant || p.store || null, source: 'google', page_token: p.page_token || null, product_id: p.product_id || null })), asked ?? query),
+    // Google Shopping resells eBay and Etsy listings under its own engine name, so the
+    // merchant is the only tell here — rowMarket reads it.
+    products: dropMarkets(raw.map((p) => ({ ...toGalleryProduct(p), merchant: p.merchant || p.store || null, source: 'google', page_token: p.page_token || null, product_id: p.product_id || null })), asked ?? query),
     source: 'google',
     from_web: true,          // the model MUST frame these as found on the web, orderable via Boxly
     reason,                  // null on success; 'cooling'/'blocked'/'no_results'/an error code otherwise
@@ -716,18 +716,19 @@ async function getWebFanoutApi(query: string, asked?: string | null) {
   let data: any = {}
   try { data = await callApi('/catalog/web-search', { method: 'POST', body: { query, limit: 60 }, timeoutMs: 13000 }) } catch (e: any) { console.warn('[assistant] web-search unreachable:', e?.message || e); data = { error: 'unreachable' } }
   const raw: any[] = Array.isArray(data?.products) ? data.products : []
-  // `asked` is the RAW ask (+ store), not the outgoing query — see wantsEbay.
-  const ebayOk = wantsEbay(asked ?? query)
+  // `asked` is the RAW ask (+ store), not the outgoing query — see marketsAskedFor.
+  const allowedMarkets = marketsAskedFor(asked ?? query)
   // Per-engine row counts, flattened for the tool result so a thin gallery can be traced to the engine that
-  // was down rather than to the query. eBay is omitted when its rows were dropped: left in, the model reads
-  // "ebay: 14" and tells the shopper the gallery includes eBay listings that are not on screen.
+  // was down rather than to the query. A suppressed marketplace is omitted when its rows were dropped: left
+  // in, the model reads "ebay: 14" and tells the shopper about listings that are not on screen.
   const sources: Record<string, any> = {}
   for (const [name, v] of Object.entries<any>(data?.sources || {})) {
-    if (!ebayOk && EBAY_RE.test(name)) continue
+    const engineMarket = rowMarket({ source: name })
+    if (engineMarket && !allowedMarkets.has(engineMarket)) continue
     sources[name] = v?.status === 'ok' || v?.status === 'cached' ? v.rows : v?.status
   }
   return {
-    products: dropEbay(raw.map((p) => ({
+    products: dropMarkets(raw.map((p) => ({
       ...toGalleryProduct(p),
       merchant: p.merchant || p.store || null,
       source: p.engine || p.source || 'web',
@@ -790,42 +791,59 @@ const MARKETPLACE_RE = /\b(ebay|etsy|aliexpress|alibaba|wish|temu|mercado ?libre
 /** A marketplace SELLER: SerpAPI reports these as "eBay - seller123" / "Walmart - JBay Treasures". */
 const MARKETPLACE_SELLER_RE = /^(ebay|walmart|amazon|etsy)\s*[-–]\s*\S/i;
 
-// ── eBAY IS NOT A DEFAULT ANSWER ─────────────────────────────────────────────
+// ── RESALE MARKETPLACES ARE OPT-IN ───────────────────────────────────────────
 //
 // Ranking marketplaces LAST was not enough (Alex, 2026-09-17: "I don't want us to be
-// searching for eBay, that's kind of making it look bad"). Tiering fixed which row led;
-// it still left third-party eBay listings sitting in a gallery for a shopper who never
-// asked for eBay, and that makes Boxly read as a reseller aggregator rather than a way
-// to buy from real US stores.
+// searching for eBay, that's kind of making it look bad", then "remove Etsy and
+// Poshmark and Mercari too"). Tiering fixed which row led; it still left third-party
+// resale listings sitting in a gallery for a shopper who never asked for them, and that
+// makes Boxly read as a reseller aggregator rather than a way to buy from real US stores.
 //
-// So eBay is opt-in. It appears only when the ask actually named it — and it must still
-// appear then, because the eBay STORE CARD on the home screen is advertised: it sends
-// "Ayúdame a encontrar y comparar las mejores opciones en eBay", and a card that answers
-// with an empty gallery is the broken promise we already fixed once.
+// So these four are opt-in. One appears only when the ask actually named THAT one — and
+// it must still appear then, because the eBay STORE CARD on the home screen is
+// advertised: it sends "Ayúdame a encontrar y comparar las mejores opciones en eBay", and
+// a card that answers with an empty gallery is the broken promise we already fixed once.
+// Naming Etsy does not bring eBay back with it; consent is per marketplace.
 //
 // The permission travels SEPARATELY from the query, and that is the whole subtlety here:
 // productTerms() strips a retailer's own name out of the web query (it has to — Amazon
-// turns "Macy's" into gift cards), so by the time the words reach the engines the word
-// "eBay" is gone. Asking the outgoing query whether the shopper wanted eBay would answer
-// no every single time, including on the store card.
-const EBAY_RE = /\bebay\b/i
+// turns "Macy's" into gift cards), so by the time the words reach the engines the name is
+// gone. Asking the outgoing query whether the shopper wanted eBay would answer no every
+// single time, including on the store card.
+//
+// NOT every marketplace in MARKETPLACE_RE: StockX, GOAT, Depop, Reverb, Temu and the rest
+// are still merely ranked last. Removing a storefront is a call about what Boxly carries,
+// and Alex named these four.
+const SUPPRESSED_MARKETS: Array<[string, RegExp]> = [
+  ['ebay', /\bebay\b/i],
+  ['etsy', /\betsy\b/i],
+  ['poshmark', /\bposhmark\b/i],
+  ['mercari', /\bmercari\b/i],
+]
 
-/** Did the shopper actually name eBay? Pass the RAW ask and store, not the web query. */
-export function wantsEbay(...asked: (string | null | undefined)[]): boolean {
-  return asked.some((s) => EBAY_RE.test(String(s || '')))
+/** Which of them this ask named. Pass the RAW ask and store, not the web query. */
+export function marketsAskedFor(...asked: (string | null | undefined)[]): Set<string> {
+  const hay = asked.map((x) => String(x || '')).join(' ')
+  return new Set(SUPPRESSED_MARKETS.filter(([, re]) => re.test(hay)).map(([k]) => k))
 }
 
-/** An eBay row: the engine that produced it, the merchant selling it, or where it links. */
-export function isEbayRow(row: any): boolean {
-  return EBAY_RE.test(String(row?.source || row?.engine || ''))
-    || EBAY_RE.test(String(row?.merchant || row?.store || ''))
-    || EBAY_RE.test(String(row?.url || row?.link || ''))
+/**
+ * Which suppressed marketplace this row belongs to, or null.
+ *
+ * Three places to look, and all three are load-bearing: the ENGINE that produced it
+ * (source: 'ebay'), the MERCHANT selling it (Google Shopping resells eBay and Etsy
+ * listings under its own engine name, so the engine field says 'google'), and the LINK
+ * (a row whose merchant is a seller handle still points at ebay.com).
+ */
+export function rowMarket(row: any): string | null {
+  const hay = `${row?.source || ''} ${row?.engine || ''} ${row?.merchant || ''} ${row?.store || ''} ${row?.url || ''} ${row?.link || ''}`
+  return SUPPRESSED_MARKETS.find(([, re]) => re.test(hay))?.[0] ?? null
 }
 
-/** Every eBay row out, unless this ask asked for eBay. */
-export function dropEbay(rows: any[], ...asked: (string | null | undefined)[]): any[] {
-  if (wantsEbay(...asked)) return rows || []
-  return (rows || []).filter((r) => !isEbayRow(r))
+/** Resale-marketplace rows out, except the ones this ask asked for. */
+export function dropMarkets(rows: any[], ...asked: (string | null | undefined)[]): any[] {
+  const allowed = marketsAskedFor(...asked)
+  return (rows || []).filter((r) => { const m = rowMarket(r); return !m || allowed.has(m) })
 }
 
 export function merchantTier(row: any, query?: string | null): number {
@@ -930,10 +948,10 @@ async function getWebApi(rawQuery: string, store?: string, asked?: string | null
   // The store is the half that matters: productTerms() has already taken "eBay" out of
   // rawQuery by the time a store card's ask gets here. `asked` lets a caller add the
   // shopper's own words on top, for the tools that get a model-written query instead.
-  const ebayAsk = [rawQuery, store, asked].filter(Boolean).join(' ')
-  let r: any = await getWebFanoutApi(webQuery, ebayAsk)
+  const marketAsk = [rawQuery, store, asked].filter(Boolean).join(' ')
+  let r: any = await getWebFanoutApi(webQuery, marketAsk)
   if (!(r.products || []).length && head !== webQuery) {
-    const short: any = await getWebFanoutApi(head, ebayAsk)
+    const short: any = await getWebFanoutApi(head, marketAsk)
     if ((short.products || []).length) r = { ...short, shortened_to: head }
   }
   const seen = new Set<string>()
@@ -2180,7 +2198,7 @@ export default defineEventHandler(async (event) => {
         toModelOutput: galleryModelOutput,
       }),
       find_on_google: tool({
-        description: "WEB PRODUCT SEARCH (fast, ~1-3s) — when the catalog doesn't have what they want, THIS is your move. It searches Google Shopping, Amazon, Bing Shopping and Walmart ALL IN PARALLEL (plus The Home Depot for tools and home-improvement words) and returns ONE interleaved gallery (real US merchants: Target, Best Buy, Walmart, brand sites, plus Amazon) with price, was-price, rating, reviews, image and a buyable link; Boxly buys it and delivers to Mexico. Used/refurbished sellers are already removed, and so are eBay listings unless the shopper named eBay themselves — never tell them the gallery includes eBay. YOU curate what leads: read the merged list (store, price, was, rating, reviews), pick the best 1–3 for what they asked (a real discount from a trusted merchant, strong rating/reviews, the exact model) and call feature_products with their exact titles so they show FIRST; mention that options come from several stores including Amazon when that's true. `sources` gives one entry per engine: a NUMBER means it answered with that many rows, a WORD ('timeout', 'cooling') means it did not — just work with what came back, the other engines cover it. Reach for it the MOMENT the catalog misses: search_products/curate_products came back empty, or no_exact_match:true, or query_matched:false, OR it's clearly something we don't stock (a camera, an LED mask, an appliance, a freeze dryer, a niche brand/model). Just DO IT smoothly: open with ONE short natural line in the SAME turn ('Va, déjame buscarte las mejores opciones 🔎' / 'Ahorita te consigo eso 🔎') and fire it — the loader covers the brief wait. CRITICAL: do NOT tell the shopper it's 'no está en el catálogo' or that results are 'de la web' — to them it's just Boxly finding what they asked for; present the products naturally like any other gallery. Pass the product as `query` (include brand/model). PREFER THIS over find_live_product for anything general — find_live_product is slower and only for a pasted link. If it returns no_results, ask for a direct link; 'cooling'/'blocked' is rare (we use a fast API) — if it happens, say you couldn't pull it this moment and offer to take a link.",
+        description: "WEB PRODUCT SEARCH (fast, ~1-3s) — when the catalog doesn't have what they want, THIS is your move. It searches Google Shopping, Amazon, Bing Shopping and Walmart ALL IN PARALLEL (plus The Home Depot for tools and home-improvement words) and returns ONE interleaved gallery (real US merchants: Target, Best Buy, Walmart, brand sites, plus Amazon) with price, was-price, rating, reviews, image and a buyable link; Boxly buys it and delivers to Mexico. Used/refurbished sellers are already removed, and so are resale-marketplace listings (eBay, Etsy, Poshmark, Mercari) unless the shopper named that marketplace themselves — never tell them the gallery includes one. YOU curate what leads: read the merged list (store, price, was, rating, reviews), pick the best 1–3 for what they asked (a real discount from a trusted merchant, strong rating/reviews, the exact model) and call feature_products with their exact titles so they show FIRST; mention that options come from several stores including Amazon when that's true. `sources` gives one entry per engine: a NUMBER means it answered with that many rows, a WORD ('timeout', 'cooling') means it did not — just work with what came back, the other engines cover it. Reach for it the MOMENT the catalog misses: search_products/curate_products came back empty, or no_exact_match:true, or query_matched:false, OR it's clearly something we don't stock (a camera, an LED mask, an appliance, a freeze dryer, a niche brand/model). Just DO IT smoothly: open with ONE short natural line in the SAME turn ('Va, déjame buscarte las mejores opciones 🔎' / 'Ahorita te consigo eso 🔎') and fire it — the loader covers the brief wait. CRITICAL: do NOT tell the shopper it's 'no está en el catálogo' or that results are 'de la web' — to them it's just Boxly finding what they asked for; present the products naturally like any other gallery. Pass the product as `query` (include brand/model). PREFER THIS over find_live_product for anything general — find_live_product is slower and only for a pasted link. If it returns no_results, ask for a direct link; 'cooling'/'blocked' is rare (we use a fast API) — if it happens, say you couldn't pull it this moment and offer to take a link.",
         inputSchema: z.object({
           query: z.string().describe('IN ENGLISH (translate: "tele de 55 pulgadas"→"55 inch TV", "tacos de americano"→"football cleats"). The product to find on the web, with brand/model, e.g. "red light led face mask", "Sony ZV-1F camera", "New Balance 9060 grey".'),
         }),
