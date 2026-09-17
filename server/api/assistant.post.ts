@@ -1061,6 +1061,11 @@ const GALLERY_TOOLS = ['search_products', 'curate_products', 'show_collection', 
 const NON_GALLERY_TOOLS = [
   'web_search', 'extract_product', 'show_shipment', 'show_box_guide', 'feature_products', 'get_product_variants',
   'show_assisted_summary', 'get_profile', 'list_orders', 'show_orders',
+  // The WhatsApp handoff for something no box can take (a fridge, a mattress, a 60" TV). The prompt has told
+  // the model to "call show_contact_whatsapp" for those all along and the card has always been rendered — the
+  // tool was simply never in a toolset, so an un-boxable ask had nowhere to go (found 2026-09-16 by the
+  // reachability test written for ask_to_narrow).
+  'show_contact_whatsapp',
   'update_shopping_profile', 'create_self_order', 'cancel_order', 'plan_in_person', 'create_account',
 ]
 // The loop toolset before a gallery has shown: everything except suggest_followups —
@@ -1071,7 +1076,11 @@ const NON_GALLERY_TOOLS = [
 // kept picking it over the web backbone for a catalog miss ("Se interrumpió la búsqueda"). The tools stay
 // registered for history replay; re-add them here when live browsing is back.
 const LIVE_BROWSE_TOOLS = ['browse_store', 'browse_stores']
-const LOOP_TOOLS = [...GALLERY_TOOLS.filter((t) => !LIVE_BROWSE_TOOLS.includes(t)), ...NON_GALLERY_TOOLS]
+// ask_to_narrow belongs to the moment BEFORE a gallery: once rows are on screen the shopper refines by
+// looking, not by answering a question. It is deliberately NOT in NON_GALLERY_TOOLS for that reason — and
+// leaving it out of BOTH lists is how it shipped dead: registered, described, tested, and never once offered
+// to the model, which went on searching "Halloween costume" blind (Alex, 2026-09-16).
+const LOOP_TOOLS = [...GALLERY_TOOLS.filter((t) => !LIVE_BROWSE_TOOLS.includes(t)), ...NON_GALLERY_TOOLS, 'ask_to_narrow']
 // Registry id of a product (FNV-1a of its URL) — MUST match the JS/PHP implementations
 // (ShoppingAssistant.vue / ConversationController::productId); used by the gallery markers.
 function registryId(p: any): string | null {
