@@ -1,70 +1,71 @@
-# 90 packs of face wipes were not a Caja Chica
+# The DFYNE card promised promotions DFYNE does not have
 
-A real customer was told:
+Gabriela Pérez Martínez, conversation 771, 2026-09-21 14:08. She tapped the DFYNE
+starter card, whose text was:
 
-> "llenarías la caja **Chica (S)** con aproximadamente **85 a 90 paquetes** (con 90
-> piezas se estima el 100% de la capacidad por volumen y un peso de ~13.5 kg,
-> manteniéndose dentro del límite máximo de 15 kg)"
+> "Quiero ver promociones de articulos DFYNE para mujer"
 
-and the card said **100% · te queda 0% · "casi llena — buen momento para pedir tu
-envío"**. Ninety of those is **1.9× that box's entire volume** and **~27 kg**,
-well past its 15 kg limit. About 35 fit.
+DFYNE has **0 marked-down rows out of 60**. So the first sentence of her first
+Boxly search was:
 
-## Three faults
+> "Ahorita DFYNE no tiene descuentos activos marcados en la tienda, pero aquí
+> tienes su catálogo actual…"
 
-**1. The bucket was half the real size.** `rigid_small` is 403 cm³ — a 7.4 cm
-cube, which is a perfume carton. It was also the bucket for "cosméticos,
-accesorios, sanitizers", so a ~760 cm³ tub of wipes landed in it at half size,
-and at 0.15 kg when wet goods are ~0.35.
+23 real DFYNE products were on screen and the copy was warm — but a shopper who
+tapped a brand card was told first what that brand *doesn't* have.
 
-**2. Bare substrings matching inside longer words.** Found chasing the wipes, and
-this was the loudest one: `remo` (a rowing oar) matched "Makeup **REMO**ver", so
-the fallback classified them as `oversize_long` — **21 shoe-units, an entire XL
-box, one per pack**. Eight more of the same shape.
+## Why it happened
+Two things pointing the same way, and the model followed both correctly:
 
-**3. The model stated a piece count, which the prompt forbids.** It already says
-*"never state a piece-count capacity as fact — a guessed 'caben entre 100 y 140'
-is a number the customer will hold us to"*. Fourth prompt-only guarantee in this
-file to lose.
+1. **The card asked for promociones.** `starter_prompts` id 5 — admin-managed, so
+   the text is data, not code.
+2. **The prompt scripts the apology.** Step (2) of the PROMOS rule contains that
+   exact sentence, and it fired unconditionally whenever `relaxed:'deals'` came
+   back — which is *always*, for a full-price brand.
+
+The tool call was `curate_products({store:'DFYNE', gender:'women', intent:'deals',
+department:'apparel'})`. Correct, given what it was asked.
 
 ## Todo
-- [x] `toiletry` bucket — a drugstore package, ~2× a perfume carton, and heavy
-- [x] Anchor every substring short enough to live inside another word
-- [x] `parfum` / `lip gloss` / `pantalla` matched nothing at all → fell to the 0.40 default
-- [x] `bulk` flag: at ≥25 of one line the card stops nudging and the model is told what it may not claim
-- [x] Tests pin all nine traps AND the words they were there for
+- [x] Card 5 → catalog framing (done live; old text recorded below)
+- [x] A store ask is no longer automatically a DEALS ask
+- [x] Never volunteer the absence of discounts to someone who didn't ask
+- [x] Check the new text doesn't trip the audience-narrowing gate
+- [x] Tests
 
 ## Review
 
-| | before | after |
+**Live DB change** (`PUT /admin/starter-prompts/5`), reversible:
+
+    old   Quiero ver promociones de articulos DFYNE para mujer
+    new   Muéstrame todo el catálogo de DFYNE para mujer
+
+"para mujer" stays on purpose: without it `audienceGap()` would stop the card to
+ask "¿para quién es?", which is the last thing a brand card should do. Verified
+against the real function.
+
+**Prompt, three places, all saying one thing** — *seeing a store is not asking
+for deals*:
+- `curate_products({store})` with `intent:'deals'` only when they asked about
+  promos/ofertas; `intent:'browse'` for a plain "catálogo"/"qué hay"/"muéstrame".
+- Step (2): mention the absence of markdowns **only if they asked about promos**.
+  Opening a brand's gallery with what it doesn't have is the worst possible first
+  impression of that brand.
+- The named-store rule repeats the same split, since it also said `intent:'deals'`
+  for any store ask.
+
+## Two more cards make the identical promise
+
+Measured against the live catalog, 60 rows each:
+
+| card | on sale | card text |
 |---|---|---|
-| 90× Neutrogena wipes | Caja **Chica**, 100%, 13.5 kg | Caja **Grande**, ~90%, 31.5/35 kg |
-| reality check | 90 packs = 68,400 cm³ | Caja Grande = 87,360 cm³ → 78% raw |
+| **DFYNE** | **0 / 60** | fixed |
+| **RHODE** | **0 / 60** | "Quiero ver promociones de articulos RHODE" |
+| **LULULEMON** | **0 / 60** | "Busco promociones actuales de LULULEMON" |
+| Owala | 4 / 53 | "Quiero ver promociones de vasos Owala" — borderline |
+| ALO 60/60, GAP 60/60, Coach Outlet 60/60, NIKE 58/60, Old Navy 58/60, YoungLA 59/60 | | honest promises |
 
-**The substring bugs, each worth a box size:**
-
-| matched | inside | became |
-|---|---|---|
-| `remo` | Makeup **Remo**ver | oversize_long, 21 su |
-| `glass` | Sun**glass**es | fragile, the volume of a lamp |
-| `case` | Suit**case** | rigid_small, a 7 cm cube |
-| `boot` | **Boot**cut Jeans | shoes |
-| `ring` | Sp**ring** Jacket | rigid_small |
-| `card` | **Card**igan | rigid_small |
-| `heel` | Steering w**heel** | shoes |
-| `collar` | **Collar**ed Shirt | rigid_small |
-| `vase` | **Vase**line | fragile |
-| `pant` | **Pant**alla 32" | medium_soft |
-
-A suffix-only `\b` (`coats?\b`) keeps raincoat working while blocking "coating".
-
-**The durable guard.** Every per-piece volume here is inferred from a product
-title, so it is good to maybe a factor of two. At three items that is the
-difference between "half full" and "quite full" and nobody is harmed. At ninety
-it is one box versus three — the error never grows, the consequence does. So at
-≥25 of one line the card labels the bar `~`, drops the "casi llena, pide tu
-envío" push (the worst moment to push is on a number out by two box sizes), and
-the tool result tells the model: do not state how many fit, talk cost per piece,
-offer the purchasing team.
-
-90 checks in box-fit. All 13 suites green, build clean.
+RHODE and LULULEMON will produce the same opening sentence Gabriela saw. Left
+alone — Alex scoped this to DFYNE, and these are advertised marketing surfaces.
+One `PUT` each whenever he says so.

@@ -23,7 +23,8 @@
     "test:narrow": "node server/api/narrow.test.mjs",
     "test:web-query": "node --experimental-strip-types server/api/web-query.test.mjs",
     "test:box-fit": "node --experimental-strip-types server/api/box-fit.test.mjs",
-    "test:tools-reachable": "node server/api/tools-reachable.test.mjs"
+    "test:tools-reachable": "node server/api/tools-reachable.test.mjs",
+    "test:store-ask": "node server/api/store-ask.test.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.84",
