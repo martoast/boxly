@@ -26,6 +26,14 @@
  */
 export const ARCHETYPE_VOL: Record<string, number> = {
   rigid_small: 0.05, // cosmetics, perfume, jewelry, accessories, cables
+  // A TUB OF FACE WIPES IS NOT A LIPSTICK (Alex, 2026-09-21, from a real customer).
+  // rigid_small is 403 cm3 — a 7.4 cm cube, which is a perfume carton. It was also
+  // the bucket for "cosméticos, accesorios, sanitizers", so a 760 cm3 tub of
+  // Neutrogena makeup-remover wipes landed in it at half its real size. One item
+  // out by 2x is invisible; the customer ordered NINETY, and the card told them 90
+  // filled a Caja Chica at 100% and 13.5 kg when 90 is 1.9x that box's ENTIRE
+  // volume and ~27 kg. About 35 fit. The error never grew — the consequence did.
+  toiletry: 0.10, // drugstore package: wipes, shampoo, deodorant, sunscreen, cotton pads
   flat_soft: 0.30, // tees, leggings, shorts, underwear, swimwear
   medium_soft: 0.45, // jeans, hoodies, joggers, light jackets, backpacks
   rigid_medium: 0.25, // bottles, tumblers, small electronics (speaker, camera)
@@ -48,7 +56,7 @@ export const DEFAULT_VOL = 0.40
 
 export const ARCH_LABEL: Record<string, string> = {
   rigid_small: 'Pequeño', flat_soft: 'Ropa', medium_soft: 'Mediano',
-  rigid_medium: 'Mediano', rigid_large: 'Voluminoso', shoes: 'Calzado',
+  toiletry: 'Pequeño', rigid_medium: 'Mediano', rigid_large: 'Voluminoso', shoes: 'Calzado',
   bulky_soft: 'Voluminoso', fragile: 'Frágil', oversize_long: 'Grande y largo',
   oversize_freight: 'No cabe en caja',
 }
@@ -72,6 +80,8 @@ export const ARCH_LABEL: Record<string, string> = {
  */
 export const ARCHETYPE_KG: Record<string, number> = {
   rigid_small: 0.15, flat_soft: 0.25, medium_soft: 0.6, rigid_medium: 0.8,
+  // Wet goods are mostly liquid: a tub of wipes is 0.3 kg, a shampoo bottle 0.45.
+  toiletry: 0.35,
   rigid_large: 6, shoes: 1.2, bulky_soft: 1.5, fragile: 2, oversize_long: 4,
   oversize_freight: 0, // never counted — it isn't in the box
 }
@@ -179,16 +189,33 @@ const RE_BIG_TV = /(?=[\s\S]*\b(?:4\d|[5-9]\d|1\d\d)\s*(?:["”]|-? ?inch(?:es)?
  */
 const RE_FREIGHT_ACCESSORY = /\b(?:float|floatie|lounger|flotador|noodle|cover|funda|slipcover|protector|topper|pad|filter|filtro|pump|bomba|skimmer|hose|manguera|net|brush|cepillo|cleaner|limpiador|chemical|cloro|chlorine|towel|toalla|toy|juguete|mount|soporte|bracket|remote|replacement|repuesto|accessor|refacci[oó]n|sheets?|s[aá]banas?|pillowcase|air mattress|colch[oó]n inflable)\b|test strips?|control remoto|inflatable (?:mattress|bed)/i
 
-const RE_OVERSIZE_LONG = /guitar|guitarra|\bbass guitar|skateboard|patineta|longboard|\bskate\b|snowboard|surfboard|tabla de surf|golf club|palos de golf|hockey stick|fishing rod|ca[nñ]a de pescar|violonc|\bcello\b|keyboard piano|\bpiano\b|handlebar|manubrio|bike frame|cuadro de bici|bicycle frame|\bfork(?:s)? (?:bike|bicycle|bmx)|seatpost|tija|\bskis?\b|esqu[ií]|baseball bat|bate de b[eé]isbol|paddle ?board|remo/i
-const RE_SHOES = /shoe|sneaker|tenis|boot|bota|cleat|sandal|heel|loafer|zapat/i
-const RE_FRAGILE = /lamp|l[aá]mpara|glass|vidrio|vase|florero|mirror|espejo|frame|cuadro|ceramic|porcelain|decor/i
-const RE_RIGID_SMALL = /saniti|mist|antibac|perfume|cologne|fragran|skincare|serum|lipstick|labial|mascara|cosmetic|maquillaje|cream|crema|lotion|loci[oó]n|cards?|cartas|pok[eé]mon|wallet|cartera|watch|reloj|jewel|joy|ring|anillo|necklace|collar|earring|arete|sunglass|lentes|case|funda|charger|cargador|earbuds|airpods|keychain|llavero/i
-// "console" lived in RE_RIGID_MEDIUM until 2026-09-15 and made a PS3 a tumbler.
-const RE_RIGID_LARGE = /console|consola|playstation|\bps[345]\b|xbox|nintendo switch|monitor|printer|impresora|microwave|microondas|air ?fryer|freidora|vacuum|aspiradora|blender|licuadora|toaster oven|horno|\btv\b|television|televisi[oó]n/i
-const RE_BULKY = /coat|parka|abrigo|puffer|\bdown\b|blanket|comforter|duvet|cobija|plush|peluche|pillow|almohada|duffel|luggage|maleta|suitcase|tent|sleeping bag|appliance|electrodom|coffee maker|cafetera|\bpot\b|olla|helmet|casco/i
-const RE_MEDIUM = /jean|pant|pantal[oó]n|jogger|sudadera|hoodie|sweater|sweatshirt|jacket|chamarra|backpack|mochila|handbag|bolsa|\bbag\b|purse/i
-const RE_RIGID_MEDIUM = /bottle|botella|tumbler|termo|\bcup\b|\bmug\b|taza|owala|stanley|hydro|flask|speaker|bocina|camera|c[aá]mara|electronic|electr[oó]nico/i
-const RE_FLAT_SOFT = /legging|mall[oó]n|shirt|camiset|camisa|\btee\b|playera|\btop\b|blouse|blusa|dress|vestido|short|skirt|falda|underwear|ropa interior|sock|calcet|\bbra\b|brasier|swim|traje de ba/i
+// ── A WORD, NOT A RUN OF LETTERS ─────────────────────────────────────────────
+//
+// These matched anywhere inside a longer word, and every hit was a whole box size:
+//
+//   remo   (oar)      → "Makeup REMOver Wipes"  → oversize_long, 21 shoe-units
+//   glass             → "SunGLASSes"            → fragile, the volume of a lamp
+//   case              → "SuitCASE"              → rigid_small, a 7 cm cube
+//   boot              → "BOOTcut Jeans"         → shoes
+//   ring              → "SpRING Jacket"         → rigid_small
+//   card              → "CARDigan Sweater"      → rigid_small
+//   heel              → "Steering wHEEL Cover"  → shoes
+//   collar            → "COLLARed Shirt"        → rigid_small
+//   vase              → "VASEline Lip Therapy"  → fragile
+//   pant              → "PANTalla 32 pulgadas"  → medium_soft
+//
+// Found chasing the wipes (Alex, 2026-09-21). Anchor anything short enough to live
+// inside another word; a suffix-only \b (coats?\b) still lets raincoat through.
+const RE_OVERSIZE_LONG = /guitar|guitarra|\bbass guitar|skateboard|patineta|longboard|\bskate\b|snowboard|surfboard|tabla de surf|golf club|palos de golf|hockey stick|fishing rod|ca[nñ]a de pescar|violonc|\bcello\b|keyboard piano|\bpiano\b|handlebar|manubrio|bike frame|cuadro de bici|bicycle frame|\bfork(?:s)? (?:bike|bicycle|bmx)|seatpost|\btijas?\b|\bskis?\b|\besqu[ií]e?s?\b|baseball bat|bate de b[eé]isbol|paddle ?board|\bremos?\b/i
+const RE_SHOES = /\bshoes?\b|sneaker|\btenis\b|\bboots?\b|\bbotas?\b|cleats?\b|\bsandal|\bheels?\b|loafer|zapat/i
+const RE_FRAGILE = /\blamps?\b|l[aá]mpara|\bglass|vidrio|\bvases?\b|florero|mirror|espejo|\bframes?\b|cuadro|ceramic|porcelain|\bdecor/i
+const RE_TOILETRY = /\bwipes?\b|towelettes?|toallitas|cleansing cloths|shampoo|champ[uú]|conditioner|acondicionador|body wash|gel de ducha|jab[oó]n l[ií]quido|deodorant|desodorante|antitranspirante|diapers?|pa[nñ]ales|toallas femeninas|cotton rounds?|cotton pads?|discos de algod[oó]n|micellar|micelar|sunscreen|bloqueador solar|protector solar|body lotion|loci[oó]n corporal|crema corporal|hand soap|refill|repuesto/i
+const RE_RIGID_SMALL = /saniti|\bmist\b|antibac|perfume|parfum|cologne|fragran|skincare|serum|lipstick|\bgloss\b|lip balm|b[aá]lsamo labial|labial|mascara|cosmetic|maquillaje|\bcreams?\b|crema|lotion|loci[oó]n|\bcards?\b|cartas|pok[eé]mon|wallet|cartera|\bwatch(?:es)?\b|jewel|\bjoyas?\b|joyer[ií]a|\bring\b|anillo|necklace|\bcollar\b|earring|\baretes?\b|sunglass|lentes|\bcase\b|funda|charger|cargador|earbuds|airpods|keychain|llavero/i
+const RE_RIGID_LARGE = /console|consola|playstation|\bps[345]\b|xbox|nintendo switch|monitor|printer|impresora|microwave|microondas|air ?fryer|freidora|vacuum|aspiradora|blender|licuadora|toaster oven|horno|\btv\b|television|televisi[oó]n|\bpantallas?\b/i
+const RE_BULKY = /coats?\b|parka|abrigo|puffer|\bdown\b|blanket|comforter|duvet|cobija|plush|peluche|pillow|almohada|duffel|luggage|maleta|suitcase|\btents?\b|sleeping bag|appliance|electrodom|coffee maker|cafetera|\bpot\b|\bollas?\b|helmet|\bcascos?\b/i
+const RE_MEDIUM = /\bjeans?\b|\bpants?\b|pantal[oó]n(?:es)?|jogger|sudadera|hoodie|sweater|sweatshirt|jacket|chamarra|backpack|mochila|handbag|\bbolsas?\b|\bbag\b|purse/i
+const RE_RIGID_MEDIUM = /bottle|botella|tumbler|\btermos?\b|\bcup\b|\bmug\b|\btazas?\b|owala|stanley|hydro|flask|speaker|bocina|camera|c[aá]mara|electronic|electr[oó]nico/i
+const RE_FLAT_SOFT = /legging|mall[oó]n|shirt|camiset|camisa|\btee\b|playera|\btop\b|blouse|blusa|dress|vestido|\bshorts?\b|skirt|falda|underwear|ropa interior|\bsocks?\b|calcet|\bbra\b|brasier|swim|traje de ba/i
 
 /** Guess the archetype from a product name. Order matters — narrowest first. */
 export function archetypeFromName(name: string): string | null {
@@ -199,6 +226,7 @@ export function archetypeFromName(name: string): string | null {
   if (RE_OVERSIZE_LONG.test(t)) return 'oversize_long'
   if (RE_SHOES.test(t)) return 'shoes'
   if (RE_FRAGILE.test(t)) return 'fragile'
+  if (RE_TOILETRY.test(t)) return 'toiletry'
   if (RE_RIGID_SMALL.test(t)) return 'rigid_small'
   if (RE_RIGID_LARGE.test(t)) return 'rigid_large'
   if (RE_BULKY.test(t)) return 'bulky_soft'

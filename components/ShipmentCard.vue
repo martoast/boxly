@@ -52,13 +52,13 @@
         <div class="h-full rounded-full transition-all duration-500" :class="barClass" :style="{ width: s.capacity_used_pct + '%' }"></div>
       </div>
       <div class="flex items-center justify-between mt-1 text-[11px]">
-        <span class="font-semibold text-primary-800">{{ byWeight ? 'Peso usado' : 'Capacidad usada' }} {{ s.capacity_used_pct }}%</span>
+        <span class="font-semibold text-primary-800">{{ byWeight ? 'Peso usado' : 'Capacidad usada' }} {{ s.bulk ? '~' : '' }}{{ s.capacity_used_pct }}%</span>
         <span class="text-gray-400"><span v-if="byWeight" class="tabular-nums">{{ s.weight_kg }} / {{ s.max_kg }} kg · </span>te queda {{ s.capacity_left_pct }}%</span>
       </div>
     </div>
 
     <!-- nudge -->
-    <p v-if="packed.length" class="mt-2 text-[12px] leading-snug" :class="nearlyFull ? 'text-amber-700 font-semibold' : 'text-primary-700'">
+    <p v-if="packed.length" class="mt-2 text-[12px] leading-snug" :class="s.bulk ? 'text-gray-500' : nearlyFull ? 'text-amber-700 font-semibold' : 'text-primary-700'">
       {{ nudge }}
     </p>
 
@@ -93,6 +93,7 @@ const s = computed(() => ({
   capacity_used_pct: props.shipment?.capacity_used_pct ?? 0,
   capacity_left_pct: props.shipment?.capacity_left_pct ?? 100,
   limited_by: props.shipment?.limited_by || 'volume',
+  bulk: !!props.shipment?.bulk,
   weight_kg: props.shipment?.weight_kg ?? 0,
   max_kg: props.shipment?.max_kg ?? 15,
 }))
@@ -114,6 +115,11 @@ const barClass = computed(() => {
 })
 const nudge = computed(() => {
   const left = s.value.capacity_left_pct
+  // AT BULK THE BAR IS A GUESS x90, SO IT MUST NOT READ AS A VERDICT. A real customer
+  // was shown "100% · te queda 0% · buen momento para pedir tu envío" for 90 packs of
+  // face wipes that actually needed a Caja Grande (Alex, 2026-09-21). Pushing someone
+  // to finalise on a number that is out by two box sizes is the worst moment to push.
+  if (s.value.bulk) return 'Por volumen esta es una estimación aproximada — la cantidad exacta que entra la confirma nuestro equipo al empacar en bodega 📦'
   if (nearlyFull.value) return byWeight.value ? 'Tu caja ya casi llega a su peso máximo — buen momento para pedir tu envío 🎉' : 'Tu caja está casi llena — buen momento para pedir tu envío 🎉'
   // "Te queda bastante espacio" is the wrong invitation when the LIMIT IS WEIGHT:
   // the room is real and the allowance is not, so point at what still fits.

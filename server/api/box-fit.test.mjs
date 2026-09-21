@@ -80,6 +80,63 @@ for (const n of ['Intex Pool Float Lounger', 'Nike Pool Slide Sandal', 'Yeti Roa
   'Sony 55 Inch Headphones Stand', 'JBL Flip 6 Bluetooth Speaker', 'Alo Yoga Mat'])
   ok(`"${n}" is still an ordinary box item`, !isUnboxable(n));
 
+// ── The 2026-09-21 shipment: 90 packs of face wipes ─────────────────────────
+//
+// A REAL CUSTOMER was told "llenarías la caja Chica con aproximadamente 85 a 90
+// paquetes (100% de la capacidad, ~13.5 kg, dentro del límite de 15 kg)". Ninety of
+// those is 1.9x that box's ENTIRE volume and ~27 kg. About 35 fit.
+{
+  const wipes = 'Neutrogena Makeup Remover Face Wipes, 25 count';
+  ok('a tub of makeup-remover wipes is not a lipstick', archetypeFromName(wipes) === 'toiletry');
+  ok('…and is about twice a perfume carton', itemUnits(wipes) === 0.10 && itemUnits('Dior Sauvage perfume') === 0.05);
+  ok('…and weighs what wet goods weigh', itemKg(wipes) === 0.35);
+
+  const r = buildShipment([{ name: wipes, quantity: 90 }]);
+  ok('90 of them are no longer a Caja Chica', r.box_label !== 'Chica');
+  ok('they are a Caja Grande', r.box_label === 'Grande');
+  ok('and the weight is the lid, at ~31 kg not 13.5', r.limited_by === 'weight' && r.weight_kg > 25);
+
+  // The guard that outlives this one product.
+  ok('a 90-piece line is flagged as bulk', r.bulk === true);
+  ok('three of something is not', buildShipment([{ name: wipes, quantity: 3 }]).bulk === false);
+  ok('and the boundary is the line, not the total', buildShipment([{ name: wipes, quantity: 12 }, { name: wipes, quantity: 12 }]).bulk === false);
+}
+
+// Toiletries must not swallow the genuinely tiny things beside them.
+for (const n of ['Dior Sauvage Eau de Parfum', 'Touchland Power Mist Sanitizer', 'Fenty Gloss Bomb Lip Luminizer', 'The Ordinary Niacinamide Serum 30ml'])
+  ok(`"${n}" is still rigid_small`, archetypeFromName(n) === 'rigid_small');
+
+// ── A WORD, NOT A RUN OF LETTERS ────────────────────────────────────────────
+//
+// Found chasing the wipes: bare substrings were matching inside longer words, and
+// each hit was worth a box size or two. "Makeup REMOver" was a rowing oar.
+for (const [name, want] of [
+  ['Neutrogena Makeup Remover Face Wipes', 'toiletry'],     // remo  → oversize_long, 21 su
+  ['Ray-Ban Aviator Sunglasses', 'rigid_small'],            // glass → fragile, a lamp
+  ['Samsonite Suitcase 28in', 'bulky_soft'],                // case  → rigid_small
+  ['Levis 725 Bootcut Jeans', 'medium_soft'],               // boot  → shoes
+  ['Nike Spring Jacket', 'medium_soft'],                    // ring  → rigid_small
+  ['Cardigan Sweater Knit', 'medium_soft'],                 // card  → rigid_small
+  ['Oxford Collared Shirt', 'flat_soft'],                   // collar→ rigid_small
+  ['Samsung Pantalla 32 pulgadas', 'rigid_large'],          // pant  → medium_soft
+]) ok(`"${name}" is ${want}`, archetypeFromName(name) === want);
+for (const n of ['Steering Wheel Cover', 'Vaseline Lip Therapy'])
+  ok(`"${n}" matches nothing rather than the wrong thing`, archetypeFromName(n) === null || archetypeFromName(n) === 'rigid_small');
+
+// …without breaking the words they were there for in the first place.
+for (const [name, want] of [
+  ['Wilson Wooden Oar Remo', 'oversize_long'], ['Timberland 6-Inch Boots', 'shoes'],
+  ['Nike Trail Running Shoes', 'shoes'], ['Crystal Vase', 'fragile'],
+  ['Drinking Glasses Set of 4', 'fragile'], ['Pandora Silver Ring', 'rigid_small'],
+  ['Pokemon Trading Cards', 'rigid_small'], ['Ray-Ban Eyeglass Case', 'rigid_small'],
+  ['Raincoat Yellow', 'bulky_soft'], ['Coleman 4-Person Tent', 'bulky_soft'],
+  ['Cargo Pant Olive', 'medium_soft'], ['Nike Crew Socks', 'flat_soft'],
+]) ok(`"${name}" still reads as ${want}`, archetypeFromName(name) === want);
+for (const n of ['Neutrogena Makeup Remover Towelettes', 'Head & Shoulders Shampoo 400ml', 'Dove Deodorant 3-pack',
+  'Pampers Diapers Size 4', 'Neutrogena Micellar Water', 'La Roche-Posay Sunscreen SPF 50'])
+  ok(`"${n}" is a drugstore package`, archetypeFromName(n) === 'toiletry');
+ok('ten sanitizers still barely move the bar', ship(Array(10).fill('Touchland Power Mist Sanitizer')).label === 'Chica');
+
 // ── The 2026-09-15 shipment must stay fixed ──────────────────────────────────
 {
   const ps3 = 'Restored Sony PlayStation 3 Slim 120GB Black Console';
