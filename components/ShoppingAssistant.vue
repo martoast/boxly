@@ -438,8 +438,12 @@
 
                     <div v-else-if="part.type === 'tool-create_purchase_request' && part.state === 'output-available' && part.output?.request_number" class="bg-green-50 border border-green-200 rounded-2xl p-4 max-w-sm">
                       <p class="text-sm font-bold text-green-800 flex items-center gap-1.5"><svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 011.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z" clip-rule="evenodd"/></svg> Listo — nosotros nos encargamos 🎉</p>
-                      <p class="text-xs text-green-700 mt-1">Solicitud <span class="font-semibold">{{ part.output.request_number }}</span> creada. Te enviamos la cotización (producto + servicio + envío) para que la apruebes — no pagas nada todavía.</p>
-                      <p class="text-xs text-green-700 mt-1.5 flex items-start gap-1.5"><span>🛍️</span><span>Nuestro equipo de compras se pondrá en contacto contigo en breve para revisar los detalles de tu compra.</span></p>
+                      <p class="text-xs text-green-700 mt-1">Solicitud <span class="font-semibold">{{ part.output.request_number }}</span> creada. No pagas nada todavía.</p>
+                      <!-- Same wording as AssistedPurchaseCard's success footer, deliberately: the two
+                           cards confirm the same thing by two routes, and a shopper who sees one and
+                           then the other must be told to watch the same channel. -->
+                      <p class="text-xs text-green-700 mt-1.5 flex items-start gap-1.5"><span>💬</span><span>Nuestro equipo de compras te escribe <span class="font-semibold">por WhatsApp</span> en breve para afinar los últimos detalles y enviarte tu cotización (producto + servicio + envío) para que la apruebes.</span></p>
+                      <p class="text-xs text-green-800 mt-1 flex items-start gap-1.5"><span>👀</span><span><span class="font-semibold">Mantente pendiente de tu WhatsApp</span> — tu pedido avanza en cuanto nos contestes.</span></p>
                       <NuxtLink to="/app/purchase-requests" class="inline-block mt-2 text-xs font-semibold text-green-800 underline active:scale-95 transition-transform">Ver mis solicitudes →</NuxtLink>
                     </div>
 

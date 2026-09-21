@@ -56,8 +56,14 @@
       <transition name="fade" mode="out-in">
         <div v-if="result" key="done" class="rounded-xl bg-green-50 border border-green-200 p-3">
           <p class="text-[13px] font-bold text-green-800 flex items-center gap-1.5"><svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 011.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z" clip-rule="evenodd"/></svg> Listo — nosotros nos encargamos 🎉</p>
-          <p class="text-[11.5px] text-green-700 mt-1">Solicitud <span class="font-semibold">{{ result.request_number }}</span> creada. Te enviamos la cotización (producto + servicio + envío) para que la apruebes — no pagas nada todavía.</p>
-          <p class="text-[11.5px] text-green-700 mt-1 flex items-start gap-1.5"><span>🛍️</span><span>Nuestro equipo de compras se pondrá en contacto contigo en breve.</span></p>
+          <p class="text-[11.5px] text-green-700 mt-1">Solicitud <span class="font-semibold">{{ result.request_number }}</span> creada. No pagas nada todavía.</p>
+          <!-- SAY THE CHANNEL, AND SAY WHY IT MATTERS (Alex, 2026-09-21). This used to read
+               "nuestro equipo de compras se pondrá en contacto contigo en breve" — true, but it
+               never said HOW, so the WhatsApp that actually finishes the purchase arrives from an
+               unknown number and reads like spam. A request nobody answers is a sale that stalls,
+               so the card now names the channel and tells them to expect it. -->
+          <p class="text-[11.5px] text-green-700 mt-1.5 flex items-start gap-1.5"><span>💬</span><span>Nuestro equipo de compras te escribe <span class="font-semibold">por WhatsApp</span> en breve para afinar los últimos detalles y enviarte tu cotización (producto + servicio + envío) para que la apruebes.</span></p>
+          <p class="text-[11.5px] text-green-800 mt-1 flex items-start gap-1.5"><span>👀</span><span><span class="font-semibold">Mantente pendiente de tu WhatsApp</span> — tu pedido avanza en cuanto nos contestes.</span></p>
           <NuxtLink to="/app/purchase-requests" class="inline-block mt-1.5 text-[11.5px] font-semibold text-green-800 underline active:scale-95 transition-transform">Ver mis solicitudes →</NuxtLink>
         </div>
         <div v-else-if="error" key="err">
