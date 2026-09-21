@@ -1962,7 +1962,13 @@ export default defineEventHandler(async (event) => {
   // them byte-identical for Anthropic's breakpoint AND Gemini's implicit cache.
   // Is there an audience-shaped hole in this ask? Decided before the loop starts,
   // because prepareStep must know it on step 0 (see audienceGap).
-  const mustNarrow = audienceGap(messages)
+  //
+  // Never for a STARTER CARD. Those are advertised, and the one rule about them is that
+  // every tap ends in a gallery of that store — but "tenis Adidas" and "Tenis New
+  // Balance" name a gendered category with nobody to wear it, so the gate answered two
+  // advertised cards with a question instead of the store. The card narrows the search
+  // by naming the brand; the prompt asks its question AFTER the gallery is up.
+  const mustNarrow = !body?.fromStarterCard && audienceGap(messages)
   const ctx = [summaryBlock(summaryState), shopperContext(!!token, shoppingProfile, savedProducts), narrowBlock(mustNarrow)].filter(Boolean).join('\n\n')
   // History → model, bounded (see server/utils/chatContext.ts):
   //  1. old galleries collapse to a one-line marker (the products stay in the registry),

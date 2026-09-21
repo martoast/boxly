@@ -1,71 +1,60 @@
-# The DFYNE card promised promotions DFYNE does not have
+# Cards must not promise sales a brand doesn't have
 
-Gabriela Pérez Martínez, conversation 771, 2026-09-21 14:08. She tapped the DFYNE
-starter card, whose text was:
+> "we cannot be forcing trying to show sales when there arent any" — Alex, 2026-09-21
 
-> "Quiero ver promociones de articulos DFYNE para mujer"
+Follows the DFYNE fix. I measured every carried brand card against the live
+catalog (60 rows each) instead of guessing which ones were lying.
 
-DFYNE has **0 marked-down rows out of 60**. So the first sentence of her first
-Boxly search was:
+## Measured
 
-> "Ahorita DFYNE no tiene descuentos activos marcados en la tienda, pero aquí
-> tienes su catálogo actual…"
+| card | on sale | verdict |
+|---|---|---|
+| DFYNE | **0 / 60** | fixed (previous commit) |
+| RHODE | **0 / 60** | fixed |
+| LULULEMON | **0 / 60** | fixed |
+| Owala | **4 / 53 (8%)** | fixed — a 4-item gallery is a lonely card |
+| New Balance | **2 / 30 (7%)** | fixed — not previously spotted |
+| Sephora | 10 / 26 (38%) | honest, left alone |
+| PINK | 25 / 60 (42%) | honest |
+| Old Navy · NIKE · Victoria's Secret · Bath & Body Works | 58 / 60 (97%) | honest |
+| YoungLA | 59 / 60 | honest |
+| ALO · GAP · Kipling · Coach Outlet | 60 / 60 | honest |
 
-23 real DFYNE products were on screen and the copy was warm — but a shopper who
-tapped a brand card was told first what that brand *doesn't* have.
+Live edits (`PUT /admin/starter-prompts/{id}`), all reversible:
 
-## Why it happened
-Two things pointing the same way, and the model followed both correctly:
+    [10] RHODE        Quiero ver promociones de articulos RHODE     → Muéstrame todo el catálogo de RHODE
+    [23] LULULEMON    Busco promociones actuales de LULULEMON       → Muéstrame todo el catálogo de LULULEMON
+    [ 6] Owala        Quiero ver promociones de vasos Owala         → Muéstrame todos los vasos Owala
+    [ 2] New Balance  Quiero ver promociones de Tenis New Balance   → Muéstrame todos los tenis New Balance
 
-1. **The card asked for promociones.** `starter_prompts` id 5 — admin-managed, so
-   the text is data, not code.
-2. **The prompt scripts the apology.** Step (2) of the PROMOS rule contains that
-   exact sentence, and it fired unconditionally whenever `relaxed:'deals'` came
-   back — which is *always*, for a full-price brand.
+The other 19 cards keep their promos framing because their stores genuinely have
+promos. The nine we don't carry (Amazon, Target, Walmart, ULTA, Macy's, Nordstrom
+Rack, Karl Lagerfeld, Adidas, eBay) take the `find_on_google("<store> deals")`
+path, which searches the live web for real markdowns — a different question.
 
-The tool call was `curate_products({store:'DFYNE', gender:'women', intent:'deals',
-department:'apparel'})`. Correct, given what it was asked.
+## And a regression I shipped last week
+
+The audience-narrowing gate (`audienceGap`, 2026-09-16) was **hijacking two
+advertised cards**:
+
+    [22] Adidas       "Quiero ver promociones actuales de tenis Adidas"
+    [ 2] New Balance  "Quiero ver promociones de Tenis New Balance"
+
+Both name a gendered category (`tenis`) with nobody to wear it, so a tap answered
+with "¿para quién es?" instead of the store — against the prompt's own oldest
+rule, that every advertised card must end in a gallery of that store.
+
+Rewriting those two texts would have hidden it, not fixed it: card texts are
+admin-managed, so the next one containing "tenis", "ropa" or "sudadera" breaks
+identically. So the **tap** says so itself — `fromStarterCard`, consumed for
+exactly one turn, read and cleared in the same breath so a typed follow-up is an
+ordinary message again. The server skips the gate for it; the prompt still asks
+its narrowing question *after* the gallery is up.
 
 ## Todo
-- [x] Card 5 → catalog framing (done live; old text recorded below)
-- [x] A store ask is no longer automatically a DEALS ask
-- [x] Never volunteer the absence of discounts to someone who didn't ask
-- [x] Check the new text doesn't trip the audience-narrowing gate
-- [x] Tests
+- [x] Measure all 17 carried brand cards, don't guess
+- [x] Fix the five that promise sales their store doesn't have
+- [x] Card taps are never hijacked by the narrowing gate
+- [x] Tests for both
 
-## Review
-
-**Live DB change** (`PUT /admin/starter-prompts/5`), reversible:
-
-    old   Quiero ver promociones de articulos DFYNE para mujer
-    new   Muéstrame todo el catálogo de DFYNE para mujer
-
-"para mujer" stays on purpose: without it `audienceGap()` would stop the card to
-ask "¿para quién es?", which is the last thing a brand card should do. Verified
-against the real function.
-
-**Prompt, three places, all saying one thing** — *seeing a store is not asking
-for deals*:
-- `curate_products({store})` with `intent:'deals'` only when they asked about
-  promos/ofertas; `intent:'browse'` for a plain "catálogo"/"qué hay"/"muéstrame".
-- Step (2): mention the absence of markdowns **only if they asked about promos**.
-  Opening a brand's gallery with what it doesn't have is the worst possible first
-  impression of that brand.
-- The named-store rule repeats the same split, since it also said `intent:'deals'`
-  for any store ask.
-
-## Two more cards make the identical promise
-
-Measured against the live catalog, 60 rows each:
-
-| card | on sale | card text |
-|---|---|---|
-| **DFYNE** | **0 / 60** | fixed |
-| **RHODE** | **0 / 60** | "Quiero ver promociones de articulos RHODE" |
-| **LULULEMON** | **0 / 60** | "Busco promociones actuales de LULULEMON" |
-| Owala | 4 / 53 | "Quiero ver promociones de vasos Owala" — borderline |
-| ALO 60/60, GAP 60/60, Coach Outlet 60/60, NIKE 58/60, Old Navy 58/60, YoungLA 59/60 | | honest promises |
-
-RHODE and LULULEMON will produce the same opening sentence Gabriela saw. Left
-alone — Alex scoped this to DFYNE, and these are advertised marketing surfaces.
-One `PUT` each whenever he says so.
+13 checks in store-ask. All 14 suites green, build clean.

@@ -1452,6 +1452,19 @@ function retryLastTurn() {
 }
 const activeTitle = computed(() => conversations.value.find((c) => c.id === activeId.value)?.title || 'Asistente')
 
+// A STARTER CARD IS AN ADVERTISED ENTRY POINT, and the one rule about them is that
+// every single one must end in a gallery of that store. The audience-narrowing gate
+// (see audienceGap) broke two of them — "tenis Adidas" and "Tenis New Balance" name a
+// gendered category with nobody to wear it, so a tap produced "¿para quién es?" instead
+// of the store. Card texts are admin-managed, so the next one to say "tenis" or "ropa"
+// would break the same way. The tap says so itself, and the server skips the gate for
+// one turn; the prompt already asks its narrowing question AFTER the gallery.
+const cardTapped = ref(false)
+function consumeCardTap() {
+  const was = cardTapped.value
+  cardTapped.value = false
+  return was
+}
 const chat = new Chat({
   transport: new DefaultChatTransport({
     api: '/api/assistant',
@@ -1467,6 +1480,9 @@ const chat = new Chat({
         // Hub surface → server loads the OS router (all pipelines). `pipeline` is the
         // action card the user last tapped, a routing hint consumed for one turn.
         ...(hub.value ? { surface: 'hub', pipeline: activePipeline.value || undefined } : {}),
+        // Consumed here, for exactly one turn — read and cleared in the same breath, so a
+        // typed follow-up after a card tap is an ordinary message again.
+        ...(consumeCardTap() ? { fromStarterCard: true } : {}),
       } }
     },
   }),
@@ -1773,6 +1789,7 @@ function heroStart() {
 const composerRef = ref(null)
 async function pickSuggestion(text) {
   if (isBusy.value || !text) return
+  cardTapped.value = true
   input.value = ''
   // Token + conversation are independent — mint both in parallel instead of
   // serially. Still awaited so the conversation id rides on turn 1 (analytics linking).
