@@ -59,19 +59,30 @@ photographed still leads the gallery. `"Puma shorts de mujer"` still drops the s
 While there: `algo`, `quiero`, `busco`, `muéstrame` and friends became stopwords —
 "algo azul" was scoring on "algo".
 
-## 4. Not fixed, worth knowing
+## 4. The source of the junk — fixed too (catalog service, `ce8364f`)
 
-The junk axes come from the **catalog service's** widget reader
-(`~/mcp-servers/computer-use/catalog/variant_widget.mjs`), which is what turned
-Amazon's link list into a Style axis. The guard above is in the app, so every store is
-covered today, but the reader is still producing the garbage and the modal will show
-it in other surfaces. Worth a pass there.
+The app-side guard covers every store today, but the garbage was being *produced* in
+`~/mcp-servers/computer-use/catalog/variant_widget.mjs`. Two holes there:
+
+- `NOISE_RE` had `^details$` **anchored**, so "Additional details" and "Return
+  details" walked straight past it — and it had never heard of "here",
+  "Measurements", "User guide", "Sponsored", or a `3+` swatch-overflow chip.
+- The structural one: the label branch accepts **any value that is not a 4-digit
+  number** for a kind it has no shape test for. So a heading read as "Style" adopted
+  every link sitting beneath it. A link now has to point at a product or a variant to
+  count there. Real colourway links are already claimed earlier by their dwvar/param
+  href or a sibling style code, so nothing buyable reaches that test — and a store
+  that genuinely lists its styles as product links still works (there is a test).
+
+Both layers now agree, which is what we want: the reader stops emitting it, and the
+app still refuses it if some other store invents a new shape.
 
 ## Todo
 - [x] Chrome out of variant axes, at the single read point
 - [x] Poker chip weight from the title
 - [x] Colours rank, they do not gate
 - [x] Spanish filler stopwords
-- [ ] The catalog service's widget reader — the source of the junk
+- [x] The catalog service's widget reader — the source of the junk (`ce8364f`)
 
-48 web-rows · 98 box-fit · 43 variant-chrome. All 16 suites green, build clean.
+48 web-rows · 98 box-fit · 43 variant-chrome. All 16 app suites green, build clean.
+149 variant_widget · 27 catalog suites green.
