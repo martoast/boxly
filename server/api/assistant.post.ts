@@ -648,6 +648,51 @@ async function liveGrabApi(a: { url?: string; store?: string; query?: string }) 
 // shopper commits to a product we go straight to its STORED URL (catalog or live row): no grid navigation,
 // no re-search. The catalog service answers from its mirror when the product was checked recently, else it
 // reads the product page live (headless browser, up to ~40s). Fails SOFT: {variants: [], reason}.
+/**
+ * PAGE FURNITURE IS NOT A VARIANT.
+ *
+ * Erick Martos, 2026-09-22. Three products in a row could not be added to his box:
+ *
+ *   "…en color Black"  → axes: Style ["Additional details", "here", "Measurements"]
+ *   (tapped Add)       → axes: Style ["Return details", "Measurements", "Sponsored", …]
+ *   "…en color Blue"   → axes: Color ["3+", "Green", "Blue"] + Style ["here", "User guide"]
+ *
+ * Those are Amazon's own links and section headings, read off the page as if they were
+ * a choice. And ONE of them is enough to trap the shopper for good: the hold gate needs
+ * EVERY multi-value axis answered, so on the third the Color axis was satisfied — he
+ * said Blue, Blue was there — and the junk Style axis held it anyway. He was asked to
+ * pick something he had already picked, from options that meant nothing, and replied "?".
+ *
+ * Fixed at the one place both readers pass through, so a store we have never seen gets
+ * the same guard. Anchored patterns only: a colour really can be called "Floral Details",
+ * so nothing matches on a substring.
+ */
+const CHROME_VALUE = /^(?:here|sponsored|more|see (?:more|all|less)|learn more|show more|compare|report(?: an issue)?|(?:additional|return|product|more|shipping|delivery|payment)? ?details?|measurements?|specifications?|description|dimensions|user guide|size (?:chart|guide)|about this item|customer (?:reviews?|questions?)|reviews?|questions?|q&a|videos?|images?|photos?|visit the .*store|shipping(?: (?:&|and) returns)?|returns?|warranty|help|support|terms|privacy|feedback|add to (?:list|cart|registry)|\d+\+)$/i
+
+/** Real, choosable values — page chrome and blanks removed. */
+function cleanValues(values: any[]): any[] {
+  return (values || []).filter((v) => { const t = String(v ?? '').trim(); return t && !CHROME_VALUE.test(t) })
+}
+
+/**
+ * Drop the chrome from every axis, then drop any axis that no longer offers a choice.
+ * An axis with one real value is not a decision; an axis with none never was.
+ */
+export function cleanAxes(axes: any[]): any[] {
+  return (Array.isArray(axes) ? axes : [])
+    .map((a: any) => ({ ...a, values: cleanValues(a?.values) }))
+    .filter((a: any) => (a.values?.length || 0) > 0)
+}
+
+/** The same cut applied to the flat variant list the chips are drawn from. */
+export function cleanVariants(variants: any[]): any[] {
+  return (Array.isArray(variants) ? variants : []).filter((v: any) => {
+    const parts = [v?.size, v?.color].filter((x) => x != null && String(x).trim() !== '')
+    if (!parts.length) return true
+    return parts.every((x) => !CHROME_VALUE.test(String(x).trim()))
+  })
+}
+
 const variantCache = new Map<string, { at: number; r: any }>()
 async function getProductVariantsApi(url: string, maxAgeS = 900) {
   // Every read populates variantCache, whichever tool asked for it: the box's hold gate and the finalize rail both
@@ -658,11 +703,16 @@ async function getProductVariantsApi(url: string, maxAgeS = 900) {
   try {
     data = await callApi('/catalog/product-variants', { method: 'POST', body: { url, max_age_s: maxAgeS }, timeoutMs: 58000 })
   } catch (e: any) { console.warn('[assistant] product-variants unreachable:', e?.message || e); data = { error: 'unreachable' } }
-  const variants: any[] = Array.isArray(data?.variants) ? data.variants : []
+  const variants: any[] = cleanVariants(Array.isArray(data?.variants) ? data.variants : [])
+  // Judged on what SURVIVED the chrome cut, not on what the reader sent: a page whose
+  // only "variants" were "Sponsored" and "Return details" has no variants, and saying
+  // so out loud is what lets the item into the box instead of stalling on a null reason.
   const reason: string | null = data?.error ? String(data.error) : (!variants.length ? (data?.reason || 'no_variants') : null)
   const out = {
     product: data?.product || null,
-    axes: Array.isArray(data?.axes) ? data.axes : [],
+    // Chrome out before anyone counts axes: the hold gate, the chips and the model's
+    // note all read these, and one junk axis traps the shopper (see CHROME_VALUE).
+    axes: cleanAxes(data?.axes),
     // TRI-STATE AVAILABILITY, never coerced. `!!v.available` turned every UNKNOWN into SOLD OUT here, so an
     // Adidas product — whose API never publishes per-size stock — rendered 21 disabled chips reading
     // "0 de 21 disponibles" and could not be added to a box at all (live test, 2026-09-11).
@@ -876,6 +926,33 @@ export function askTerms(query?: string | null): string[] {
 }
 
 /** How many of the shopper's words this row actually carries. */
+/**
+ * A COLOUR IS A PREFERENCE, NOT A FILTER.
+ *
+ * Erick sent a PHOTO of a pair of trainers (2026-09-22). Vision read them correctly and
+ * searched "asics gel nyc light blue sky cream" — and the gallery came back with ONE
+ * row out of the seventy-two the engines returned.
+ *
+ * This filter was the thing that dropped them. askTerms() ignores tokens under four
+ * characters, so "gel" and "nyc" — the entire identity of the shoe — were invisible,
+ * and the score ran on `asic` plus three colour words. One FARFETCH listing happened to
+ * spell "Cream/Blue" in its title and scored 3; every genuine ASICS GEL-NYC scored 2
+ * and was thrown away for describing its colour differently.
+ *
+ * A photo search always produces a long descriptive query, so this is its normal shape,
+ * not an edge case. Colours now RANK and never GATE — which is what curate_products'
+ * own free-text field has always promised ("Ranks, never gates").
+ */
+const COLOUR_WORD = /^(?:black|white|cream|ivory|bone|beige|taupe|tan|brown|chocolate|camel|navy|blue|teal|aqua|turquoise|light|dark|pale|bright|deep|sky|red|crimson|burgundy|maroon|wine|pink|rose|blush|fuchsia|coral|peach|green|olive|sage|mint|lime|grey|gray|charcoal|silver|gold|golden|bronze|copper|purple|violet|lilac|lavender|yellow|mustard|orange|khaki|nude|multicolor|multicolour|negro|blanco|crema|marfil|beige|cafe|marron|azul|celeste|claro|oscuro|cielo|rojo|vino|rosa|rosado|verde|gris|plata|plateado|dorado|morado|lila|amarillo|naranja|durazno|multicolor)$/
+
+/** The words that say WHICH PRODUCT, as opposed to which colourway of it. */
+export function identityTerms(query?: string | null): string[] {
+  const all = askTerms(query)
+  const core = all.filter((w) => !COLOUR_WORD.test(w))
+  // "algo azul", "el rojo" — when colour is ALL they gave, it is the ask, so gate on it.
+  return core.length ? core : all
+}
+
 export function echoScore(row: any, query?: string | null): number {
   const hay = plainText(`${row?.title || ''} ${row?.brand || ''}`).toLowerCase()
   return askTerms(query).filter((w) => hay.includes(w)).length
@@ -883,14 +960,26 @@ export function echoScore(row: any, query?: string | null): number {
 
 export function onlyWhatTheyAsked(rows: any[], query?: string | null): any[] {
   const list = rows || []
-  if (!list.length || !askTerms(query).length) return list
+  const core = identityTerms(query)
+  if (!list.length || !core.length) return list
   // COUNT the words, do not just look for one. "Puma shorts de mujer" matched a PUMA SNEAKER on the brand
   // alone — every row in a brand search echoes the brand, so "any word" is no filter at all. The rows that
   // carry the MOST of what was asked are the answer; a row carrying strictly fewer is a different product.
-  const scored = list.map((r) => ({ r, n: echoScore(r, query) }))
+  // Counted on the IDENTITY words only — see COLOUR_WORD for why a colourway must not decide this.
+  const hay = (r: any) => plainText(`${r?.title || ''} ${r?.brand || ''}`).toLowerCase()
+  const scored = list.map((r) => ({ r, n: core.filter((w) => hay(r).includes(w)).length }))
   const best = Math.max(...scored.map((x) => x.n))
   if (best === 0) return list          // nothing echoed anything: a thin engine answer, not a reason to show none
-  return scored.filter((x) => x.n === best).map((x) => x.r)
+  const kept = scored.filter((x) => x.n === best).map((x) => x.r)
+  // The colours they named still decide the ORDER — the shopper photographed one
+  // colourway and wants to see it first. Stable, so the engines' own order survives
+  // inside each group, and merchantTier still outranks this afterwards.
+  const shades = askTerms(query).filter((w) => COLOUR_WORD.test(w))
+  if (!shades.length) return kept
+  return kept
+    .map((r, i) => ({ r, i, n: shades.filter((w) => hay(r).includes(w)).length }))
+    .sort((a, b) => b.n - a.n || a.i - b.i)
+    .map((x) => x.r)
 }
 
 /** Official shops first, marketplaces last. Stable within a tier. Pure. */
@@ -1081,7 +1170,12 @@ const plainText = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '')
 // a 4+ letter stem so "boot" catches "boots" and "bottle" catches "Bottles"; one third of
 // the rows is enough, because a real match brings siblings whose titles use the brand's
 // own vocabulary. Empty query or no rows → nothing to judge, leave the decision alone.
-const QUERY_STOP = new Set(['with', 'without', 'para', 'and', 'the', 'for', 'from', 'your', 'best', 'mens', 'womens'])
+// Spanish fillers earn their place here the same way the English ones did: "algo azul"
+// scored on "algo", so the colour never got a chance to be the ask.
+const QUERY_STOP = new Set(['with', 'without', 'para', 'and', 'the', 'for', 'from', 'your', 'best', 'mens', 'womens',
+  'algo', 'algun', 'alguna', 'algunas', 'alguno', 'algunos', 'quiero', 'busco', 'buscar', 'muestrame', 'ensename',
+  'unos', 'unas', 'esta', 'este', 'esto', 'esos', 'esas', 'como', 'pero', 'todo', 'toda', 'todos', 'todas',
+  'mejor', 'mejores', 'tiene', 'tienen', 'quiera', 'porfa', 'favor'])
 function catalogEchoesQuery(rows: any[], query: string): boolean {
   const terms = [...new Set((plainText(query).toLowerCase().match(/[a-z0-9]{4,}/g) || [])
     .filter((w) => !QUERY_STOP.has(w))

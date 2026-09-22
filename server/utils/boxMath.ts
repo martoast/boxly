@@ -95,8 +95,18 @@ export const DEFAULT_KG = 0.5
  * here only when that gap is real — an ordinary heavy-ish item is fine at its
  * archetype weight.
  */
-const DENSE_KG: Array<[RegExp, number]> = [
+const DENSE_KG: Array<[RegExp, number | ((name: string) => number)]> = [
   [/bowling ball|bola de boliche/i, 7],
+  // A CASE OF POKER CHIPS IS MOSTLY CHIPS. The title says the answer out loud —
+  // "500PCS … 11.5 Gram" is 5.75 kg of clay before the aluminium case — and it read as
+  // 0.8 kg, so a set Alex sized by hand at "50% of a small" drew a 3% bar (Erick
+  // Martos, 2026-09-22). Read the count and the gram weight off the title when they
+  // are there, because a 300-chip set and a 1000-chip set are not the same shipment.
+  [/poker (?:chip|set)|chip set|fichas de p[oó]ker|fichas de poker/i, (name: string) => {
+    const chips = Number(name.match(/(\d{2,4})\s*(?:pcs?\b|pieces?\b|pc\b|fichas)/i)?.[1]) || 500
+    const gram = Number(name.match(/(\d{1,2}(?:\.\d)?)\s*(?:g|gram)s?\b/i)?.[1]) || 11.5
+    return Math.round((chips * gram / 1000 + 1.2) * 10) / 10 // + the case
+  }],
   [/dumbbell|mancuerna|kettlebell|pesa rusa|weight plate|disco de peso|barbell|barra ol[ií]mpica/i, 10],
   [/car battery|bater[ií]a (?:de|para) (?:auto|coche|carro)/i, 15],
   [/cast iron|hierro fundido|dutch oven/i, 3.5],
@@ -263,7 +273,7 @@ export function itemUnits(name: string, type?: string | null): number {
 
 /** Boxed weight of one unit, in kg. A dense-item override beats the archetype. */
 export function itemKg(name: string, type?: string | null): number {
-  for (const [re, kg] of DENSE_KG) if (re.test(name || '')) return kg
+  for (const [re, kg] of DENSE_KG) if (re.test(name || '')) return typeof kg === 'function' ? kg(name || '') : kg
   const t = archetypeOf(name, type)
   return t ? ARCHETYPE_KG[t] : DEFAULT_KG
 }

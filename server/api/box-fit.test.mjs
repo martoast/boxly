@@ -137,6 +137,25 @@ for (const n of ['Neutrogena Makeup Remover Towelettes', 'Head & Shoulders Shamp
   ok(`"${n}" is a drugstore package`, archetypeFromName(n) === 'toiletry');
 ok('ten sanitizers still barely move the bar', ship(Array(10).fill('Touchland Power Mist Sanitizer')).label === 'Chica');
 
+// ── A CASE OF POKER CHIPS IS MOSTLY CHIPS ──────────────────────────────────
+//
+// Erick added a 500-chip set and the bar read 3%. The title says the answer out loud:
+// "500PCS … 11.5 Gram" is 5.75 kg of clay before the aluminium case. Alex sized it by
+// hand at "50% of a small" (2026-09-22).
+{
+  const comie = 'Comie Poker Chips,500PCS Poker Chip Set with Aluminum Travel Case,11.5 Gram Poker Set for Texas Holdem';
+  const loy = 'Loychip 500 Piece Poker Chip Set Texas Holdem Blackjack 14G Heavy Clay Composite Numbered Chips With Aluminum Case';
+  ok('500 chips at 11.5 g weigh 7 kg, not 0.8', itemKg(comie) === 7);
+  ok('…and about half a Caja Chica, which is what Alex measured by eye', Math.round(itemKg(comie) / 15 * 100) === 47);
+  ok('a heavier 14 g set is heavier still', itemKg(loy) === 8.2);
+  ok('a 300-chip set is proportionally lighter', itemKg('Classic Games 300 Piece Premium ClayFeel Poker Chip Set') === 4.7);
+  ok('an unspecified poker set falls back to a 500/11.5 g default', itemKg('Deluxe Poker Chip Set with Case') === 7);
+  const r = buildShipment([{ name: comie, quantity: 1, type: 'rigid_medium' }]);
+  ok('so the bar is no longer 3%', r.capacity_used_pct > 40);
+  ok('and weight is what is filling the box', r.limited_by === 'weight');
+}
+ok('a deck of cards is not a chip set', itemKg('Copag 1546 Playing Cards') !== 7);
+
 // ── The 2026-09-15 shipment must stay fixed ──────────────────────────────────
 {
   const ps3 = 'Restored Sony PlayStation 3 Slim 120GB Black Console';

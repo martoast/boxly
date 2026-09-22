@@ -16,6 +16,8 @@ const mod = [
   pick(/const MARKETPLACE_RE = [^\n]*\n/),
   pick(/const MARKETPLACE_SELLER_RE = [^\n]*\n/),
   pick(/export function askTerms\([\s\S]*?\n\}/),
+  pick(/const COLOUR_WORD = [^\n]*\n/),
+  pick(/export function identityTerms\([\s\S]*?\n\}/),
   pick(/export function echoScore\([\s\S]*?\n\}/),
   pick(/export function onlyWhatTheyAsked\([\s\S]*?\n\}/),
   pick(/export function merchantTier\([\s\S]*?\n\}/),
@@ -27,7 +29,7 @@ const mod = [
 ].join('\n');
 const f = join(mkdtempSync(join(tmpdir(), 'webrows-')), 'm.ts');
 writeFileSync(f, mod);
-const { onlyWhatTheyAsked, byMerchantTrust, merchantTier, marketsAskedFor, rowMarket, dropMarkets } = await import(f);
+const { onlyWhatTheyAsked, byMerchantTrust, merchantTier, marketsAskedFor, rowMarket, dropMarkets, identityTerms } = await import(f);
 
 // ── the wrong product type ────────────────────────────────────────────────────────────────
 {
@@ -136,5 +138,45 @@ ok('Google Shopping rows go through it too', /products: dropMarkets\(raw\.map\(\
 ok('a dropped engine is not reported as a source', /if \(engineMarket && !allowedMarkets\.has\(engineMarket\)\) continue/.test(src));
 ok('the store card carries its consent past productTerms', /const marketAsk = \[rawQuery, store, asked\]/.test(src));
 ok('the tool description no longer promises eBay', !/plus Amazon and eBay\)/.test(src));
+
+
+// ── A COLOUR IS A PREFERENCE, NOT A FILTER ──────────────────────────────────
+//
+// Erick sent a photo of a pair of trainers (2026-09-22). Vision read them right and
+// searched "asics gel nyc light blue sky cream" — and ONE row came back out of the 72
+// the engines returned. askTerms drops tokens under four characters, so "gel" and
+// "nyc" were invisible and the score ran on `asic` plus three colour words; the one
+// listing that spelled "Cream/Blue" beat every genuine GEL-NYC.
+{
+  const q = 'asics gel nyc light blue sky cream';
+  ok('colour words do not decide what a product IS', !identityTerms(q).some((w) => ['light', 'blue', 'cream'].includes(w)));
+  ok('…and the brand still does', identityTerms(q).includes('asic'));
+
+  const rows = [
+    { title: 'ASICS Gel-NYC Harbor Blue/Wood Crepe', brand: 'ASICS' },
+    { title: 'ASICS GEL-NYC Sneakers Oyster Grey', brand: 'ASICS' },
+    { title: 'Asics Unisex Cream/Blue - Gel-Nyc 2.0 Lace-Up Sneakers', brand: 'ASICS' },
+    { title: 'ASICS Gel-Kayano 14 White', brand: 'ASICS' },
+    { title: 'Nike Air Force 1 White', brand: 'Nike' },
+  ];
+  const kept = onlyWhatTheyAsked(rows, q);
+  ok('every ASICS row survives the photo search now', kept.length === 4);
+  ok('…instead of the single listing that spelled the colour our way', kept.length !== 1);
+  ok('a Nike is still not an ASICS', !kept.some((r) => /Nike/.test(r.title)));
+  ok('the colourway they photographed leads', /Cream\/Blue/.test(kept[0].title));
+
+  // "algo azul" — when colour is all they gave, it IS the ask.
+  ok('a colour-only ask still gates on the colour', identityTerms('algo azul').includes('azul'));
+}
+
+// The filter this replaced must keep doing its job.
+{
+  const rows = [
+    { title: 'PUMA Essentials Sneakers', brand: 'PUMA' },
+    { title: 'PUMA Womens Running Shorts 5"', brand: 'PUMA' },
+  ];
+  const kept = onlyWhatTheyAsked(rows, 'Puma shorts de mujer');
+  ok('"Puma shorts de mujer" still drops the sneaker', kept.length === 1 && /Shorts/.test(kept[0].title));
+}
 
 console.log(`\n${pass} checks passed`);

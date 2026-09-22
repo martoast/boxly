@@ -25,7 +25,8 @@
     "test:box-fit": "node --experimental-strip-types server/api/box-fit.test.mjs",
     "test:tools-reachable": "node server/api/tools-reachable.test.mjs",
     "test:store-ask": "node server/api/store-ask.test.mjs",
-    "test:purchase-confirm": "node components/purchase-confirm.test.mjs"
+    "test:purchase-confirm": "node components/purchase-confirm.test.mjs",
+    "test:variant-chrome": "node --experimental-strip-types server/api/variant-chrome.test.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.84",
