@@ -176,7 +176,10 @@ async function searchCatalogApi(a0: CatalogSearchArgs & { web?: boolean }) {
   const catalogReal = (miss.query_matched !== false || namedCarriedStore)
     && (namedCarriedStore || catalogEchoesQuery(soldOut.rows, String(a.query || '')))
   const catRows = soldOut.rows.map(toGalleryProduct)
-  const storeRows: any[] = live.products || []
+  // The store's own site was searched under the catalog's slug, so its rows are that store's even when the grab
+  // itself did not echo the slug back.
+  const liveSlug = typeof miss.store_id === 'string' && STORE_SLUG_RE.test(miss.store_id) ? miss.store_id : null
+  const storeRows: any[] = (live.products || []).map((p: any) => (p.store_id || !liveSlug ? p : { ...p, store_id: liveSlug }))
   // A sale/promo search takes only MARKED-DOWN web rows — full-price Amazon listings are not "ofertas".
   const webRows: any[] = byMerchantTrust(
     onlyWhatTheyAsked(brandRowsOnly(g.products || [], a.store).filter((p: any) => !a.sale || (p.on_sale && p.discount_pct)), a.query),
@@ -469,6 +472,7 @@ async function usdMxn(): Promise<number | null> {
   } catch { return null }
 }
 
+const STORE_SLUG_RE = /^[a-z0-9][a-z0-9_-]{0,39}$/
 function toGalleryProduct(p: any) {
   return {
     // Carried when the row came from Google: the handle that resolves to the merchant's real product page.
@@ -485,6 +489,9 @@ function toGalleryProduct(p: any) {
     image: thumb(p.image),
     images: p.image ? [thumb(p.image)] : [],
     store: p.store,
+    // The catalog's store SLUG ("alo", "best-buy") — what the Boxly cart keys a line by. Only a real slug
+    // travels; web rows (Google Shopping, Amazon, the fan-out) have none and are nulled by their mappers.
+    store_id: typeof p.store_id === 'string' && STORE_SLUG_RE.test(p.store_id) ? p.store_id : null,
     availability: p.availability,
     see_in_cart: p.see_in_cart,
     seen_at: p.seen_at,
@@ -749,7 +756,7 @@ async function getGoogleShopApi(query: string, asked?: string | null) {
     // merchant's own product page and read its variants (see /catalog/google-product).
     // Google Shopping resells eBay and Etsy listings under its own engine name, so the
     // merchant is the only tell here — rowMarket reads it.
-    products: dropMarkets(raw.map((p) => ({ ...toGalleryProduct(p), merchant: p.merchant || p.store || null, source: 'google', page_token: p.page_token || null, product_id: p.product_id || null })), asked ?? query),
+    products: dropMarkets(raw.map((p) => ({ ...toGalleryProduct(p), merchant: p.merchant || p.store || null, store_id: null, source: 'google', page_token: p.page_token || null, product_id: p.product_id || null })), asked ?? query),
     source: 'google',
     from_web: true,          // the model MUST frame these as found on the web, orderable via Boxly
     reason,                  // null on success; 'cooling'/'blocked'/'no_results'/an error code otherwise
@@ -781,6 +788,7 @@ async function getWebFanoutApi(query: string, asked?: string | null) {
     products: dropMarkets(raw.map((p) => ({
       ...toGalleryProduct(p),
       merchant: p.merchant || p.store || null,
+      store_id: null,
       source: p.engine || p.source || 'web',
       page_token: p.page_token || null,
       product_id: p.product_id || null,
@@ -797,7 +805,7 @@ async function getAmazonApi(query: string) {
   const raw: any[] = Array.isArray(data?.products) ? data.products : []
   const reason: string | null = data?.error ? String(data.error) : data?.no_results ? 'no_results' : null
   return {
-    products: raw.map((p) => ({ ...toGalleryProduct(p), brand: p.brand || null, merchant: 'Amazon', source: 'amazon' })),
+    products: raw.map((p) => ({ ...toGalleryProduct(p), brand: p.brand || null, merchant: 'Amazon', store_id: null, source: 'amazon' })),
     source: 'amazon', from_web: true, reason,
   }
 }

@@ -627,6 +627,8 @@
 <script setup>
 import { Chat } from '@ai-sdk/vue'
 import { DefaultChatTransport } from 'ai'
+import { useBoxlyCart } from '../composables/useBoxlyCart'
+import { cartPayloadFromChatProduct } from '../utils/boxlyCart'
 
 // Auto-continue ONLY for the client-side create_account tool once it has a
 // result. Server tools (search_products/browse_store/…) are fully resolved
@@ -663,6 +665,7 @@ const { fullscreenMobile, standalone, hub } = toRefs(props)
 
 const { $customFetch } = useNuxtApp()
 const user = useState('user')
+const boxlyCart = useBoxlyCart()
 // First name for the hub welcome header (falls back gracefully for guests).
 const userName = computed(() => (user.value?.name || '').trim().split(/\s+/)[0] || '')
 
@@ -794,6 +797,8 @@ function registerProducts(list) {
     byId.set(id, {
       id, title, url,
       store: raw.store ?? prev.store ?? null,
+      // The catalog slug the Boxly cart needs; null for web rows (Google/Amazon), which have none.
+      store_id: raw.store_id ?? prev.store_id ?? null,
       price: raw.price ?? raw.price_usd ?? prev.price ?? null,
       was: raw.was ?? prev.was ?? null,
       on_sale: raw.on_sale ?? raw.onSale ?? prev.on_sale ?? false,
@@ -1832,6 +1837,19 @@ function productTail(p) {
 // the assistant accumulates items and only finalizes when the customer says they're
 // done). Same intent whether they tap this or type "agrégalo a mi carrito" in chat.
 function onAssistedProduct(p) {
+  addToBoxlyCart(p)
+  sendAssisted(p)
+}
+// The persisted Boxly cart gets the product too, right away (even while the assistant is still streaming and the
+// chat message waits in pendingPick). Only catalog products carry a store slug; a web row (Google/Amazon) has
+// none and stays chat-only for now. A size the chat still has to ask for waits for the finished pick.
+function addToBoxlyCart(p) {
+  if (!user.value || p?.pick?.size_owed || !cartPayloadFromChatProduct(p)) return
+  ensureConversation(`Agrégalo a mi carrito Boxly: ${p.title || ''}`)
+    .then((cid) => boxlyCart.add(cartPayloadFromChatProduct(p, { conversationId: cid ?? activeId.value })))
+    .catch((e) => console.warn('boxly cart add failed', e?.data?.message || e))
+}
+function sendAssisted(p) {
   ensureChatToken()
   if (isBusy.value) { pendingPick.value = { p, assisted: true }; return }
   const { store, price, urlPart } = productTail(p)
@@ -2111,7 +2129,7 @@ watch(() => chat.status, async (s) => {
   if ((s === 'ready' || s === 'error') && pendingPick.value) {
     const { p, assisted } = pendingPick.value
     pendingPick.value = null
-    assisted ? onAssistedProduct(p) : onPickProduct(p)
+    assisted ? sendAssisted(p) : onPickProduct(p) // the Boxly cart already has it (onAssistedProduct)
     return
   }
   if (s === 'ready' && user.value && activeId.value) {

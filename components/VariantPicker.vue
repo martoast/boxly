@@ -204,7 +204,10 @@ function confirm() {
   const parts = axes.value.map((a) => `${axisLabel(a).toLowerCase()} ${sel[a.name]}`)
   const what = product.value.title ? `los ${product.value.title}` : 'ese producto'
   // Quantity is not asked for here any more — the shopper tells the assistant if they want more than one.
-  emit('pick', `Quiero ${what}${parts.length ? ' en ' + parts.join(', ') : ''} — agrégalos a mi caja`)
+  // The same choice, structured, for the Boxly cart line: size/color/… keyed by the axis kind when it has one.
+  const variants = {}
+  for (const a of axes.value) { const k = a.kind && a.kind !== 'other' ? a.kind : a.name; if (sel[a.name] && !(k in variants)) variants[k] = sel[a.name] }
+  emit('pick', `Quiero ${what}${parts.length ? ' en ' + parts.join(', ') : ''} — agrégalos a mi caja`, variants)
 }
 const SWATCH = { black: '#111', negro: '#111', white: '#fff', blanco: '#fff', red: '#dc2626', rojo: '#dc2626', blue: '#2563eb', azul: '#2563eb', navy: '#1e3a8a', green: '#16a34a', verde: '#16a34a', pink: '#ec4899', rosa: '#ec4899', grey: '#9ca3af', gray: '#9ca3af', gris: '#9ca3af', beige: '#d6c7a1', brown: '#92400e', café: '#92400e', yellow: '#eab308', orange: '#f97316', purple: '#7c3aed', tan: '#d2b48c', cream: '#f5f0e1', ivory: '#fffff0', olive: '#6b8e23', burgundy: '#800020', teal: '#0d9488' }
 function swatch(val) { const w = String(val).toLowerCase().split(/[^a-záéíóú]+/).find((t) => SWATCH[t]); return w ? SWATCH[w] : 'linear-gradient(135deg,#e5e7eb,#9ca3af)' }

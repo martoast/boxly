@@ -92,7 +92,7 @@
           <div class="min-w-0 flex-1">
             <p class="text-sm font-medium text-gray-900 truncate">{{ product.title }}</p>
             <p class="text-xs text-gray-600"><span v-if="priceText">{{ priceText }}</span><span v-else class="text-amber-700">Precio por confirmar</span><span v-if="availabilityLabel"> · {{ availabilityLabel }}</span></p>
-            <p v-if="added" class="text-xs text-green-700 mt-0.5">Agregado a tu carrito de Boxly.</p>
+            <p v-if="added" class="text-xs text-green-700 mt-0.5">Agregado a tu carrito de Boxly. <NuxtLink to="/app/cart" class="font-semibold underline underline-offset-2 hover:text-green-800">Ver carrito</NuxtLink></p>
             <p v-else-if="addError" class="text-xs text-red-600 mt-0.5">{{ addError }}</p>
           </div>
           <button type="button" class="px-3 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-xs font-semibold whitespace-nowrap disabled:opacity-60" :disabled="adding || added" @click="addToBoxlyCart">
@@ -115,7 +115,9 @@ import {
   parseSessionCreateResponse, isTerminal, candidatePriceText, availabilityText,
   type Candidate, type EventV1, type SessionHandle,
 } from '../../../utils/liveShopping'
-import { overlayReducer, purchaseItemFor, storeCardImage, loaderStepsFor } from '../../../utils/liveBrowse'
+import { overlayReducer, storeCardImage, loaderStepsFor } from '../../../utils/liveBrowse'
+import { cartPayloadFromCandidate } from '../../../utils/boxlyCart'
+import { useBoxlyCart } from '../../../composables/useBoxlyCart'
 import { useLiveSession } from '../../../composables/useLiveSession'
 import { useWhepViewer } from '../../../composables/useWhepViewer'
 import { useInputRelay } from '../../../composables/useInputRelay'
@@ -125,6 +127,7 @@ definePageMeta({ layout: 'app', middleware: ['auth', 'customer', 'complete-profi
 const route = useRoute()
 const nuxtApp = useNuxtApp() as any
 const { $customFetch } = nuxtApp
+const boxlyCart = useBoxlyCart()
 const STORE_ID_RE = /^[a-z0-9][a-z0-9_-]{0,39}$/
 const storeId = String(route.params.store || '')
 if (!STORE_ID_RE.test(storeId)) throw createError({ statusCode: 404, statusMessage: 'Tienda no encontrada' })
@@ -283,9 +286,12 @@ const availabilityLabel = computed(() => (product.value ? availabilityText(produ
 
 async function addToBoxlyCart() {
   if (!product.value || adding.value) return
+  // The persisted Boxly cart (one line per product, grouped by store), not a one-item purchase request per click.
+  const payload = cartPayloadFromCandidate(product.value, storeId)
+  if (!payload) { addError.value = 'No pudimos leer este producto. Intenta de nuevo en un momento.'; return }
   adding.value = true; addError.value = ''
   try {
-    await $customFetch('/purchase-requests', { method: 'POST', body: { currency: 'usd', items: [purchaseItemFor(product.value)] } })
+    await boxlyCart.add(payload)
     added.value = true
   } catch (e: any) {
     addError.value = e?.data?.message || 'No se pudo agregar. Intenta de nuevo.'

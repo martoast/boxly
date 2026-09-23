@@ -456,7 +456,8 @@ async function loadDetails(p) {
 function assisted(pick) {
   // Both paths funnel through here — the picker's CTA and the plain button — so the guard
   // only has to exist once.
-  if (missingSize.value) pick = { text: askForSize(pick?.text) }
+  // size_owed: the chat asks for the size first, so the Boxly cart waits for the finished pick.
+  if (missingSize.value) pick = { text: askForSize(pick?.text), variants: pick?.variants || {}, size_owed: true }
   emit('assisted', {
     ...props.product,
     url: bestLink.value,
@@ -479,14 +480,16 @@ function askForSize(chosenText) {
   return `${base} — ¿qué tallas tienen disponibles? Dime las opciones y te digo cuál quiero.`
 }
 
-function onVariantPick(text) {
+function onVariantPick(text, variants = {}) {
   // Name the colourway the shopper actually chose here — the picker only knows this page's own axes, and for a
   // store that sells each colour as a separate page the colour lives in the chip, not in the size chips.
   const c = activeColorway.value?.name || (colorways.value.find((x) => x.current) || {}).name
   const withColour = c && !new RegExp(`color\\s+${c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i').test(text)
     ? text.replace(/ — agrégalos a mi caja$/, `, color ${c} — agrégalos a mi caja`)
     : text
-  assisted({ text: withColour })
+  const picked = { ...variants }
+  if (c && !picked.color) picked.color = c
+  assisted({ text: withColour, variants: picked })
 }
 
 let revealTimer = null
