@@ -218,6 +218,11 @@ export const SYNC_STATUS: Record<SyncStatus, { label: string; tone: 'amber' | 'b
   unavailable: { label: 'No disponible en la tienda', tone: 'red' },
   failed: { label: 'No se pudo agregar en la tienda', tone: 'red' },
 }
+/** C3: the cart is still reaching the real store carts while any item is pending or syncing. */
+export function cartNeedsSyncPoll(cart: { items?: Array<{ sync_status?: string | null }> } | null | undefined): boolean {
+  return !!cart?.items?.some((i) => i.sync_status === 'pending' || i.sync_status === 'syncing')
+}
+
 /** Spanish label + colour tone for an item's sync_status (an unknown status reads as pending). */
 export function syncStatusLabel(status: string | null | undefined): { label: string; tone: 'amber' | 'blue' | 'green' | 'red' } {
   return (SYNC_STATUS as any)[status || ''] || SYNC_STATUS.pending

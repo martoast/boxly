@@ -658,7 +658,7 @@ const t = createTranslations(translations);
 // The Boxly cart's item count (shared state: the chat and live stores update it as they add).
 const boxlyCart = useBoxlyCart();
 const cartCount = computed(() => boxlyCart.count.value);
-onMounted(() => { boxlyCart.load(); });
+onMounted(async () => { await boxlyCart.load(); boxlyCart.pollWhileSyncing(); });
 
 const userInitials = computed(() => {
   if (!user?.name) return 'U';

@@ -1,5 +1,5 @@
 // Pure tests for utils/boxlyCart.ts — the Boxly cart's client helpers.
-import {
+import { cartNeedsSyncPoll,
   normalizeVariants, cartPayloadFromChatProduct, cartPayloadFromCandidate, normalizeCart, groupCartItems,
   withQuantity, withoutItem, syncStatusLabel, variantsText, emptyCart, formatUsd,
 } from './boxlyCart.ts'
@@ -83,3 +83,13 @@ check('formatUsd', formatUsd(1299.5) === '$1,299.50 USD' && formatUsd(null) === 
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed) process.exit(1)
+
+// C3 polling rule
+{
+  const ok = (cond, msg) => { if (!cond) throw new Error(msg) }
+  ok(cartNeedsSyncPoll({ items: [{ sync_status: 'pending' }] }) === true, 'pending polls')
+  ok(cartNeedsSyncPoll({ items: [{ sync_status: 'syncing' }, { sync_status: 'in_store_cart' }] }) === true, 'syncing polls')
+  ok(cartNeedsSyncPoll({ items: [{ sync_status: 'in_store_cart' }, { sync_status: 'unavailable' }, { sync_status: 'failed' }] }) === false, 'settled stops')
+  ok(cartNeedsSyncPoll(null) === false && cartNeedsSyncPoll({ items: [] }) === false, 'empty stops')
+  console.log('cart sync poll rule: ok')
+}

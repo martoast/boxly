@@ -102,7 +102,7 @@ import { groupCartItems, syncStatusLabel, variantsText, formatUsd, type CartItem
 definePageMeta({ layout: 'app', middleware: ['auth', 'customer', 'complete-profile'] })
 useHead({ title: 'Boxly — Mi carrito' })
 
-const { cart, loaded, loading, error, load, update, remove, finalize } = useBoxlyCart()
+const { cart, loaded, loading, error, load, update, remove, finalize, pollWhileSyncing } = useBoxlyCart()
 const groups = computed(() => groupCartItems(cart.value))
 const busy = reactive<Record<string, boolean>>({})
 const anyBusy = computed(() => Object.values(busy).some(Boolean))
@@ -110,7 +110,8 @@ const notes = ref('')
 const finalizing = ref(false)
 const finalizeError = ref('')
 
-onMounted(() => { load({ force: true }) })
+onMounted(async () => { await load({ force: true }); pollWhileSyncing() })
+
 
 async function setQuantity(it: CartItem, quantity: number) {
   if (busy[it.id] || quantity < 1 || quantity > 20) return

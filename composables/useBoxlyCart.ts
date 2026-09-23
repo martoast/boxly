@@ -3,7 +3,7 @@
 // component sees the same instance; the API is the source of truth and each
 // call's answer replaces the local copy. Pure rules: utils/boxlyCart.ts.
 import { computed } from 'vue'
-import { emptyCart, normalizeCart, withQuantity, withoutItem, type Cart, type CartAddPayload, type CartItem } from '../utils/boxlyCart'
+import { cartNeedsSyncPoll, emptyCart, normalizeCart, withQuantity, withoutItem, type Cart, type CartAddPayload, type CartItem } from '../utils/boxlyCart'
 
 const errorMessage = (e: any, fallback: string) => e?.data?.message || fallback
 
@@ -40,6 +40,7 @@ export function useBoxlyCart() {
     try {
       const r = await $customFetch('/cart/items', { method: 'POST', body: payload })
       if (r?.data?.cart) apply(r.data.cart)
+      if (cartNeedsSyncPoll(cart.value)) pollWhileSyncing()
       return r?.data?.item || null
     } catch (e: any) {
       error.value = errorMessage(e, 'No se pudo agregar a tu carrito.')
@@ -89,5 +90,18 @@ export function useBoxlyCart() {
     }
   }
 
-  return { cart, count, loaded, loading, error, load, add, update, remove, finalize }
+  // C3: while items are still reaching the real store carts, re-read the cart
+  // every few seconds so the status chips move; stop when nothing is in flight.
+  // One shared timer app-wide (the navbar and /app/cart both ask for it).
+  const pollTimer = useState<any>('boxly-cart-poll', () => null)
+  function pollWhileSyncing(intervalMs = 8000) {
+    if (!import.meta.client || pollTimer.value) return
+    pollTimer.value = setInterval(async () => {
+      if (!cartNeedsSyncPoll(cart.value)) { stopPolling(); return }
+      await load({ force: true })
+    }, intervalMs)
+  }
+  function stopPolling() { if (pollTimer.value) { clearInterval(pollTimer.value); pollTimer.value = null } }
+
+  return { cart, count, loaded, loading, error, load, add, update, remove, finalize, pollWhileSyncing, stopPolling }
 }
