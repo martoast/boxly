@@ -56,7 +56,7 @@
                 <div class="inline-flex items-center rounded-lg border border-gray-200" role="group" :aria-label="`Cantidad de ${it.title}`">
                   <button type="button" class="w-8 h-8 text-gray-600 hover:text-gray-900 disabled:opacity-40" :disabled="busy[it.id] || it.quantity <= 1" aria-label="Quitar uno" @click="setQuantity(it, it.quantity - 1)">−</button>
                   <span class="w-8 text-center text-sm font-medium text-gray-900" aria-live="polite">{{ it.quantity }}</span>
-                  <button type="button" class="w-8 h-8 text-gray-600 hover:text-gray-900 disabled:opacity-40" :disabled="busy[it.id] || it.quantity >= 99" aria-label="Agregar uno" @click="setQuantity(it, it.quantity + 1)">+</button>
+                  <button type="button" class="w-8 h-8 text-gray-600 hover:text-gray-900 disabled:opacity-40" :disabled="busy[it.id] || it.quantity >= 20" aria-label="Agregar uno" @click="setQuantity(it, it.quantity + 1)">+</button>
                 </div>
                 <button type="button" class="text-xs text-gray-500 hover:text-red-600 disabled:opacity-40" :disabled="busy[it.id]" @click="removeItem(it)">Quitar</button>
               </div>
@@ -113,7 +113,7 @@ const finalizeError = ref('')
 onMounted(() => { load({ force: true }) })
 
 async function setQuantity(it: CartItem, quantity: number) {
-  if (busy[it.id] || quantity < 1 || quantity > 99) return
+  if (busy[it.id] || quantity < 1 || quantity > 20) return
   busy[it.id] = true
   try { await update(it.id, { quantity }) } catch { /* error shown from the composable */ } finally { busy[it.id] = false }
 }
