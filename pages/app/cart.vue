@@ -47,7 +47,7 @@
               <a :href="it.product_url" target="_blank" rel="noopener noreferrer" class="text-sm font-medium text-gray-900 hover:text-primary-700 line-clamp-2">{{ it.title }}</a>
               <p v-if="variantsText(it.variants)" class="text-xs text-gray-600 mt-0.5">{{ variantsText(it.variants) }}</p>
               <div class="mt-1 flex flex-wrap items-center gap-2">
-                <span class="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full" :class="chipClass(it.sync_status)" :title="it.sync_note || ''">
+                <span v-if="cart.sync_enabled" class="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full" :class="chipClass(it.sync_status)" :title="it.sync_note || ''">
                   <span class="w-1.5 h-1.5 rounded-full" :class="dotClass(it.sync_status)" />{{ syncStatusLabel(it.sync_status).label }}
                 </span>
                 <span v-if="it.sync_note" class="text-[11px] text-gray-500">{{ it.sync_note }}</span>

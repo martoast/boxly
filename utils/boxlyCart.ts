@@ -39,6 +39,8 @@ export interface Cart {
   item_count: number
   subtotal: number
   has_unpriced?: boolean
+  /** C3: whether adds are being mirrored into the real store carts (server flag). */
+  sync_enabled?: boolean
   updated_at?: string | null
 }
 export interface CartAddPayload {
@@ -56,7 +58,7 @@ export interface CartAddPayload {
 }
 
 export function emptyCart(): Cart {
-  return { id: null, status: 'open', items: [], stores: [], item_count: 0, subtotal: 0, has_unpriced: false }
+  return { id: null, status: 'open', items: [], stores: [], item_count: 0, subtotal: 0, has_unpriced: false, sync_enabled: false }
 }
 
 const num = (v: any): number | null => {
@@ -156,6 +158,7 @@ export function normalizeCart(raw: any): Cart {
     item_count: Number.isFinite(Number(c.item_count)) ? Number(c.item_count) : items.reduce((n, i) => n + i.quantity, 0),
     subtotal: num(c.subtotal) ?? 0,
     has_unpriced: typeof c.has_unpriced === 'boolean' ? c.has_unpriced : items.some((i) => i.price === null),
+    sync_enabled: c.sync_enabled === true,
   }
 }
 
@@ -219,7 +222,9 @@ export const SYNC_STATUS: Record<SyncStatus, { label: string; tone: 'amber' | 'b
   failed: { label: 'No se pudo agregar en la tienda', tone: 'red' },
 }
 /** C3: the cart is still reaching the real store carts while any item is pending or syncing. */
-export function cartNeedsSyncPoll(cart: { items?: Array<{ sync_status?: string | null }> } | null | undefined): boolean {
+export function cartNeedsSyncPoll(cart: { sync_enabled?: boolean; items?: Array<{ sync_status?: string | null }> } | null | undefined): boolean {
+  // With store sync off (the default) nothing will ever move a chip: never poll.
+  if (cart?.sync_enabled !== true) return false
   return !!cart?.items?.some((i) => i.sync_status === 'pending' || i.sync_status === 'syncing')
 }
 

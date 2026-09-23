@@ -87,8 +87,10 @@ if (failed) process.exit(1)
 // C3 polling rule
 {
   const ok = (cond, msg) => { if (!cond) throw new Error(msg) }
-  ok(cartNeedsSyncPoll({ items: [{ sync_status: 'pending' }] }) === true, 'pending polls')
-  ok(cartNeedsSyncPoll({ items: [{ sync_status: 'syncing' }, { sync_status: 'in_store_cart' }] }) === true, 'syncing polls')
+  ok(cartNeedsSyncPoll({ sync_enabled: true, items: [{ sync_status: 'pending' }] }) === true, 'pending polls')
+  ok(cartNeedsSyncPoll({ sync_enabled: true, items: [{ sync_status: 'syncing' }, { sync_status: 'in_store_cart' }] }) === true, 'syncing polls')
+  ok(cartNeedsSyncPoll({ sync_enabled: false, items: [{ sync_status: 'pending' }] }) === false, 'sync off never polls')
+  ok(cartNeedsSyncPoll({ items: [{ sync_status: 'pending' }] }) === false, 'unknown flag never polls')
   ok(cartNeedsSyncPoll({ items: [{ sync_status: 'in_store_cart' }, { sync_status: 'unavailable' }, { sync_status: 'failed' }] }) === false, 'settled stops')
   ok(cartNeedsSyncPoll(null) === false && cartNeedsSyncPoll({ items: [] }) === false, 'empty stops')
   console.log('cart sync poll rule: ok')
