@@ -45,7 +45,7 @@ export interface Cart {
   /** C4: the store browsers the agent is running for this cart right now (watchable in the chat). */
   live_sessions?: LiveCartSession[]
 }
-export interface LiveCartSession { id: number; store_id: string; store_name: string | null; status: string }
+export interface LiveCartSession { id: number; store_id: string; store_name: string | null; status: string; note?: string }
 export interface CartAddPayload {
   store_id: string
   store_name?: string

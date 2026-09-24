@@ -66,7 +66,7 @@ let noticeTimer: any = null
 const subtitle = computed(() => ended.value ? 'El agente terminó en la tienda.'
   : controller.value === 'customer' ? 'Tú controlas el navegador; el agente está en pausa.'
   : controller.value === 'pausing' ? 'Pausando al agente…'
-  : 'El agente está agregando tus productos al carrito real de la tienda.')
+  : props.session.note ? `${props.session.note}.` : 'El agente está agregando tus productos al carrito real de la tienda.')
 function onControl(c: string) {
   if (c === 'agent' || c === 'pausing' || c === 'customer') { controller.value = c; emit('control', c) }
 }

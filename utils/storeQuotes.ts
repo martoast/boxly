@@ -16,6 +16,8 @@ export interface StoreQuote {
   tax_cents: number | null
   fees_cents: number | null
   total_cents: number | null
+  /** The store browser taking this quote while it runs (watchable in the chat). */
+  live_session_id?: number | null
   // team only
   evidence?: string[]
   error_code?: string | null

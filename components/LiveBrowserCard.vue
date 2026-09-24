@@ -11,7 +11,7 @@
         <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" aria-hidden="true" />
         <div class="min-w-0 flex-1">
           <div class="text-[13px] font-semibold text-gray-900 truncate">En vivo · {{ name }}</div>
-          <div class="text-[11px] text-gray-500 truncate">El agente está agregando tus productos al carrito de la tienda</div>
+          <div class="text-[11px] text-gray-500 truncate">{{ session.note || 'El agente está agregando tus productos al carrito de la tienda' }}</div>
         </div>
         <span class="text-[12px] font-semibold text-primary-700 shrink-0">{{ expanded ? 'Abierto' : 'Ver' }}</span>
       </div>

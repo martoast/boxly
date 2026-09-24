@@ -10,6 +10,7 @@ import { toEnglishSearchTerms, looksSpanish } from '../utils/webQuery'
 import { ageGalleries, windowMessages, withContextOnLastUser, dropToolParts, contextStats, WINDOW_DEFAULTS } from '../utils/chatContext'
 import { generateFollowups, followupPart, followupsWithin, attachFollowupChips } from '../utils/followups'
 import { readSummary, summaryBlock, summarize, shouldSummarize } from '../utils/chatSummary'
+import { boxFromMessages, wantedFromBox, planCart } from '../utils/labCheckout'
 
 /**
  * AI shopping-assistant chat backend (Phase 2).
@@ -1309,6 +1310,8 @@ const NON_GALLERY_TOOLS = [
   // reachability test written for ask_to_narrow).
   'show_contact_whatsapp',
   'update_shopping_profile', 'create_self_order', 'cancel_order', 'plan_in_person', 'create_account',
+  // Boxly Lab's finalize (its members get it INSTEAD of show_assisted_summary; see forUser in the handler).
+  'finalize_lab_order',
 ]
 // The loop toolset before a gallery has shown: everything except suggest_followups —
 // the chips are generated OFF the loop (server/utils/followups.ts), so the model never
@@ -2032,6 +2035,13 @@ export default defineEventHandler(async (event) => {
   // action card the user tapped (search|register|assisted|status|in_person), a routing hint.
   const surface: string = body?.surface === 'hub' ? 'hub' : 'search'
   const pipeline: string | undefined = typeof body?.pipeline === 'string' ? body.pipeline : undefined
+  // BOXLY LAB (internal testers): finalizing the box runs the real store checkouts in the chat
+  // (finalize_lab_order) instead of the assisted request. The flag comes from the client; it cannot grant
+  // anything — the cart routes the tool calls are Lab-only on the API. `labFinalize` = the box card's
+  // "Finalizar carrito" was tapped this turn, so the tool is the one move.
+  const isLab: boolean = !!token && body?.boxlyLab === true
+  const labFinalize: boolean = isLab && body?.labFinalize === true
+  const forUser = (list: string[]) => list.filter((t) => t !== (isLab ? 'show_assisted_summary' : 'finalize_lab_order'))
 
   // The per-chat rolling summary (phase 2, on by default) is read in parallel
   // with the wiki so it adds no latency; it is null for guests / short chats.
@@ -2071,7 +2081,10 @@ export default defineEventHandler(async (event) => {
   // advertised cards with a question instead of the store. The card narrows the search
   // by naming the brand; the prompt asks its question AFTER the gallery is up.
   const mustNarrow = !body?.fromStarterCard && audienceGap(messages)
-  const ctx = [summaryBlock(summaryState), shopperContext(!!token, shoppingProfile, savedProducts), narrowBlock(mustNarrow)].filter(Boolean).join('\n\n')
+  // Lab members finalize with finalize_lab_order; this overrides every "show_assisted_summary is the only way to
+  // order" line above (that tool is not even offered to them).
+  const labBlock = isLab ? 'BOXLY LAB SHOPPER: when they finalize the box, call finalize_lab_order (no input) — it places the order and runs the real store checkouts live in the chat. show_assisted_summary does not exist for this shopper; ignore every instruction that mentions it.' : ''
+  const ctx = [summaryBlock(summaryState), shopperContext(!!token, shoppingProfile, savedProducts), narrowBlock(mustNarrow), labBlock].filter(Boolean).join('\n\n')
   // History → model, bounded (see server/utils/chatContext.ts):
   //  1. old galleries collapse to a one-line marker (the products stay in the registry),
   //  2. hysteresis window (MAX 14 msgs / 6k tokens → keep 8; hard cap 9k),
@@ -2170,7 +2183,9 @@ export default defineEventHandler(async (event) => {
     // tools go away and the model has to answer in text, which is a real reply
     // ("no encontré, ¿probamos otra marca?") instead of a hang.
     prepareStep: ({ steps }: any) => {
-      if (galleryShown) return { activeTools: NON_GALLERY_TOOLS }
+      // Lab's Finalizar tap: finalize, then one line of text — nothing else this turn.
+      if (labFinalize) return (steps || []).length ? { activeTools: [], toolChoice: 'none' } : { activeTools: ['finalize_lab_order'], toolChoice: 'required' }
+      if (galleryShown) return { activeTools: forUser(NON_GALLERY_TOOLS) }
       // THE QUESTION IS NOT OPTIONAL when the ask has an audience-shaped hole in it
       // (see audienceGap). Offering ask_to_narrow alongside the search tools is what
       // we did before, and the model searched every time — searching is the obvious
@@ -2185,13 +2200,13 @@ export default defineEventHandler(async (event) => {
       // was ignored anyway, so take the tool away for the first move: with no gallery yet
       // and nothing tried, the model has to reach for a product tool. It gets web_search
       // back on the next step, which is the fallback role it is documented for.
-      if (!(steps || []).length) return { activeTools: LOOP_TOOLS.filter((t: string) => t !== 'web_search') }
+      if (!(steps || []).length) return { activeTools: forUser(LOOP_TOOLS).filter((t: string) => t !== 'web_search') }
       const galleryAttempts = (steps || []).reduce(
         (n: number, s: any) => n + (s.toolCalls || []).filter((c: any) => GALLERY_TOOLS.includes(c.toolName)).length,
         0
       )
       // suggest_followups is never offered to the model (chips come from followupsPromise).
-      return { activeTools: galleryAttempts >= 2 ? NON_GALLERY_TOOLS : LOOP_TOOLS }
+      return { activeTools: forUser(galleryAttempts >= 2 ? NON_GALLERY_TOOLS : LOOP_TOOLS) }
     },
     // THE TURN MUST END. The model stream had no deadline of any kind, and the provider
     // connection can simply stall: across 200 logged turns the slowest to COMPLETE was
@@ -2718,6 +2733,47 @@ export default defineEventHandler(async (event) => {
           suggestions: z.array(z.string()).min(1).max(3).describe('1–3 ready-to-send first-person follow-up messages, complementary to what was just shown.'),
         }),
         execute: async ({ suggestions }) => ({ suggestions: (suggestions || []).map((s) => String(s).trim()).filter(Boolean).slice(0, 3) }),
+      }),
+
+      finalize_lab_order: tool({
+        description: "BOXLY LAB — finalize the shopper's box. Takes NO input: it reads the box card itself, puts exactly those items in the shopper's Boxly cart and places the order. The Boxly agent then fills each store's real cart and checks out to our San Diego warehouse live in the chat (the card shows each store's browser and its real total), and the invoice with a Pagar button appears in that same card when every total is verified. Call it when the shopper finalizes (\"finaliza\", \"eso es todo\", \"crea mi pedido\"). Never call show_assisted_summary for this shopper.",
+        inputSchema: z.object({}),
+        execute: async () => {
+          if (!token) return authedNote
+          const stop = (error: string, why: string) => ({ ok: false, error, note: `NOT FINALIZED — ${why} Nothing was ordered and no card is on screen; do NOT say the order was placed.` })
+          const box = boxFromMessages(messages)
+          if (!box?.length) return stop('empty_box', 'the box is empty. Say ONE short line inviting them to add products first.')
+          const { wanted, unsupported } = wantedFromBox(box, savedProducts)
+          if (unsupported.length) {
+            return { ...stop('unsupported_items', `${unsupported.join(', ')} ${unsupported.length > 1 ? 'are web results' : 'is a web result'} from a store the Boxly agent can't buy from yet. Say ONE short line naming ${unsupported.length > 1 ? 'them' : 'it'} and ask the shopper to take ${unsupported.length > 1 ? 'them' : 'it'} out of the box, or to pick the same product from a store in our catalog.`), unsupported }
+          }
+          const cart = await callApi('/cart', { token })
+          if (cart?.ok === false || !Array.isArray(cart?.items)) return stop('cart_unavailable', 'the cart could not be read. Say ONE short line that it failed and to tap Finalizar again in a moment.')
+          // The box wins: lines it no longer holds go first (so a variant change can never collide with them).
+          const plan = planCart(cart.items, wanted)
+          const failedCall = (r: any) => r?.ok === false
+          for (const id of plan.remove) {
+            if (failedCall(await callApi(`/cart/items/${id}`, { method: 'DELETE', token }))) return stop('cart_update_failed', 'the cart could not be updated. Say ONE short line that it failed and to tap Finalizar again in a moment.')
+          }
+          for (const u of plan.update) {
+            if (failedCall(await callApi(`/cart/items/${u.id}`, { method: 'PATCH', token, body: u.body }))) return stop('cart_update_failed', 'the cart could not be updated. Say ONE short line that it failed and to tap Finalizar again in a moment.')
+          }
+          for (const w of plan.add) {
+            const { variants, ...rest } = w
+            const r = await callApi('/cart/items', { method: 'POST', token, body: { ...rest, ...(Object.keys(variants).length ? { variants } : {}), source: 'chat', ...(conversationId ? { conversation_id: conversationId } : {}) } })
+            if (failedCall(r)) return stop('cart_update_failed', `"${w.title}" could not be added to the cart. Say ONE short line that it failed and to tap Finalizar again in a moment.`)
+          }
+          const fin = await callApi('/cart/finalize', { method: 'POST', token, body: {} })
+          if (failedCall(fin) || !fin?.purchase_request_id) return stop('finalize_failed', 'the order could not be placed. Say ONE short line that it failed and to tap Finalizar again in a moment.')
+          const stores = [...new Set(wanted.map((w) => w.store_name || w.store_id))]
+          return {
+            ok: true,
+            purchase_request_id: fin.purchase_request_id,
+            request_number: fin.request_number ?? null,
+            stores,
+            note: `DONE — the order is placed and the checkout card is on screen. The Boxly agent is now filling the real cart at ${stores.join(', ')} and checking out to our warehouse; the card shows it live, then each store's real total, then the invoice with its Pagar button. Say ONE short line in Spanish, like: "¡Listo! Estoy llenando tu carrito en ${stores.join(' y ')} y sacando el total real — míralo en vivo aquí 👇". Do NOT state prices, totals or the request number, and call no other tool.`,
+          }
+        },
       }),
 
       show_assisted_summary: tool({

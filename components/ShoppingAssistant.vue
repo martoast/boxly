@@ -408,12 +408,19 @@
                   <template v-for="(part, i) in m.parts" :key="'w' + i">
                     <!-- An item held for a size/colour pick returns hold:true; with nothing else in the box there is no box to
                          draw yet, so show the picker alone rather than an empty "Tu caja Boxly 0" card. -->
-                    <LazyShipmentCard v-if="part.type === 'tool-show_shipment' && part.state === 'output-available' && !(part.output?.hold && !part.output?.items?.length)" :shipment="enrichShipment(part.output)" :requested="!!assistedPr" @order="onFinalizeShipment" @add="onAddMore" />
+                    <LazyShipmentCard v-if="part.type === 'tool-show_shipment' && part.state === 'output-available' && !(part.output?.hold && !part.output?.items?.length)" :shipment="enrichShipment(part.output)" :requested="!!assistedPr || labOrdered" @order="onFinalizeShipment" @add="onAddMore" />
                     <!-- Sizes/colours with LIVE availability for the item just added (read from its stored URL by show_shipment). -->
                     <!-- The picker NEVER renders inline in the chat (Alex, 2026-09-11: "this UI/UX of the variant
                          selection should never be in the chat, it should be in the modal"). When the box holds an item
                          for a pick, we OPEN THE PRODUCT MODAL for it — one place to choose, every time. -->
                     <span v-if="part.type === 'tool-show_shipment' && part.state === 'output-available' && part.output?.hold && part.output?.variants_for?.variants?.length" class="hidden" :data-open-picker="openPickerFor(part.output.variants_for)"></span>
+
+                    <!-- Boxly Lab: the order placed from the box — live store checkouts, real totals, then Pagar. -->
+                    <LazyLabCheckoutCard v-else-if="part.type === 'tool-finalize_lab_order' && part.state === 'output-available' && part.output?.purchase_request_id" :purchase-request-id="part.output.purchase_request_id" :request-number="part.output.request_number" @watch="watchLive" @live="onLabLive" />
+                    <div v-else-if="part.type === 'tool-finalize_lab_order' && (part.state === 'input-streaming' || part.state === 'input-available')" class="flex items-center gap-2 text-xs text-gray-400 pl-1">
+                      <svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
+                      Preparando tu pedido…
+                    </div>
 
                     <template v-else-if="part.type === 'tool-show_assisted_summary' && part.state === 'output-available'">
                       <!-- Once the request is actually created (deterministically, on
@@ -700,11 +707,23 @@ watch(() => boxlyCart.cart.value?.live_sessions?.[0] || null, (s) => {
   if (s && s.id !== liveShown.value?.id) liveShown.value = s
 })
 let liveEndTimer = null
+// A Lab order's checkout card reports the store browser the agent is on (one store after another).
+const labLive = ref(null)
+function onLabLive(s) {
+  labLive.value = s
+  if (s && s.id !== liveShown.value?.id) { clearTimeout(liveEndTimer); liveShown.value = s }
+}
+function watchLive(s) {
+  if (!s?.id) return
+  clearTimeout(liveEndTimer)
+  liveShown.value = s
+  liveOpen.value = true
+}
 function onLiveEnded() {
   clearTimeout(liveEndTimer)
   liveEndTimer = setTimeout(() => {
-    const next = boxlyCart.cart.value?.live_sessions?.[0] || null
-    if (next && next.id !== liveShown.value?.id) { liveShown.value = next; return }
+    const next = [labLive.value, boxlyCart.cart.value?.live_sessions?.[0]].find((s) => s && s.id !== liveShown.value?.id) || null
+    if (next) { liveShown.value = next; return }
     liveShown.value = null
     liveOpen.value = false
   }, 6000)
@@ -1520,6 +1539,12 @@ const activeTitle = computed(() => conversations.value.find((c) => c.id === acti
 // would break the same way. The tap says so itself, and the server skips the gate for
 // one turn; the prompt already asks its narrowing question AFTER the gallery.
 const cardTapped = ref(false)
+const labFinalizeTapped = ref(false)
+function consumeLabFinalize() {
+  const was = labFinalizeTapped.value
+  labFinalizeTapped.value = false
+  return was
+}
 function consumeCardTap() {
   const was = cardTapped.value
   cardTapped.value = false
@@ -1543,6 +1568,9 @@ const chat = new Chat({
         // Consumed here, for exactly one turn — read and cleared in the same breath, so a
         // typed follow-up after a card tap is an ordinary message again.
         ...(consumeCardTap() ? { fromStarterCard: true } : {}),
+        // Boxly Lab: finalizing runs the real store checkouts in the chat; a Finalizar tap makes it the one move.
+        ...(user.value?.boxly_lab ? { boxlyLab: true } : {}),
+        ...(consumeLabFinalize() ? { labFinalize: true } : {}),
       } }
     },
   }),
@@ -1942,6 +1970,7 @@ function onFinalizeShipment() {
   ensureChatToken()
   // Explicit FINALIZE — the AI creates the one purchase request from everything in the cart.
   const text = 'Ya, eso es todo — finaliza y crea mi pedido con todo lo que tengo en el carrito.'
+  if (user.value?.boxly_lab) labFinalizeTapped.value = true
   ensureConversation(text)
   chat.sendMessage({ text })
   scrollDown()
@@ -1982,6 +2011,8 @@ const assistedResults = reactive({})        // toolCallId -> { request_number, u
 // the request, every later card UPDATES it (PUT replaces its items with the
 // cart). Kept per conversation and recovered from the API on reload.
 const assistedPr = ref(null)                // { id, request_number } for THIS chat
+// A Lab order placed from this chat's box (finalize_lab_order) also closes the box's Finalizar button.
+const labOrdered = computed(() => chat.messages.some((m) => (m.parts || []).some((p) => p.type === 'tool-finalize_lab_order' && p.output?.purchase_request_id)))
 async function confirmAssisted(part) {
   const id = part?.toolCallId
   if (!id || assistedCreatingId.value || assistedResults[id]) return
