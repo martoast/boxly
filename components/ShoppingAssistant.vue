@@ -2210,6 +2210,13 @@ function maybeRestoreGuestChat() {
   scrollDown()
 }
 
+// Boxly Lab: the server puts every box change into the cart (the agent then fills the real store cart in the
+// background), so after each turn re-read the cart — its running store browser shows up as the live card.
+watch(() => chat.status, async (s) => {
+  if (s !== 'ready' || !user.value?.boxly_lab) return
+  await boxlyCart.load({ force: true })
+  boxlyCart.pollWhileSyncing()
+})
 watch(() => chat.status, async (s) => {
   scrollDown()
   registerFromMessages() // keep the product registry current with what's shown

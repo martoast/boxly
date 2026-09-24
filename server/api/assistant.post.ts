@@ -2042,6 +2042,26 @@ export default defineEventHandler(async (event) => {
   const isLab: boolean = !!token && body?.boxlyLab === true
   const labFinalize: boolean = isLab && body?.labFinalize === true
   const forUser = (list: string[]) => list.filter((t) => t !== (isLab ? 'show_assisted_summary' : 'finalize_lab_order'))
+  // Make the Lab member's Boxly cart hold exactly this box (the box wins). Every add lands in the cart the
+  // moment the box card shows it, so the agent fills the real store cart in the background while they keep
+  // shopping (cart sync) — Finalizar then only checks out. Returns null when done, else an error code.
+  // Web rows (no catalog store) are skipped here; finalize refuses them with a clear line.
+  async function syncLabBox(box: any[]): Promise<string | null> {
+    const { wanted } = wantedFromBox(box, savedProducts)
+    const cart = await callApi('/cart', { token })
+    if (cart?.ok === false || !Array.isArray(cart?.items)) return 'cart_unavailable'
+    // Lines the box no longer holds go first (so a variant change can never collide with them).
+    const plan = planCart(cart.items, wanted)
+    const failed = (r: any) => r?.ok === false
+    for (const id of plan.remove) if (failed(await callApi(`/cart/items/${id}`, { method: 'DELETE', token }))) return 'cart_update_failed'
+    for (const u of plan.update) if (failed(await callApi(`/cart/items/${u.id}`, { method: 'PATCH', token, body: u.body }))) return 'cart_update_failed'
+    for (const w of plan.add) {
+      const { variants, ...rest } = w
+      const r = await callApi('/cart/items', { method: 'POST', token, body: { ...rest, ...(Object.keys(variants).length ? { variants } : {}), source: 'chat', ...(conversationId ? { conversation_id: conversationId } : {}) } })
+      if (failed(r)) return 'cart_update_failed'
+    }
+    return null
+  }
 
   // The per-chat rolling summary (phase 2, on by default) is read in parallel
   // with the wiki so it adds no latency; it is null for guests / short chats.
@@ -2556,7 +2576,8 @@ export default defineEventHandler(async (event) => {
             color: z.string().describe('The colour/finish the shopper CHOSE, e.g. "Black", "Blue Oasis". Same rule as size.').optional(),
           })).min(1),
         }),
-        execute: async ({ items }) => {
+        execute: async ({ items: input }) => {
+          const out: any = await (async (items: any[]) => {
           // The registry is the truth for anything the model would otherwise retype: the box card must show the
           // REAL thumbnail / price / name for a saved_id (the model invented "https://example.com/nike_ultrafly.jpg"
           // in a live run), so resolve before building the card.
@@ -2689,6 +2710,12 @@ export default defineEventHandler(async (event) => {
             ship.note = ship.note ? `${ship.note}\n\n${freightNote}` : freightNote
           }
           return ship
+          })(input)
+          // Boxly Lab: what the card shows goes into the cart now (a held last item is not in the box yet).
+          if (isLab && token) {
+            try { await syncLabBox(out?.hold ? input.slice(0, -1) : input) } catch (e: any) { console.warn('[lab] box sync failed', e?.message || e) }
+          }
+          return out
         },
       }),
 
@@ -2747,31 +2774,16 @@ export default defineEventHandler(async (event) => {
           if (unsupported.length) {
             return { ...stop('unsupported_items', `${unsupported.join(', ')} ${unsupported.length > 1 ? 'are web results' : 'is a web result'} from a store the Boxly agent can't buy from yet. Say ONE short line naming ${unsupported.length > 1 ? 'them' : 'it'} and ask the shopper to take ${unsupported.length > 1 ? 'them' : 'it'} out of the box, or to pick the same product from a store in our catalog.`), unsupported }
           }
-          const cart = await callApi('/cart', { token })
-          if (cart?.ok === false || !Array.isArray(cart?.items)) return stop('cart_unavailable', 'the cart could not be read. Say ONE short line that it failed and to tap Finalizar again in a moment.')
-          // The box wins: lines it no longer holds go first (so a variant change can never collide with them).
-          const plan = planCart(cart.items, wanted)
-          const failedCall = (r: any) => r?.ok === false
-          for (const id of plan.remove) {
-            if (failedCall(await callApi(`/cart/items/${id}`, { method: 'DELETE', token }))) return stop('cart_update_failed', 'the cart could not be updated. Say ONE short line that it failed and to tap Finalizar again in a moment.')
-          }
-          for (const u of plan.update) {
-            if (failedCall(await callApi(`/cart/items/${u.id}`, { method: 'PATCH', token, body: u.body }))) return stop('cart_update_failed', 'the cart could not be updated. Say ONE short line that it failed and to tap Finalizar again in a moment.')
-          }
-          for (const w of plan.add) {
-            const { variants, ...rest } = w
-            const r = await callApi('/cart/items', { method: 'POST', token, body: { ...rest, ...(Object.keys(variants).length ? { variants } : {}), source: 'chat', ...(conversationId ? { conversation_id: conversationId } : {}) } })
-            if (failedCall(r)) return stop('cart_update_failed', `"${w.title}" could not be added to the cart. Say ONE short line that it failed and to tap Finalizar again in a moment.`)
-          }
+          if (await syncLabBox(box)) return stop('cart_update_failed', 'the cart could not be updated. Say ONE short line that it failed and to tap Finalizar again in a moment.')
           const fin = await callApi('/cart/finalize', { method: 'POST', token, body: {} })
-          if (failedCall(fin) || !fin?.purchase_request_id) return stop('finalize_failed', 'the order could not be placed. Say ONE short line that it failed and to tap Finalizar again in a moment.')
+          if (fin?.ok === false || !fin?.purchase_request_id) return stop('finalize_failed', 'the order could not be placed. Say ONE short line that it failed and to tap Finalizar again in a moment.')
           const stores = [...new Set(wanted.map((w) => w.store_name || w.store_id))]
           return {
             ok: true,
             purchase_request_id: fin.purchase_request_id,
             request_number: fin.request_number ?? null,
             stores,
-            note: `DONE — the order is placed and the checkout card is on screen. The Boxly agent is now filling the real cart at ${stores.join(', ')} and checking out to our warehouse; the card shows it live, then each store's real total, then the invoice with its Pagar button. Say ONE short line in Spanish, like: "¡Listo! Estoy llenando tu carrito en ${stores.join(' y ')} y sacando el total real — míralo en vivo aquí 👇". Do NOT state prices, totals or the request number, and call no other tool.`,
+            note: `DONE — the order is placed and the checkout card is on screen. The Boxly agent is now checking out the real cart at ${stores.join(', ')} to our warehouse (the items went into those carts while they shopped); the card shows it live, then each store's real total, then the invoice with its Pagar button. Say ONE short line in Spanish, like: "¡Listo! Estoy haciendo el checkout en ${stores.join(' y ')} para sacar el total real — míralo en vivo aquí 👇". Do NOT state prices, totals or the request number, and call no other tool.`,
           }
         },
       }),
