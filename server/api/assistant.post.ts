@@ -11,6 +11,7 @@ import { ageGalleries, windowMessages, withContextOnLastUser, dropToolParts, con
 import { generateFollowups, followupPart, followupsWithin, attachFollowupChips } from '../utils/followups'
 import { readSummary, summaryBlock, summarize, shouldSummarize } from '../utils/chatSummary'
 import { boxFromMessages, wantedFromBox, planCart } from '../utils/labCheckout'
+import { checkStoreLock } from '../utils/storeLock'
 
 /**
  * AI shopping-assistant chat backend (Phase 2).
@@ -2711,9 +2712,24 @@ export default defineEventHandler(async (event) => {
           }
           return ship
           })(input)
-          // Boxly Lab: what the card shows goes into the cart now (a held last item is not in the box yet).
+          // Boxly Lab: what the card shows goes into the cart now (a held last item is not in the box yet), and
+          // the item just added is checked for a store that closed its whole site (drop / waiting room) — the
+          // agent's live browser will show that page, so the chat says it in words.
           if (isLab && token) {
-            try { await syncLabBox(out?.hold ? input.slice(0, -1) : input) } catch (e: any) { console.warn('[lab] box sync failed', e?.message || e) }
+            const added = out?.hold ? null : wantedFromBox(input.slice(-1), savedProducts).wanted[0]
+            const [, lock] = await Promise.all([
+              syncLabBox(out?.hold ? input.slice(0, -1) : input).catch((e: any) => console.warn('[lab] box sync failed', e?.message || e)),
+              added ? checkStoreLock(added.product_url) : null,
+            ])
+            if (lock && added) {
+              const store = added.store_name || added.store_id
+              out.store_closed = { store, message: lock.message }
+              const why = lock.kind === 'queue'
+                ? `${store} has every visitor in a virtual waiting line right now`
+                : `${store} has closed its whole website right now${lock.message ? ` — its page says: "${lock.message}"` : ''}`
+              const closedNote = `STORE CLOSED: ${why}. The item stays in the box, but the Boxly agent cannot put it in ${store}'s cart until the store opens; the live browser card in the chat shows exactly that page. Tell the shopper in ONE or two short lines in Spanish: ${store} cerró su tienda por ahora (translate the store's reason and opening time, converting nothing), they can see it in the live browser below, and they can wait until it opens or pick the same kind of product from another store (offer to search). Do NOT say it is in ${store}'s cart, and write NO link or URL (the live card is the view).`
+              out.note = out.note ? `${out.note}\n\n${closedNote}` : closedNote
+            }
           }
           return out
         },
