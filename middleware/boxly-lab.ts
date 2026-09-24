@@ -1,7 +1,7 @@
 // middleware/boxly-lab.ts — Boxly Lab: the live-carts product (cart, store sync, automatic quotes) lives under
-// /app/lab and is only for allowlisted internal testers (API: GET /user → boxly_lab). Everyone else is sent
-// home, as if it did not exist; the API refuses them too.
+// /app/lab and is only for accounts that opted in on /app/lab (API: GET /user → boxly_lab). Anyone else is
+// sent to the Lab page, where they can opt in; the API refuses them until then.
 export default defineNuxtRouteMiddleware(() => {
   const user = useState<any>('user')
-  if (!user.value?.boxly_lab) return navigateTo('/app', { redirectCode: 302 })
+  if (!user.value?.boxly_lab) return navigateTo('/app/lab', { redirectCode: 302 })
 })
