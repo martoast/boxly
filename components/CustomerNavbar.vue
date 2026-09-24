@@ -266,23 +266,6 @@
         </div>
         <div class="flex items-center">
           <div class="hidden md:ml-4 md:flex md:flex-shrink-0 md:items-center">
-            <!-- Boxly Lab (Desktop): internal testers only -->
-            <button
-              v-if="isLab"
-              @click="handleNavigation('/app/lab')"
-              :class="[
-                isActiveRoute('/app/lab') ? 'text-primary-700 bg-primary-50' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50',
-                'relative mr-3 inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors duration-200',
-              ]"
-              :aria-label="`${t.myCart} (${cartCount})`"
-            >
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
-              </svg>
-              <span class="whitespace-nowrap">{{ t.myCart }}</span>
-              <span v-if="cartCount > 0" class="min-w-[1.25rem] h-5 px-1.5 rounded-full bg-primary-500 text-white text-xs font-bold inline-flex items-center justify-center">{{ cartCount }}</span>
-            </button>
-
             <!-- Language Toggle (Desktop) -->
             <div class="mr-3">
               <LanguageToggle />
@@ -430,27 +413,6 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
             </svg>
             {{ t.pricing }}
-          </div>
-        </DisclosureButton>
-
-        <!-- Boxly Lab (Mobile): internal testers only -->
-        <DisclosureButton
-          v-if="isLab"
-          as="button"
-          @click="handleNavigation('/app/lab')"
-          :class="[
-            isActiveRoute('/app/lab')
-              ? 'bg-primary-50 border-primary-500 text-primary-600'
-              : 'border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900',
-            'block border-l-4 py-2 pl-3 pr-4 text-base font-medium sm:pl-5 sm:pr-6 w-full text-left',
-          ]"
-        >
-          <div class="flex items-center">
-            <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
-            </svg>
-            {{ t.myCart }}
-            <span v-if="cartCount > 0" class="ml-2 min-w-[1.25rem] h-5 px-1.5 rounded-full bg-primary-500 text-white text-xs font-bold inline-flex items-center justify-center">{{ cartCount }}</span>
           </div>
         </DisclosureButton>
 
@@ -614,8 +576,7 @@ import {
   MenuItems,
 } from "@headlessui/vue";
 import { Bars3Icon, XMarkIcon } from "@heroicons/vue/24/outline";
-import { reactive, computed, onMounted } from "vue";
-import { useBoxlyCart } from '~/composables/useBoxlyCart';
+import { reactive, computed } from "vue";
 import LanguageToggle from '~/components/LanguageToggle.vue';
 
 const { $customFetch } = useNuxtApp();
@@ -646,7 +607,6 @@ const translations = {
   prInPersonDesc: { es: 'Vamos por ti a Las Americas Outlets', en: 'We shop for you at Las Americas Outlets' },
   shop: { es: 'Tienda', en: 'Shop' },
   cart: { es: 'Carrito', en: 'Cart' },
-  myCart: { es: 'Lab · Carrito', en: 'Lab · Cart' },
   signedInAs: { es: 'Sesión iniciada como', en: 'Signed in as' },
   myAccount: { es: 'Mi Cuenta', en: 'My Account' },
   affiliatePortal: { es: 'Portal de Afiliado', en: 'Affiliate Portal' },
@@ -656,13 +616,6 @@ const translations = {
 };
 
 const t = createTranslations(translations);
-
-// The Boxly cart's item count (shared state: the chat and live stores update it as they add).
-const boxlyCart = useBoxlyCart();
-const cartCount = computed(() => boxlyCart.count.value);
-// Boxly Lab: only allowlisted testers have a cart (the API 404s everyone else), so only they load it.
-const isLab = computed(() => !!useState('user').value?.boxly_lab);
-onMounted(async () => { if (!isLab.value) return; await boxlyCart.load(); boxlyCart.pollWhileSyncing(); });
 
 const userInitials = computed(() => {
   if (!user?.name) return 'U';
