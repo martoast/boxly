@@ -308,6 +308,7 @@ export function availabilityText(a: any): string | null {
 export const EVENT_TYPES = [
   'session.created', 'worker.starting', 'worker.running', 'worker.progress',
   'candidate', 'candidate.cleared', 'media.publishing', 'media.ready', 'media.failed',
+  'control.changed', // C4: {controller: 'agent'|'pausing'|'customer'} — who holds the store browser
   'session.completed', 'session.failed', 'session.cancelling', 'session.cancelled',
 ] as const
 

@@ -17,7 +17,7 @@ export type InputMessage =
   | { type: 'key.press'; key: string; modifiers: Array<'ctrl' | 'shift' | 'alt'> }
   | { type: 'text.type'; value: string }
 
-export const INPUT_REFUSAL_CODES = ['bad_message', 'out_of_bounds', 'key_refused', 'rate_limited', 'controller_busy', 'session_ended', 'unauthorized', 'no_media'] as const
+export const INPUT_REFUSAL_CODES = ['bad_message', 'out_of_bounds', 'key_refused', 'rate_limited', 'controller_busy', 'session_ended', 'unauthorized', 'no_media', 'purchase_locked', 'payment_locked'] as const // C4: the customer cannot buy (plan D5)
 export type InputRefusalCode = typeof INPUT_REFUSAL_CODES[number]
 export type Controller = 'customer' | 'agent'
 export type RelayState = 'idle' | 'connecting' | 'open' | 'closed' | 'failed'
