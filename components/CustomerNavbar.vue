@@ -266,11 +266,12 @@
         </div>
         <div class="flex items-center">
           <div class="hidden md:ml-4 md:flex md:flex-shrink-0 md:items-center">
-            <!-- Boxly cart (Desktop) -->
+            <!-- Boxly Lab (Desktop): internal testers only -->
             <button
-              @click="handleNavigation('/app/cart')"
+              v-if="isLab"
+              @click="handleNavigation('/app/lab')"
               :class="[
-                isActiveRoute('/app/cart') ? 'text-primary-700 bg-primary-50' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50',
+                isActiveRoute('/app/lab') ? 'text-primary-700 bg-primary-50' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50',
                 'relative mr-3 inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors duration-200',
               ]"
               :aria-label="`${t.myCart} (${cartCount})`"
@@ -432,12 +433,13 @@
           </div>
         </DisclosureButton>
 
-        <!-- Boxly cart (Mobile) -->
+        <!-- Boxly Lab (Mobile): internal testers only -->
         <DisclosureButton
+          v-if="isLab"
           as="button"
-          @click="handleNavigation('/app/cart')"
+          @click="handleNavigation('/app/lab')"
           :class="[
-            isActiveRoute('/app/cart')
+            isActiveRoute('/app/lab')
               ? 'bg-primary-50 border-primary-500 text-primary-600'
               : 'border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900',
             'block border-l-4 py-2 pl-3 pr-4 text-base font-medium sm:pl-5 sm:pr-6 w-full text-left',
@@ -644,7 +646,7 @@ const translations = {
   prInPersonDesc: { es: 'Vamos por ti a Las Americas Outlets', en: 'We shop for you at Las Americas Outlets' },
   shop: { es: 'Tienda', en: 'Shop' },
   cart: { es: 'Carrito', en: 'Cart' },
-  myCart: { es: 'Mi carrito', en: 'My cart' },
+  myCart: { es: 'Lab · Carrito', en: 'Lab · Cart' },
   signedInAs: { es: 'Sesión iniciada como', en: 'Signed in as' },
   myAccount: { es: 'Mi Cuenta', en: 'My Account' },
   affiliatePortal: { es: 'Portal de Afiliado', en: 'Affiliate Portal' },
@@ -658,7 +660,9 @@ const t = createTranslations(translations);
 // The Boxly cart's item count (shared state: the chat and live stores update it as they add).
 const boxlyCart = useBoxlyCart();
 const cartCount = computed(() => boxlyCart.count.value);
-onMounted(async () => { await boxlyCart.load(); boxlyCart.pollWhileSyncing(); });
+// Boxly Lab: only allowlisted testers have a cart (the API 404s everyone else), so only they load it.
+const isLab = computed(() => !!useState('user').value?.boxly_lab);
+onMounted(async () => { if (!isLab.value) return; await boxlyCart.load(); boxlyCart.pollWhileSyncing(); });
 
 const userInitials = computed(() => {
   if (!user?.name) return 'U';

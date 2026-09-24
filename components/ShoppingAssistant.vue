@@ -1844,7 +1844,8 @@ function onAssistedProduct(p) {
 // chat message waits in pendingPick). Only catalog products carry a store slug; a web row (Google/Amazon) has
 // none and stays chat-only for now. A size the chat still has to ask for waits for the finished pick.
 function addToBoxlyCart(p) {
-  if (!user.value || p?.pick?.size_owed || !cartPayloadFromChatProduct(p)) return
+  // Boxly Lab: only allowlisted testers have the cart; for everyone else the chat works exactly as before.
+  if (!user.value?.boxly_lab || p?.pick?.size_owed || !cartPayloadFromChatProduct(p)) return
   ensureConversation(`Agrégalo a mi carrito Boxly: ${p.title || ''}`)
     .then((cid) => boxlyCart.add(cartPayloadFromChatProduct(p, { conversationId: cid ?? activeId.value })))
     .catch((e) => console.warn('boxly cart add failed', e?.data?.message || e))

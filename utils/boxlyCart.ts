@@ -1,4 +1,4 @@
-// The Boxly cart — pure helpers behind composables/useBoxlyCart.ts and /app/cart.
+// The Boxly cart — pure helpers behind composables/useBoxlyCart.ts and /app/lab/cart.
 // The cart itself lives on the API (GET /cart, POST /cart/items, PATCH/DELETE
 // /cart/items/{id}, POST /cart/finalize); nothing here talks to the network.
 // Tested in utils/boxlyCart.test.mjs.

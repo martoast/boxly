@@ -1,5 +1,5 @@
 // The Boxly cart — ONE shared, server-persisted cart for the whole app (chat,
-// live stores, /app/cart, the navbar count). State lives in useState so every
+// live stores, /app/lab/cart, the navbar count). State lives in useState so every
 // component sees the same instance; the API is the source of truth and each
 // call's answer replaces the local copy. Pure rules: utils/boxlyCart.ts.
 import { computed } from 'vue'
@@ -92,7 +92,7 @@ export function useBoxlyCart() {
 
   // C3: while items are still reaching the real store carts, re-read the cart
   // every few seconds so the status chips move; stop when nothing is in flight.
-  // One shared timer app-wide (the navbar and /app/cart both ask for it).
+  // One shared timer app-wide (the navbar and /app/lab/cart both ask for it).
   const pollTimer = useState<any>('boxly-cart-poll', () => null)
   function pollWhileSyncing(intervalMs = 8000) {
     if (!import.meta.client || pollTimer.value) return

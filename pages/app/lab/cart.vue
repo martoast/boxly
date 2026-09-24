@@ -96,10 +96,10 @@
 
 <script setup lang="ts">
 import { reactive, ref, computed, onMounted } from 'vue'
-import { useBoxlyCart } from '../../composables/useBoxlyCart'
-import { groupCartItems, syncStatusLabel, variantsText, formatUsd, type CartItem } from '../../utils/boxlyCart'
+import { useBoxlyCart } from '../../../composables/useBoxlyCart'
+import { groupCartItems, syncStatusLabel, variantsText, formatUsd, type CartItem } from '../../../utils/boxlyCart'
 
-definePageMeta({ layout: 'app', middleware: ['auth', 'customer', 'complete-profile'] })
+definePageMeta({ layout: 'app', middleware: ['auth', 'customer', 'complete-profile', 'boxly-lab'] })
 useHead({ title: 'Boxly — Mi carrito' })
 
 const { cart, loaded, loading, error, load, update, remove, finalize, pollWhileSyncing } = useBoxlyCart()
