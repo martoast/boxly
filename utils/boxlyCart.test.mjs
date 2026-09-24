@@ -1,7 +1,7 @@
 // Pure tests for utils/boxlyCart.ts — the Boxly cart's client helpers.
 import { cartNeedsSyncPoll,
   normalizeVariants, cartPayloadFromChatProduct, cartPayloadFromCandidate, normalizeCart, groupCartItems,
-  withQuantity, withoutItem, syncStatusLabel, variantsText, emptyCart, formatUsd,
+  withQuantity, withoutItem, syncStatusLabel, variantsText, emptyCart, formatUsd, normalizeLiveSessions,
 } from './boxlyCart.ts'
 
 let passed = 0, failed = 0
@@ -80,6 +80,12 @@ check('sync: every status has a Spanish label', ['pending', 'syncing', 'in_store
 check('sync: unknown → pending', syncStatusLabel('weird').label === syncStatusLabel('pending').label)
 check('variantsText: known keys in Spanish', variantsText({ size: 'M', color: 'Negro', inseam: '28' }) === 'Talla M · Color Negro · Inseam 28')
 check('formatUsd', formatUsd(1299.5) === '$1,299.50 USD' && formatUsd(null) === '')
+
+// C4: running store browsers
+check('live sessions: well-formed kept', eq(normalizeLiveSessions([{ id: 7, store_id: 'nike', store_name: 'Nike', status: 'running' }]), [{ id: 7, store_id: 'nike', store_name: 'Nike', status: 'running' }]))
+check('live sessions: malformed dropped', normalizeLiveSessions([{ id: 0, store_id: 'x' }, { id: 3 }, null, 'a']).length === 0 && normalizeLiveSessions(null).length === 0)
+check('poll while a store browser runs', cartNeedsSyncPoll({ sync_enabled: true, items: [{ sync_status: 'in_store_cart' }], live_sessions: [{ id: 1 }] }))
+check('no poll once it ends', !cartNeedsSyncPoll({ sync_enabled: true, items: [{ sync_status: 'in_store_cart' }], live_sessions: [] }))
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed) process.exit(1)

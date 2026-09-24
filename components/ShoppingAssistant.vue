@@ -501,6 +501,11 @@
             </div>
           </TransitionGroup>
 
+          <!-- C4: the store browser the agent is running for this cart, live in the chat (Boxly Lab). -->
+          <div v-if="liveShown" class="max-w-2xl mx-auto mt-4 flex justify-start">
+            <LiveBrowserCard :session="liveShown" :expanded="liveOpen" :is-desktop="isDesktop" @expand="liveOpen = true" @ended="onLiveEnded" />
+          </div>
+
           <div v-if="showTyping" class="max-w-2xl mx-auto mt-4 flex justify-start">
             <div class="bg-white border border-gray-100 rounded-3xl rounded-bl-lg px-4 py-3.5 shadow-sm">
               <span class="typing"><i></i><i></i><i></i></span>
@@ -596,6 +601,16 @@
       </template>
     </main>
 
+    <!-- C4: opened, the store browser takes the right-hand column (desktop) or the whole screen (mobile). -->
+    <aside v-if="liveShown && liveOpen && isDesktop" class="hidden md:flex w-1/2 max-w-[60rem] shrink-0 border-l border-gray-800">
+      <LiveBrowserPanel class="w-full" :session="liveShown" @close="liveOpen = false" @ended="onLiveEnded" />
+    </aside>
+    <Teleport to="body">
+      <div v-if="liveShown && liveOpen && !isDesktop" class="fixed inset-0 z-[80] md:hidden">
+        <LiveBrowserPanel mobile :session="liveShown" @close="liveOpen = false" @ended="onLiveEnded" />
+      </div>
+    </Teleport>
+
     <!-- Full-screen product detail modal -->
     <LazyProductModal v-if="selectedProduct" :product="selectedProduct" @close="selectedProduct = null" @assisted="onModalAssisted" />
 
@@ -666,6 +681,37 @@ const { fullscreenMobile, standalone, hub } = toRefs(props)
 const { $customFetch } = useNuxtApp()
 const user = useState('user')
 const boxlyCart = useBoxlyCart()
+
+// ── C4: watch the agent's store browser in the chat (Boxly Lab) ─────────────────────────────────────
+// The cart lists the store browsers running for it (live_sessions); the newest one shows as a card in the
+// chat, which opens beside the chat on desktop (split view) or full screen on mobile. It stays up a few
+// seconds after the agent finishes, then goes.
+const liveShown = ref(null)
+const liveOpen = ref(false)
+const isDesktop = ref(false)
+let desktopQuery = null
+const onDesktopChange = () => { isDesktop.value = !!desktopQuery?.matches }
+watch(() => boxlyCart.cart.value?.live_sessions?.[0] || null, (s) => {
+  if (s && s.id !== liveShown.value?.id) liveShown.value = s
+})
+let liveEndTimer = null
+function onLiveEnded() {
+  clearTimeout(liveEndTimer)
+  liveEndTimer = setTimeout(() => {
+    const next = boxlyCart.cart.value?.live_sessions?.[0] || null
+    if (next && next.id !== liveShown.value?.id) { liveShown.value = next; return }
+    liveShown.value = null
+    liveOpen.value = false
+  }, 6000)
+}
+onMounted(async () => {
+  desktopQuery = window.matchMedia('(min-width: 768px)')
+  onDesktopChange()
+  desktopQuery.addEventListener?.('change', onDesktopChange)
+  // Lab only: the chat keeps the cart fresh itself (on mobile there is no navbar to do it).
+  if (user.value?.boxly_lab) { await boxlyCart.load(); boxlyCart.pollWhileSyncing() }
+})
+onBeforeUnmount(() => { desktopQuery?.removeEventListener?.('change', onDesktopChange); clearTimeout(liveEndTimer) })
 // First name for the hub welcome header (falls back gracefully for guests).
 const userName = computed(() => (user.value?.name || '').trim().split(/\s+/)[0] || '')
 

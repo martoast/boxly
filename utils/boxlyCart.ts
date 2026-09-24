@@ -42,7 +42,10 @@ export interface Cart {
   /** C3: whether adds are being mirrored into the real store carts (server flag). */
   sync_enabled?: boolean
   updated_at?: string | null
+  /** C4: the store browsers the agent is running for this cart right now (watchable in the chat). */
+  live_sessions?: LiveCartSession[]
 }
+export interface LiveCartSession { id: number; store_id: string; store_name: string | null; status: string }
 export interface CartAddPayload {
   store_id: string
   store_name?: string
@@ -58,7 +61,7 @@ export interface CartAddPayload {
 }
 
 export function emptyCart(): Cart {
-  return { id: null, status: 'open', items: [], stores: [], item_count: 0, subtotal: 0, has_unpriced: false, sync_enabled: false }
+  return { id: null, status: 'open', items: [], stores: [], item_count: 0, subtotal: 0, has_unpriced: false, sync_enabled: false, live_sessions: [] }
 }
 
 const num = (v: any): number | null => {
@@ -159,7 +162,15 @@ export function normalizeCart(raw: any): Cart {
     subtotal: num(c.subtotal) ?? 0,
     has_unpriced: typeof c.has_unpriced === 'boolean' ? c.has_unpriced : items.some((i) => i.price === null),
     sync_enabled: c.sync_enabled === true,
+    live_sessions: normalizeLiveSessions(c.live_sessions),
   }
+}
+
+/** Only well-formed entries (a positive integer id and a store slug); anything else is dropped. */
+export function normalizeLiveSessions(raw: any): LiveCartSession[] {
+  return (Array.isArray(raw) ? raw : [])
+    .filter((s: any) => s && Number.isInteger(s.id) && s.id > 0 && typeof s.store_id === 'string' && s.store_id)
+    .map((s: any) => ({ id: s.id, store_id: s.store_id, store_name: typeof s.store_name === 'string' ? s.store_name : null, status: String(s.status || '') }))
 }
 
 export interface CartGroup { store_id: string; store_name: string; items: CartItem[]; item_count: number; subtotal: number; has_unpriced: boolean }
@@ -222,10 +233,11 @@ export const SYNC_STATUS: Record<SyncStatus, { label: string; tone: 'amber' | 'b
   failed: { label: 'No se pudo agregar en la tienda', tone: 'red' },
 }
 /** C3: the cart is still reaching the real store carts while any item is pending or syncing. */
-export function cartNeedsSyncPoll(cart: { sync_enabled?: boolean; items?: Array<{ sync_status?: string | null }> } | null | undefined): boolean {
+export function cartNeedsSyncPoll(cart: { sync_enabled?: boolean; items?: Array<{ sync_status?: string | null }>; live_sessions?: unknown[] } | null | undefined): boolean {
   // With store sync off (the default) nothing will ever move a chip: never poll.
   if (cart?.sync_enabled !== true) return false
-  return !!cart?.items?.some((i) => i.sync_status === 'pending' || i.sync_status === 'syncing')
+  // A store browser still running (C4) keeps the cart fresh too, so the chat's live card closes when it ends.
+  return !!cart?.items?.some((i) => i.sync_status === 'pending' || i.sync_status === 'syncing') || !!cart?.live_sessions?.length
 }
 
 /** Spanish label + colour tone for an item's sync_status (an unknown status reads as pending). */
