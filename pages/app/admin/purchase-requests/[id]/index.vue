@@ -420,6 +420,9 @@
             </div>
           </div>
 
+          <!-- C5: the engine's checkout quote per store, with evidence (automatic quote) -->
+          <StoreQuotesCard v-if="request.store_quotes?.length" :quotes="request.store_quotes" team />
+
           <!-- Quote settings + preview + send (pending_review only) -->
           <div v-if="request.status === 'pending_review'" class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
             <div class="px-6 py-4 border-b border-gray-100 bg-gray-50">

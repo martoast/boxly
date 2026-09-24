@@ -137,6 +137,9 @@
       <!-- ============================================================ -->
       <!-- IN-PERSON LAYOUT — trip + per-store categories + wishlist     -->
       <!-- ============================================================ -->
+      <!-- C5: the automatic checkout quote per store (testers) -->
+      <StoreQuotesCard v-if="request.store_quotes?.length" :quotes="request.store_quotes" />
+
       <template v-if="request.source === 'in_person'">
         <!-- Confirmed banner once the deposit cleared (status moved off awaiting_deposit) -->
         <div
@@ -295,7 +298,8 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onBeforeUnmount } from 'vue';
+import { storeQuotesNeedPoll } from '~/utils/storeQuotes';
 
 definePageMeta({
   layout: 'app',
@@ -373,17 +377,29 @@ const payingDeposit = ref(false);
 
 const accountNumber = '1234567890123456';
 
-const fetchRequest = async () => {
-  loading.value = true;
+// `quiet`: a background refresh while store quotes are in flight (no spinner flash).
+const fetchRequest = async ({ quiet = false } = {}) => {
+  if (!quiet) loading.value = true;
   try {
     const response = await $customFetch(`/purchase-requests/${route.params.id}`);
     request.value = response.data || response;
   } catch (e) {
     console.error('Error fetching request:', e);
   } finally {
-    loading.value = false;
+    if (!quiet) loading.value = false;
+    schedulePoll();
   }
 };
+
+// C5: while the automatic quote runs, refresh every 10 s; it stops once every store has
+// settled or the invoice is out (status leaves pending_review), and on leaving the page.
+let pollTimer = null;
+const schedulePoll = () => {
+  clearTimeout(pollTimer);
+  pollTimer = null;
+  if (storeQuotesNeedPoll(request.value)) pollTimer = setTimeout(() => fetchRequest({ quiet: true }), 10000);
+};
+onBeforeUnmount(() => clearTimeout(pollTimer));
 
 const payDeposit = async () => {
   if (!request.value || payingDeposit.value) return;
