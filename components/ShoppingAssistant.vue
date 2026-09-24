@@ -227,6 +227,11 @@
             <h1 class="text-[26px] md:text-3xl font-extrabold text-gray-900 tracking-tight">Compra en Estados Unidos</h1>
             <p class="text-gray-500 mt-1 mb-4 text-[14px] md:text-[15px]">Escribe lo que buscas o toca una idea — Boxly lo consigue, lo importa y te lo entrega en México.</p>
 
+            <!-- C4: a store browser already running for the cart shows here too, above the input. -->
+            <div v-if="liveShown" class="mb-4">
+              <LiveBrowserCard :session="liveShown" :expanded="liveOpen" :is-desktop="isDesktop" @expand="liveOpen = true" @ended="onLiveEnded" />
+            </div>
+
             <!-- input at the top -->
             <div class="mb-6">
               <AssistantComposer ref="composerRef" v-model:text="input" :mic-recording="micRecording" :mic-transcribing="micTranscribing" :mic-levels="micLevels" :mic-error="micError" :busy="isBusy" placeholder="Compra lo que sea…" @send="onComposerSend" @mic="toggleMic" />
