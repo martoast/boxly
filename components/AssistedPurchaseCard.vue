@@ -20,11 +20,12 @@
 
     <!-- price breakdown -->
     <div class="mt-3 pt-3 border-t border-primary-100 space-y-1 text-[12.5px]">
-      <div class="flex items-center justify-between text-gray-600"><span>Productos (ref.)</span><span class="font-semibold text-gray-800">${{ subtotal.toFixed(2) }} USD</span></div>
-      <div class="flex items-center justify-between text-gray-600"><span>Comisión Boxly (15%)</span><span class="font-semibold text-gray-800">${{ commission.toFixed(2) }} USD</span></div>
+      <!-- Never a $0.00 that isn't real (Alex, 2026-09-24): amounts show only once every item has its price. -->
+      <div class="flex items-center justify-between text-gray-600"><span>Productos (ref.)</span><span v-if="priced" class="font-semibold text-gray-800">${{ subtotal.toFixed(2) }} USD</span><span v-else class="text-gray-400">{{ pendingCopy }}</span></div>
+      <div class="flex items-center justify-between text-gray-600"><span>Comisión Boxly (15%)</span><span v-if="priced" class="font-semibold text-gray-800">${{ commission.toFixed(2) }} USD</span><span v-else class="text-gray-400">{{ pendingCopy }}</span></div>
       <!-- The delivered cost. "Se cotiza aparte" left the one number a shopper actually
            wants — what this costs at their door — as the only one missing. -->
-      <template v-if="box">
+      <template v-if="box && priced">
         <div class="flex items-center justify-between text-gray-600">
           <span>Caja {{ box.label }} <span class="text-gray-400">(est.)</span></span>
           <span class="font-semibold text-gray-800">${{ box.price_mxn.toLocaleString('es-MX') }} MXN</span>
@@ -96,6 +97,9 @@ const items = computed(() => (props.summary?.items || []).map((it) => ({
   image: it.image || it.product_image_url || null,
 })))
 const subtotal = computed(() => items.value.reduce((s, it) => s + it.price * it.quantity, 0))
+// The amounts are real only when there are items and every one of them has a price.
+const priced = computed(() => items.value.length > 0 && items.value.every((it) => it.price > 0))
+const pendingCopy = computed(() => (items.value.length ? 'Por confirmar' : 'Calculando…'))
 const commission = computed(() => subtotal.value * BOXLY_COMMISSION)
 // Sized server-side with the same archetype volumes and the same live Stripe prices the
 // pricing page and the landing calculator use, so the shopper is never quoted two
