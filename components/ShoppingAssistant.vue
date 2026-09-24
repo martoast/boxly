@@ -45,6 +45,11 @@
           </button>
         </div>
       </header>
+      <!-- Boxly Lab members only: this chat runs the internal test flow (live store checkouts), not what customers see. -->
+      <div v-if="user?.boxly_lab" class="shrink-0 flex items-center justify-center gap-2 px-3 py-1.5 bg-amber-100 border-b border-amber-300 text-amber-900 text-[12px] font-semibold" role="status">
+        <span aria-hidden="true">🧪</span>
+        <span>Modo Lab — pruebas internas. Tus clientes no ven esto.</span>
+      </div>
 
       <!-- ===== LOADING A CONVERSATION (from history) ===== -->
       <div v-if="loadingChat" class="flex-1 overflow-hidden px-3 md:px-4 py-5">
