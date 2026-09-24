@@ -10,13 +10,22 @@ Lab member taps **Finalizar carrito** on the box card →
 Customers (non-Lab) keep today's flow untouched.
 
 ## Todo
-- [ ] API: `store_quotes[].live_session_id` while a quote is running (the browser to watch)
-- [ ] Chat server: client tells it `boxlyLab` + `labFinalize` (button tap)
-- [ ] Chat server: `finalize_lab_order` tool — box (last show_shipment) → reconcile /cart → POST /cart/finalize
+- [x] API: `store_quotes[].live_session_id` while a quote is running (the browser to watch)
+- [x] Chat server: client tells it `boxlyLab` + `labFinalize` (button tap)
+- [x] Chat server: `finalize_lab_order` tool — box (last show_shipment) → reconcile /cart → POST /cart/finalize
       - web rows with no catalog store → blocked with a clear line (the agent can't buy there yet)
-- [ ] prepareStep: Lab gets finalize_lab_order instead of show_assisted_summary; the button forces it
-- [ ] Client: `LabCheckoutCard` (polls the request; stores + totals; Pagar when invoiced; team fallback note)
-- [ ] Client: running store's browser shown with the existing live card/panel
-- [ ] Tests (API + app), local e2e, then ask before deploy
+- [x] prepareStep: Lab gets finalize_lab_order instead of show_assisted_summary; the button forces it
+- [x] Client: `LabCheckoutCard` (polls the request; stores + totals; Pagar when invoiced; team fallback note)
+- [x] Client: running store's browser shown with the existing live card/panel
+- [x] Tests (API + app), local e2e
+- [ ] Deploy (ask Alex first)
 
 ## Review
+- API (`StoreQuote::payloadFor`): `live_session_id` while a store quote runs. One test; 297 pass.
+- Chat server: `finalize_lab_order` (no input) reads the newest box card, reconciles the Lab cart to it
+  (`server/utils/labCheckout.ts`, 19 checks), finalizes. Lab members never get `show_assisted_summary`;
+  a Finalizar tap makes the tool the only move, then one line of text.
+- Client: `LabCheckoutCard` polls the request (4 s while working), shows each store, "Ver en vivo" for the
+  running one (opens the existing split view / mobile modal), totals, then **Pagar** with the Stripe link.
+- Local e2e: box (Gap hoodie + YoungLA pants) vs a cart holding 3 other lines → cart became exactly the box,
+  PR created, Gap quote running with its live browser shown in the thread and the split view.
