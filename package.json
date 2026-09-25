@@ -27,6 +27,7 @@
     "test:tools-reachable": "node server/api/tools-reachable.test.mjs",
     "test:store-ask": "node server/api/store-ask.test.mjs",
     "test:purchase-confirm": "node components/purchase-confirm.test.mjs",
+    "test:store-named": "node server/api/store-named.test.mjs",
     "test:variant-chrome": "node --experimental-strip-types server/api/variant-chrome.test.mjs"
   },
   "dependencies": {

@@ -1144,7 +1144,13 @@ function shopperNamed(name: string | undefined, messages: any[]): boolean {
     .join(' '))
   const words = plain(name).match(/[a-z0-9]{3,}/g) || []
   if (!words.length) return true // a name too short to test safely — leave it alone
-  return words.some((w) => new RegExp(`\\b${w}\\b`).test(said))
+  if (words.some((w) => new RegExp(`\\b${w}\\b`).test(said))) return true
+  // SPACING IS NOT A DIFFERENT NAME. "Gym shark" is Gymshark: whole-word matching saw only "gym" and "shark",
+  // dropped the store, and the search ran across everything for "gym apparel" (Alex, 2026-09-25). Compare the
+  // letters alone too — for names long enough (5+) that a join of ordinary words can't fake one.
+  const compact = (t: string) => t.replace(/[^a-z0-9]+/g, '')
+  const n = compact(plain(name))
+  return n.length >= 5 && compact(said).includes(n)
 }
 
 // Things Boxly does not bring (Alex, 2026-09-13). The prompt says so too, but a prompt
