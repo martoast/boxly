@@ -43,5 +43,9 @@ check('matches a cart url that differs only by query', planCart([{ id: 3, produc
 check('same product twice (two sizes) → two lines', (() => { const p = planCart([tapped], [gap, { ...gap, variants: { size: 'L', color: 'Black' } }]); return p.add.length === 1 && p.update.length === 0 })())
 check('youngla added', planCart([tapped], [gap, yla]).add[0]?.store_id === 'youngla')
 
+check('a failed line of the item just picked is tried again', (() => { const p = planCart([{ ...tapped, sync_status: 'failed' }], [gap], { retryUrl: gap.product_url }); return eq(p.remove, [7]) && p.add.length === 1 })())
+check('a failed line of another item is left alone', eq(planCart([{ ...tapped, sync_status: 'failed' }], [gap], { retryUrl: 'https://other' }), { add: [], update: [], remove: [] }))
+check('an item already in the store cart is not re-run', eq(planCart([{ ...tapped, sync_status: 'in_store_cart' }], [gap], { retryUrl: gap.product_url }), { add: [], update: [], remove: [] }))
+
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed) process.exit(1)

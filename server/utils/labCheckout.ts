@@ -18,7 +18,7 @@ export interface WantedItem {
   variants: Record<string, string>
   saved_id?: string
 }
-export interface CartLine { id: number | string, product_url: string, quantity: number, variants?: Record<string, string> | null }
+export interface CartLine { id: number | string, product_url: string, quantity: number, variants?: Record<string, string> | null, sync_status?: string | null }
 export interface CartPlan {
   add: WantedItem[]
   update: Array<{ id: number | string, body: { quantity?: number, variants?: Record<string, string> } }>
@@ -88,7 +88,7 @@ const norm = (v: any) => String(v ?? '').toLowerCase().normalize('NFD').replace(
  * its own variants (a tap from the product modal carries the store's exact option names) unless the box names a
  * size/colour that line does not have; lines the box no longer holds are removed.
  */
-export function planCart(cart: CartLine[], wanted: WantedItem[]): CartPlan {
+export function planCart(cart: CartLine[], wanted: WantedItem[], opts: { retryUrl?: string | null } = {}): CartPlan {
   const plan: CartPlan = { add: [], update: [], remove: [] }
   const free = [...(cart || [])]
   for (const w of wanted) {
@@ -96,12 +96,18 @@ export function planCart(cart: CartLine[], wanted: WantedItem[]): CartPlan {
     const at = exact >= 0 ? exact : free.findIndex((l) => bare(l.product_url) === bare(w.product_url))
     if (at < 0) { plan.add.push(w); continue }
     const line = free.splice(at, 1)[0]
+    // The item the shopper just (re)picked, whose last try at the store failed: go again. Nothing else changed,
+    // so without this the box and the cart agree and the agent is never asked (Gymshark M, 2026-09-25). Only
+    // for the item being added this turn — every box card re-sends every item, and those must not re-run.
+    if (opts.retryUrl && line.product_url === opts.retryUrl && ['failed', 'unavailable'].includes(String(line.sync_status))) {
+      plan.remove.push(line.id); plan.add.push(w); continue
+    }
     const have = Object.values(line.variants || {}).map(norm)
     const body: { quantity?: number, variants?: Record<string, string> } = {}
     if (Number(line.quantity) !== w.quantity) body.quantity = w.quantity
     if (Object.values(w.variants).some((v) => !have.includes(norm(v)))) body.variants = w.variants
     if (Object.keys(body).length) plan.update.push({ id: line.id, body })
   }
-  plan.remove = free.map((l) => l.id)
+  plan.remove.push(...free.map((l) => l.id))
   return plan
 }

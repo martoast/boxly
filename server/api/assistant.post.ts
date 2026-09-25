@@ -2048,17 +2048,27 @@ export default defineEventHandler(async (event) => {
   // "Finalizar carrito" was tapped this turn, so the tool is the one move.
   const isLab: boolean = !!token && body?.boxlyLab === true
   const labFinalize: boolean = isLab && body?.labFinalize === true
+  // Lab: the agent finished putting a box item in the store's real cart (or the store refused). The client sends
+  // this as a hidden turn; the assistant confirms it — the ONLY moment it may say the item is in the cart.
+  const ce = isLab && body?.cartEvent && typeof body.cartEvent === 'object' ? body.cartEvent : null
+  const cartEvent = ce && ['in_store_cart', 'unavailable', 'failed'].includes(ce.status)
+    ? { title: String(ce.title || 'el producto').slice(0, 200), store: String(ce.store || 'la tienda').slice(0, 80), status: ce.status as string, variants: String(ce.variants || '').slice(0, 120), note: ce.note ? String(ce.note).slice(0, 200) : null }
+    : null
   const forUser = (list: string[]) => list.filter((t) => t !== (isLab ? 'show_assisted_summary' : 'finalize_lab_order'))
   // Make the Lab member's Boxly cart hold exactly this box (the box wins). Every add lands in the cart the
   // moment the box card shows it, so the agent fills the real store cart in the background while they keep
   // shopping (cart sync) — Finalizar then only checks out. Returns null when done, else an error code.
   // Web rows (no catalog store) are skipped here; finalize refuses them with a clear line.
-  async function syncLabBox(box: any[]): Promise<string | null> {
+  // `retryUrl`: the item picked this turn — if its last store try failed, it goes again. Also returns, via
+  // `sent`, the product URLs this sync asked the agent to put in the store cart (added / changed / retried).
+  async function syncLabBox(box: any[], retryUrl: string | null = null, sent: Set<string> = new Set()): Promise<string | null> {
     const { wanted } = wantedFromBox(box, savedProducts)
     const cart = await callApi('/cart', { token })
     if (cart?.ok === false || !Array.isArray(cart?.items)) return 'cart_unavailable'
     // Lines the box no longer holds go first (so a variant change can never collide with them).
-    const plan = planCart(cart.items, wanted)
+    const plan = planCart(cart.items, wanted, { retryUrl })
+    for (const w of plan.add) sent.add(w.product_url)
+    for (const u of plan.update) { const l = cart.items.find((x: any) => x.id === u.id); if (l) sent.add(l.product_url) }
     const failed = (r: any) => r?.ok === false
     for (const id of plan.remove) if (failed(await callApi(`/cart/items/${id}`, { method: 'DELETE', token }))) return 'cart_update_failed'
     for (const u of plan.update) if (failed(await callApi(`/cart/items/${u.id}`, { method: 'PATCH', token, body: u.body }))) return 'cart_update_failed'
@@ -2110,8 +2120,17 @@ export default defineEventHandler(async (event) => {
   const mustNarrow = !body?.fromStarterCard && audienceGap(messages)
   // Lab members finalize with finalize_lab_order; this overrides every "show_assisted_summary is the only way to
   // order" line above (that tool is not even offered to them).
+  const cartEventBlock = cartEvent
+    ? `STORE CART RESULT (automatic — the shopper did not type this; the "⟦carrito⟧" message is hidden from them). "${cartEvent.title}"${cartEvent.variants ? ` (${cartEvent.variants})` : ''} at ${cartEvent.store}: ${
+      cartEvent.status === 'in_store_cart'
+        ? `the Boxly agent PUT IT IN ${cartEvent.store}'s REAL CART. Reply in Spanish in one or two short lines: it's now in their ${cartEvent.store} cart ✅, then ask if they want to add anything else (another item, or tap Finalizar carrito when they're done).`
+        : cartEvent.status === 'unavailable'
+          ? `${cartEvent.store} says it is SOLD OUT${cartEvent.variants ? ' in that option' : ''}. Reply in Spanish in one or two short lines: it could not go in the cart because ${cartEvent.store} has it agotado${cartEvent.variants ? ` en ${cartEvent.variants}` : ''}; suggest picking another size/colour or a similar product. Do NOT say it was added.`
+          : `the agent could NOT add it to ${cartEvent.store}'s cart${cartEvent.note ? ` (agent's note: ${cartEvent.note} — do not quote it)` : ''}. Reply in Spanish in one or two short lines: it didn't go into the ${cartEvent.store} cart; the most common reason is that option being sold out — suggest another size/colour, or that you can try again. Do NOT say it was added.`
+    } Write only that reply; no tools, no gallery.`
+    : ''
   const labBlock = isLab ? 'BOXLY LAB SHOPPER: when they finalize the box, call finalize_lab_order (no input) — it places the order and runs the real store checkouts live in the chat. show_assisted_summary does not exist for this shopper; ignore every instruction that mentions it.' : ''
-  const ctx = [summaryBlock(summaryState), shopperContext(!!token, shoppingProfile, savedProducts), narrowBlock(mustNarrow), labBlock].filter(Boolean).join('\n\n')
+  const ctx = [summaryBlock(summaryState), shopperContext(!!token, shoppingProfile, savedProducts), narrowBlock(mustNarrow), labBlock, cartEventBlock].filter(Boolean).join('\n\n')
   // History → model, bounded (see server/utils/chatContext.ts):
   //  1. old galleries collapse to a one-line marker (the products stay in the registry),
   //  2. hysteresis window (MAX 14 msgs / 6k tokens → keep 8; hard cap 9k),
@@ -2210,6 +2229,8 @@ export default defineEventHandler(async (event) => {
     // tools go away and the model has to answer in text, which is a real reply
     // ("no encontré, ¿probamos otra marca?") instead of a hang.
     prepareStep: ({ steps }: any) => {
+      // Lab store-cart result: text only.
+      if (cartEvent) return { activeTools: [], toolChoice: 'none' }
       // Lab's Finalizar tap: finalize, then one line of text — nothing else this turn.
       if (labFinalize) return (steps || []).length ? { activeTools: [], toolChoice: 'none' } : { activeTools: ['finalize_lab_order'], toolChoice: 'required' }
       if (galleryShown) return { activeTools: forUser(NON_GALLERY_TOOLS) }
@@ -2723,10 +2744,20 @@ export default defineEventHandler(async (event) => {
           // agent's live browser will show that page, so the chat says it in words.
           if (isLab && token) {
             const added = out?.hold ? null : wantedFromBox(input.slice(-1), savedProducts).wanted[0]
+            const sent = new Set<string>()
             const [, lock] = await Promise.all([
-              syncLabBox(out?.hold ? input.slice(0, -1) : input).catch((e: any) => console.warn('[lab] box sync failed', e?.message || e)),
+              syncLabBox(out?.hold ? input.slice(0, -1) : input, added?.product_url ?? null, sent).catch((e: any) => console.warn('[lab] box sync failed', e?.message || e)),
               added ? checkStoreLock(added.product_url) : null,
             ])
+            // THE BOX IS NOT THE STORE CART (Alex, 2026-09-25: "ONLY after it's actually added to the store's cart
+            // should the AI say ok, it's in your cart"). The agent is filling it now; the confirmation (or the
+            // store's refusal) comes as its own message when the agent finishes — so this reply must not claim it.
+            if (added && !lock && sent.has(added.product_url)) {
+              const store = added.store_name || added.store_id
+              out.store_cart = 'adding'
+              const addingNote = `STORE CART: "${added.title}" is going into ${store}'s REAL cart RIGHT NOW — the Boxly agent is adding it in the live browser card below. Reply with ONE short line in Spanish, like: "Lo estoy agregando a tu carrito de ${store} — míralo en vivo aquí 👇". Do NOT say it was added, "listo", or that it is in the cart, do NOT ask what else they want, and write NO link or URL (the live card is the view): a message follows automatically as soon as ${store} confirms it (or says it can't).`
+              out.note = out.note ? `${out.note}\n\n${addingNote}` : addingNote
+            }
             if (lock && added) {
               const store = added.store_name || added.store_id
               out.store_closed = { store, message: lock.message }

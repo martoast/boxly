@@ -305,7 +305,7 @@
             <svg class="w-5 h-5 animate-spin text-gray-300" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
           </div>
           <TransitionGroup tag="div" name="msg" class="max-w-2xl mx-auto space-y-4">
-            <div v-for="m in chat.messages" :key="m.id" :class="m.role === 'user' ? 'flex justify-end' : 'flex justify-start'">
+            <div v-for="m in chat.messages" v-show="!isCartEvent(m)" :key="m.id" :class="m.role === 'user' ? 'flex justify-end' : 'flex justify-start'">
               <div :class="m.role === 'user' ? 'bg-primary-500 text-white rounded-3xl rounded-br-lg px-4 py-2.5 max-w-[85%] shadow-sm' : 'w-full max-w-[95%] space-y-3'">
                 <!-- USER: their text + any uploaded image -->
                 <template v-if="m.role === 'user'">
@@ -660,7 +660,7 @@
 import { Chat } from '@ai-sdk/vue'
 import { DefaultChatTransport } from 'ai'
 import { useBoxlyCart } from '../composables/useBoxlyCart'
-import { cartPayloadFromChatProduct } from '../utils/boxlyCart'
+import { cartPayloadFromChatProduct, variantsText } from '../utils/boxlyCart'
 
 // Auto-continue ONLY for the client-side create_account tool once it has a
 // result. Server tools (search_products/browse_store/…) are fully resolved
@@ -1545,6 +1545,34 @@ const activeTitle = computed(() => conversations.value.find((c) => c.id === acti
 // one turn; the prompt already asks its narrowing question AFTER the gallery.
 const cardTapped = ref(false)
 const labFinalizeTapped = ref(false)
+// ── Boxly Lab: the AI says "it's in your cart" only when the agent really put it in the store's cart ─────
+// (Alex, 2026-09-25). The box card's turn only says it is being added; when a line of the Lab cart goes from
+// pending/syncing to a result, the chat sends one hidden turn ("⟦carrito⟧ …", never shown as a bubble) and the
+// assistant answers it: in the cart + "¿algo más?", or what the store said (sold out, couldn't add).
+const CART_EVENT = '⟦carrito⟧'
+const isCartEvent = (m) => m?.role === 'user' && msgText(m).startsWith(CART_EVENT)
+const syncSeen = new Map()
+let syncBaseline = false
+const cartEvents = []
+let pendingCartEvent = null
+function consumeCartEvent() { const e = pendingCartEvent; pendingCartEvent = null; return e }
+function flushCartEvents() {
+  if (isBusy.value || pendingCartEvent || !cartEvents.length) return
+  const it = cartEvents.shift()
+  pendingCartEvent = { title: it.title, store: it.store_name || it.store_id, status: it.sync_status, variants: variantsText(it.variants), note: it.sync_note || null }
+  chat.sendMessage({ text: `${CART_EVENT} ${it.title} — ${it.sync_status}` })
+}
+watch(() => boxlyCart.cart.value?.items || [], (items) => {
+  if (!user.value?.boxly_lab) return
+  for (const it of items) {
+    const prev = syncSeen.get(it.id)
+    syncSeen.set(it.id, it.sync_status)
+    // Only results that happen while this chat is open (a line seen in flight, now settled).
+    if (syncBaseline && ['pending', 'syncing'].includes(prev) && ['in_store_cart', 'unavailable', 'failed'].includes(it.sync_status)) cartEvents.push(it)
+  }
+  syncBaseline = true
+  flushCartEvents()
+}, { deep: true })
 function consumeLabFinalize() {
   const was = labFinalizeTapped.value
   labFinalizeTapped.value = false
@@ -1576,6 +1604,7 @@ const chat = new Chat({
         // Boxly Lab: finalizing runs the real store checkouts in the chat; a Finalizar tap makes it the one move.
         ...(user.value?.boxly_lab ? { boxlyLab: true } : {}),
         ...(consumeLabFinalize() ? { labFinalize: true } : {}),
+        ...(pendingCartEvent ? { cartEvent: consumeCartEvent() } : {}),
       } }
     },
   }),
@@ -2216,6 +2245,7 @@ watch(() => chat.status, async (s) => {
   if (s !== 'ready' || !user.value?.boxly_lab) return
   await boxlyCart.load({ force: true })
   boxlyCart.pollWhileSyncing()
+  flushCartEvents()
 })
 watch(() => chat.status, async (s) => {
   scrollDown()
