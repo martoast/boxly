@@ -12,6 +12,7 @@ import { generateFollowups, followupPart, followupsWithin, attachFollowupChips }
 import { readSummary, summaryBlock, summarize, shouldSummarize } from '../utils/chatSummary'
 import { boxFromMessages, wantedFromBox, planCart } from '../utils/labCheckout'
 import { checkStoreLock } from '../utils/storeLock'
+import { storeHostsFromFacets, tagCarriedStores, type StoreHosts } from '../utils/storeHosts'
 
 /**
  * AI shopping-assistant chat backend (Phase 2).
@@ -1447,6 +1448,19 @@ function logSearch(steps: any[], auth: { cookie?: string; origin?: string; token
 const CATALOG_BASE = 'https://catalog.fullstacklabs.org'
 const CATALOG_DIRECT_RE = /^\/catalog\/(?:search|curate|collection|live-grab|product-variants|store-brief)(?:[/?]|$)/
 
+// The carried stores' web domains (catalog facets), cached for an hour per server instance. Never throws: an
+// unreachable catalog just means no tagging this time.
+let storeHostsCache: { at: number, map: StoreHosts } | null = null
+async function catalogStoreHosts(): Promise<StoreHosts> {
+  if (storeHostsCache && Date.now() - storeHostsCache.at < 3600_000) return storeHostsCache.map
+  try {
+    const res = await fetch(`${CATALOG_BASE}/catalog/facets`, { signal: AbortSignal.timeout(3000) })
+    const map = storeHostsFromFacets(await res.json())
+    if (map.size) storeHostsCache = { at: Date.now(), map }
+    return map
+  } catch { return storeHostsCache?.map || new Map() }
+}
+
 async function callApi(path: string, opts: { method?: string; body?: any; token?: string; timeoutMs?: number } = {}) {
   // No Origin header: this is a server-to-server call. Sending Origin:api.boxly.mx
   // makes Sanctum treat it as a stateful (browser) request and enforce CSRF,
@@ -2061,8 +2075,11 @@ export default defineEventHandler(async (event) => {
   // Web rows (no catalog store) are skipped here; finalize refuses them with a clear line.
   // `retryUrl`: the item picked this turn — if its last store try failed, it goes again. Also returns, via
   // `sent`, the product URLs this sync asked the agent to put in the store cart (added / changed / retried).
+  // The shopper's product registry with web rows from carried stores tagged (rows registered before a gallery
+  // was tagged, or by an older client).
+  const labRegistry = async () => tagCarriedStores(savedProducts, await catalogStoreHosts())
   async function syncLabBox(box: any[], retryUrl: string | null = null, sent: Set<string> = new Set()): Promise<string | null> {
-    const { wanted } = wantedFromBox(box, savedProducts)
+    const { wanted } = wantedFromBox(box, await labRegistry())
     const cart = await callApi('/cart', { token })
     if (cart?.ok === false || !Array.isArray(cart?.items)) return 'cart_unavailable'
     // Lines the box no longer holds go first (so a variant change can never collide with them).
@@ -2170,7 +2187,13 @@ export default defineEventHandler(async (event) => {
   // when it returns products; prepareStep() then strips gallery tools from later
   // steps. Wrap a gallery tool's result with markGallery() to arm it.
   let galleryShown = false
-  const markGallery = (r: any) => {
+  const markGallery = async (r: any) => {
+    // A web row pointing at a store we carry is that store's product: tag it, so the box (and the Lab cart)
+    // can put it in that store's real cart.
+    if (r && Array.isArray(r.products) && r.products.some((p: any) => !p?.store_id)) {
+      const tagged = tagCarriedStores(r.products, await catalogStoreHosts())
+      if (tagged !== r.products) r = { ...r, products: tagged }
+    }
     if (r && Array.isArray(r.products) && r.products.length > 0) {
       galleryShown = true
       if (!followupsPromise) followupsPromise = generateFollowups({ question, products: r.products, store: r.products[0]?.store })
@@ -2743,7 +2766,7 @@ export default defineEventHandler(async (event) => {
           // the item just added is checked for a store that closed its whole site (drop / waiting room) — the
           // agent's live browser will show that page, so the chat says it in words.
           if (isLab && token) {
-            const added = out?.hold ? null : wantedFromBox(input.slice(-1), savedProducts).wanted[0]
+            const added = out?.hold ? null : wantedFromBox(input.slice(-1), await labRegistry()).wanted[0]
             const sent = new Set<string>()
             const [, lock] = await Promise.all([
               syncLabBox(out?.hold ? input.slice(0, -1) : input, added?.product_url ?? null, sent).catch((e: any) => console.warn('[lab] box sync failed', e?.message || e)),
@@ -2752,6 +2775,13 @@ export default defineEventHandler(async (event) => {
             // THE BOX IS NOT THE STORE CART (Alex, 2026-09-25: "ONLY after it's actually added to the store's cart
             // should the AI say ok, it's in your cart"). The agent is filling it now; the confirmation (or the
             // store's refusal) comes as its own message when the agent finishes — so this reply must not claim it.
+            // An item from a store the agent cannot buy at (a web result off our catalog stores): in the box, but no
+            // store cart will hold it — say so now, not at Finalizar.
+            const unsupportedAdd = out?.hold ? null : wantedFromBox(input.slice(-1), await labRegistry()).unsupported[0]
+            if (unsupportedAdd) {
+              const n = `STORE CART: "${unsupportedAdd}" is a web result from a store the Boxly agent cannot buy from yet, so it will NOT go into a real store cart and Finalizar will refuse it. Tell the shopper in ONE short line (Spanish) that you can't add this one automatically, and offer the same kind of product from one of our stores. Do NOT say it was added to a cart.`
+              out.note = out.note ? `${out.note}\n\n${n}` : n
+            }
             if (added && !lock && sent.has(added.product_url)) {
               const store = added.store_name || added.store_id
               out.store_cart = 'adding'
@@ -2823,7 +2853,7 @@ export default defineEventHandler(async (event) => {
           const stop = (error: string, why: string) => ({ ok: false, error, note: `NOT FINALIZED — ${why} Nothing was ordered and no card is on screen; do NOT say the order was placed.` })
           const box = boxFromMessages(messages)
           if (!box?.length) return stop('empty_box', 'the box is empty. Say ONE short line inviting them to add products first.')
-          const { wanted, unsupported } = wantedFromBox(box, savedProducts)
+          const { wanted, unsupported } = wantedFromBox(box, await labRegistry())
           if (unsupported.length) {
             return { ...stop('unsupported_items', `${unsupported.join(', ')} ${unsupported.length > 1 ? 'are web results' : 'is a web result'} from a store the Boxly agent can't buy from yet. Say ONE short line naming ${unsupported.length > 1 ? 'them' : 'it'} and ask the shopper to take ${unsupported.length > 1 ? 'them' : 'it'} out of the box, or to pick the same product from a store in our catalog.`), unsupported }
           }

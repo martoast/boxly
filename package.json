@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "test:live": "node --experimental-strip-types utils/liveShopping.test.mjs && node --experimental-strip-types utils/liveBrowse.test.mjs && node --experimental-strip-types utils/typingFlush.test.ts && node --experimental-strip-types composables/liveShopping.harness.test.mjs",
-    "test:cart": "node --experimental-strip-types utils/boxlyCart.test.mjs && node --experimental-strip-types utils/storeQuotes.test.mjs && node --experimental-strip-types server/utils/labCheckout.test.mjs && node --experimental-strip-types server/utils/storeLock.test.mjs",
+    "test:cart": "node --experimental-strip-types utils/boxlyCart.test.mjs && node --experimental-strip-types utils/storeQuotes.test.mjs && node --experimental-strip-types server/utils/labCheckout.test.mjs && node --experimental-strip-types server/utils/storeLock.test.mjs && node --experimental-strip-types server/utils/storeHosts.test.mjs",
     "build": "nuxt build",
     "dev": "nuxt dev",
     "generate": "nuxt generate",
