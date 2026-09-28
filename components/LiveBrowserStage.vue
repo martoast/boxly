@@ -4,7 +4,16 @@
   <div class="relative bg-gray-900 overflow-hidden" :class="compact ? 'rounded-xl' : 'rounded-2xl'" style="aspect-ratio: 16 / 9">
     <video ref="videoEl" tabindex="0" autoplay playsinline muted class="w-full h-full object-contain outline-none" :class="interactive ? 'cursor-default ring-2 ring-primary-400 ring-inset' : ''" />
 
-    <div v-if="phase !== 'playing'" class="absolute inset-0 flex flex-col items-center justify-center gap-2 text-white text-center px-4 bg-gray-900">
+    <!-- Finished: the store's LAST FRAME stays (Alex 2026-09-28: "it shouldn't close it — keep it there in case the
+         user wants to go back to it"), with a small done badge, instead of a dark cover. -->
+    <template v-if="phase === 'ended' && lastFrame">
+      <img :src="lastFrame" alt="" class="absolute inset-0 w-full h-full object-contain bg-gray-900" />
+      <span class="absolute left-2 bottom-2 inline-flex items-center gap-1 rounded-full bg-black/70 text-white px-2 py-0.5" :class="compact ? 'text-[10px]' : 'text-xs'">
+        <svg class="w-3 h-3 text-green-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 13l4 4L19 7" /></svg>
+        Listo en {{ storeName || 'la tienda' }}
+      </span>
+    </template>
+    <div v-else-if="phase !== 'playing'" class="absolute inset-0 flex flex-col items-center justify-center gap-2 text-white text-center px-4 bg-gray-900">
       <template v-if="phase === 'ended'">
         <svg class="w-6 h-6 text-green-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 13l4 4L19 7" /></svg>
         <p :class="compact ? 'text-[11px]' : 'text-sm'">El agente terminó en {{ storeName || 'la tienda' }}.</p>
@@ -44,8 +53,21 @@ let stops: Array<() => void> = []
 const relay = useInputRelay()
 let relayBound = false
 
+// The last frame of the store, kept when the agent finishes (a still image of where it left the store).
+const lastFrame = ref<string | null>(null)
+function captureLastFrame() {
+  const v = videoEl.value
+  if (!v || !v.videoWidth || !v.videoHeight) return
+  try {
+    const c = document.createElement('canvas')
+    c.width = v.videoWidth; c.height = v.videoHeight
+    c.getContext('2d')?.drawImage(v, 0, 0)
+    lastFrame.value = c.toDataURL('image/jpeg', 0.85)
+  } catch { /* a tainted or empty frame: the ended cover shows instead */ }
+}
+
 const loadingCopy = computed(() => mediaState.value === 'failed' ? 'El video no está disponible.' : `Abriendo ${props.storeName || 'la tienda'}…`)
-const srStatus = computed(() => phase.value === 'playing' ? `Viendo ${props.storeName || 'la tienda'} en vivo` : phase.value === 'ended' ? 'El agente terminó' : '')
+const srStatus = computed(() => phase.value === 'playing' ? `Viendo ${props.storeName || 'la tienda'} en vivo` : phase.value === 'ended' ? `El agente terminó en ${props.storeName || 'la tienda'}` : '')
 
 async function attach() {
   let r: any
@@ -55,7 +77,7 @@ async function attach() {
   const h = parseSessionCreateResponse(r)
   if (!h) { phase.value = r?.data?.status && r.data.status !== 'running' ? 'ended' : 'error'; if (phase.value === 'ended') emit('ended'); return }
   live = nuxtApp.runWithContext(() => useLiveSession(h, {
-    onTerminal: () => { viewer?.stop(); relay.stop(); phase.value = 'ended'; emit('ended') },
+    onTerminal: () => { captureLastFrame(); viewer?.stop(); relay.stop(); phase.value = 'ended'; emit('ended') },
     // C4: who holds the browser (agent | pausing | customer).
     onEvent: (ev: any) => { if (ev?.type === 'control.changed' && typeof ev.payload?.controller === 'string') emit('control', ev.payload.controller) },
   }))

@@ -413,7 +413,7 @@
                   <template v-for="(part, i) in m.parts" :key="'w' + i">
                     <!-- An item held for a size/colour pick returns hold:true; with nothing else in the box there is no box to
                          draw yet, so show the picker alone rather than an empty "Tu caja Boxly 0" card. -->
-                    <LazyShipmentCard v-if="part.type === 'tool-show_shipment' && part.state === 'output-available' && !(part.output?.hold && !part.output?.items?.length)" :shipment="enrichShipment(part.output)" :requested="!!assistedPr || labOrdered" @order="onFinalizeShipment" @add="onAddMore" />
+                    <LazyShipmentCard v-if="part.type === 'tool-show_shipment' && part.state === 'output-available' && !(part.output?.hold && !part.output?.items?.length)" :store-status="user?.boxly_lab ? labItemStatus : null" :shipment="enrichShipment(part.output)" :requested="!!assistedPr || labOrdered" @order="onFinalizeShipment" @add="onAddMore" />
                     <!-- Sizes/colours with LIVE availability for the item just added (read from its stored URL by show_shipment). -->
                     <!-- The picker NEVER renders inline in the chat (Alex, 2026-09-11: "this UI/UX of the variant
                          selection should never be in the chat, it should be in the modal"). When the box holds an item
@@ -724,13 +724,20 @@ function watchLive(s) {
   liveShown.value = s
   liveOpen.value = true
 }
+// Boxly Lab: a box item's place in its store's real cart (the live Boxly cart, matched by product name).
+const normTitle = (v) => String(v ?? '').trim().toLowerCase()
+function labItemStatus(it) {
+  const lines = boxlyCart.cart.value?.items || []
+  const line = lines.find((l) => normTitle(l.title) === normTitle(it?.name)) || lines.find((l) => normTitle(it?.name) && normTitle(l.title).startsWith(normTitle(it.name)))
+  return line ? { status: line.sync_status, store: line.store_name || line.store_id } : null
+}
 function onLiveEnded() {
   clearTimeout(liveEndTimer)
   liveEndTimer = setTimeout(() => {
+    // A finished store browser STAYS (Alex 2026-09-28: "it shouldn't close it … in case the user wants to go back
+    // to it"): its card keeps the last frame and "Listo"; only the next store's session takes its place.
     const next = [labLive.value, boxlyCart.cart.value?.live_sessions?.[0]].find((s) => s && s.id !== liveShown.value?.id) || null
-    if (next) { liveShown.value = next; return }
-    liveShown.value = null
-    liveOpen.value = false
+    if (next) liveShown.value = next
   }, 6000)
 }
 onMounted(async () => {

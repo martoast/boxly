@@ -9,6 +9,17 @@
       <span v-if="packed.length" class="text-[11px] font-semibold text-primary-700 bg-primary-100 rounded-full px-2.5 py-0.5">Caja {{ s.box_label }}</span>
     </div>
 
+    <!-- Boxly Lab: WHERE THE ORDER IS (Alex 2026-09-28: "it needs to be clear in the interface what is happening and
+         what the steps are"). Add from any store → each item goes into that store's real cart → Finalizar → one invoice. -->
+    <ol v-if="storeStatus" class="mt-2.5 flex items-center gap-1 text-[10.5px] font-semibold" aria-label="Pasos de tu pedido">
+      <li v-for="(label, i) in STEPS" :key="i" class="flex items-center gap-1">
+        <span class="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5" :class="i + 1 < step ? 'bg-green-100 text-green-700' : i + 1 === step ? 'bg-primary-500 text-white' : 'bg-gray-100 text-gray-400'">
+          <span class="tabular-nums">{{ i + 1 < step ? '✓' : i + 1 }}</span>{{ label }}
+        </span>
+        <span v-if="i < STEPS.length - 1" class="text-gray-300" aria-hidden="true">›</span>
+      </li>
+    </ol>
+
     <!-- items — with thumbnails so the box visibly fills up as they add more -->
     <ul v-if="packed.length" class="mt-3 space-y-2">
       <li v-for="(it, i) in packed" :key="i" class="flex items-center gap-2.5">
@@ -22,6 +33,10 @@
                show back exactly what they picked (Alex, 2026-09-11). -->
           <p class="text-[11px] leading-tight mt-0.5">
             <span v-if="it.chosen" class="font-semibold text-gray-600">{{ it.chosen }}</span><span v-if="it.chosen" class="text-gray-300"> · </span><span class="text-gray-400">{{ it.size }}<span v-if="it.price"> · ${{ it.price }} USD</span></span>
+          </p>
+          <!-- Lab: where this item is — in the store's real cart, being added, or what the store said. -->
+          <p v-if="statusOf(it)" class="mt-1 inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10.5px] font-semibold" :class="statusOf(it).cls">
+            <span v-if="statusOf(it).busy" class="w-1.5 h-1.5 rounded-full bg-primary-500 animate-pulse" aria-hidden="true" />{{ statusOf(it).text }}
           </p>
         </div>
       </li>
@@ -83,6 +98,8 @@ const props = defineProps({
   // True once a purchase request already exists for this chat — hides the
   // now-meaningless "Confirmar mi envío" action.
   requested: { type: Boolean, default: false },
+  // Boxly Lab: (item) => { status, store } from the live Boxly cart, or null. Absent = the ordinary box card.
+  storeStatus: { type: Function, default: null },
 })
 defineEmits(['order', 'add'])
 
@@ -103,6 +120,26 @@ const s = computed(() => ({
 const packed = computed(() => (s.value.items || []).filter((it) => !it.unboxable))
 const freight = computed(() => (s.value.items || []).filter((it) => it.unboxable))
 const byWeight = computed(() => s.value.limited_by === 'weight')
+
+const STEPS = ['Agrega', 'Carrito real', 'Finalizar', 'Una factura']
+const statusOf = (it) => {
+  const r = props.storeStatus ? props.storeStatus(it) : null
+  if (!r) return null
+  const store = r.store || 'la tienda'
+  if (r.status === 'in_store_cart') return { text: `✓ En tu carrito de ${store}`, cls: 'bg-green-50 text-green-700' }
+  if (r.status === 'pending' || r.status === 'syncing') return { text: `Agregando en ${store}…`, cls: 'bg-primary-50 text-primary-700', busy: true }
+  if (r.status === 'unavailable') return { text: `Agotado en ${store}`, cls: 'bg-amber-50 text-amber-700' }
+  if (r.status === 'failed') return { text: `No se pudo agregar en ${store}`, cls: 'bg-red-50 text-red-700' }
+  return null
+}
+// The step the order is at: 4 once it was finalized, 2 while any item is still going into a store cart, else 3
+// (everything is in its store cart: add more or finalize).
+const step = computed(() => {
+  if (props.requested) return 4
+  const st = packed.value.map((it) => props.storeStatus?.(it)?.status).filter(Boolean)
+  if (!st.length) return 1
+  return st.some((x) => x === 'pending' || x === 'syncing') ? 2 : 3
+})
 
 // Total pieces in the box (sums quantities) — the badge that ticks up as they add.
 const itemCount = computed(() => packed.value.reduce((n, it) => n + (Number(it.quantity) || 1), 0))
