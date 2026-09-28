@@ -20,7 +20,7 @@ export interface WantedItem {
   /** Search to cart: the engine finds this product with the store's own search (product_url is then the store's site). */
   find?: string
 }
-export interface CartLine { id: number | string, product_url: string, quantity: number, variants?: Record<string, string> | null, sync_status?: string | null, saved_id?: string | null }
+export interface CartLine { id: number | string, product_url: string, quantity: number, variants?: Record<string, string> | null, sync_status?: string | null, saved_id?: string | null, title?: string | null, store_id?: string | null }
 /** A store the agent can buy at: its id, display name and web host (catalog facets). */
 export interface CarriedStore { id: string, name: string, host: string }
 export interface CartPlan {
@@ -132,7 +132,10 @@ export function planCart(cart: CartLine[], wanted: WantedItem[], opts: { retryUr
     // A found product's line carries the page the search found, not the box's search link: the product's own id
     // (saved_id) still names it, so it is not removed and re-added on every card.
     const bySaved = exact < 0 && w.saved_id ? free.findIndex((l) => l.saved_id && l.saved_id === w.saved_id) : -1
-    const at = exact >= 0 ? exact : bySaved >= 0 ? bySaved : free.findIndex((l) => bare(l.product_url) === bare(w.product_url))
+    // A web row often has no registry id (live Lab 2026-09-28: the Owala line was found, the next card re-added it
+    // and the quote searched all over again): a searched item is the same line when the store and title match.
+    const byTitle = exact < 0 && bySaved < 0 && w.find ? free.findIndex((l) => l.store_id === w.store_id && sameName(l.title, w.title)) : -1
+    const at = exact >= 0 ? exact : bySaved >= 0 ? bySaved : byTitle >= 0 ? byTitle : free.findIndex((l) => bare(l.product_url) === bare(w.product_url))
     if (at < 0) { plan.add.push(w); continue }
     const line = free.splice(at, 1)[0]
     // The item the shopper just (re)picked, whose last try at the store failed: go again. Nothing else changed,

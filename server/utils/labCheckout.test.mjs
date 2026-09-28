@@ -62,6 +62,11 @@ console.log('search to cart')
   // After the engine found it, the cart line carries the found page: the same product (saved_id) is kept, not re-added.
   const plan = planCart([{ id: 7, product_url: 'https://owalalife.com/products/freesip', quantity: 1, variants: { size: '24oz' }, saved_id: 'x', sync_status: 'in_store_cart' }], wanted)
   check('the found line is matched by saved_id, not removed and re-added', plan.add.length === 0 && plan.remove.length === 0, JSON.stringify(plan))
+  // Live Lab: the box item had no saved_id and no url (a web row) — the found line is matched by store + title.
+  const regNoId = [{ title: 'Owala FreeSip 24-oz. Plaid and Simple', url: 'https://www.somewebshop.com/p/9', store_id: null, price: 34.99 }]
+  const w2 = wantedFromBox([{ name: 'Owala FreeSip 24-oz. Plaid and Simple', size: '24oz' }], regNoId, carried).wanted
+  const plan2 = planCart([{ id: 14, product_url: 'https://owalalife.com/products/freesip?Color=Plaid', quantity: 1, variants: { size: '24oz' }, saved_id: null, title: 'Owala FreeSip 24-oz. Plaid and Simple', store_id: 'owala', sync_status: 'in_store_cart' }], w2)
+  check('a found web-row line with no saved_id is matched by store + title', w2.length === 1 && plan2.add.length === 0 && plan2.remove.length === 0, JSON.stringify(plan2))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)
