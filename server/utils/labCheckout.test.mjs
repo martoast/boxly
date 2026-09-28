@@ -1,5 +1,5 @@
 // Pure tests for server/utils/labCheckout.ts — the chat box → Boxly cart for the Lab finalize.
-import { boxFromMessages, wantedFromBox, planCart } from './labCheckout.ts'
+import { boxFromMessages, wantedFromBox, planCart, carriedStoreForTitle } from './labCheckout.ts'
 
 let passed = 0, failed = 0
 const check = (name, ok, detail = '') => { if (ok) { passed++; console.log(`  ✓ ${name}`) } else { failed++; console.log(`  ✗ ${name} ${detail}`) } }
@@ -46,6 +46,23 @@ check('youngla added', planCart([tapped], [gap, yla]).add[0]?.store_id === 'youn
 check('a failed line of the item just picked is tried again', (() => { const p = planCart([{ ...tapped, sync_status: 'failed' }], [gap], { retryUrl: gap.product_url }); return eq(p.remove, [7]) && p.add.length === 1 })())
 check('a failed line of another item is left alone', eq(planCart([{ ...tapped, sync_status: 'failed' }], [gap], { retryUrl: 'https://other' }), { add: [], update: [], remove: [] }))
 check('an item already in the store cart is not re-run', eq(planCart([{ ...tapped, sync_status: 'in_store_cart' }], [gap], { retryUrl: gap.product_url }), { add: [], update: [], remove: [] }))
+
+console.log('search to cart')
+{
+  const carried = [{ id: 'owala', name: 'Owala', host: 'owalalife.com' }, { id: 'coach', name: 'Coach', host: 'coach.com' }, { id: 'coach-outlet', name: 'Coach Outlet', host: 'coachoutlet.com' }]
+  check('a title that starts with a carried store names it', carriedStoreForTitle('Owala FreeSip 24-oz. Stainless Steel', carried)?.id === 'owala')
+  check('the longest store name wins', carriedStoreForTitle('Coach Outlet Tabby Bag', carried)?.id === 'coach-outlet')
+  check('a store name mid-title claims nothing', carriedStoreForTitle('Water bottle like Owala FreeSip', carried) === null)
+  check('a word that only begins like the name does not match', carriedStoreForTitle('Owalamania bottle', carried) === null)
+  const reg = [{ id: 'x', title: 'Owala FreeSip 24-oz. Plaid and Simple', url: 'https://www.somewebshop.com/p/9', store: 'Some Web Shop', store_id: null, price: 34.99 }]
+  const { wanted, unsupported } = wantedFromBox([{ saved_id: 'x', name: 'Owala FreeSip 24-oz. Plaid and Simple', size: '24oz' }], reg, carried)
+  check('an outside seller\'s Owala becomes a find item at Owala', wanted.length === 1 && wanted[0].store_id === 'owala' && wanted[0].find === 'Owala FreeSip 24-oz. Plaid and Simple' && unsupported.length === 0, JSON.stringify(wanted))
+  check('its link is the store\'s site, keyed by the search', /^https:\/\/owalalife\.com\/\?boxly_find=owala-freesip-24-oz-plaid/.test(wanted[0]?.product_url || ''), wanted[0]?.product_url)
+  check('without the carried list it stays unsupported (old behaviour)', wantedFromBox([{ saved_id: 'x', name: 'Owala FreeSip 24-oz. Plaid and Simple' }], reg).unsupported.length === 1)
+  // After the engine found it, the cart line carries the found page: the same product (saved_id) is kept, not re-added.
+  const plan = planCart([{ id: 7, product_url: 'https://owalalife.com/products/freesip', quantity: 1, variants: { size: '24oz' }, saved_id: 'x', sync_status: 'in_store_cart' }], wanted)
+  check('the found line is matched by saved_id, not removed and re-added', plan.add.length === 0 && plan.remove.length === 0, JSON.stringify(plan))
+}
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed) process.exit(1)

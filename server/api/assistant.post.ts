@@ -10,7 +10,7 @@ import { toEnglishSearchTerms, looksSpanish } from '../utils/webQuery'
 import { ageGalleries, windowMessages, withContextOnLastUser, dropToolParts, contextStats, WINDOW_DEFAULTS } from '../utils/chatContext'
 import { generateFollowups, followupPart, followupsWithin, attachFollowupChips } from '../utils/followups'
 import { readSummary, summaryBlock, summarize, shouldSummarize } from '../utils/chatSummary'
-import { boxFromMessages, wantedFromBox, planCart } from '../utils/labCheckout'
+import { boxFromMessages, wantedFromBox, planCart, type CarriedStore } from '../utils/labCheckout'
 import { checkStoreLock } from '../utils/storeLock'
 import { storeHostsFromFacets, tagCarriedStores, type StoreHosts } from '../utils/storeHosts'
 
@@ -2078,8 +2078,10 @@ export default defineEventHandler(async (event) => {
   // The shopper's product registry with web rows from carried stores tagged (rows registered before a gallery
   // was tagged, or by an older client).
   const labRegistry = async () => tagCarriedStores(savedProducts, await catalogStoreHosts())
+  // The carried stores (id, name, host) for search to cart: a web result whose title names one is found there.
+  const labCarried = async (): Promise<CarriedStore[]> => [...(await catalogStoreHosts()).entries()].map(([host, s]) => ({ id: s.id, name: s.name || s.id, host }))
   async function syncLabBox(box: any[], retryUrl: string | null = null, sent: Set<string> = new Set()): Promise<string | null> {
-    const { wanted } = wantedFromBox(box, await labRegistry())
+    const { wanted } = wantedFromBox(box, await labRegistry(), await labCarried())
     const cart = await callApi('/cart', { token })
     if (cart?.ok === false || !Array.isArray(cart?.items)) return 'cart_unavailable'
     // Lines the box no longer holds go first (so a variant change can never collide with them).
@@ -2769,7 +2771,7 @@ export default defineEventHandler(async (event) => {
           // the item just added is checked for a store that closed its whole site (drop / waiting room) — the
           // agent's live browser will show that page, so the chat says it in words.
           if (isLab && token) {
-            const added = out?.hold ? null : wantedFromBox(input.slice(-1), await labRegistry()).wanted[0]
+            const added = out?.hold ? null : wantedFromBox(input.slice(-1), await labRegistry(), await labCarried()).wanted[0]
             const sent = new Set<string>()
             const [, lock] = await Promise.all([
               syncLabBox(out?.hold ? input.slice(0, -1) : input, added?.product_url ?? null, sent).catch((e: any) => console.warn('[lab] box sync failed', e?.message || e)),
@@ -2780,7 +2782,7 @@ export default defineEventHandler(async (event) => {
             // store's refusal) comes as its own message when the agent finishes — so this reply must not claim it.
             // An item from a store the agent cannot buy at (a web result off our catalog stores): in the box, but no
             // store cart will hold it — say so now, not at Finalizar.
-            const unsupportedAdd = out?.hold ? null : wantedFromBox(input.slice(-1), await labRegistry()).unsupported[0]
+            const unsupportedAdd = out?.hold ? null : wantedFromBox(input.slice(-1), await labRegistry(), await labCarried()).unsupported[0]
             if (unsupportedAdd) {
               const n = `STORE CART: "${unsupportedAdd}" is a web result from a store the Boxly agent cannot buy from yet, so it will NOT go into a real store cart and Finalizar will refuse it. Tell the shopper in ONE short line (Spanish) that you can't add this one automatically, and offer the same kind of product from one of our stores. Do NOT say it was added to a cart.`
               out.note = out.note ? `${out.note}\n\n${n}` : n
@@ -2788,7 +2790,8 @@ export default defineEventHandler(async (event) => {
             if (added && !lock && sent.has(added.product_url)) {
               const store = added.store_name || added.store_id
               out.store_cart = 'adding'
-              const addingNote = `STORE CART: "${added.title}" is going into ${store}'s REAL cart RIGHT NOW — the Boxly agent is adding it in the live browser card below. Reply with ONE short line in Spanish, like: "Lo estoy agregando a tu carrito de ${store} — míralo en vivo aquí 👇". Do NOT say it was added, "listo", or that it is in the cart, do NOT ask what else they want, and write NO link or URL (the live card is the view): a message follows automatically as soon as ${store} confirms it (or says it can't).`
+              const findNote = added.find ? ` This one came from another seller: the agent is FINDING it on ${store}'s own site with the store's search first, then adding it — say that in the same line ("Lo estoy buscando en ${store} y agregando a tu carrito — míralo en vivo aquí 👇").` : ''
+              const addingNote = `STORE CART: "${added.title}" is going into ${store}'s REAL cart RIGHT NOW — the Boxly agent is adding it in the live browser card below. Reply with ONE short line in Spanish, like: "Lo estoy agregando a tu carrito de ${store} — míralo en vivo aquí 👇". Do NOT say it was added, "listo", or that it is in the cart, do NOT ask what else they want, and write NO link or URL (the live card is the view): a message follows automatically as soon as ${store} confirms it (or says it can't).${findNote}`
               out.note = out.note ? `${out.note}\n\n${addingNote}` : addingNote
             }
             if (lock && added) {
@@ -2856,7 +2859,7 @@ export default defineEventHandler(async (event) => {
           const stop = (error: string, why: string) => ({ ok: false, error, note: `NOT FINALIZED — ${why} Nothing was ordered and no card is on screen; do NOT say the order was placed.` })
           const box = boxFromMessages(messages)
           if (!box?.length) return stop('empty_box', 'the box is empty. Say ONE short line inviting them to add products first.')
-          const { wanted, unsupported } = wantedFromBox(box, await labRegistry())
+          const { wanted, unsupported } = wantedFromBox(box, await labRegistry(), await labCarried())
           if (unsupported.length) {
             return { ...stop('unsupported_items', `${unsupported.join(', ')} ${unsupported.length > 1 ? 'are web results' : 'is a web result'} from a store the Boxly agent can't buy from yet. Say ONE short line naming ${unsupported.length > 1 ? 'them' : 'it'} and ask the shopper to take ${unsupported.length > 1 ? 'them' : 'it'} out of the box, or to pick the same product from a store in our catalog.`), unsupported }
           }

@@ -17,8 +17,12 @@ export interface WantedItem {
   quantity: number
   variants: Record<string, string>
   saved_id?: string
+  /** Search to cart: the engine finds this product with the store's own search (product_url is then the store's site). */
+  find?: string
 }
-export interface CartLine { id: number | string, product_url: string, quantity: number, variants?: Record<string, string> | null, sync_status?: string | null }
+export interface CartLine { id: number | string, product_url: string, quantity: number, variants?: Record<string, string> | null, sync_status?: string | null, saved_id?: string | null }
+/** A store the agent can buy at: its id, display name and web host (catalog facets). */
+export interface CarriedStore { id: string, name: string, host: string }
 export interface CartPlan {
   add: WantedItem[]
   update: Array<{ id: number | string, body: { quantity?: number, variants?: Record<string, string> } }>
@@ -54,7 +58,26 @@ const sameName = (a: any, b: any) => a && b && String(a).trim().toLowerCase() ==
  * Each box item as a cart item, resolved through the chat's product registry (saved_id → url → name, as the box
  * card does). `unsupported` names what cannot go into a store cart: a web result with no catalog store.
  */
-export function wantedFromBox(box: BoxItem[], savedProducts: any[]): { wanted: WantedItem[], unsupported: string[] } {
+const words = (v: any) => String(v ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(/[^a-z0-9]+/).filter(Boolean)
+
+/**
+ * SEARCH TO CART (2026-09-28): the carried store a web result's TITLE names first — "Owala FreeSip 24oz…" from an
+ * outside seller is an Owala product, which the agent can find on owalalife.com with its own search. Only a title
+ * that STARTS with the store's name (all its words, in order), so a store name mid-title never claims a product.
+ * The longest matching name wins ("Coach Outlet" over "Coach"). Pure.
+ */
+export function carriedStoreForTitle(title: any, carried: CarriedStore[]): CarriedStore | null {
+  const t = words(title)
+  let best: CarriedStore | null = null, bestLen = 0
+  for (const s of carried || []) {
+    const n = words(s?.name)
+    if (!n.length || n.length > t.length || !n.every((w, i) => t[i] === w)) continue
+    if (n.length > bestLen) { best = s; bestLen = n.length }
+  }
+  return best
+}
+
+export function wantedFromBox(box: BoxItem[], savedProducts: any[], carried: CarriedStore[] = []): { wanted: WantedItem[], unsupported: string[] } {
   const wanted: WantedItem[] = []
   const unsupported: string[] = []
   const reg = Array.isArray(savedProducts) ? savedProducts : []
@@ -64,13 +87,26 @@ export function wantedFromBox(box: BoxItem[], savedProducts: any[]): { wanted: W
       || (it.name ? reg.find((p: any) => sameName(p?.title, it.name)) : null)
     const title = String(saved?.title || it.name || '').trim().slice(0, 300)
     const url = https(saved?.url || it.url)
-    const storeId = typeof saved?.store_id === 'string' ? saved.store_id : ''
-    if (!url || !title || !STORE_ID_RE.test(storeId)) { unsupported.push(title || 'un producto'); continue }
+    let storeId = typeof saved?.store_id === 'string' ? saved.store_id : ''
+    let productUrl = url
+    let find: string | undefined
+    // A web result with no carried store, whose title names one: found on that store's own site by the agent.
+    if (title && !STORE_ID_RE.test(storeId)) {
+      const brand = carriedStoreForTitle(title, carried)
+      if (brand && STORE_ID_RE.test(brand.id) && brand.host) {
+        storeId = brand.id
+        find = title
+        // One line per product searched: the store's site, keyed by what is searched (the cart dedupes by url).
+        productUrl = `https://${brand.host}/?boxly_find=${encodeURIComponent(words(title).join('-').slice(0, 80))}`
+      }
+    }
+    if (!productUrl || !title || !STORE_ID_RE.test(storeId)) { unsupported.push(title || 'un producto'); continue }
     const variants: Record<string, string> = {}
     if (it.size && String(it.size).trim()) variants.size = String(it.size).trim().slice(0, 120)
     if (it.color && String(it.color).trim()) variants.color = String(it.color).trim().slice(0, 120)
-    const w: WantedItem = { store_id: storeId, product_url: url, title, quantity: Math.min(20, Math.max(1, Math.round(Number(it.quantity) || 1))), variants }
-    if (saved?.store) w.store_name = String(saved.store).slice(0, 120)
+    const w: WantedItem = { store_id: storeId, product_url: productUrl, title, quantity: Math.min(20, Math.max(1, Math.round(Number(it.quantity) || 1))), variants }
+    if (find) { w.find = find; const brand = carriedStoreForTitle(title, carried); if (brand?.name) w.store_name = brand.name.slice(0, 120) }
+    else if (saved?.store) w.store_name = String(saved.store).slice(0, 120)
     const image = https(saved?.image || it.image)
     if (image) w.image_url = image
     const price = Number(saved?.price ?? it.price)
@@ -93,7 +129,10 @@ export function planCart(cart: CartLine[], wanted: WantedItem[], opts: { retryUr
   const free = [...(cart || [])]
   for (const w of wanted) {
     const exact = free.findIndex((l) => l.product_url === w.product_url)
-    const at = exact >= 0 ? exact : free.findIndex((l) => bare(l.product_url) === bare(w.product_url))
+    // A found product's line carries the page the search found, not the box's search link: the product's own id
+    // (saved_id) still names it, so it is not removed and re-added on every card.
+    const bySaved = exact < 0 && w.saved_id ? free.findIndex((l) => l.saved_id && l.saved_id === w.saved_id) : -1
+    const at = exact >= 0 ? exact : bySaved >= 0 ? bySaved : free.findIndex((l) => bare(l.product_url) === bare(w.product_url))
     if (at < 0) { plan.add.push(w); continue }
     const line = free.splice(at, 1)[0]
     // The item the shopper just (re)picked, whose last try at the store failed: go again. Nothing else changed,
