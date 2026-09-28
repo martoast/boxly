@@ -2680,7 +2680,10 @@ export default defineEventHandler(async (event) => {
             }
             if (r?.variants?.length) {
               const avail = r.variants.filter((v: any) => v.available)
-              ship.variants_for = { saved_id: last.saved_id, product_title: saved?.title || last.name || null, variants: r.variants, checked_at: r.checked_at, source: r.source }
+              // The AXES and the PRODUCT (with its url) ride along: the chat's product modal opens only when it can see
+              // a real choice (an axis with 2+ values) and a page to open (live Lab 2026-09-28: without them the
+              // modal never opened, the reply said "Elige la talla y el color 👇" and the add sat held forever).
+              ship.variants_for = { saved_id: last.saved_id, product_title: saved?.title || last.name || null, variants: r.variants, axes: Array.isArray(r.axes) ? r.axes : undefined, product: { ...(r.product || {}), url: r.product?.url || url, title: r.product?.title || saved?.title || last.name || null, image: r.product?.image || (Array.isArray(r.product?.images) ? r.product.images[0] : null) || saved?.image || last.image || null, price: r.product?.price ?? saved?.price ?? last.price ?? null, store: r.product?.store || saved?.store || null }, checked_at: r.checked_at, source: r.source }
               // PICK FIRST, THEN ADD (Alex, 2026-09-11: "it should FIRST pull up the variants and then when you
               // choose it ONLY THEN does it get added to cart"). A product with a REAL choice to make — some axis
               // with two or more values — is held out of the box until the shopper's size/colour is known, so an

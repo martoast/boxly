@@ -1442,7 +1442,9 @@ function openPickerFor(o) {
   if (!import.meta.client || !o) return ''
   // NOTHING TO PICK, NOTHING TO OPEN. The picker hides any axis with a single value, so a one-size product
   // would open a modal with no chips in it — and the shopper has no way to answer what it asks.
-  if (!(o.axes || []).some((a) => (a?.values?.length || 0) > 1)) return ''
+  // Axes missing from an older payload: rebuild them from the variants themselves (size / color keys).
+  const axes = (o.axes && o.axes.length) ? o.axes : axesFromVariants(o.variants)
+  if (!axes.some((a) => (a?.values?.length || 0) > 1)) return ''
   const d = variantData(o)
   const key = o.saved_id || d.product?.url || d.product_title || JSON.stringify(o.axes || []).slice(0, 60)
   if (!key || pickerOpened.has(key)) return ''
@@ -1454,6 +1456,10 @@ function openPickerFor(o) {
   return ''
 }
 
+function axesFromVariants(variants) {
+  const names = { size: 'Size', color: 'Color' }
+  return Object.entries(names).map(([k, name]) => ({ name, values: [...new Set((variants || []).map((v) => v?.[k]).filter(Boolean))] })).filter((a) => a.values.length)
+}
 function variantData(o) {
   const saved = o?.saved_id ? savedProducts.value.find((p) => p.id === o.saved_id) : null
   const product = { ...(o?.product || {}) }

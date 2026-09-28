@@ -17,10 +17,16 @@ ok('and still requires variants to exist', /variants_for\?\.variants\?\.length/.
 
 // The guard inside openPickerFor.
 const body = sfc.match(/function openPickerFor\(o\) \{[\s\S]*?\n\}/)[0];
-const realChoice = new Function('o', `${body.match(/if \(!\(o\.axes[^\n]*/)[0].replace('return \'\'', 'return false')}; return true;`);
+// The guard reads the axes (or rebuilds them from the variants — live Lab 2026-09-28: a payload without axes never
+// opened the modal) and needs a real choice.
+const axesFn = sfc.match(/function axesFromVariants\(variants\) \{[\s\S]*?\n\}/)[0];
+const axesLine = body.match(/const axes = [^\n]*/)[0];
+const guard = body.match(/if \(!axes\.some[^\n]*/)[0].replace("return ''", 'return false');
+const realChoice = new Function('o', `${axesFn}\n${axesLine}\n${guard}; return true;`);
 ok('a one-size product does not open the modal', realChoice({ axes: [{ name: 'Size', values: ['One Size'] }] }) === false);
 ok('no axes at all does not open the modal', realChoice({ axes: [] }) === false);
 ok('a real size run does open it', realChoice({ axes: [{ name: 'Size', values: ['M', 'L'] }] }) === true);
+ok('a payload with NO axes but several colours in its variants opens it', realChoice({ variants: [{ size: '24oz', color: 'Plaid' }, { size: '24oz', color: 'Ghost' }] }) === true);
 ok('one size but several colours still opens it', realChoice({ axes: [{ name: 'Size', values: ['One Size'] }, { name: 'Color', values: ['Black', 'Grey'] }] }) === true);
 
 // The other call site is for a product the shopper has NOT added — it must stay.
