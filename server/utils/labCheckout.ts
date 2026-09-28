@@ -77,6 +77,19 @@ export function carriedStoreForTitle(title: any, carried: CarriedStore[]): Carri
   return best
 }
 
+// ANY STORE (Alex 2026-09-28): a product on any shop's own site goes to that shop's real cart. Its store id IS its
+// site ("www.hydroflask.com" -> "hydroflask-com") — the engine accepts exactly that (engine_service/web_store.mjs,
+// same rules). Marketplaces are not a store's own checkout; they stay unsupported.
+const NOT_A_STORE = /(?:^|\.)(?:amazon|ebay|google|bing|aliexpress|alibaba|temu|shein|wish|etsy|facebook|instagram|tiktok|pinterest|youtube|mercadolibre|walmart|target)\.[a-z.]+$/i
+export function webStoreId(url: any): string | null {
+  let host = ''
+  try { const u = new URL(String(url)); if (u.protocol !== 'https:') return null; host = u.hostname.toLowerCase().replace(/^www\./, '') } catch { return null }
+  if (!/^[a-z0-9-]+(?:\.[a-z0-9-]+)+$/.test(host) || !/\.[a-z]{2,}$/.test(host)) return null
+  if (/(?:^|\.)(?:localhost|local|internal|lan|home|test|example|invalid)$/.test(host) || NOT_A_STORE.test(host)) return null
+  const id = host.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+  return id.length >= 3 && id.length <= 40 ? id : null
+}
+
 export function wantedFromBox(box: BoxItem[], savedProducts: any[], carried: CarriedStore[] = []): { wanted: WantedItem[], unsupported: string[] } {
   const wanted: WantedItem[] = []
   const unsupported: string[] = []
@@ -100,6 +113,12 @@ export function wantedFromBox(box: BoxItem[], savedProducts: any[], carried: Car
         productUrl = `https://${brand.host}/?boxly_find=${encodeURIComponent(words(title).join('-').slice(0, 80))}`
       }
     }
+    // Any other shop's own product page: that shop's real cart (a web store).
+    let webHost: string | null = null
+    if (title && url && !STORE_ID_RE.test(storeId)) {
+      const id = webStoreId(url)
+      if (id) { storeId = id; try { webHost = new URL(url).hostname.replace(/^www\./, '') } catch {} }
+    }
     if (!productUrl || !title || !STORE_ID_RE.test(storeId)) { unsupported.push(title || 'un producto'); continue }
     const variants: Record<string, string> = {}
     if (it.size && String(it.size).trim()) variants.size = String(it.size).trim().slice(0, 120)
@@ -107,6 +126,7 @@ export function wantedFromBox(box: BoxItem[], savedProducts: any[], carried: Car
     const w: WantedItem = { store_id: storeId, product_url: productUrl, title, quantity: Math.min(20, Math.max(1, Math.round(Number(it.quantity) || 1))), variants }
     if (find) { w.find = find; const brand = carriedStoreForTitle(title, carried); if (brand?.name) w.store_name = brand.name.slice(0, 120) }
     else if (saved?.store) w.store_name = String(saved.store).slice(0, 120)
+    else if (webHost) w.store_name = webHost.slice(0, 120)
     const image = https(saved?.image || it.image)
     if (image) w.image_url = image
     const price = Number(saved?.price ?? it.price)

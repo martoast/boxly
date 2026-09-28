@@ -12,7 +12,7 @@ const W = { saved_id: 'w', name: 'Web Thing' }
 const registry = [
   { id: 'a', title: 'Gap Tee', url: 'https://www.gap.com/p/1?vid=2', store: 'Gap', store_id: 'gap', price: 19.99, image: 'https://img/gap.jpg' },
   { id: 'b', title: 'YoungLA Joggers', url: 'http://www.youngla.com/p/j', store: 'YoungLA', store_id: 'youngla', price: 40 },
-  { id: 'w', title: 'Web Thing', url: 'https://example.com/x', store: 'Example', store_id: null, price: 5 },
+  { id: 'w', title: 'Web Thing', url: 'https://www.amazon.com/dp/x', store: 'Amazon', store_id: null, price: 5 },
 ]
 
 console.log('boxFromMessages')
@@ -58,7 +58,8 @@ console.log('search to cart')
   const { wanted, unsupported } = wantedFromBox([{ saved_id: 'x', name: 'Owala FreeSip 24-oz. Plaid and Simple', size: '24oz' }], reg, carried)
   check('an outside seller\'s Owala becomes a find item at Owala', wanted.length === 1 && wanted[0].store_id === 'owala' && wanted[0].find === 'Owala FreeSip 24-oz. Plaid and Simple' && unsupported.length === 0, JSON.stringify(wanted))
   check('its link is the store\'s site, keyed by the search', /^https:\/\/owalalife\.com\/\?boxly_find=owala-freesip-24-oz-plaid/.test(wanted[0]?.product_url || ''), wanted[0]?.product_url)
-  check('without the carried list it stays unsupported (old behaviour)', wantedFromBox([{ saved_id: 'x', name: 'Owala FreeSip 24-oz. Plaid and Simple' }], reg).unsupported.length === 1)
+  const noList = wantedFromBox([{ saved_id: 'x', name: 'Owala FreeSip 24-oz. Plaid and Simple' }], reg).wanted[0]
+  check('without the carried list it goes to the outside seller\'s own shop (any store)', noList?.store_id === 'somewebshop-com' && !noList?.find, JSON.stringify(noList))
   // After the engine found it, the cart line carries the found page: the same product (saved_id) is kept, not re-added.
   const plan = planCart([{ id: 7, product_url: 'https://owalalife.com/products/freesip', quantity: 1, variants: { size: '24oz' }, saved_id: 'x', sync_status: 'in_store_cart' }], wanted)
   check('the found line is matched by saved_id, not removed and re-added', plan.add.length === 0 && plan.remove.length === 0, JSON.stringify(plan))
@@ -67,6 +68,21 @@ console.log('search to cart')
   const w2 = wantedFromBox([{ name: 'Owala FreeSip 24-oz. Plaid and Simple', size: '24oz' }], regNoId, carried).wanted
   const plan2 = planCart([{ id: 14, product_url: 'https://owalalife.com/products/freesip?Color=Plaid', quantity: 1, variants: { size: '24oz' }, saved_id: null, title: 'Owala FreeSip 24-oz. Plaid and Simple', store_id: 'owala', sync_status: 'in_store_cart' }], w2)
   check('a found web-row line with no saved_id is matched by store + title', w2.length === 1 && plan2.add.length === 0 && plan2.remove.length === 0, JSON.stringify(plan2))
+}
+
+console.log('any store')
+{
+  const reg = [
+    { id: 'h', title: 'Hydro Flask 32 oz Wide Mouth', url: 'https://www.hydroflask.com/32-oz-wide-mouth?color=Black', store: null, store_id: null, price: 49.95 },
+    { id: 'a', title: 'Some Amazon Thing', url: 'https://www.amazon.com/dp/B0X', store: 'Amazon', store_id: null, price: 9 },
+    { id: 'g', title: 'A Google Shopping row', url: 'https://www.google.com/shopping/product/1', store: 'Google', store_id: null, price: 9 },
+  ]
+  const { wanted, unsupported } = wantedFromBox([{ saved_id: 'h', name: 'Hydro Flask 32 oz Wide Mouth', color: 'Black' }, { saved_id: 'a', name: 'Some Amazon Thing' }, { saved_id: 'g', name: 'A Google Shopping row' }], reg, [])
+  check('a product on any shop goes to that shop (a web store)', wanted.length === 1 && wanted[0].store_id === 'hydroflask-com' && wanted[0].product_url.startsWith('https://www.hydroflask.com/32-oz-wide-mouth') && !wanted[0].find && wanted[0].store_name === 'hydroflask.com', JSON.stringify(wanted))
+  check('marketplaces and Google result pages stay unsupported', eq(unsupported, ['Some Amazon Thing', 'A Google Shopping row']), JSON.stringify(unsupported))
+  // A carried store's name at the start of the title still wins: its own site is searched.
+  const r2 = wantedFromBox([{ saved_id: 'x', name: 'Owala FreeSip 24oz' }], [{ id: 'x', title: 'Owala FreeSip 24oz', url: 'https://www.somewebshop.com/p/9', store_id: null }], [{ id: 'owala', name: 'Owala', host: 'owalalife.com' }]).wanted[0]
+  check('a carried brand still wins over the outside seller', r2?.store_id === 'owala' && !!r2?.find)
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)
