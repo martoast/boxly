@@ -32,12 +32,30 @@ export interface CartPlan {
 
 /** The box as the shopper last saw it: the items of the newest show_shipment card (a held last item is not in it). */
 export function boxFromMessages(messages: any[]): BoxItem[] | null {
+  // The store's own option values, per product, from every box card so far (assistant.post.ts store_options): the
+  // model's words ("negro", "S") are replaced by what the store calls them, and an option the product page does not
+  // offer is dropped (live Gymshark 2026-09-28: "negro" on the black colourway's page failed the store add).
+  const fixes = new Map<string, { size?: string | null, color?: string | null }>()
+  for (const m of messages || []) {
+    for (const p of (m?.role === 'assistant' ? (m.parts || []) : [])) {
+      if (p?.type !== 'tool-show_shipment' || p.state !== 'output-available') continue
+      for (const o of Array.isArray(p.output?.store_options) ? p.output.store_options : []) if (o?.key) fixes.set(String(o.key), o)
+    }
+  }
+  const fixed = (it: BoxItem): BoxItem => {
+    const o = fixes.get(String((it as any).saved_id || (it as any).url || (it as any).name || ''))
+    if (!o) return it
+    const out: any = { ...it }
+    if ('size' in o) { if (o.size) out.size = o.size; else delete out.size }
+    if ('color' in o) { if (o.color) out.color = o.color; else delete out.color }
+    return out
+  }
   for (let i = (messages || []).length - 1; i >= 0; i--) {
     const parts = messages[i]?.role === 'assistant' ? (messages[i].parts || []) : []
     for (let j = parts.length - 1; j >= 0; j--) {
       const p = parts[j]
       if (p?.type !== 'tool-show_shipment' || p.state !== 'output-available') continue
-      const items: BoxItem[] = Array.isArray(p.input?.items) ? p.input.items : []
+      const items: BoxItem[] = (Array.isArray(p.input?.items) ? p.input.items : []).map(fixed)
       return p.output?.hold ? items.slice(0, -1) : items
     }
   }

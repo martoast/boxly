@@ -20,6 +20,13 @@ check('no box → null', boxFromMessages([{ role: 'user', parts: [] }]) === null
 check('the newest card wins', eq(boxFromMessages([ship([A]), { role: 'user', parts: [] }, ship([A, B])]), [A, B]))
 check('a held last item is not in the box', eq(boxFromMessages([ship([A, B], { hold: true })]), [A]))
 check('a card still streaming is ignored', eq(boxFromMessages([ship([A]), { role: 'assistant', parts: [{ type: 'tool-show_shipment', state: 'input-available', input: { items: [B] } }] }]), [A]))
+{
+  // Live Gymshark 2026-09-28: the model said "negro" for a page that IS the black colourway (sizes only).
+  const G = { saved_id: 'g', name: 'Everyday Seamless Leggings', size: 'S', color: 'negro' }
+  const fixedBox = boxFromMessages([ship([G], { store_options: [{ key: 'g', size: 'S (4-6)', color: null }] }), { role: 'user', parts: [] }, ship([A, G])])
+  check('the store\'s option values replace the model\'s words, from an earlier card', eq(fixedBox[1], { saved_id: 'g', name: 'Everyday Seamless Leggings', size: 'S (4-6)' }))
+  check('other items untouched', eq(fixedBox[0], A))
+}
 
 console.log('wantedFromBox')
 const r = wantedFromBox([A, B, W], registry)
