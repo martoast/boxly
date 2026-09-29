@@ -14,6 +14,7 @@ import { readSummary, summaryBlock, summarize, shouldSummarize } from '../utils/
 import { boxFromMessages, wantedFromBox, planCart, type CarriedStore } from '../utils/labCheckout'
 import { checkStoreLock } from '../utils/storeLock'
 import { storeHostsFromFacets, tagCarriedStores, type StoreHosts } from '../utils/storeHosts'
+import { resolveLiveStores, liveGalleryQuery, liveResultsAsText, type LiveStore } from '../../utils/liveGallery'
 
 /**
  * AI shopping-assistant chat backend (Phase 2).
@@ -1335,6 +1336,14 @@ const LIVE_BROWSE_TOOLS = ['browse_store', 'browse_stores']
 // leaving it out of BOTH lists is how it shipped dead: registered, described, tested, and never once offered
 // to the model, which went on searching "Halloween costume" blind (Alex, 2026-09-16).
 const LOOP_TOOLS = [...GALLERY_TOOLS.filter((t) => !LIVE_BROWSE_TOOLS.includes(t)), ...NON_GALLERY_TOOLS, 'ask_to_narrow']
+// BOXLY LAB — THE LIVE STORE GALLERY (Alex, 2026-09-28): a Lab member's product request goes straight to the
+// computer-use engine — live_gallery opens the store(s) in real browsers the shopper watches in the chat, and the
+// gallery is read from each store's OWN search (utils/liveGallery.ts). No catalog, no SerpAPI: the catalog/web
+// gallery tools and web_search are not offered to a Lab member at all (the normal customer keeps them untouched).
+// show_saved_products stays — it re-shows the chat's own registry and fetches nothing.
+const LAB_GALLERY_TOOLS = ['live_gallery', 'show_saved_products']
+const LAB_NON_GALLERY_TOOLS = NON_GALLERY_TOOLS.filter((t) => t !== 'web_search')
+const LAB_LOOP_TOOLS = [...LAB_GALLERY_TOOLS, ...LAB_NON_GALLERY_TOOLS, 'ask_to_narrow']
 // Registry id of a product (FNV-1a of its URL) — MUST match the JS/PHP implementations
 // (ShoppingAssistant.vue / ConversationController::productId); used by the gallery markers.
 function registryId(p: any): string | null {
@@ -1460,6 +1469,19 @@ async function catalogStoreHosts(): Promise<StoreHosts> {
     if (map.size) storeHostsCache = { at: Date.now(), map }
     return map
   } catch { return storeHostsCache?.map || new Map() }
+}
+
+// Lab live gallery: the stores the ENGINE can open (GET /live-shopping/stores — its catalog) and how many one session
+// may open at once. Cached a minute per server instance (the API caches the engine the same minute); null when the
+// engine is off or unreachable, which the tool reports honestly instead of guessing a store.
+let liveStoresCache: { at: number, stores: LiveStore[], max: number } | null = null
+async function liveStoreList(token: string): Promise<{ stores: LiveStore[], max: number } | null> {
+  if (liveStoresCache && Date.now() - liveStoresCache.at < 60_000) return liveStoresCache
+  const r: any = await callApi('/live-shopping/stores', { token, timeoutMs: 6000 }).catch(() => null)
+  const stores = Array.isArray(r?.stores) ? r.stores.filter((s: any) => typeof s?.id === 'string' && typeof s?.name === 'string').map((s: any) => ({ id: s.id, name: s.name })) : []
+  if (!stores.length) return liveStoresCache
+  liveStoresCache = { at: Date.now(), stores, max: Number.isInteger(r?.max_stores_per_session) ? r.max_stores_per_session : 1 }
+  return liveStoresCache
 }
 
 async function callApi(path: string, opts: { method?: string; body?: any; token?: string; timeoutMs?: number } = {}) {
@@ -2069,7 +2091,12 @@ export default defineEventHandler(async (event) => {
   const cartEvent = ce && ['in_store_cart', 'unavailable', 'failed'].includes(ce.status)
     ? { title: String(ce.title || 'el producto').slice(0, 200), store: String(ce.store || 'la tienda').slice(0, 80), status: ce.status as string, variants: String(ce.variants || '').slice(0, 120), note: ce.note ? String(ce.note).slice(0, 200) : null }
     : null
-  const forUser = (list: string[]) => list.filter((t) => t !== (isLab ? 'show_assisted_summary' : 'finalize_lab_order'))
+  const forUser = (list: string[]) => list.filter((t) => t !== (isLab ? 'show_assisted_summary' : 'finalize_lab_order') && (isLab || t !== 'live_gallery'))
+  // The Lab member's toolsets (see LAB_LOOP_TOOLS): the live store gallery instead of the catalog/web search.
+  const loopTools = isLab ? LAB_LOOP_TOOLS : LOOP_TOOLS
+  const afterGalleryTools = isLab ? LAB_NON_GALLERY_TOOLS : NON_GALLERY_TOOLS
+  // Lab: the engine's store list, read before the loop (the prompt names it; live_gallery validates against it).
+  const liveCatalog = isLab && token ? await liveStoreList(token) : null
   // Make the Lab member's Boxly cart hold exactly this box (the box wins). Every add lands in the cart the
   // moment the box card shows it, so the agent fills the real store cart in the background while they keep
   // shopping (cart sync) — Finalizar then only checks out. Returns null when done, else an error code.
@@ -2156,8 +2183,16 @@ export default defineEventHandler(async (event) => {
     } Write only that reply; no tools, no gallery.`
     : ''
   const labBlock = isLab ? 'BOXLY LAB SHOPPER: when they finalize the box, call finalize_lab_order (no input) — it places the order and runs the real store checkouts live in the chat. show_assisted_summary does not exist for this shopper; ignore every instruction that mentions it.' : ''
-  const bareStoreBlock = bareStore ? `THE SHOPPER TYPED ONLY A STORE: "${bareStore}". Show it NOW — curate_products with store "${bareStore}" and intent "browse" (or its show_collection spotlight when one exists for exactly this store). Then ONE short line inviting them to pick or narrow (hombre/mujer, a category). No pitch about shipping, cards or how Boxly works, and no question BEFORE the products.` : ''
-  const ctx = [summaryBlock(summaryState), shopperContext(!!token, shoppingProfile, savedProducts), narrowBlock(mustNarrow), labBlock, cartEventBlock, bareStoreBlock].filter(Boolean).join('\n\n')
+  // Lab: every product request is answered by the LIVE store browser (live_gallery), never the catalog or the web —
+  // this overrides every instruction above that names search_products, curate_products, show_collection,
+  // find_on_google, find_on_amazon, find_live_product, browse_store(s) or web_search (those tools are not offered).
+  const liveBlock = isLab
+    ? `LIVE STORE GALLERY (this shopper): show products ONLY with live_gallery — it opens the store's own website in a real browser the shopper watches in the chat, searches it, and the gallery (photo, name, price, link) appears in the chat by itself about 10–30 s later. Pass query = what to type in the store's search box, SHORT and IN ENGLISH ("running shoes", "leggings", "women hoodie", "stanley tumbler"), and stores = ${liveCatalog?.max && liveCatalog.max > 1 ? `1-${Math.min(4, liveCatalog.max)}` : 'exactly 1'} store(s) from LIVE STORES below: the store the shopper named (keep it for follow-ups in this chat until they name another); if they named none, ${liveCatalog?.max && liveCatalog.max > 1 ? `the ${Math.min(4, liveCatalog.max)} best-known ones for this category` : 'the single best-known one for this category'}. The browser must go somewhere SPECIFIC: when the ask is vague ("algo para el gym", "ropa", "un regalo", only a store name), call ask_to_narrow first with ONE question and 2-4 tappable answers, then live_gallery with what they tap. After live_gallery write ONE short line in Spanish saying you are searching it live in the store (e.g. "Lo estoy buscando en vivo en Gymshark 👇") — never list, invent or promise products, prices or links before the gallery arrives. A product from that gallery is added to the box like any other (show_shipment with its saved_id).${liveCatalog ? ` LIVE STORES: ${liveCatalog.stores.map((st) => st.name).join(', ')}. A store not on this list cannot be opened live yet — say so in one line and offer the closest one on it.` : ' The live store browser is unavailable right now: say so in one line and offer to try again in a moment.'}`
+    : ''
+  const bareStoreBlock = isLab && bareStore
+    ? `THE SHOPPER TYPED ONLY A STORE: "${bareStore}". Ask what they want there with ask_to_narrow — ONE short question ("¿Qué buscas en ${bareStore}?") and 3-4 of that store's main categories as the answers — so the live browser goes straight to it. No products and no other text this turn.`
+    : bareStore ? `THE SHOPPER TYPED ONLY A STORE: "${bareStore}". Show it NOW — curate_products with store "${bareStore}" and intent "browse" (or its show_collection spotlight when one exists for exactly this store). Then ONE short line inviting them to pick or narrow (hombre/mujer, a category). No pitch about shipping, cards or how Boxly works, and no question BEFORE the products.` : ''
+  const ctx = [summaryBlock(summaryState), shopperContext(!!token, shoppingProfile, savedProducts), narrowBlock(mustNarrow), labBlock, liveBlock, cartEventBlock, bareStoreBlock].filter(Boolean).join('\n\n')
   // History → model, bounded (see server/utils/chatContext.ts):
   //  1. old galleries collapse to a one-line marker (the products stay in the registry),
   //  2. hysteresis window (MAX 14 msgs / 6k tokens → keep 8; hard cap 9k),
@@ -2167,7 +2202,9 @@ export default defineEventHandler(async (event) => {
   //     the system prompt and the history, invalidating the cache every gallery turn).
   // suggest_followups parts are UI-only (chips) and the tool is no longer declared to
   // the model, so they are dropped from the transcript rather than replayed.
-  const cleaned = dropToolParts(sanitizeToolInputs(stripIncompleteToolCalls(await pdfPartsToText(messages))), ['suggest_followups'])
+  // A live-results part (the Lab's live gallery, appended by the API) is not a call the model made: it is replayed
+  // as one line of text (liveResultsAsText) before anything else looks at tool parts.
+  const cleaned = dropToolParts(sanitizeToolInputs(stripIncompleteToolCalls(liveResultsAsText(await pdfPartsToText(messages)))), ['suggest_followups'])
   const windowed = windowMessages(ageGalleries(cleaned, GALLERY_TOOLS, { keepLast: 2, productId: registryId, compactProduct }))
   const promptStats = contextStats(cleaned, windowed.messages, windowed.dropped)
   // On the hub surface the assistant becomes the OS for all pipelines. The router is
@@ -2266,13 +2303,15 @@ export default defineEventHandler(async (event) => {
       if (cartEvent) return { activeTools: [], toolChoice: 'none' }
       // Lab's Finalizar tap: finalize, then one line of text — nothing else this turn.
       if (labFinalize) return (steps || []).length ? { activeTools: [], toolChoice: 'none' } : { activeTools: ['finalize_lab_order'], toolChoice: 'required' }
-      if (galleryShown) return { activeTools: forUser(NON_GALLERY_TOOLS) }
+      if (galleryShown) return { activeTools: forUser(afterGalleryTools) }
       // THE QUESTION IS NOT OPTIONAL when the ask has an audience-shaped hole in it
       // (see audienceGap). Offering ask_to_narrow alongside the search tools is what
       // we did before, and the model searched every time — searching is the obvious
       // move and the prompt gave it an out. Here it is the ONLY move: one tool, and
       // toolChoice makes calling it mandatory. The model still writes the question.
       if (mustNarrow && !(steps || []).length) return { activeTools: ['ask_to_narrow'], toolChoice: 'required' }
+      // Lab: a bare store name gets its question first (the live browser needs somewhere specific to go).
+      if (bareStore && isLab && !(steps || []).length) return { activeTools: ['ask_to_narrow'], toolChoice: 'required' }
       if (bareStore && !(steps || []).length) return { activeTools: forUser(['curate_products', 'show_collection']), toolChoice: 'required' }
       // web_search IS A FALLBACK, NEVER AN OPENING MOVE. The eBay store card sends
       // "Ayúdame a encontrar y comparar las mejores opciones en eBay." and the model
@@ -2282,13 +2321,13 @@ export default defineEventHandler(async (event) => {
       // was ignored anyway, so take the tool away for the first move: with no gallery yet
       // and nothing tried, the model has to reach for a product tool. It gets web_search
       // back on the next step, which is the fallback role it is documented for.
-      if (!(steps || []).length) return { activeTools: forUser(LOOP_TOOLS).filter((t: string) => t !== 'web_search') }
+      if (!(steps || []).length) return { activeTools: forUser(loopTools).filter((t: string) => t !== 'web_search') }
       const galleryAttempts = (steps || []).reduce(
-        (n: number, s: any) => n + (s.toolCalls || []).filter((c: any) => GALLERY_TOOLS.includes(c.toolName)).length,
+        (n: number, s: any) => n + (s.toolCalls || []).filter((c: any) => GALLERY_TOOLS.includes(c.toolName) || c.toolName === 'live_gallery').length,
         0
       )
       // suggest_followups is never offered to the model (chips come from followupsPromise).
-      return { activeTools: forUser(galleryAttempts >= 2 ? NON_GALLERY_TOOLS : LOOP_TOOLS) }
+      return { activeTools: forUser(galleryAttempts >= 2 ? afterGalleryTools : loopTools) }
     },
     // THE TURN MUST END. The model stream had no deadline of any kind, and the provider
     // connection can simply stall: across 200 logged turns the slowest to COMPLETE was
@@ -2870,6 +2909,47 @@ export default defineEventHandler(async (event) => {
           suggestions: z.array(z.string()).min(1).max(3).describe('1–3 ready-to-send first-person follow-up messages, complementary to what was just shown.'),
         }),
         execute: async ({ suggestions }) => ({ suggestions: (suggestions || []).map((s) => String(s).trim()).filter(Boolean).slice(0, 3) }),
+      }),
+
+      live_gallery: tool({
+        description: "BOXLY LAB — show products by opening the store's OWN website in a live browser the shopper watches in the chat. It searches the store's own search box for `query` and the gallery (photo, name, price, link) appears in the chat by itself when the browser is done (about 10–30 s); this call returns at once with the live browser on screen. `stores`: the store the shopper named, or — when they named none — the best-known stores for the category from LIVE STORES (several run side by side). Use it for EVERY product request from this shopper, after at most ONE narrowing question when the ask is vague. Never list or invent products before the gallery arrives.",
+        inputSchema: z.object({
+          query: z.string().describe('What to type in the store\'s own search box: SHORT product words IN ENGLISH, e.g. "running shoes", "leggings", "women hoodie". No store names, no prices, no sizes.'),
+          stores: z.array(z.string()).min(1).max(4).describe('Store names from LIVE STORES, e.g. ["Gymshark"] or ["On", "New Balance", "Nike"]. The store the shopper named, else the best-known ones for this category.'),
+        }),
+        execute: async ({ query, stores }: any) => {
+          if (!token || !isLab) return authedNote
+          if (restrictedAsk(messages)) return REFUSAL
+          const stop = (error: string, why: string) => ({ ok: false, error, note: `NO LIVE GALLERY — ${why} Nothing is on screen; do NOT describe products.` })
+          if (!conversationId) return stop('no_conversation', 'this chat is not saved yet. Say ONE short line asking them to send the request again.')
+          const q = liveGalleryQuery(query)
+          if (q.length < 2) return stop('empty_query', 'there was nothing to search for. Ask what they are looking for with ask_to_narrow.')
+          const live = liveCatalog || await liveStoreList(token)
+          if (!live) return stop('live_unavailable', 'the live store browser is not available right now. Say so in ONE short line and offer to try again in a moment.')
+          const { stores: picked, unknown } = resolveLiveStores(stores, live.stores, live.max)
+          if (!picked.length) return stop('unknown_store', `${unknown.join(', ') || 'That store'} cannot be opened live yet. Say so in ONE short line and offer the closest store from: ${live.stores.map((st) => st.name).join(', ')}.`)
+          const r: any = await callApi('/live-shopping/sessions', {
+            method: 'POST', token, timeoutMs: 15000,
+            body: { conversation_id: conversationId, objective: q, store_id: picked[0].id, ...(picked.length > 1 ? { store_ids: picked.map((st) => st.id) } : {}) },
+          }).catch(() => ({ ok: false, status: 0 }))
+          if (r?.ok === false || !Number.isInteger(r?.id)) {
+            if (r?.status === 409) return stop('live_busy', 'a live store browser is still running for this shopper. Say ONE short line: the one on screen is finishing, and to ask again in a moment.')
+            if (r?.code === 'too_many_stores') liveStoresCache = null
+            return stop(r?.code === 'store_unsupported' ? 'store_unsupported' : 'live_unavailable', 'the live store browser could not start. Say so in ONE short line and offer to try again in a moment.')
+          }
+          // The live card goes up now; the products land in the chat when the engine is done (the API appends them
+          // as a live-results message, and the chat fetches it the moment the browser ends).
+          galleryShown = true
+          const names = picked.map((st) => st.name)
+          return {
+            ok: true,
+            query: q,
+            stores: names,
+            live_session: { id: r.id, store_id: r.store_id || picked[0].id, store_name: names.join(' · '), status: r.status || 'pending', note: `Buscando "${q}" en ${names.join(', ')}` },
+            ...(unknown.length ? { skipped: unknown } : {}),
+            note: `LIVE — the browser is on screen, searching "${q}" at ${names.join(', ')}; the gallery appears in the chat by itself in about 10–30 s. Write ONE short line in Spanish that you are searching it live${names.length > 1 ? ' in those stores' : ` in ${names[0]}`}${unknown.length ? ` (and that ${unknown.join(', ')} cannot be opened live yet)` : ''}. Do NOT list, invent or promise products, prices or links, and call no other tool.`,
+          }
+        },
       }),
 
       finalize_lab_order: tool({

@@ -23,6 +23,10 @@ const loopLine = src.match(/const LOOP_TOOLS = [^\n]*/)[0];
 const browse = list('LIVE_BROWSE_TOOLS');
 const loopExtra = [...loopLine.matchAll(/'([a-z_]+)'/g)].map((m) => m[1]).filter((t) => !browse.includes(t));
 const offered = new Set([...gallery.filter((t) => !browse.includes(t)), ...nonGallery, ...loopExtra]);
+// Boxly Lab's toolsets (2026-09-28): the live store gallery replaces the catalog/web gallery tools for its members.
+const labGallery = list('LAB_GALLERY_TOOLS');
+const labLoopLine = src.match(/const LAB_LOOP_TOOLS = [^\n]*/)[0];
+const labOffered = new Set([...labGallery, ...nonGallery.filter((t) => t !== 'web_search'), ...[...labLoopLine.matchAll(/'([a-z_]+)'/g)].map((m) => m[1])]);
 
 // Every tool declared in the handler.
 const declared = [...src.matchAll(/^\s{6}([a-z_]+): tool\(\{/gm)].map((m) => m[1]);
@@ -34,7 +38,7 @@ const WITHHELD = new Set([
   'browse_store', 'browse_stores', // engine needs a US exit IP, off since 2026-09-07
 ]);
 
-const unreachable = declared.filter((t) => !offered.has(t) && !WITHHELD.has(t));
+const unreachable = declared.filter((t) => !offered.has(t) && !labOffered.has(t) && !WITHHELD.has(t));
 ok(`no declared tool is unreachable (${unreachable.join(', ') || 'none'})`, unreachable.length === 0);
 
 // The specific one that bit us.
@@ -44,4 +48,9 @@ ok('and only BEFORE a gallery — after it, the shopper refines by looking', !no
 // And the withheld ones really are withheld.
 ok('suggest_followups is not offered to the model', !offered.has('suggest_followups'));
 ok('live browsing stays off', !offered.has('browse_store') && !offered.has('browse_stores'));
+// The live store gallery is the Lab member's, and only theirs.
+ok('live_gallery is offered to a Lab member', labOffered.has('live_gallery'));
+ok('and never to anyone else', !offered.has('live_gallery') && /isLab \|\| t !== 'live_gallery'/.test(src));
+const CATALOG_OR_WEB = ['search_products', 'curate_products', 'show_collection', 'find_on_google', 'find_on_amazon', 'find_live_product', 'browse_store', 'browse_stores', 'show_products', 'web_search'];
+ok('a Lab member is offered no catalog, SerpAPI or web tool', CATALOG_OR_WEB.every((t) => !labOffered.has(t)));
 console.log(`\n${pass} checks passed`);

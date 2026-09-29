@@ -426,6 +426,11 @@
                       <svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
                       Preparando tu pedido…
                     </div>
+                    <!-- Boxly Lab: the live store gallery is opening (the live card and then the gallery follow). -->
+                    <div v-else-if="part.type === 'tool-live_gallery' && (part.state === 'input-streaming' || part.state === 'input-available')" class="flex items-center gap-2 text-xs text-gray-400 pl-1">
+                      <svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
+                      Abriendo la tienda en vivo…
+                    </div>
 
                     <template v-else-if="part.type === 'tool-show_assisted_summary' && part.state === 'output-available'">
                       <!-- Once the request is actually created (deterministically, on
@@ -661,6 +666,7 @@ import { Chat } from '@ai-sdk/vue'
 import { DefaultChatTransport } from 'ai'
 import { useBoxlyCart } from '../composables/useBoxlyCart'
 import { cartPayloadFromChatProduct, variantsText } from '../utils/boxlyCart'
+import { withLiveRows, newLiveResultMessages } from '../utils/liveGallery'
 
 // Auto-continue ONLY for the client-side create_account tool once it has a
 // result. Server tools (search_products/browse_store/…) are fully resolved
@@ -731,7 +737,36 @@ function labItemStatus(it) {
   const line = lines.find((l) => normTitle(l.title) === normTitle(it?.name)) || lines.find((l) => normTitle(it?.name) && normTitle(l.title).startsWith(normTitle(it.name)))
   return line ? { status: line.sync_status, store: line.store_name || line.store_id } : null
 }
+// Boxly Lab — the LIVE STORE GALLERY (2026-09-28): live_gallery answers a product request by opening the store(s) in
+// a live browser. Its card goes up the moment the tool answers, and when that browser ends the gallery the engine
+// built is fetched into the chat (the API appended it to the conversation as a live-results message).
+const galleryLiveIds = new Set() // gallery browsers whose results are still to fetch
+const gallerySeen = new Set() // every gallery browser this page has put up (never twice)
+async function fetchLiveGallery(sessionId) {
+  const cid = activeId.value
+  if (!cid) return
+  // The session read reconciles the engine's terminal into the conversation when its webhook has not landed yet.
+  try { await $customFetch(`/live-shopping/sessions/${sessionId}`) } catch { /* the conversation read below still decides */ }
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      const r = await $customFetch(`/conversations/${cid}?limit=8`)
+      if (activeId.value !== cid) return
+      const shown = new Set(chat.messages.map((m) => String(m.id)))
+      const fresh = newLiveResultMessages(r?.data?.messages, shown).map(mapMsg)
+      if (fresh.length) {
+        chat.messages = [...chat.messages, ...fresh]
+        for (const m of fresh) for (const part of m.parts) if (Array.isArray(part?.output?.products)) registerProducts(part.output.products)
+        syncLocalThread()
+        scrollDown()
+        return
+      }
+    } catch { /* retried below */ }
+    await new Promise((resolve) => setTimeout(resolve, 1500))
+  }
+}
 function onLiveEnded() {
+  const ended = liveShown.value
+  if (ended && galleryLiveIds.has(ended.id)) { galleryLiveIds.delete(ended.id); fetchLiveGallery(ended.id) }
   clearTimeout(liveEndTimer)
   liveEndTimer = setTimeout(() => {
     // A finished store browser STAYS (Alex 2026-09-28: "it shouldn't close it … in case the user wants to go back
@@ -908,7 +943,8 @@ function mapMsg(m) {
   return {
     id: String(m.id),
     role: m.role,
-    parts: (m.content && m.content.parts) || [{ type: 'text', text: typeof m.content === 'string' ? m.content : (m.content?.text || '') }],
+    // withLiveRows: a live store gallery (ProductV1 from the engine) reads as ordinary gallery rows (price, was, store_id).
+    parts: withLiveRows((m.content && m.content.parts) || [{ type: 'text', text: typeof m.content === 'string' ? m.content : (m.content?.text || '') }]),
   }
 }
 
@@ -1326,7 +1362,7 @@ function ensureCardImages(list) {
 }
 
 const isBusy = computed(() => chat.status === 'streaming' || chat.status === 'submitted')
-const GALLERY_TOOLS = ['tool-show_products', 'tool-browse_store', 'tool-browse_stores', 'tool-search_products', 'tool-curate_products', 'tool-show_collection', 'tool-find_live_product', 'tool-find_on_google', 'tool-find_on_amazon', 'tool-show_saved_products']
+const GALLERY_TOOLS = ['tool-live_results', 'tool-show_products', 'tool-browse_store', 'tool-browse_stores', 'tool-search_products', 'tool-curate_products', 'tool-show_collection', 'tool-find_live_product', 'tool-find_on_google', 'tool-find_on_amazon', 'tool-show_saved_products']
 function isGalleryTool(part) { return GALLERY_TOOLS.includes(part?.type) }
 // The assistant reorders the gallery to lead with what it recommended: feature_products
 // returns the exact titles it spotlighted. Float those to the front (in the given order),
@@ -1642,6 +1678,22 @@ const chat = new Chat({
   },
 })
 const chatError = ref('')
+// Boxly Lab live gallery: a live_gallery answer puts its store browser up as the chat's live card (after `chat`
+// exists — the getter reads it immediately).
+watch(() => {
+  // Only this page's own turns (streamed messages have SDK ids; history ids are numeric) — reopening a chat never
+  // re-opens an old browser card.
+  const m = chat.messages[chat.messages.length - 1]
+  if (!m || m.role !== 'assistant' || /^\d+$/.test(String(m.id))) return null
+  const part = (m.parts || []).find((p) => p.type === 'tool-live_gallery' && p.state === 'output-available' && p.output?.live_session?.id)
+  return part?.output?.live_session || null
+}, (s) => {
+  if (!s || gallerySeen.has(s.id)) return
+  gallerySeen.add(s.id)
+  galleryLiveIds.add(s.id)
+  clearTimeout(liveEndTimer)
+  liveShown.value = s
+})
 
 // INSTANT first paint for the landing-hero hand-off: a GUEST arriving with ?q=...
 // fires it synchronously HERE in setup (not onMounted), so the very first render
