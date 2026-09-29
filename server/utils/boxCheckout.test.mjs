@@ -1,5 +1,5 @@
-// Pure tests for server/utils/labCheckout.ts — the chat box → Boxly cart for the Lab finalize.
-import { boxFromMessages, wantedFromBox, planCart, carriedStoreForTitle } from './labCheckout.ts'
+// Pure tests for server/utils/boxCheckout.ts — the chat box → the Boxly cart, for cart sync and Finalizar.
+import { boxFromMessages, wantedFromBox, planCart, carriedStoreForTitle } from './boxCheckout.ts'
 
 let passed = 0, failed = 0
 const check = (name, ok, detail = '') => { if (ok) { passed++; console.log(`  ✓ ${name}`) } else { failed++; console.log(`  ✗ ${name} ${detail}`) } }

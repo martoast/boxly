@@ -45,11 +45,6 @@
           </button>
         </div>
       </header>
-      <!-- Boxly Lab members only: this chat runs the internal test flow (live store checkouts), not what customers see. -->
-      <div v-if="user?.boxly_lab" class="shrink-0 flex items-center justify-center gap-2 px-3 py-1.5 bg-amber-100 border-b border-amber-300 text-amber-900 text-[12px] font-semibold" role="status">
-        <span aria-hidden="true">🧪</span>
-        <span>Modo Lab — pruebas internas. Tus clientes no ven esto.</span>
-      </div>
 
       <!-- ===== LOADING A CONVERSATION (from history) ===== -->
       <div v-if="loadingChat" class="flex-1 overflow-hidden px-3 md:px-4 py-5">
@@ -413,36 +408,25 @@
                   <template v-for="(part, i) in m.parts" :key="'w' + i">
                     <!-- An item held for a size/colour pick returns hold:true; with nothing else in the box there is no box to
                          draw yet, so show the picker alone rather than an empty "Tu caja Boxly 0" card. -->
-                    <LazyShipmentCard v-if="part.type === 'tool-show_shipment' && part.state === 'output-available' && !(part.output?.hold && !part.output?.items?.length)" :store-status="user?.boxly_lab ? labItemStatus : null" :shipment="enrichShipment(part.output)" :requested="!!assistedPr || labOrdered" @order="onFinalizeShipment" @add="onAddMore" />
+                    <LazyShipmentCard v-if="part.type === 'tool-show_shipment' && part.state === 'output-available' && !(part.output?.hold && !part.output?.items?.length)" :store-status="user ? itemStatus : null" :shipment="enrichShipment(part.output)" :requested="ordered" @order="onFinalizeShipment" @add="onAddMore" />
                     <!-- Sizes/colours with LIVE availability for the item just added (read from its stored URL by show_shipment). -->
                     <!-- The picker NEVER renders inline in the chat (Alex, 2026-09-11: "this UI/UX of the variant
                          selection should never be in the chat, it should be in the modal"). When the box holds an item
                          for a pick, we OPEN THE PRODUCT MODAL for it — one place to choose, every time. -->
                     <span v-if="part.type === 'tool-show_shipment' && part.state === 'output-available' && part.output?.hold && part.output?.variants_for?.variants?.length" class="hidden" :data-open-picker="openPickerFor(part.output.variants_for)"></span>
 
-                    <!-- Boxly Lab: the order placed from the box — live store checkouts, real totals, then Pagar. -->
-                    <LazyLabCheckoutCard v-else-if="part.type === 'tool-finalize_lab_order' && part.state === 'output-available' && part.output?.purchase_request_id" :purchase-request-id="part.output.purchase_request_id" :request-number="part.output.request_number" @watch="watchLive" @live="onLabLive" />
-                    <div v-else-if="part.type === 'tool-finalize_lab_order' && (part.state === 'input-streaming' || part.state === 'input-available')" class="flex items-center gap-2 text-xs text-gray-400 pl-1">
+                    <!-- The order placed from the box — live store checkouts, real totals, then Pagar. (tool-finalize_lab_order
+                         is the same card in chats from the Boxly Lab days, before 2026-09-28.) -->
+                    <LazyCheckoutCard v-else-if="FINALIZE_PARTS.has(part.type) && part.state === 'output-available' && part.output?.purchase_request_id" :purchase-request-id="part.output.purchase_request_id" :request-number="part.output.request_number" @watch="watchLive" @live="onCheckoutLive" />
+                    <div v-else-if="FINALIZE_PARTS.has(part.type) && (part.state === 'input-streaming' || part.state === 'input-available')" class="flex items-center gap-2 text-xs text-gray-400 pl-1">
                       <svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
                       Preparando tu pedido…
                     </div>
-                    <!-- Boxly Lab: the live store gallery is opening (the live card and then the gallery follow). -->
+                    <!-- The live store gallery is opening (the live card and then the gallery follow). -->
                     <div v-else-if="part.type === 'tool-live_gallery' && (part.state === 'input-streaming' || part.state === 'input-available')" class="flex items-center gap-2 text-xs text-gray-400 pl-1">
                       <svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
                       Abriendo la tienda en vivo…
                     </div>
-
-                    <template v-else-if="part.type === 'tool-show_assisted_summary' && part.state === 'output-available'">
-                      <!-- Once the request is actually created (deterministically, on
-                           tap — NOT left to the model), swap the summary for the real
-                           success card so we NEVER imply a request exists before it does.
-                           Keyed by toolCallId so multiple assisted summaries in one chat
-                           stay independent. -->
-                      <!-- One stable card: the items + breakdown stay, and the footer flips
-                           to the success confirmation in place once created (no card swap,
-                           so no "blink"). result is set the moment confirmAssisted returns. -->
-                      <AssistedPurchaseCard :summary="part.output" :loading="assistedCreatingId === part.toolCallId" :error="assistedErrors[part.toolCallId] || ''" :result="assistedResults[part.toolCallId] || null" @confirm="confirmAssisted(part)" @edit="editAssisted" />
-                    </template>
 
                     <a v-else-if="part.type === 'tool-show_contact_whatsapp' && part.state === 'output-available'"
                        :href="part.output?.whatsapp || 'https://wa.me/16195591910'" target="_blank" rel="noopener"
@@ -457,17 +441,6 @@
                     </a>
 
                     <LazyBoxGuide v-else-if="part.type === 'tool-show_box_guide' && part.state === 'output-available'" :boxes="part.output?.boxes || []" />
-
-                    <div v-else-if="part.type === 'tool-create_purchase_request' && part.state === 'output-available' && part.output?.request_number" class="bg-green-50 border border-green-200 rounded-2xl p-4 max-w-sm">
-                      <p class="text-sm font-bold text-green-800 flex items-center gap-1.5"><svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 011.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z" clip-rule="evenodd"/></svg> Listo — nosotros nos encargamos 🎉</p>
-                      <p class="text-xs text-green-700 mt-1">Solicitud <span class="font-semibold">{{ part.output.request_number }}</span> creada. No pagas nada todavía.</p>
-                      <!-- Same wording as AssistedPurchaseCard's success footer, deliberately: the two
-                           cards confirm the same thing by two routes, and a shopper who sees one and
-                           then the other must be told to watch the same channel. -->
-                      <p class="text-xs text-green-700 mt-1.5 flex items-start gap-1.5"><span>💬</span><span>Nuestro equipo de compras te escribe <span class="font-semibold">por WhatsApp</span> en breve para afinar los últimos detalles y enviarte tu cotización (producto + servicio + envío) para que la apruebes.</span></p>
-                      <p class="text-xs text-green-800 mt-1 flex items-start gap-1.5"><span>👀</span><span><span class="font-semibold">Mantente pendiente de tu WhatsApp</span> — tu pedido avanza en cuanto nos contestes.</span></p>
-                      <NuxtLink to="/app/purchase-requests" class="inline-block mt-2 text-xs font-semibold text-green-800 underline active:scale-95 transition-transform">Ver mis solicitudes →</NuxtLink>
-                    </div>
 
                     <!-- Self-import order registered → rich confirmation card -->
                     <div v-else-if="part.type === 'tool-create_self_order' && part.state === 'output-available' && part.output?.success && part.output?.order_number" class="rounded-2xl border border-emerald-200 bg-gradient-to-b from-emerald-50/80 to-white p-4 max-w-md shadow-sm">
@@ -523,7 +496,7 @@
             </div>
           </TransitionGroup>
 
-          <!-- C4: the store browser the agent is running for this cart, live in the chat (Boxly Lab). -->
+          <!-- C4: the store browser the agent is running (a live gallery, a cart add or a checkout), live in the chat. -->
           <div v-if="liveShown" class="max-w-2xl mx-auto mt-4 flex justify-start">
             <LiveBrowserCard :session="liveShown" :expanded="liveOpen" :is-desktop="isDesktop" @expand="liveOpen = true" @ended="onLiveEnded" />
           </div>
@@ -537,7 +510,7 @@
           <Transition name="pop">
             <div v-if="pendingAccount" class="max-w-sm mx-auto mt-5 bg-white border border-primary-200 rounded-2xl p-4 shadow-lg ring-1 ring-primary-100">
               <p class="text-sm font-bold text-gray-900 mb-0.5">Continúa con tu cuenta Boxly 🛍️</p>
-              <p class="text-xs text-gray-500 mb-3">Necesitas tu cuenta Boxly para hacer el pedido. Crea una o inicia sesión — te traemos de vuelta justo aquí, con tu pedido listo para confirmar.</p>
+              <p class="text-xs text-gray-500 mb-3">Necesitas tu cuenta Boxly para buscar en vivo en las tiendas y hacer tu pedido. Crea una o inicia sesión — te traemos de vuelta justo aquí, con tu pedido listo para confirmar.</p>
               <button @click="goRegister" class="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-primary-500 hover:bg-primary-600 active:scale-[.98] text-white text-sm font-bold rounded-xl transition-all">
                 Crear cuenta y continuar
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
@@ -705,7 +678,7 @@ const { $customFetch } = useNuxtApp()
 const user = useState('user')
 const boxlyCart = useBoxlyCart()
 
-// ── C4: watch the agent's store browser in the chat (Boxly Lab) ─────────────────────────────────────
+// ── C4: watch the agent's store browser in the chat ─────────────────────────────────────────────────
 // The cart lists the store browsers running for it (live_sessions); the newest one shows as a card in the
 // chat, which opens beside the chat on desktop (split view) or full screen on mobile. It stays up a few
 // seconds after the agent finishes, then goes.
@@ -718,10 +691,10 @@ watch(() => boxlyCart.cart.value?.live_sessions?.[0] || null, (s) => {
   if (s && s.id !== liveShown.value?.id) liveShown.value = s
 })
 let liveEndTimer = null
-// A Lab order's checkout card reports the store browser the agent is on (one store after another).
-const labLive = ref(null)
-function onLabLive(s) {
-  labLive.value = s
+// An order's checkout card reports the store browser the agent is on (one store after another).
+const checkoutLive = ref(null)
+function onCheckoutLive(s) {
+  checkoutLive.value = s
   if (s && s.id !== liveShown.value?.id) { clearTimeout(liveEndTimer); liveShown.value = s }
 }
 function watchLive(s) {
@@ -730,14 +703,14 @@ function watchLive(s) {
   liveShown.value = s
   liveOpen.value = true
 }
-// Boxly Lab: a box item's place in its store's real cart (the live Boxly cart, matched by product name).
+// A box item's place in its store's real cart (the live Boxly cart, matched by product name).
 const normTitle = (v) => String(v ?? '').trim().toLowerCase()
-function labItemStatus(it) {
+function itemStatus(it) {
   const lines = boxlyCart.cart.value?.items || []
   const line = lines.find((l) => normTitle(l.title) === normTitle(it?.name)) || lines.find((l) => normTitle(it?.name) && normTitle(l.title).startsWith(normTitle(it.name)))
   return line ? { status: line.sync_status, store: line.store_name || line.store_id } : null
 }
-// Boxly Lab — the LIVE STORE GALLERY (2026-09-28): live_gallery answers a product request by opening the store(s) in
+// THE LIVE STORE GALLERY (2026-09-28): live_gallery answers a product request by opening the store(s) in
 // a live browser. Its card goes up the moment the tool answers, and when that browser ends the gallery the engine
 // built is fetched into the chat (the API appended it to the conversation as a live-results message).
 const galleryLiveIds = new Set() // gallery browsers whose results are still to fetch
@@ -771,7 +744,7 @@ function onLiveEnded() {
   liveEndTimer = setTimeout(() => {
     // A finished store browser STAYS (Alex 2026-09-28: "it shouldn't close it … in case the user wants to go back
     // to it"): its card keeps the last frame and "Listo"; only the next store's session takes its place.
-    const next = [labLive.value, boxlyCart.cart.value?.live_sessions?.[0]].find((s) => s && s.id !== liveShown.value?.id) || null
+    const next = [checkoutLive.value, boxlyCart.cart.value?.live_sessions?.[0]].find((s) => s && s.id !== liveShown.value?.id) || null
     if (next) liveShown.value = next
   }, 6000)
 }
@@ -779,8 +752,8 @@ onMounted(async () => {
   desktopQuery = window.matchMedia('(min-width: 768px)')
   onDesktopChange()
   desktopQuery.addEventListener?.('change', onDesktopChange)
-  // Lab only: the chat keeps the cart fresh itself (on mobile there is no navbar to do it).
-  if (user.value?.boxly_lab) { await boxlyCart.load(); boxlyCart.pollWhileSyncing() }
+  // Signed in: the chat keeps the cart fresh itself (on mobile there is no navbar to do it).
+  if (user.value) { await boxlyCart.load(); boxlyCart.pollWhileSyncing() }
 })
 onBeforeUnmount(() => { desktopQuery?.removeEventListener?.('change', onDesktopChange); clearTimeout(liveEndTimer) })
 // First name for the hub welcome header (falls back gracefully for guests).
@@ -1593,9 +1566,9 @@ const activeTitle = computed(() => conversations.value.find((c) => c.id === acti
 // would break the same way. The tap says so itself, and the server skips the gate for
 // one turn; the prompt already asks its narrowing question AFTER the gallery.
 const cardTapped = ref(false)
-const labFinalizeTapped = ref(false)
-// ── Boxly Lab: the AI says "it's in your cart" only when the agent really put it in the store's cart ─────
-// (Alex, 2026-09-25). The box card's turn only says it is being added; when a line of the Lab cart goes from
+const finalizeTapped = ref(false)
+// ── The AI says "it's in your cart" only when the agent really put it in the store's cart ─────
+// (Alex, 2026-09-25). The box card's turn only says it is being added; when a line of the cart goes from
 // pending/syncing to a result, the chat sends one hidden turn ("⟦carrito⟧ …", never shown as a bubble) and the
 // assistant answers it: in the cart + "¿algo más?", or what the store said (sold out, couldn't add).
 const CART_EVENT = '⟦carrito⟧'
@@ -1612,7 +1585,7 @@ function flushCartEvents() {
   chat.sendMessage({ text: `${CART_EVENT} ${it.title} — ${it.sync_status}` })
 }
 watch(() => boxlyCart.cart.value?.items || [], (items) => {
-  if (!user.value?.boxly_lab) return
+  if (!user.value) return
   for (const it of items) {
     const prev = syncSeen.get(it.id)
     syncSeen.set(it.id, it.sync_status)
@@ -1622,9 +1595,9 @@ watch(() => boxlyCart.cart.value?.items || [], (items) => {
   syncBaseline = true
   flushCartEvents()
 }, { deep: true })
-function consumeLabFinalize() {
-  const was = labFinalizeTapped.value
-  labFinalizeTapped.value = false
+function consumeFinalizeTap() {
+  const was = finalizeTapped.value
+  finalizeTapped.value = false
   return was
 }
 function consumeCardTap() {
@@ -1650,9 +1623,8 @@ const chat = new Chat({
         // Consumed here, for exactly one turn — read and cleared in the same breath, so a
         // typed follow-up after a card tap is an ordinary message again.
         ...(consumeCardTap() ? { fromStarterCard: true } : {}),
-        // Boxly Lab: finalizing runs the real store checkouts in the chat; a Finalizar tap makes it the one move.
-        ...(user.value?.boxly_lab ? { boxlyLab: true } : {}),
-        ...(consumeLabFinalize() ? { labFinalize: true } : {}),
+        // Finalizing runs the real store checkouts in the chat; a Finalizar tap makes it the one move.
+        ...(consumeFinalizeTap() ? { finalizeTap: true } : {}),
         ...(pendingCartEvent ? { cartEvent: consumeCartEvent() } : {}),
       } }
     },
@@ -1678,7 +1650,7 @@ const chat = new Chat({
   },
 })
 const chatError = ref('')
-// Boxly Lab live gallery: a live_gallery answer puts its store browser up as the chat's live card (after `chat`
+// Live gallery: a live_gallery answer puts its store browser up as the chat's live card (after `chat`
 // exists — the getter reads it immediately).
 watch(() => {
   // Only this page's own turns (streamed messages have SDK ids; history ids are numeric) — reopening a chat never
@@ -2022,8 +1994,8 @@ function onAssistedProduct(p) {
 // chat message waits in pendingPick). Only catalog products carry a store slug; a web row (Google/Amazon) has
 // none and stays chat-only for now. A size the chat still has to ask for waits for the finished pick.
 function addToBoxlyCart(p) {
-  // Boxly Lab: only allowlisted testers have the cart; for everyone else the chat works exactly as before.
-  if (!user.value?.boxly_lab || p?.pick?.size_owed || !cartPayloadFromChatProduct(p)) return
+  // Signed-in shoppers have the cart (a guest is sent to sign in before any live search or order).
+  if (!user.value || p?.pick?.size_owed || !cartPayloadFromChatProduct(p)) return
   ensureConversation(`Agrégalo a mi carrito Boxly: ${p.title || ''}`)
     .then((cid) => boxlyCart.add(cartPayloadFromChatProduct(p, { conversationId: cid ?? activeId.value })))
     .catch((e) => console.warn('boxly cart add failed', e?.data?.message || e))
@@ -2069,7 +2041,7 @@ function onFinalizeShipment() {
   ensureChatToken()
   // Explicit FINALIZE — the AI creates the one purchase request from everything in the cart.
   const text = 'Ya, eso es todo — finaliza y crea mi pedido con todo lo que tengo en el carrito.'
-  if (user.value?.boxly_lab) labFinalizeTapped.value = true
+  if (user.value) finalizeTapped.value = true
   ensureConversation(text)
   chat.sendMessage({ text })
   scrollDown()
@@ -2092,142 +2064,10 @@ function trackOrder(ord) {
   scrollDown()
 }
 
-// Assisted-purchase summary card → "Continuar" creates the Purchase Request
-// DETERMINISTICALLY here (same pattern as the in-person flow), instead of sending
-// a "sí" message and hoping the model then calls create_purchase_request. That
-// model round-trip was unreliable — it could narrate "tu solicitud fue creada"
-// without the tool firing, so the customer saw a confirmation but NO request was
-// ever persisted. Now the request is created the moment they tap, and the success
-// card only shows a real request_number returned by the API.
-const assistedCreatingId = ref(null)        // toolCallId currently being created
-const assistedErrors = reactive({})         // toolCallId -> error string
-const assistedResults = reactive({})        // toolCallId -> { request_number, updated } (real creation only)
-// ONE CHAT = ONE SHIPMENT = ONE REQUEST. Every summary card carries the WHOLE
-// running cart (the model re-sends every item each time), so a second card is
-// "same shipment, one more item" — NOT a new order. Creating a request per card
-// gave one customer 5 requests for 5 items, each a superset of the last (15 item
-// rows for 5 products) plus 5 confirmation emails. So: the first card creates
-// the request, every later card UPDATES it (PUT replaces its items with the
-// cart). Kept per conversation and recovered from the API on reload.
-const assistedPr = ref(null)                // { id, request_number } for THIS chat
-// A Lab order placed from this chat's box (finalize_lab_order) also closes the box's Finalizar button.
-const labOrdered = computed(() => chat.messages.some((m) => (m.parts || []).some((p) => p.type === 'tool-finalize_lab_order' && p.output?.purchase_request_id)))
-async function confirmAssisted(part) {
-  const id = part?.toolCallId
-  if (!id || assistedCreatingId.value || assistedResults[id]) return
-  // Bind each item to the saved-products registry by saved_id (like openSelfOrder), so the
-  // EXACT url + image are used — never the long web link/thumbnail the model may have
-  // truncated or hallucinated (that was the broken-image / dead-link bug on web products).
-  const items = (part?.output?.items || []).map((it) => {
-    const saved = it.saved_id ? savedProducts.value.find((p) => p.id === it.saved_id) : null
-    return {
-      product_name: saved?.title || it.name || it.product_name || 'Producto',
-      product_url: saved?.url || it.url || it.product_url || '',
-      product_image_url: saved?.image || it.image || it.product_image_url || null,
-      price: Number(saved?.price ?? it.price) || 0,
-      quantity: Math.max(1, Number(it.quantity) || 1),
-      // Variant choice → the API's per-item `options` (rendered in the PR email and the admin as
-      // "Talla: 9.5 US · Color: negro"). Was dropped here, so a size the shopper volunteered never
-      // reached the shopping team. The live variant picker (store-knowledge work) will fill these.
-      options: (() => { const o = {}; if (it.size) o.Talla = String(it.size).trim(); if (it.color) o.Color = String(it.color).trim(); if (it.variant) o.Variante = String(it.variant).trim(); return Object.keys(o).length ? o : undefined })(),
-      notes: it.notes || undefined,
-    }
-  }).filter((it) => it.product_name)
-  // Safety net: if the summary somehow carried no items, fall back to the model
-  // path so the request can still be placed rather than silently doing nothing.
-  if (!items.length) {
-    const text = 'Sí, crea mi solicitud de compra asistida con eso.'
-    ensureChatToken(); ensureConversation(text); chat.sendMessage({ text }); scrollDown()
-    return
-  }
-  assistedErrors[id] = ''
-  assistedCreatingId.value = id
-  try {
-    // Each finalized cart is its OWN purchase request — a summary card = one request — so the
-    // customer can place SEVERAL across one chat and keep shopping after an order. The per-card
-    // guards above (assistedResults[id] / assistedCreatingId / assistedHandled) ensure a given
-    // card fires exactly once; a NEW card is a NEW request. We deliberately do NOT PUT-update a
-    // prior request: after an order the model builds a FRESH cart, so updating would overwrite it.
-    const res = await $customFetch('/purchase-requests', {
-      method: 'POST',
-      body: { currency: 'usd', items, conversation_id: activeId.value || undefined },
-    })
-    const pr = res?.data || res
-    const updated = false
-    if (!pr?.request_number) throw new Error('no_request_number')
-    assistedPr.value = { id: pr.id, request_number: pr.request_number }
-    assistedResults[id] = { request_number: pr.request_number, updated }
-    loadConversations().catch(() => {})
-    scrollDown()
-  } catch (e) {
-    assistedErrors[id] = e?.data?.message || 'No se pudo crear la solicitud. Intenta de nuevo.'
-  } finally {
-    assistedCreatingId.value = null
-  }
-}
-function editAssisted() { composerRef.value?.focus() }
-
-// Summary cards that were already on screen before this session touched the
-// chat — i.e. loaded from history. Their request was placed when they first
-// appeared; re-firing on load would order the same shipment all over again
-// (a reopened chat is REPLAYED verbatim, tool state and all).
-const assistedHandled = new Set()
-function markAssistedHandled() {
-  for (const m of chat.messages) {
-    for (const part of (m.parts || [])) {
-      if (part?.type === 'tool-show_assisted_summary' && part.toolCallId) assistedHandled.add(part.toolCallId)
-    }
-  }
-}
-// Reopening a chat loses the in-memory link to its request, so re-adopt it from
-// the API. Without this, adding one more item to an old chat would open a second
-// request holding the whole cart again. It also restores the confirmation the
-// customer saw the first time — otherwise the old cards come back showing
-// "Continuar", as if nothing had been placed.
-async function adoptAssistedPr() {
-  if (!user.value || !activeId.value || assistedPr.value) return
-  const cards = chat.messages.flatMap((m) => (m.parts || []).filter((p) => p?.type === 'tool-show_assisted_summary' && p.toolCallId))
-  if (!cards.length) return
-  try {
-    const r = await $customFetch(`/purchase-requests?conversation_id=${activeId.value}`)
-    const pr = (r?.data?.data || [])[0] // newest — this chat's shipment
-    if (!pr?.request_number) return
-    for (const c of cards) {
-      if (!assistedResults[c.toolCallId]) assistedResults[c.toolCallId] = { request_number: pr.request_number, updated: false }
-    }
-    // Only a request still awaiting review can take more items; once it's quoted
-    // the API rejects edits, so a new item correctly starts its own request.
-    if (pr.status === 'pending_review') assistedPr.value = { id: pr.id, request_number: pr.request_number }
-  } catch { /* the chat still works; a later card just opens a fresh request */ }
-}
-
-// AUTO-CREATE the assisted request the instant its summary card appears — the
-// customer already said "Boxly lo compra", so a second "Continuar" tap only
-// confuses them and loses the sale. Deterministic (real request_number from the
-// API); confirmAssisted guards against double-firing. We watch a derived list of
-// available summary toolCallIds so this runs exactly when a NEW summary lands.
-function autoCreateAssisted() {
-  for (const m of chat.messages) {
-    if (m.role !== 'assistant') continue
-    for (const part of (m.parts || [])) {
-      // `blocked` = the server refused the request because an item still needs a size/colour it actually sells.
-      // Never auto-create in that case (Alex's rails: nothing is bought without a real pick).
-      if (part?.type === 'tool-show_assisted_summary' && part.state === 'output-available'
-          && !part.output?.blocked && part.toolCallId && (part.output?.items?.length)
-          && !assistedHandled.has(part.toolCallId)
-          && !assistedResults[part.toolCallId] && !assistedErrors[part.toolCallId]
-          && assistedCreatingId.value !== part.toolCallId) {
-        confirmAssisted(part)
-      }
-    }
-  }
-}
-watch(
-  () => chat.messages.flatMap((m) => (m.parts || [])
-    .filter((p) => p?.type === 'tool-show_assisted_summary' && p.state === 'output-available' && p.toolCallId)
-    .map((p) => p.toolCallId)).join(','),
-  () => autoCreateAssisted(),
-)
+// Finalizar placed an order from this chat's box (finalize_order — or finalize_lab_order in a Boxly Lab chat
+// from before 2026-09-28): the box's own Finalizar button closes.
+const FINALIZE_PARTS = new Set(['tool-finalize_order', 'tool-finalize_lab_order'])
+const ordered = computed(() => chat.messages.some((m) => (m.parts || []).some((p) => FINALIZE_PARTS.has(p.type) && p.output?.purchase_request_id)))
 
 function openProduct(p) { selectedProduct.value = p }
 function onModalAssisted(p) { selectedProduct.value = null; onAssistedProduct(p) }
@@ -2270,7 +2110,6 @@ async function maybeResumeGuest() {
   if (Date.now() - (stash.ts || 0) > 30 * 60 * 1000) return false // too old — don't surprise them
   // Restore the chat history into the live chat.
   chat.messages = stash.messages.map((m, i) => ({ id: 'r' + i, role: m.role, parts: (m.content && m.content.parts) || [] }))
-  markAssistedHandled() // restored history — the model places the order fresh below
   registerFromMessages() // rebuild the in-chat product registry so the PR can bind the saved product
   // Migrate the conversation under the now-authenticated account.
   try {
@@ -2299,15 +2138,14 @@ function maybeRestoreGuestChat() {
   if (!stash || !Array.isArray(stash.messages) || !stash.messages.length) return
   if (Date.now() - (stash.ts || 0) > 30 * 60 * 1000) { localStorage.removeItem(GUEST_RESUME_KEY); return } // too old
   chat.messages = stash.messages.map((m, i) => ({ id: 'g' + i, role: m.role, parts: (m.content && m.content.parts) || [] }))
-  markAssistedHandled() // purely visual restore — must not place anything
   registerFromMessages() // rebuild the product registry so a later PR can bind the saved product
   scrollDown()
 }
 
-// Boxly Lab: the server puts every box change into the cart (the agent then fills the real store cart in the
-// background), so after each turn re-read the cart — its running store browser shows up as the live card.
+// The server puts every box change into the cart (the agent then fills the real store cart in the background),
+// so after each turn re-read the cart — its running store browser shows up as the live card.
 watch(() => chat.status, async (s) => {
-  if (s !== 'ready' || !user.value?.boxly_lab) return
+  if (s !== 'ready' || !user.value) return
   await boxlyCart.load({ force: true })
   boxlyCart.pollWhileSyncing()
   flushCartEvents()
@@ -2372,7 +2210,6 @@ function newChat() {
   chat.messages = []
   activeId.value = null
   savedCount.value = 0
-  assistedPr.value = null // a new chat is a new shipment → a new request
   retitled.value = false
   oldestLoadedId.value = null
   hasMoreOlder.value = false
@@ -2393,7 +2230,6 @@ async function openChat(id) {
   activeId.value = id
   retitled.value = true
   drawerOpen.value = false
-  assistedPr.value = null // re-adopted below, from the request this chat owns
   const cached = msgCache.get(id)
   if (cached) {
     loadingChat.value = false
@@ -2402,8 +2238,6 @@ async function openChat(id) {
     hasMoreOlder.value = cached.hasMore
     savedProducts.value = cached.products || []
     savedCount.value = chat.messages.length
-    markAssistedHandled()
-    adoptAssistedPr()
     scrollDown()
     return
   }
@@ -2423,8 +2257,6 @@ async function openChat(id) {
     savedProducts.value = r.data.products || [] // full registry, derived from all history
     savedCount.value = msgs.length
     msgCache.set(id, { messages: msgs, oldestId: oldestLoadedId.value, hasMore: hasMoreOlder.value, products: savedProducts.value })
-    markAssistedHandled()
-    adoptAssistedPr()
     scrollDown()
   } catch (e) {
     console.error(e)
@@ -2448,7 +2280,6 @@ async function loadOlder() {
     const older = (r.data.messages || []).map(mapMsg)
     if (older.length) {
       chat.messages = [...older, ...chat.messages]
-      markAssistedHandled() // history — their requests were placed long ago
       savedCount.value += older.length // prepended messages are already saved
       oldestLoadedId.value = older[0].id
       hasMoreOlder.value = !!r.data.has_more

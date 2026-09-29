@@ -55,6 +55,10 @@ export default defineNuxtConfig({
     '/buscar/**':     { redirect: '/app/search' },
     '/search':        { redirect: '/app/search' },
     '/search/**':     { redirect: '/app/search' },
+    // Boxly Lab (the live-carts test) became the product on 2026-09-28: its opt-in page is gone and its cart is
+    // every shopper's /app/cart.
+    '/app/lab':       { redirect: '/app/search' },
+    '/app/lab/cart':  { redirect: '/app/cart' },
     // /shop was the Boxly Store, since removed — every one of those URLs 404s
     // today. Search Console still shows /shop at position 2.3 with 351
     // impressions over 12 months, plus the product pages beneath it

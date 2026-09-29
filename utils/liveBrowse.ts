@@ -290,18 +290,6 @@ export function overlayReducer(current: Candidate | null, ev: EventV1 & { candid
   return current
 }
 
-/** The purchase-request item for a candidate (fields PurchaseRequestController::store validates). */
-export function purchaseItemFor(c: Candidate): { product_name: string; product_url: string; product_image_url?: string; price: number; quantity: 1; notes?: string } {
-  const price = c.current_price && typeof c.current_price.amount === 'number' ? c.current_price.amount : 0
-  const item: any = { product_name: c.title, product_url: c.url, price, quantity: 1 as const }
-  if (c.image) item.product_image_url = c.image
-  const notes: string[] = []
-  if (c.store) notes.push(`Elegido en la tienda en vivo: ${c.store}`)
-  if (!(c.current_price && typeof c.current_price.amount === 'number')) notes.push('Precio no leído en la tienda: confirmar antes de cotizar.')
-  if (notes.length) item.notes = notes.join(' ')
-  return item
-}
-
 /** Card image for a store card: derived from the storefront host, never from user input. */
 export function storeCardImage(url: string): string | null {
   let u: URL

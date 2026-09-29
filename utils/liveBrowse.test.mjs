@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 // Pure tests for utils/liveBrowse.ts — the remote store browser's client logic.
-import { keyMessageFor, mapPointer, boundMessage, parseInbound, createInputRelayController, overlayReducer, purchaseItemFor, storeCardImage, createTextBuffer, MAX_TEXT_CHARS, loaderStepsFor } from './liveBrowse.ts'
+import { keyMessageFor, mapPointer, boundMessage, parseInbound, createInputRelayController, overlayReducer, storeCardImage, createTextBuffer, MAX_TEXT_CHARS, loaderStepsFor } from './liveBrowse.ts'
 
 let passed = 0, failed = 0
 const check = (name, ok, detail = '') => { if (ok) { passed++; console.log(`  ✓ ${name}`) } else { failed++; console.log(`  ✗ ${name} ${detail}`) } }
@@ -125,14 +125,6 @@ check('candidate shows the overlay', overlayReducer(null, ev('candidate', { cand
 check('candidate.cleared hides it', overlayReducer(cand, ev('candidate.cleared')) === null)
 check('terminal hides it', overlayReducer(cand, ev('session.completed')) === null)
 check('other events keep it', overlayReducer(cand, ev('worker.progress')) === cand)
-const item = purchaseItemFor(cand)
-check('purchase item carries name/url/image/price/quantity 1', item.product_name === 'Avia 5000' && item.product_url === cand.url && item.product_image_url === cand.image && item.price === 24 && item.quantity === 1)
-check('purchase item notes name the live store', /Walmart/.test(item.notes || ''))
-{
-  const noPrice = purchaseItemFor({ ...cand, current_price: null })
-  check('unknown price → price 0 and a note asking to confirm it', noPrice.price === 0 && /Precio no leído/.test(noPrice.notes || '') && /Walmart/.test(noPrice.notes || ''))
-  check('known price → no confirm note', !/Precio no leído/.test(item.notes || ''))
-}
 check('store card image derives from the https host only', storeCardImage('https://www.walmart.com/').includes('domain=www.walmart.com'))
 check('store card image refuses non-https', storeCardImage('http://x/') === null)
 

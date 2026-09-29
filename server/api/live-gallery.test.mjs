@@ -1,5 +1,5 @@
-// BOXLY LAB — THE LIVE STORE GALLERY (Alex, 2026-09-28): a Lab member's product request goes straight to the
-// computer-use engine (live store browsers the shopper watches), never the catalog or SerpAPI. These run the REAL
+// THE LIVE STORE GALLERY (Alex, 2026-09-28): a shopper's product request goes straight to the computer-use engine
+// (live store browsers the shopper watches), never the catalog or SerpAPI — Boxly Lab's flow, now the product. These run the REAL
 // live_gallery tool body (cut out of assistant.post.ts, with the network stubbed) and pin the wiring around it.
 import assert from 'node:assert/strict'
 import { readFileSync, writeFileSync, unlinkSync } from 'node:fs'
@@ -19,7 +19,7 @@ writeFileSync(tmp, [
   'const z: any = chain',
   'const tool = (x: any) => x',
   'export function make(ctx: any) {',
-  '  const { token, isLab, messages, conversationId } = ctx',
+  '  const { token, messages, conversationId } = ctx',
   '  let liveCatalog = ctx.liveCatalog',
   '  let liveStoresCache: any = null',
   '  let galleryShown = false',
@@ -39,7 +39,7 @@ unlinkSync(tmp)
 
 const CATALOG = { stores: [{ id: 'gymshark', name: 'Gymshark' }, { id: 'on', name: 'On' }, { id: 'new-balance', name: 'New Balance' }, { id: 'nike', name: 'Nike' }], max: 3 }
 const run = async (input, over = {}) => {
-  const ctx = { token: 't0k', isLab: true, messages: [], conversationId: 42, liveCatalog: CATALOG, calls: [], reply: { id: 7, status: 'running', store_id: 'on' }, ...over }
+  const ctx = { token: 't0k', messages: [], conversationId: 42, liveCatalog: CATALOG, calls: [], reply: { id: 7, status: 'running', store_id: 'on' }, ...over }
   const h = make(ctx)
   const out = await h.tools.live_gallery.execute(input)
   return { out, ctx, shown: h.shown() }
@@ -48,8 +48,8 @@ const run = async (input, over = {}) => {
 {
   const { out, ctx, shown } = await run({ query: ' running shoes ', stores: ['On', 'New Balance', 'nike', 'Hoka'] })
   ok('one engine session carries every store the engine can open (≤ its cap), in order', ctx.calls.length === 1 && JSON.stringify(ctx.calls[0].body.store_ids) === '["on","new-balance","nike"]')
-  ok('…to the Lab-gated API create, conversation-bound, the query as the objective', ctx.calls[0].path === '/live-shopping/sessions' && ctx.calls[0].method === 'POST' && ctx.calls[0].token === 't0k' && ctx.calls[0].body.conversation_id === 42 && ctx.calls[0].body.objective === 'running shoes' && ctx.calls[0].body.store_id === 'on')
-  ok('the live card rides on the answer at once (the Lab session shape the chat renders)', out.ok === true && out.live_session.id === 7 && out.live_session.store_name === 'On · New Balance · Nike' && /Buscando "running shoes"/.test(out.live_session.note))
+  ok('…to the API create, conversation-bound, the query as the objective', ctx.calls[0].path === '/live-shopping/sessions' && ctx.calls[0].method === 'POST' && ctx.calls[0].token === 't0k' && ctx.calls[0].body.conversation_id === 42 && ctx.calls[0].body.objective === 'running shoes' && ctx.calls[0].body.store_id === 'on')
+  ok('the live card rides on the answer at once (the session shape the chat renders)', out.ok === true && out.live_session.id === 7 && out.live_session.store_name === 'On · New Balance · Nike' && /Buscando "running shoes"/.test(out.live_session.note))
   ok('a store the engine cannot open is named back, never guessed', JSON.stringify(out.skipped) === '["Hoka"]')
   ok('the model is told to say one line and invent nothing', /ONE short line/.test(out.note) && /Do NOT list, invent/.test(out.note))
   ok('the turn counts as its gallery (no second gallery tool after it)', shown === true)
@@ -73,8 +73,8 @@ const run = async (input, over = {}) => {
   ok('no engine store list: nothing is guessed', off.out.error === 'live_unavailable' && off.ctx.calls.length === 0)
 }
 {
-  const guest = await run({ query: 'leggings', stores: ['Gymshark'] }, { isLab: false })
-  ok('anyone outside the Lab gets nothing from it', guest.out.error === 'not_authenticated' && guest.ctx.calls.length === 0)
+  const guest = await run({ query: 'leggings', stores: ['Gymshark'] }, { token: undefined })
+  ok('a signed-out visitor starts nothing and is sent to sign in', guest.out.error === 'not_authenticated' && /create_account/.test(guest.out.note) && guest.ctx.calls.length === 0)
   const noChat = await run({ query: 'leggings', stores: ['Gymshark'] }, { conversationId: undefined })
   ok('an unsaved chat (nowhere for the gallery to land) starts nothing', noChat.out.error === 'no_conversation' && noChat.ctx.calls.length === 0)
   const restricted = await run({ query: 'vape', stores: ['Gymshark'] }, { restricted: true })
@@ -83,12 +83,11 @@ const run = async (input, over = {}) => {
 
 // ── the wiring around it ─────────────────────────────────────────────────────
 const prep = cut(/prepareStep: \(\{ steps \}: any\) => \{[\s\S]*?\n    \},\n/)
-ok('the narrowing question still comes first (before any Lab branch)', prep.indexOf('mustNarrow') < prep.indexOf('bareStore && isLab'))
-ok('a bare store name makes a Lab member answer "¿qué buscas?" first', /bareStore && isLab && !\(steps \|\| \[\]\)\.length\) return \{ activeTools: \['ask_to_narrow'\], toolChoice: 'required' \}/.test(prep))
-ok('the Lab loop is the live gallery toolset; everyone else keeps LOOP_TOOLS', /const loopTools = isLab \? LAB_LOOP_TOOLS : LOOP_TOOLS/.test(api) && /forUser\(loopTools\)/.test(prep) && !/forUser\(LOOP_TOOLS\)/.test(prep))
-ok('after the gallery a Lab member still has no web search', /const afterGalleryTools = isLab \? LAB_NON_GALLERY_TOOLS : NON_GALLERY_TOOLS/.test(api) && /forUser\(afterGalleryTools\)/.test(prep))
+ok('the narrowing question still comes first', prep.indexOf('mustNarrow') < prep.indexOf('bareStore && '))
+ok('a bare store name is answered with "¿qué buscas?" first', /bareStore && !\(steps \|\| \[\]\)\.length\) return \{ activeTools: \['ask_to_narrow'\], toolChoice: 'required' \}/.test(prep))
+ok('the loop is the live gallery toolset for everyone', /const loopTools = LAB_LOOP_TOOLS/.test(api) && /const afterGalleryTools = LAB_NON_GALLERY_TOOLS/.test(api))
 ok('two live galleries per turn at most, like every gallery tool', /GALLERY_TOOLS\.includes\(c\.toolName\) \|\| c\.toolName === 'live_gallery'/.test(prep))
-ok('the Lab prompt names the engine\'s own stores', /LIVE STORES: \$\{liveCatalog\.stores\.map/.test(api) && /labBlock, liveBlock, cartEventBlock/.test(api))
+ok('the prompt names the engine\'s own stores', /LIVE STORES: \$\{liveCatalog\.stores\.map/.test(api) && /finalizeBlock, liveBlock, cartEventBlock/.test(api))
 ok('history: a live-results part is replayed as text before the tool-part filters run', /stripIncompleteToolCalls\(liveResultsAsText\(await pdfPartsToText\(messages\)\)\)/.test(api))
 
 ok('the chat renders a live-results part as its normal gallery', /const GALLERY_TOOLS = \['tool-live_results'/.test(vue))

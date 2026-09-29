@@ -1,8 +1,9 @@
-// Boxly Lab — "Finalizar carrito" in the chat (2026-09-24). The box the shopper sees in the chat (the latest
-// show_shipment card) becomes their Boxly cart, which is then finalized: a purchase request plus one live
-// checkout quote per store, and the automatic invoice when every store is verified.
+// "Finalizar carrito" in the chat (Boxly Lab 2026-09-24; every shopper's since 2026-09-28). The box the shopper sees
+// in the chat (the latest show_shipment card) becomes their Boxly cart — mirrored into each store's real cart as they
+// shop (cart sync) — which is then finalized: a purchase request plus one live checkout quote per store, and the
+// automatic invoice when every store is verified.
 // Pure helpers (no network): which items the box holds, what each one is in cart terms, and how to make the
-// API cart match. The tool in server/api/assistant.post.ts does the calls. Tested in labCheckout.test.mjs.
+// API cart match. The tools in server/api/assistant.post.ts do the calls. Tested in boxCheckout.test.mjs.
 
 const STORE_ID_RE = /^[a-z0-9][a-z0-9_-]{0,39}$/
 

@@ -1,5 +1,5 @@
 <template>
-  <!-- Boxly Lab: the order placed from the chat box (finalize_lab_order). The agent fills each store's real cart
+  <!-- The order placed from the chat box (finalize_order). The agent fills each store's real cart
        and checks out to the warehouse; this card follows it — which store it is on (watch it live), each
        store's real total, then the automatic invoice with Pagar. Everything stays in the thread. -->
   <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-4 max-w-sm w-full">

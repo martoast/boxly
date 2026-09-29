@@ -3,7 +3,7 @@ import { streamText, tool, convertToModelMessages, stepCountIs, createUIMessageS
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { extractText, getDocumentProxy } from 'unpdf'
 import { z } from 'zod'
-import { itemUnits, itemKg, isUnboxable, archetypeOf, fitTier, boxForLoad, ARCH_LABEL, loadBoxPrices } from '../utils/boxMath'
+import { itemUnits, itemKg, isUnboxable, archetypeOf, fitTier, ARCH_LABEL } from '../utils/boxMath'
 import { FALLBACK_KNOWLEDGE } from '../utils/boxlyKnowledge'
 import { curateProducts, floatRequestedStore } from '../utils/curate'
 import { chatModel, isAnthropic, providerOptions, hasModelKey } from '../utils/aiProvider'
@@ -11,7 +11,7 @@ import { toEnglishSearchTerms, looksSpanish } from '../utils/webQuery'
 import { ageGalleries, windowMessages, withContextOnLastUser, dropToolParts, contextStats, WINDOW_DEFAULTS } from '../utils/chatContext'
 import { generateFollowups, followupPart, followupsWithin, attachFollowupChips } from '../utils/followups'
 import { readSummary, summaryBlock, summarize, shouldSummarize } from '../utils/chatSummary'
-import { boxFromMessages, wantedFromBox, planCart, type CarriedStore } from '../utils/labCheckout'
+import { boxFromMessages, wantedFromBox, planCart, type CarriedStore } from '../utils/boxCheckout'
 import { checkStoreLock } from '../utils/storeLock'
 import { storeHostsFromFacets, tagCarriedStores, type StoreHosts } from '../utils/storeHosts'
 import { resolveLiveStores, liveGalleryQuery, liveResultsAsText, type LiveStore } from '../../utils/liveGallery'
@@ -432,49 +432,6 @@ function thumb(url: any): string | null {
     }
   } catch { /* not a URL we can parse — leave it exactly as it came */ }
   return url
-}
-
-// WHAT WILL THIS ACTUALLY COST ME, DELIVERED? The summary card said "Caja / envío a
-// México — se cotiza aparte", so the one number a shopper cares about was the one number
-// missing: they saw $237.97 + $35.70 and still could not tell whether the answer was four
-// thousand pesos or eight. Boxly already models this everywhere else — the pricing page,
-// the landing calculator and the shopper panel all size a box with the same archetype
-// volumes — so the quote uses that same math rather than a second opinion, and the same
-// live Stripe prices. The box stays an ESTIMATE (the packers confirm it when everything
-// physically lands in the warehouse) and the card says so; an estimate the shopper can
-// plan around beats a blank.
-async function quoteBox(items: any[]) {
-  // An above-ground pool has no box price because it has no box (Alex, 2026-09-16).
-  // Returning null here is not a gap — the card already says "se cotiza aparte" for a
-  // missing quote, which is the true answer, and a human takes it from there.
-  if ((items || []).some((it: any) => isUnboxable(String(it?.name || ''), it?.type))) return null
-  const units = (items || []).reduce(
-    (n, it) => n + itemUnits(String(it?.name || ''), (it as any)?.type) * (Number(it?.quantity) || 1),
-    0,
-  )
-  const kg = (items || []).reduce(
-    (n, it) => n + itemKg(String(it?.name || ''), (it as any)?.type) * (Number(it?.quantity) || 1),
-    0,
-  )
-  const tier = boxForLoad(units, kg)
-  const prices = await loadBoxPrices(() =>
-    fetch(`${API_BASE}/products`, { signal: AbortSignal.timeout(8000) })
-      .then((r) => r.json())
-      .then((d: any) => d?.data ?? d),
-  ).catch(() => ({} as Record<string, number>))
-  const price = prices?.[tier.key]
-  if (!Number.isFinite(price)) return null
-  return { key: tier.key, label: tier.label, price_mxn: price, units: Number(units.toFixed(2)) }
-}
-
-// One rate for the whole quote so the card never mixes two. Falls back to null rather than
-// a guessed number — a wrong total is worse than an honest "se cotiza aparte".
-async function usdMxn(): Promise<number | null> {
-  try {
-    const d: any = await callApi('/fx-rate', { timeoutMs: 6000 })
-    const r = Number(d?.rate ?? d?.data?.rate)
-    return Number.isFinite(r) && r > 0 ? r : null
-  } catch { return null }
 }
 
 const STORE_SLUG_RE = /^[a-z0-9][a-z0-9_-]{0,39}$/
@@ -1313,15 +1270,15 @@ const GALLERY_TOOLS = ['search_products', 'curate_products', 'show_collection', 
 // follow-ups, build the shipment, take the order) — i.e. all tools minus GALLERY_TOOLS.
 const NON_GALLERY_TOOLS = [
   'web_search', 'extract_product', 'show_shipment', 'show_box_guide', 'feature_products', 'get_product_variants',
-  'show_assisted_summary', 'get_profile', 'list_orders', 'show_orders',
+  'get_profile', 'list_orders', 'show_orders',
   // The WhatsApp handoff for something no box can take (a fridge, a mattress, a 60" TV). The prompt has told
   // the model to "call show_contact_whatsapp" for those all along and the card has always been rendered — the
   // tool was simply never in a toolset, so an un-boxable ask had nowhere to go (found 2026-09-16 by the
   // reachability test written for ask_to_narrow).
   'show_contact_whatsapp',
   'update_shopping_profile', 'create_self_order', 'cancel_order', 'plan_in_person', 'create_account',
-  // Boxly Lab's finalize (its members get it INSTEAD of show_assisted_summary; see forUser in the handler).
-  'finalize_lab_order',
+  // Finalizar: the box becomes the Boxly cart's order, checked out live in each store (see finalize_order).
+  'finalize_order',
 ]
 // The loop toolset before a gallery has shown: everything except suggest_followups —
 // the chips are generated OFF the loop (server/utils/followups.ts), so the model never
@@ -2079,24 +2036,23 @@ export default defineEventHandler(async (event) => {
   // action card the user tapped (search|register|assisted|status|in_person), a routing hint.
   const surface: string = body?.surface === 'hub' ? 'hub' : 'search'
   const pipeline: string | undefined = typeof body?.pipeline === 'string' ? body.pipeline : undefined
-  // BOXLY LAB (internal testers): finalizing the box runs the real store checkouts in the chat
-  // (finalize_lab_order) instead of the assisted request. The flag comes from the client; it cannot grant
-  // anything — the cart routes the tool calls are Lab-only on the API. `labFinalize` = the box card's
-  // "Finalizar carrito" was tapped this turn, so the tool is the one move.
-  const isLab: boolean = !!token && body?.boxlyLab === true
-  const labFinalize: boolean = isLab && body?.labFinalize === true
-  // Lab: the agent finished putting a box item in the store's real cart (or the store refused). The client sends
-  // this as a hidden turn; the assistant confirms it — the ONLY moment it may say the item is in the cart.
-  const ce = isLab && body?.cartEvent && typeof body.cartEvent === 'object' ? body.cartEvent : null
+  // THE LAB FLOW IS THE PRODUCT (Alex, 2026-09-28). What Boxly Lab testers had is every signed-in shopper's now:
+  // product requests open the stores live (live_gallery), the box is mirrored into the real store carts (cart
+  // sync) and Finalizar runs the real checkouts (finalize_order) → purchase request → invoice. `finalizeTap` = the
+  // box card's "Finalizar carrito" was tapped this turn, so finalizing is the one move.
+  const finalizeTap: boolean = !!token && body?.finalizeTap === true
+  // The agent finished putting a box item in the store's real cart (or the store refused). The client sends this
+  // as a hidden turn; the assistant confirms it — the ONLY moment it may say the item is in the cart.
+  const ce = token && body?.cartEvent && typeof body.cartEvent === 'object' ? body.cartEvent : null
   const cartEvent = ce && ['in_store_cart', 'unavailable', 'failed'].includes(ce.status)
     ? { title: String(ce.title || 'el producto').slice(0, 200), store: String(ce.store || 'la tienda').slice(0, 80), status: ce.status as string, variants: String(ce.variants || '').slice(0, 120), note: ce.note ? String(ce.note).slice(0, 200) : null }
     : null
-  const forUser = (list: string[]) => list.filter((t) => t !== (isLab ? 'show_assisted_summary' : 'finalize_lab_order') && (isLab || t !== 'live_gallery'))
-  // The Lab member's toolsets (see LAB_LOOP_TOOLS): the live store gallery instead of the catalog/web search.
-  const loopTools = isLab ? LAB_LOOP_TOOLS : LOOP_TOOLS
-  const afterGalleryTools = isLab ? LAB_NON_GALLERY_TOOLS : NON_GALLERY_TOOLS
-  // Lab: the engine's store list, read before the loop (the prompt names it; live_gallery validates against it).
-  const liveCatalog = isLab && token ? await liveStoreList(token) : null
+  // The toolsets (see LAB_LOOP_TOOLS): the live store gallery, never the catalog/web search.
+  const loopTools = LAB_LOOP_TOOLS
+  const afterGalleryTools = LAB_NON_GALLERY_TOOLS
+  // The engine's store list, read before the loop (the prompt names it; live_gallery validates against it). A guest
+  // has none: live search needs an account (the session, its conversation and the cart are per shopper).
+  const liveCatalog = token ? await liveStoreList(token) : null
   // Make the Lab member's Boxly cart hold exactly this box (the box wins). Every add lands in the cart the
   // moment the box card shows it, so the agent fills the real store cart in the background while they keep
   // shopping (cart sync) — Finalizar then only checks out. Returns null when done, else an error code.
@@ -2105,11 +2061,11 @@ export default defineEventHandler(async (event) => {
   // `sent`, the product URLs this sync asked the agent to put in the store cart (added / changed / retried).
   // The shopper's product registry with web rows from carried stores tagged (rows registered before a gallery
   // was tagged, or by an older client).
-  const labRegistry = async () => tagCarriedStores(savedProducts, await catalogStoreHosts())
+  const storeRegistry = async () => tagCarriedStores(savedProducts, await catalogStoreHosts())
   // The carried stores (id, name, host) for search to cart: a web result whose title names one is found there.
-  const labCarried = async (): Promise<CarriedStore[]> => [...(await catalogStoreHosts()).entries()].map(([host, s]) => ({ id: s.id, name: s.name || s.id, host }))
-  async function syncLabBox(box: any[], retryUrl: string | null = null, sent: Set<string> = new Set()): Promise<string | null> {
-    const { wanted } = wantedFromBox(box, await labRegistry(), await labCarried())
+  const carriedStores = async (): Promise<CarriedStore[]> => [...(await catalogStoreHosts()).entries()].map(([host, s]) => ({ id: s.id, name: s.name || s.id, host }))
+  async function syncBox(box: any[], retryUrl: string | null = null, sent: Set<string> = new Set()): Promise<string | null> {
+    const { wanted } = wantedFromBox(box, await storeRegistry(), await carriedStores())
     const cart = await callApi('/cart', { token })
     if (cart?.ok === false || !Array.isArray(cart?.items)) return 'cart_unavailable'
     // Lines the box no longer holds go first (so a variant change can never collide with them).
@@ -2168,11 +2124,9 @@ export default defineEventHandler(async (event) => {
   // A message that is only a store's name ("Gymshark") must show that store — a product tool is mandatory on the
   // first step (Alex, 2026-09-28: a pitch about shipping and cards and a question, no products). Short messages only,
   // so nothing else waits on the store list.
-  const bareStore = !body?.fromStarterCard && !cartEvent && !labFinalize && !mustNarrow && String(question || '').split(/\s+/).length <= 7
+  const bareStore = !body?.fromStarterCard && !cartEvent && !finalizeTap && !mustNarrow && String(question || '').split(/\s+/).length <= 7
     ? bareStoreAsk(String(question || ''), [...(await catalogStoreHosts()).values()].map((s: any) => ({ id: s.id, name: s.name })))
     : null
-  // Lab members finalize with finalize_lab_order; this overrides every "show_assisted_summary is the only way to
-  // order" line above (that tool is not even offered to them).
   const cartEventBlock = cartEvent
     ? `STORE CART RESULT (automatic — the shopper did not type this; the "⟦carrito⟧" message is hidden from them). "${cartEvent.title}"${cartEvent.variants ? ` (${cartEvent.variants})` : ''} at ${cartEvent.store}: ${
       cartEvent.status === 'in_store_cart'
@@ -2182,17 +2136,17 @@ export default defineEventHandler(async (event) => {
           : `the agent could NOT add it to ${cartEvent.store}'s cart${cartEvent.note ? ` (agent's note: ${cartEvent.note} — do not quote it)` : ''}. Reply in Spanish in one or two short lines: it didn't go into the ${cartEvent.store} cart; the most common reason is that option being sold out — suggest another size/colour, or that you can try again. Do NOT say it was added.`
     } Write only that reply; no tools, no gallery.`
     : ''
-  const labBlock = isLab ? 'BOXLY LAB SHOPPER: when they finalize the box, call finalize_lab_order (no input) — it places the order and runs the real store checkouts live in the chat. show_assisted_summary does not exist for this shopper; ignore every instruction that mentions it.' : ''
+  const finalizeBlock = token ? 'FINALIZAR: when they finalize the box, call finalize_order (no input) — it places the order and runs the real store checkouts live in the chat. show_assisted_summary no longer exists; ignore every instruction that mentions it.' : ''
   // Lab: every product request is answered by the LIVE store browser (live_gallery), never the catalog or the web —
   // this overrides every instruction above that names search_products, curate_products, show_collection,
   // find_on_google, find_on_amazon, find_live_product, browse_store(s) or web_search (those tools are not offered).
-  const liveBlock = isLab
+  const liveBlock = token
     ? `LIVE STORE GALLERY (this shopper): show products ONLY with live_gallery — it opens the store's own website in a real browser the shopper watches in the chat, searches it, and the gallery (photo, name, price, link) appears in the chat by itself about 10–30 s later. Pass query = what to type in the store's search box, SHORT and IN ENGLISH ("running shoes", "leggings", "women hoodie", "stanley tumbler"), and stores = ${liveCatalog?.max && liveCatalog.max > 1 ? `1-${Math.min(4, liveCatalog.max)}` : 'exactly 1'} store(s) from LIVE STORES below: the store the shopper named (keep it for follow-ups in this chat until they name another); if they named none, ${liveCatalog?.max && liveCatalog.max > 1 ? `the ${Math.min(4, liveCatalog.max)} best-known ones for this category` : 'the single best-known one for this category'}. The browser must go somewhere SPECIFIC: when the ask is vague ("algo para el gym", "ropa", "un regalo", only a store name), call ask_to_narrow first with ONE question and 2-4 tappable answers, then live_gallery with what they tap. After live_gallery write ONE short line in Spanish saying you are searching it live in the store (e.g. "Lo estoy buscando en vivo en Gymshark 👇") — never list, invent or promise products, prices or links before the gallery arrives. A product from that gallery is added to the box like any other (show_shipment with its saved_id).${liveCatalog ? ` LIVE STORES: ${liveCatalog.stores.map((st) => st.name).join(', ')}. A store not on this list cannot be opened live yet — say so in one line and offer the closest one on it.` : ' The live store browser is unavailable right now: say so in one line and offer to try again in a moment.'}`
-    : ''
-  const bareStoreBlock = isLab && bareStore
+    : 'LIVE STORE GALLERY: this visitor is NOT signed in. Products are searched live in the stores\' own websites, and that needs a Boxly account (the live browser, the cart and the order are theirs). For ANY product request, call create_account right away with ONE short line in Spanish ("Para buscarlo en vivo en la tienda necesito que entres a tu cuenta Boxly — es gratis y te traigo de vuelta aquí 👇"); never describe, list or invent products. Questions about Boxly itself (envíos, precios, casillero) are answered normally.'
+  const bareStoreBlock = token && bareStore
     ? `THE SHOPPER TYPED ONLY A STORE: "${bareStore}". Ask what they want there with ask_to_narrow — ONE short question ("¿Qué buscas en ${bareStore}?") and 3-4 of that store's main categories as the answers — so the live browser goes straight to it. No products and no other text this turn.`
-    : bareStore ? `THE SHOPPER TYPED ONLY A STORE: "${bareStore}". Show it NOW — curate_products with store "${bareStore}" and intent "browse" (or its show_collection spotlight when one exists for exactly this store). Then ONE short line inviting them to pick or narrow (hombre/mujer, a category). No pitch about shipping, cards or how Boxly works, and no question BEFORE the products.` : ''
-  const ctx = [summaryBlock(summaryState), shopperContext(!!token, shoppingProfile, savedProducts), narrowBlock(mustNarrow), labBlock, liveBlock, cartEventBlock, bareStoreBlock].filter(Boolean).join('\n\n')
+    : ''
+  const ctx = [summaryBlock(summaryState), shopperContext(!!token, shoppingProfile, savedProducts), narrowBlock(mustNarrow), finalizeBlock, liveBlock, cartEventBlock, bareStoreBlock].filter(Boolean).join('\n\n')
   // History → model, bounded (see server/utils/chatContext.ts):
   //  1. old galleries collapse to a one-line marker (the products stay in the registry),
   //  2. hysteresis window (MAX 14 msgs / 6k tokens → keep 8; hard cap 9k),
@@ -2299,20 +2253,19 @@ export default defineEventHandler(async (event) => {
     // tools go away and the model has to answer in text, which is a real reply
     // ("no encontré, ¿probamos otra marca?") instead of a hang.
     prepareStep: ({ steps }: any) => {
-      // Lab store-cart result: text only.
+      // A store-cart result: text only.
       if (cartEvent) return { activeTools: [], toolChoice: 'none' }
-      // Lab's Finalizar tap: finalize, then one line of text — nothing else this turn.
-      if (labFinalize) return (steps || []).length ? { activeTools: [], toolChoice: 'none' } : { activeTools: ['finalize_lab_order'], toolChoice: 'required' }
-      if (galleryShown) return { activeTools: forUser(afterGalleryTools) }
+      // A Finalizar tap: finalize, then one line of text — nothing else this turn.
+      if (finalizeTap) return (steps || []).length ? { activeTools: [], toolChoice: 'none' } : { activeTools: ['finalize_order'], toolChoice: 'required' }
+      if (galleryShown) return { activeTools: afterGalleryTools }
       // THE QUESTION IS NOT OPTIONAL when the ask has an audience-shaped hole in it
       // (see audienceGap). Offering ask_to_narrow alongside the search tools is what
       // we did before, and the model searched every time — searching is the obvious
       // move and the prompt gave it an out. Here it is the ONLY move: one tool, and
       // toolChoice makes calling it mandatory. The model still writes the question.
       if (mustNarrow && !(steps || []).length) return { activeTools: ['ask_to_narrow'], toolChoice: 'required' }
-      // Lab: a bare store name gets its question first (the live browser needs somewhere specific to go).
-      if (bareStore && isLab && !(steps || []).length) return { activeTools: ['ask_to_narrow'], toolChoice: 'required' }
-      if (bareStore && !(steps || []).length) return { activeTools: forUser(['curate_products', 'show_collection']), toolChoice: 'required' }
+      // A bare store name gets its question first (the live browser needs somewhere specific to go).
+      if (bareStore && !(steps || []).length) return { activeTools: ['ask_to_narrow'], toolChoice: 'required' }
       // web_search IS A FALLBACK, NEVER AN OPENING MOVE. The eBay store card sends
       // "Ayúdame a encontrar y comparar las mejores opciones en eBay." and the model
       // answered it with web_search({query:"ebay"}) — which returns articles about the
@@ -2321,13 +2274,13 @@ export default defineEventHandler(async (event) => {
       // was ignored anyway, so take the tool away for the first move: with no gallery yet
       // and nothing tried, the model has to reach for a product tool. It gets web_search
       // back on the next step, which is the fallback role it is documented for.
-      if (!(steps || []).length) return { activeTools: forUser(loopTools).filter((t: string) => t !== 'web_search') }
+      if (!(steps || []).length) return { activeTools: loopTools.filter((t: string) => t !== 'web_search') }
       const galleryAttempts = (steps || []).reduce(
         (n: number, s: any) => n + (s.toolCalls || []).filter((c: any) => GALLERY_TOOLS.includes(c.toolName) || c.toolName === 'live_gallery').length,
         0
       )
       // suggest_followups is never offered to the model (chips come from followupsPromise).
-      return { activeTools: forUser(galleryAttempts >= 2 ? afterGalleryTools : loopTools) }
+      return { activeTools: galleryAttempts >= 2 ? afterGalleryTools : loopTools }
     },
     // THE TURN MUST END. The model stream had no deadline of any kind, and the provider
     // connection can simply stall: across 200 logged turns the slowest to COMPLETE was
@@ -2827,14 +2780,14 @@ export default defineEventHandler(async (event) => {
           }
           return ship
           })(input)
-          // Boxly Lab: what the card shows goes into the cart now (a held last item is not in the box yet), and
+          // What the card shows goes into the Boxly cart now (a held last item is not in the box yet), and
           // the item just added is checked for a store that closed its whole site (drop / waiting room) — the
           // agent's live browser will show that page, so the chat says it in words.
-          if (isLab && token) {
-            const added = out?.hold ? null : wantedFromBox(input.slice(-1), await labRegistry(), await labCarried()).wanted[0]
+          if (token) {
+            const added = out?.hold ? null : wantedFromBox(input.slice(-1), await storeRegistry(), await carriedStores()).wanted[0]
             const sent = new Set<string>()
             const [, lock] = await Promise.all([
-              syncLabBox(out?.hold ? input.slice(0, -1) : input, added?.product_url ?? null, sent).catch((e: any) => console.warn('[lab] box sync failed', e?.message || e)),
+              syncBox(out?.hold ? input.slice(0, -1) : input, added?.product_url ?? null, sent).catch((e: any) => console.warn('[cart] box sync failed', e?.message || e)),
               added ? checkStoreLock(added.product_url) : null,
             ])
             // THE BOX IS NOT THE STORE CART (Alex, 2026-09-25: "ONLY after it's actually added to the store's cart
@@ -2842,7 +2795,7 @@ export default defineEventHandler(async (event) => {
             // store's refusal) comes as its own message when the agent finishes — so this reply must not claim it.
             // An item from a store the agent cannot buy at (a web result off our catalog stores): in the box, but no
             // store cart will hold it — say so now, not at Finalizar.
-            const unsupportedAdd = out?.hold ? null : wantedFromBox(input.slice(-1), await labRegistry(), await labCarried()).unsupported[0]
+            const unsupportedAdd = out?.hold ? null : wantedFromBox(input.slice(-1), await storeRegistry(), await carriedStores()).unsupported[0]
             if (unsupportedAdd) {
               const n = `STORE CART: "${unsupportedAdd}" is a web result from a store the Boxly agent cannot buy from yet, so it will NOT go into a real store cart and Finalizar will refuse it. Tell the shopper in ONE short line (Spanish) that you can't add this one automatically, and offer the same kind of product from one of our stores. Do NOT say it was added to a cart.`
               out.note = out.note ? `${out.note}\n\n${n}` : n
@@ -2918,8 +2871,9 @@ export default defineEventHandler(async (event) => {
           stores: z.array(z.string()).min(1).max(4).describe('Store names from LIVE STORES, e.g. ["Gymshark"] or ["On", "New Balance", "Nike"]. The store the shopper named, else the best-known ones for this category.'),
         }),
         execute: async ({ query, stores }: any) => {
-          if (!token || !isLab) return authedNote
           if (restrictedAsk(messages)) return REFUSAL
+          // A guest: live search needs an account (the session, the conversation and the cart are theirs).
+          if (!token) return { ok: false, error: 'not_authenticated', note: 'NO LIVE GALLERY — this visitor is not signed in. Call create_account now with ONE short line in Spanish saying that to search it live in the store they need their free Boxly account and you bring them right back here. Do NOT describe or list products.' }
           const stop = (error: string, why: string) => ({ ok: false, error, note: `NO LIVE GALLERY — ${why} Nothing is on screen; do NOT describe products.` })
           if (!conversationId) return stop('no_conversation', 'this chat is not saved yet. Say ONE short line asking them to send the request again.')
           const q = liveGalleryQuery(query)
@@ -2952,19 +2906,19 @@ export default defineEventHandler(async (event) => {
         },
       }),
 
-      finalize_lab_order: tool({
-        description: "BOXLY LAB — finalize the shopper's box. Takes NO input: it reads the box card itself, puts exactly those items in the shopper's Boxly cart and places the order. The Boxly agent then fills each store's real cart and checks out to our San Diego warehouse live in the chat (the card shows each store's browser and its real total), and the invoice with a Pagar button appears in that same card when every total is verified. Call it when the shopper finalizes (\"finaliza\", \"eso es todo\", \"crea mi pedido\"). Never call show_assisted_summary for this shopper.",
+      finalize_order: tool({
+        description: "Finalize the shopper's box. Takes NO input: it reads the box card itself, puts exactly those items in the shopper's Boxly cart and places the order. The Boxly agent then fills each store's real cart and checks out to our San Diego warehouse live in the chat (the card shows each store's browser and its real total), and the invoice with a Pagar button appears in that same card when every total is verified. Call it when the shopper finalizes (\"finaliza\", \"eso es todo\", \"crea mi pedido\"). ",
         inputSchema: z.object({}),
         execute: async () => {
           if (!token) return authedNote
           const stop = (error: string, why: string) => ({ ok: false, error, note: `NOT FINALIZED — ${why} Nothing was ordered and no card is on screen; do NOT say the order was placed.` })
           const box = boxFromMessages(messages)
           if (!box?.length) return stop('empty_box', 'the box is empty. Say ONE short line inviting them to add products first.')
-          const { wanted, unsupported } = wantedFromBox(box, await labRegistry(), await labCarried())
+          const { wanted, unsupported } = wantedFromBox(box, await storeRegistry(), await carriedStores())
           if (unsupported.length) {
             return { ...stop('unsupported_items', `${unsupported.join(', ')} ${unsupported.length > 1 ? 'are web results' : 'is a web result'} from a store the Boxly agent can't buy from yet. Say ONE short line naming ${unsupported.length > 1 ? 'them' : 'it'} and ask the shopper to take ${unsupported.length > 1 ? 'them' : 'it'} out of the box, or to pick the same product from a store in our catalog.`), unsupported }
           }
-          if (await syncLabBox(box)) return stop('cart_update_failed', 'the cart could not be updated. Say ONE short line that it failed and to tap Finalizar again in a moment.')
+          if (await syncBox(box)) return stop('cart_update_failed', 'the cart could not be updated. Say ONE short line that it failed and to tap Finalizar again in a moment.')
           const fin = await callApi('/cart/finalize', { method: 'POST', token, body: {} })
           if (fin?.ok === false || !fin?.purchase_request_id) return stop('finalize_failed', 'the order could not be placed. Say ONE short line that it failed and to tap Finalizar again in a moment.')
           const stores = [...new Set(wanted.map((w) => w.store_name || w.store_id))]
@@ -2978,98 +2932,11 @@ export default defineEventHandler(async (event) => {
         },
       }),
 
-      show_assisted_summary: tool({
-        description: "Place an ASSISTED PURCHASE. This card CREATES the real purchase request AUTOMATICALLY the instant it appears (client-side, real number) — it is the ONLY way to place an assisted order, and there is no separate confirm step. You do NOT place the request yourself and never receive its number, so NEVER say it's created and NEVER state a PR number — the card shows the confirmation. Call this as soon as the customer finalizes the cart. Size/colour: fill them from the shopper's PICK after get_product_variants returned the available options (that is the one moment to ask, with the real list); if that tool returned no variants for an item, do NOT ask and do NOT guess — leave them blank, our shopping team confirms the exact size/colour with the customer AFTER the request exists. Never block or delay placing the request beyond that single pick.",
-        inputSchema: z.object({
-          items: z.array(z.object({
-            saved_id: z.string().describe('Registry id of a product shown in this chat — ALWAYS set this for any product we displayed (catalog OR web). It binds the EXACT product/price/image/url from the registry so long web links + image URLs are never retyped or mangled. When set, name/url/image/price are taken from the registry.').optional(),
-            name: z.string().describe('Product name (required only if no saved_id).'),
-            store: z.string().describe('Store/brand.').optional(),
-            price: z.number().describe('Reference USD price the customer saw (use the sale price if on sale); 0 if unknown. Ignored when saved_id resolves a price.').optional(),
-            quantity: z.number().int().min(1).default(1),
-            image: z.string().describe('Product image URL. Auto-filled from the registry when saved_id is set.').optional(),
-            url: z.string().describe('Direct product URL. Auto-filled from the registry when saved_id is set — prefer saved_id over retyping a long URL.').optional(),
-            // Deliberately separate named fields rather than free prose in notes.
-            // As a line in the prompt this kept getting skipped; as a field the
-            // model has to decide about, it gets filled.
-            size: z.string().describe('OPTIONAL — only if the customer VOLUNTEERED it, verbatim ("M", "9.5 US"). Do NOT ask for it and do NOT guess; leave it blank otherwise (the shopping team collects it after). Never write a placeholder like "a confirmar".').optional(),
-            color: z.string().describe('OPTIONAL — only if the customer VOLUNTEERED it, verbatim ("negro"). Do NOT ask for it and do NOT guess; leave it blank otherwise (the shopping team collects it after). Never write a placeholder like "a confirmar".').optional(),
-            notes: z.string().describe('ONLY extra detail that is not size or colour — e.g. "en oferta, antes $42". Do NOT repeat the size or colour here; they have their own fields.').optional(),
-          })).min(1),
-        }),
-        // Fold size/colour into notes so they land in the single field the admin
-        // order view already renders (NOTAS DEL CLIENTE) — the shopping team sees
-        // them without any API or admin-UI change.
-        execute: async ({ items }) => {
-          // ── THE LAST RAIL: A REQUEST IS NEVER PLACED FOR AN ITEM THAT STILL NEEDS A PICK ──────────────────
-          // (Alex, 2026-09-11: "the steps for ANY product are all the same... on rails".) This card CREATES the
-          // real purchase request the moment it renders, so it is the one place a missing size costs money. Using
-          // ONLY variant reads already cached this turn (no new network call, no added latency), any item whose
-          // product has a real choice and whose size/colour is not one the store actually offers blocks the card.
-          const normV = (v: any) => String(v ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '')
-          const needsPick: string[] = []
-          for (const it of items || []) {
-            const saved = (it as any).saved_id ? savedProducts.find((p: any) => p.id === (it as any).saved_id) : null
-            // A pasted link has no registry entry, so fall back to the item's own url and then to the last link
-            // in the conversation — the same resolution the box uses, or this rail silently never fires.
-            const u = saved?.url || saved?.product_url || (it as any).url || lastPastedUrl(messages)
-            const cached = u ? variantCache.get(String(u)) : null
-            const axes: any[] = cached?.r?.axes || []
-            const choose = axes.filter((a: any) => (a?.values?.length || 0) > 1)
-            if (!choose.length) continue
-            const given = [(it as any).size, (it as any).color].filter(Boolean).map(normV)
-            const ok = choose.every((a: any) => (a.values || []).some((v: any) => given.includes(normV(v))))
-            if (!ok) needsPick.push(`${(it as any).name || 'ese producto'} (${choose.map((a: any) => a.name).join(' + ')})`)
-          }
-          if (needsPick.length) {
-            return {
-              blocked: true, needs_pick: needsPick, items: [],
-              note: `STOP — the purchase request was NOT created and no card is on screen. ${needsPick.join('; ')} still need${needsPick.length > 1 ? '' : 's'} a choice the store actually offers. Say ONE short line asking for it and re-show that product's chips with get_product_variants. Do NOT call show_assisted_summary again until every item carries a real size/colour.`,
-            }
-          }
-          return {
-          items: (items || []).map((it) => {
-            // The pick must land in the STRUCTURED size/color fields (they become the purchase request's
-            // `options`, which the email and the admin render). In a live run the model left size empty and
-            // wrote "Talla M 7.5 / W 9" into notes — so recover a pick from the notes, then from the shopper's
-            // own words (a tapped chip sends "Quiero … en talla 9, color Negro — agrégalos a mi caja").
-            let size = String(it.size || '').trim()
-            let color = String(it.color || '').trim()
-            let notes = String(it.notes || '')
-            const grab = (t: string, key: RegExp) => { const m = t.match(key); return m ? m[1].trim().replace(/[.]+$/, '') : '' }
-            const SIZE_RE = /\btalla\s+([^,;—·\n]+?)(?=\s*(?:,|;|—|·|$|\s+color\b|\s+—))/i
-            const COLOR_RE = /\bcolor\s+([^,;—·\n]+?)(?=\s*(?:,|;|—|·|$|\s+talla\b|\s+—))/i
-            if (!size) { size = grab(notes, SIZE_RE) }
-            if (!color) { color = grab(notes, COLOR_RE) }
-            if (!size || !color) {
-              for (let i = (messages || []).length - 1; i >= 0; i--) {
-                const m = messages[i]; if (m?.role !== 'user') continue
-                const t = (m.parts || []).filter((p: any) => p.type === 'text').map((p: any) => p.text).join(' ')
-                if (!/talla|color/i.test(t)) continue
-                if (!size) size = grab(t, SIZE_RE)
-                if (!color) color = grab(t, COLOR_RE)
-                break
-              }
-            }
-            notes = notes.replace(SIZE_RE, '').replace(COLOR_RE, '').replace(/^[\s·,;—-]+|[\s·,;—-]+$/g, '').trim()
-            const bits = [size ? `Talla ${size}` : null, color ? `Color ${color}` : null, notes || null].filter(Boolean)
-            return { ...it, size: size || undefined, color: color || undefined, quantity: it.quantity || 1, notes: bits.join(' · ') || undefined }
-          }),
-          // The delivered cost, so the card can stop saying "se cotiza aparte". Both legs
-          // fail soft to null and the card simply falls back to the old line.
-          box: await quoteBox(items || []),
-          fx_usd_mxn: await usdMxn(),
-          }
-        },
-      }),
-
       // NOTE: there is deliberately NO create_purchase_request tool. Letting the
       // model place the order directly was unreliable — it would fabricate a PR
       // number in its reply ("He registrado tu solicitud PR-26-ALEPE") with NO
-      // request ever created. Assisted purchase is DETERMINISTIC: the model shows
-      // show_assisted_summary, whose card auto-creates the real request client-side
-      // (confirmAssisted, the instant it appears) and displays the real number. The
-      // model can neither create a request nor obtain a number to narrate.
+      // request ever created. The order is placed by finalize_order from the box the
+      // shopper sees, and only its checkout card shows the real request.
 
       get_profile: tool({
         description: "Get the signed-in user's profile for PERSONALIZATION (sizes, brands, preferences). Do NOT read the casillero/US address out loud — if they need it, send them to the Casillero section of their dashboard or WhatsApp.",

@@ -49,8 +49,7 @@ ok('and only BEFORE a gallery — after it, the shopper refines by looking', !no
 ok('suggest_followups is not offered to the model', !offered.has('suggest_followups'));
 ok('live browsing stays off', !offered.has('browse_store') && !offered.has('browse_stores'));
 // The live store gallery is the Lab member's, and only theirs.
-ok('live_gallery is offered to a Lab member', labOffered.has('live_gallery'));
-ok('and never to anyone else', !offered.has('live_gallery') && /isLab \|\| t !== 'live_gallery'/.test(src));
+ok('live_gallery is offered', labOffered.has('live_gallery'));
 const CATALOG_OR_WEB = ['search_products', 'curate_products', 'show_collection', 'find_on_google', 'find_on_amazon', 'find_live_product', 'browse_store', 'browse_stores', 'show_products', 'web_search'];
 ok('a Lab member is offered no catalog, SerpAPI or web tool', CATALOG_OR_WEB.every((t) => !labOffered.has(t)));
 console.log(`\n${pass} checks passed`);
