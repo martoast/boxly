@@ -284,7 +284,9 @@ const gallery = computed(() => {
   const base = (Array.isArray(fromCatalog) && fromCatalog.length ? fromCatalog
     : fetchedImages.value.length ? fetchedImages.value
     : (props.product?.image ? [props.product.image] : []))
-  const ordered = leadImage.value ? [leadImage.value, ...base] : base
+  // The photo on the card the shopper tapped leads (Alex, New Balance 9060, 2026-09-28: the catalog's first photo
+  // was another colourway, so the modal showed a different shoe than the one he clicked). A colour picked here wins.
+  const ordered = leadImage.value ? [leadImage.value, ...base] : props.product?.image ? [props.product.image, ...base] : base
   const seen = new Set()
   return ordered.filter((u) => typeof u === 'string' && !broken.value.has(u) && !seen.has(u) && seen.add(u))
 })
@@ -399,7 +401,12 @@ async function loadVariants(p, overrideUrl) {
   try {
     // max_age_s 0 = a LIVE read of the product page every time it is opened, never a cached row.
     const r = await $fetch('/api/product-variants', { method: 'POST', body: { url, max_age_s: 0, skip_colorways: !!keep, page_token: overrideUrl ? null : (p?.page_token || null), title: p?.title || null }, timeout: 58000 })
-    const merged = r && keep?.length ? { ...r, colorways: keep } : r
+    const base = r && keep?.length ? { ...r, colorways: keep } : r
+    // What the shopper already named in the chat ("talla 9") opens pre-selected — only values the store offers.
+    const pre = p?.preselect && typeof p.preselect === 'object' && Array.isArray(base?.axes)
+      ? Object.fromEntries(Object.entries(p.preselect).filter(([k, v]) => base.axes.some((a) => a?.name === k && (a.values || []).map(String).includes(String(v)))))
+      : {}
+    const merged = base && Object.keys(pre).length ? { ...base, selected: { ...(base.selected || {}), ...pre } } : base
     if (merged?.variants?.length || merged?.colorways?.length) {
       variantData.value = merged
       variantsRead.value = 'ok'

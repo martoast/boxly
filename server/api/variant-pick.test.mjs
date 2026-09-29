@@ -42,4 +42,15 @@ const COLOR = { name: 'Color', values: ['Black/White-black', 'Frost/Cobalt'] };
   ok('a one-letter size is not matched by unrelated words', got.length === 0);
   ok('but saying it outright works', run('talla M', [{ name: 'Size', values: ['S', 'M', 'L'] }]).includes('M'));
 }
+// New Balance 9060 (Alex, 2026-09-28): "talla 9" in a message with a pasted link — the size is known, only the colour
+// is asked, and the size opens pre-selected.
+{
+  const NB_SIZE = { name: 'Size', kind: 'size', values: ['M8.5 / W10 (8.5)', 'M9 / W10.5 (9)', 'M9.5 / W11 (9.5)', 'M7.5 / W9 (7.5)'] };
+  const NB_COLOR = { name: 'Color', kind: 'color', values: ['BREAKFAST TEA with ANGORA', 'BLACK with CASTLEROCK'] };
+  const got = run("Quiero los New Balance Men's 9060 en talla 9 — agrégalos a mi caja — https://www.newbalance.com/pd/9060/U9060V1_LI-FTW-825955-PMG-NA.html", [NB_SIZE, NB_COLOR]);
+  ok('"talla 9" is the men\'s 9, not W9 or 9.5', got.length === 1 && got[0] === 'M9 / W10.5 (9)');
+  ok('the link and model number pick no colour', !got.some((v) => NB_COLOR.values.includes(v)));
+  ok('what was said rides into the picker pre-selected', /ship\.variants_for\.selected = \{/.test(src));
+  ok('and the reply asks only for what is missing', /Elige \$\{askFor\} y lo agrego a tu caja/.test(src) && !/"Elige la talla y el color y lo agrego a tu caja 👇"\. Then STOP/.test(src));
+}
 console.log(`\n${pass} checks passed`);

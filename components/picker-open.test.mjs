@@ -31,4 +31,9 @@ ok('one size but several colours still opens it', realChoice({ axes: [{ name: 'S
 
 // The other call site is for a product the shopper has NOT added — it must stay.
 ok('get_product_variants still opens the picker', /tool-get_product_variants[\s\S]{0,200}openPickerFor/.test(sfc));
+// What the shopper already said opens pre-selected (New Balance 9060, 2026-09-28).
+ok('the picker carries the pre-selection into the modal', /preselect: o\.selected/.test(body));
+const modal = readFileSync(new URL('./ProductModal.vue', import.meta.url), 'utf8');
+ok('the modal applies only values the store offers', /p\?\.preselect[\s\S]{0,400}a\.values/.test(modal));
+ok('the tapped card\'s photo leads the modal gallery', /props\.product\?\.image \? \[props\.product\.image, \.\.\.base\]/.test(modal));
 console.log(`\n${pass} checks passed`);

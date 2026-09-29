@@ -2685,7 +2685,7 @@ export default defineEventHandler(async (event) => {
               // The AXES and the PRODUCT (with its url) ride along: the chat's product modal opens only when it can see
               // a real choice (an axis with 2+ values) and a page to open (live Lab 2026-09-28: without them the
               // modal never opened, the reply said "Elige la talla y el color 👇" and the add sat held forever).
-              ship.variants_for = { saved_id: last.saved_id, product_title: saved?.title || last.name || null, variants: r.variants, axes: Array.isArray(r.axes) ? r.axes : undefined, product: { ...(r.product || {}), url: r.product?.url || url, title: r.product?.title || saved?.title || last.name || null, image: r.product?.image || (Array.isArray(r.product?.images) ? r.product.images[0] : null) || saved?.image || last.image || null, price: r.product?.price ?? saved?.price ?? last.price ?? null, store: r.product?.store || saved?.store || null }, checked_at: r.checked_at, source: r.source }
+              ship.variants_for = { saved_id: last.saved_id, product_title: saved?.title || last.name || null, variants: r.variants, axes: Array.isArray(r.axes) ? r.axes : undefined, product: { ...(r.product || {}), url: r.product?.url || url, title: r.product?.title || saved?.title || last.name || null, image: saved?.image || last.image || r.product?.image || (Array.isArray(r.product?.images) ? r.product.images[0] : null) || null, price: r.product?.price ?? saved?.price ?? last.price ?? null, store: r.product?.store || saved?.store || null }, checked_at: r.checked_at, source: r.source }
               // PICK FIRST, THEN ADD (Alex, 2026-09-11: "it should FIRST pull up the variants and then when you
               // choose it ONLY THEN does it get added to cart"). A product with a REAL choice to make — some axis
               // with two or more values — is held out of the box until the shopper's size/colour is known, so an
@@ -2733,16 +2733,28 @@ export default defineEventHandler(async (event) => {
               }
               const fromWords = axes.flatMap((a: any) => (a.values || []).filter(saidIt))
               const given = [last.size, last.color, ...fromWords].filter(Boolean).map(norm)
-              const picked = axes
-                .filter((a: any) => (a?.values?.length || 0) > 1)
-                .every((a: any) => (a.values || []).some((v: any) => given.includes(norm(v))))
+              // What the shopper already named rides into the picker PRE-SELECTED, and the reply asks only for what is
+              // still missing (Alex, New Balance 9060, 2026-09-28: "talla 9" was in his message, and the picker asked
+              // for size AND colour again with nothing chosen).
+              const multi = axes.filter((a: any) => (a?.values?.length || 0) > 1)
+              const chosen: Record<string, string> = {}
+              for (const a of multi) { const v = (a.values || []).find((x: any) => given.includes(norm(x))); if (v != null) chosen[a.name] = String(v) }
+              const missing = multi.filter((a: any) => chosen[a.name] == null)
+              if (Object.keys(chosen).length) ship.variants_for.selected = { ...(r.selected && typeof r.selected === 'object' ? r.selected : {}), ...chosen }
+              const picked = missing.length === 0
+              const isSize = (a: any) => a?.kind === 'size' || /size|talla/i.test(String(a?.name || ''))
+              const isColour = (a: any) => a?.kind === 'color' || /colou?r/i.test(String(a?.name || ''))
+              const askFor = missing.length === 1 && isSize(missing[0]) ? 'la talla'
+                : missing.length === 1 && isColour(missing[0]) ? 'el color'
+                : missing.every((a: any) => isSize(a) || isColour(a)) && missing.some(isSize) && missing.some(isColour) ? 'la talla y el color'
+                : 'las opciones'
               if (realChoice && !picked) {
                 const held = await buildShipment(items.slice(0, -1))
                 return {
                   ...held, hold: true,
                   pending_item: { saved_id: last.saved_id, name: saved?.title || last.name || null, image: saved?.image || last.image || null, price: saved?.price ?? last.price ?? null },
                   variants_for: ship.variants_for,
-                  note: `STOP — "${saved?.title || last.name}" IS NOT IN THE BOX AND YOU MUST NOT SAY IT IS. The words "agregué", "agregado", "ya está en tu caja", "añadí" are FORBIDDEN in this reply. It needs ${axes.filter((a: any) => (a?.values?.length || 0) > 1).map((a: any) => a.name).join(' + ')} first (${avail.length} of ${r.variants.length} combinations available; the chips are already on screen, do NOT list the options in text). Reply with ONE short line in this shape: "Elige la talla y el color y lo agrego a tu caja 👇". Then STOP — no other tool calls. When the shopper picks, call show_shipment again for this product WITH size and color set, and only THEN say it is in the box.`,
+                  note: `STOP — "${saved?.title || last.name}" IS NOT IN THE BOX AND YOU MUST NOT SAY IT IS. The words "agregué", "agregado", "ya está en tu caja", "añadí" are FORBIDDEN in this reply. It needs ${missing.map((a: any) => a.name).join(' + ')} first${Object.keys(chosen).length ? ` — ${Object.entries(chosen).map(([k, v]) => `${k} ${v}`).join(', ')} is already chosen from what the shopper said and is pre-selected on the chips, do NOT ask for it again` : ''} (${avail.length} of ${r.variants.length} combinations available; the chips are already on screen, do NOT list the options in text). Reply with ONE short line in this shape: "Elige ${askFor} y lo agrego a tu caja 👇". Then STOP — no other tool calls. When the shopper picks, call show_shipment again for this product WITH size and color set, and only THEN say it is in the box.`,
                 }
               }
               ship.note = `SIZES/COLOURS READ for "${saved?.title || last.name}": ${avail.length} of ${r.variants.length} available (chips are on screen). Ask ONE short question — which size/colour they want, naming the available ones: ${avail.slice(0, 30).map((v: any) => v.key).join(' · ')}. When they answer, carry that size/color into show_assisted_summary at finalize.`

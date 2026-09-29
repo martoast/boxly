@@ -1459,7 +1459,7 @@ function openPickerFor(o) {
   if (selectedProduct.value) return ''
   const p = d.product || {}
   if (!p.url) return '' // nothing to open a product page on
-  nextTick(() => { selectedProduct.value = { title: d.product_title || p.title, url: p.url, image: p.image || null, price: p.price ?? null, was: p.list_price ?? null, store: p.store || null } })
+  nextTick(() => { selectedProduct.value = { title: d.product_title || p.title, url: p.url, image: p.image || null, price: p.price ?? null, was: p.list_price ?? null, store: p.store || null, ...(o.selected && typeof o.selected === 'object' ? { preselect: o.selected } : {}) } })
   return ''
 }
 
