@@ -97,7 +97,9 @@ watchEffect(() => { if (variants.value.length) emit('price', priceForSelection()
 // "Elige color" once pre-selection was removed).
 const sel = reactive({})
 watchEffect(() => { for (const a of axes.value) if (a.values.length === 1 && !sel[a.name]) sel[a.name] = a.values[0] })
-const isGrid = (ax) => ['size', 'length', 'width'].includes(ax.kind)
+// The dense grid only when every value fits a grid cell; longer ones ("Extra Wide/4E", "32W x 30L") wrap as chips so
+// no option is ever cut off (live Dick's 2026-09-29: "Extra Wide…" / "Mediu…").
+const isGrid = (ax) => ['size', 'length', 'width'].includes(ax.kind) && ax.values.every((v) => String(v).length <= 7)
 const LABELS = { size: 'Talla', color: 'Color', length: 'Largo', width: 'Ancho', capacity: 'Capacidad', scent: 'Aroma', pack: 'Paquete', material: 'Material', other: null }
 function axisLabel(ax) { const l = LABELS[ax.kind]; return l && /^(size|color|colour|length|width|capacity|scent|pack|material)$/i.test(ax.name) ? l : ax.name }
 
