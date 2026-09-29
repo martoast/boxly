@@ -116,6 +116,9 @@ const vp = (p) => validateProduct(p, NOW)
   // Create's contract: running means no reason.
   check('create REFUSES a non-running session', parseSessionCreateResponse(wrapped(present({ status: 'failed' }))) === null)
   check('create accepts error_code null', parseSessionCreateResponse(wrapped(present({ status: 'running', error_code: null }))) !== null)
+  // 2026-09-28 simultaneous shoppers: the API adds queued/queue_position to every session answer (LiveQueue).
+  check('a running answer carrying the queue fields still parses', parseSessionCreateResponse(wrapped(present({ status: 'running', error_code: null, queued: false, queue_position: null }))) !== null)
+  check('an unknown extra key is still refused', parseSessionCreateResponse(wrapped(present({ status: 'running', error_code: null, nonsense: 1 }))) === null)
   check('create REFUSES a running session that also claims a reason', parseSessionCreateResponse(wrapped(present({ status: 'running', error_code: 'store_blocked' }))) === null)
   check('create REFUSES the 8-key legacy shape (lockstep, not tolerated drift)', (() => { const p = present({ status: 'running' }); delete p.error_code; return parseSessionCreateResponse(wrapped(p)) === null })())
 

@@ -88,7 +88,9 @@ async function attach() {
     r = await $customFetch(`/live-shopping/sessions/${props.sessionId}`)
   } catch { phase.value = 'error'; return }
   // In line for a free browser (queued), or just started and not yet given its engine session: ask again shortly.
-  const waiting = r?.data?.queued === true || (r?.data?.status === 'pending' && !r?.data?.engine_session_id)
+  // (With the engine answering at acceptance, a started session is briefly `pending` WITH its engine id until the
+  // browser is up — keep asking; it turns `running` within seconds.)
+  const waiting = r?.data?.queued === true || r?.data?.status === 'pending'
   if (waiting) {
     if (r?.data?.queued) { phase.value = 'queued'; queuePosition.value = Number(r.data.queue_position) || null }
     queueTimer = setTimeout(() => { queueTimer = null; void attach() }, 3000)

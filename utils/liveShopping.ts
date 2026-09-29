@@ -454,7 +454,7 @@ const CREATE_DATA_KEYS = ['id', 'status', 'engine_session_id', 'conversation_id'
 // L2 (multi-store, 2026-09-03): present() gains a tenth key, `stores` — one entry per
 // requested store. Optional here so the parser accepts the API before and after
 // that landing; any OTHER extra key is still a contract drift and is rejected.
-const CREATE_DATA_OPTIONAL_KEYS = ['stores', 'kind'] as const // `kind` (agent|manual): remote store browser, 2026-09-03
+const CREATE_DATA_OPTIONAL_KEYS = ['stores', 'kind', 'queued', 'queue_position'] as const // `kind` (agent|manual): remote store browser, 2026-09-03; `queued`/`queue_position`: waiting for a free live browser (API LiveQueue), 2026-09-28
 
 /** Laravel's present() sanitizer emits this shape or the literal 'failed'. */
 const ERROR_CODE_RE = /^[a-z0-9_]{1,40}$/
