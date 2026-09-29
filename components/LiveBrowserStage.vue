@@ -18,6 +18,13 @@
         <svg class="w-6 h-6 text-green-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 13l4 4L19 7" /></svg>
         <p :class="compact ? 'text-[11px]' : 'text-sm'">El agente terminó en {{ storeName || 'la tienda' }}.</p>
       </template>
+      <!-- WAITING FOR A FREE BROWSER (2026-09-28, simultaneous shoppers): the engine is serving other shoppers; the
+           session waits in line (API LiveQueue) and this card connects the moment it starts. -->
+      <template v-else-if="phase === 'queued'">
+        <span class="w-6 h-6 rounded-full border-2 border-white/25 border-t-white animate-spin" aria-hidden="true" />
+        <p :class="compact ? 'text-[11px]' : 'text-sm'">{{ queueCopy }}</p>
+        <p v-if="!compact" class="text-xs text-white/60">Tu navegador se abre en cuanto se libere uno.</p>
+      </template>
       <template v-else-if="phase === 'error'">
         <p :class="compact ? 'text-[11px]' : 'text-sm'">No pudimos mostrar el navegador en vivo.</p>
       </template>
@@ -45,7 +52,10 @@ const emit = defineEmits<{ (e: 'ended'): void, (e: 'control', controller: string
 const nuxtApp = useNuxtApp() as any
 const { $customFetch } = nuxtApp
 const videoEl = ref<HTMLVideoElement | null>(null)
-const phase = ref<'connecting' | 'playing' | 'ended' | 'error'>('connecting')
+const phase = ref<'connecting' | 'queued' | 'playing' | 'ended' | 'error'>('connecting')
+// Its place in line while the engine is full (1 = next).
+const queuePosition = ref<number | null>(null)
+let queueTimer: ReturnType<typeof setTimeout> | null = null
 const mediaState = ref('pending')
 let live: any = null
 let viewer: any = null
@@ -66,6 +76,9 @@ function captureLastFrame() {
   } catch { /* a tainted or empty frame: the ended cover shows instead */ }
 }
 
+const queueCopy = computed(() => queuePosition.value && queuePosition.value > 1
+  ? `En fila · ${queuePosition.value - 1} ${queuePosition.value - 1 === 1 ? 'persona' : 'personas'} antes que tú`
+  : `Eres el siguiente en ${props.storeName || 'la tienda'}`)
 const loadingCopy = computed(() => mediaState.value === 'failed' ? 'El video no está disponible.' : `Abriendo ${props.storeName || 'la tienda'}…`)
 const srStatus = computed(() => phase.value === 'playing' ? `Viendo ${props.storeName || 'la tienda'} en vivo` : phase.value === 'ended' ? `El agente terminó en ${props.storeName || 'la tienda'}` : '')
 
@@ -74,8 +87,17 @@ async function attach() {
   try {
     r = await $customFetch(`/live-shopping/sessions/${props.sessionId}`)
   } catch { phase.value = 'error'; return }
+  // In line for a free browser (queued), or just started and not yet given its engine session: ask again shortly.
+  const waiting = r?.data?.queued === true || (r?.data?.status === 'pending' && !r?.data?.engine_session_id)
+  if (waiting) {
+    if (r?.data?.queued) { phase.value = 'queued'; queuePosition.value = Number(r.data.queue_position) || null }
+    queueTimer = setTimeout(() => { queueTimer = null; void attach() }, 3000)
+    return
+  }
   const h = parseSessionCreateResponse(r)
   if (!h) { phase.value = r?.data?.status && r.data.status !== 'running' ? 'ended' : 'error'; if (phase.value === 'ended') emit('ended'); return }
+  if (phase.value === 'queued') phase.value = 'connecting'
+
   live = nuxtApp.runWithContext(() => useLiveSession(h, {
     onTerminal: () => { captureLastFrame(); viewer?.stop(); relay.stop(); phase.value = 'ended'; emit('ended') },
     // C4: who holds the browser (agent | pausing | customer).
@@ -111,6 +133,7 @@ watch(() => props.interactive, (on) => {
 })
 
 function teardown() {
+  if (queueTimer) { clearTimeout(queueTimer); queueTimer = null }
   relay.stop()
   if (relayBound) { relay.unbind(); relayBound = false }
   for (const s of stops) s()
