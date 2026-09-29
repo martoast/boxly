@@ -109,10 +109,25 @@ export default defineEventHandler(async (event) => {
     }
   }
 
+  // AN OPTION CANNOT BE SOLD OUT IN EVERY VALUE WHILE THE PRODUCT HAS STOCK (live 2026-09-28: New Balance's reader
+  // marked all 8 colours of the 860v15 unavailable next to 18 available sizes/widths, so no colour could be picked and
+  // the shopper was stuck on "Elige color"). Such an axis was misread: its values become unknown (pickable, dashed),
+  // never a wall. Only for per-option reads (axes_independent), where each variant is one value of one axis.
+  function sane(r: any) {
+    const variants: any[] = Array.isArray(r?.variants) ? r.variants : []
+    if (!variants.length || r?.axes_independent === false || !variants.some((v) => v.available === true)) return r
+    const axisOf = (v: any) => Object.keys(v?.options || {})[0] || (v?.color != null ? 'color' : v?.size != null ? 'size' : null)
+    const byAxis = new Map<string, any[]>()
+    for (const v of variants) { const a = axisOf(v); if (a) byAxis.set(a, [...(byAxis.get(a) || []), v]) }
+    const wrong = new Set([...byAxis].filter(([, vs]) => vs.length > 1 && vs.every((v) => v.available === false)).map(([a]) => a))
+    if (!wrong.size) return r
+    return { ...r, variants: variants.map((v) => (wrong.has(axisOf(v)) ? { ...v, available: null } : v)) }
+  }
+
   // THE STORE'S OWN PAGE FIRST, the feed only when it comes back empty (live 2026-09-28: New Balance's page now reads
   // fine — colour, size and width in ~12 s — while the feed answered nothing, so the modal offered a running shoe with
   // no size to pick and "Agregar al carrito" sent it to the store without one).
-  const store = await readStore(readUrl)
+  const store = sane(await readStore(readUrl))
   const readUrlBrand = feedBrand(readUrl)
   if (readUrlBrand && !store.variants.length) {
     const feed = await readFeed(readUrl, readUrlBrand)
