@@ -3,7 +3,7 @@
 // (~/mcp-servers/computer-use/catalog/variant_benchmark.mjs) imports this same file, so "can a shopper finish a pick
 // for this product" is measured with the rules the shopper actually gets.
 
-export interface PickerVariant { options: Record<string, string>, available?: boolean | null, price?: number | null, image?: string | null, color?: string | null, size?: string | null, low_stock?: any }
+export interface PickerVariant { options: Record<string, string>, available?: boolean | null, sold_out_with?: Record<string, string> | null, price?: number | null, image?: string | null, color?: string | null, size?: string | null, low_stock?: any }
 export interface PickerAxis { name: string, kind: string, values: string[], swatches?: Record<string, string> }
 export type Selection = Record<string, string | null | undefined>
 
@@ -59,7 +59,18 @@ export function matches(v: PickerVariant, ax: PickerAxis, val: string, ctx: { ax
   if (ctx.independent) return true
   return ctx.axes.every((a) => a.name === ax.name || !ctx.sel[a.name] || optOf(v, a) === ctx.sel[a.name])
 }
+/** SOLD OUT WITH ANOTHER VALUE (reader 2026-09-28): a per-option page read marks a size sold out only for the colour on
+ * screen, so its row says available:null + sold_out_with {Color: X}. The combination row.options ∪ sold_out_with is
+ * sold out; everything else about that value is unknown. True when the selection contains such a combination. */
+export function blockedBy(variants: PickerVariant[], sel: Selection): boolean {
+  return variants.some((v) => {
+    if (!v.sold_out_with) return false
+    const combo = { ...v.options, ...v.sold_out_with }
+    return Object.entries(combo).every(([k, x]) => sel[k] === x)
+  })
+}
 export function canPick(ax: PickerAxis, val: string, ctx: { axes: PickerAxis[], independent: boolean, sel: Selection, variants: PickerVariant[] }): boolean {
+  if (blockedBy(ctx.variants, { ...ctx.sel, [ax.name]: val })) return false
   return ctx.variants.some((v) => v.available !== false && matches(v, ax, val, ctx))
 }
 /** The row the selection lands on (matrix: the one matching every axis; independent: the last axis's row). */
@@ -71,6 +82,7 @@ export function chosenVariant(ctx: { axes: PickerAxis[], independent: boolean, s
 }
 export function isComplete(ctx: { axes: PickerAxis[], independent: boolean, sel: Selection, variants: PickerVariant[] }): boolean {
   const { axes, independent, sel, variants } = ctx
+  if (blockedBy(variants, sel)) return false
   if (!axes.length) { const c = chosenVariant(ctx); return !!(c && c.available !== false) }
   if (independent) return axes.every((a) => sel[a.name] && (a.values.length === 1 || variants.some((v) => v.available !== false && optOf(v, a) === sel[a.name])))
   const c = chosenVariant(ctx)

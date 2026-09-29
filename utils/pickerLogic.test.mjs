@@ -10,4 +10,11 @@ const matrix = { axes: [{ name: 'Color', values: ['Black', 'Grey'] }, { name: 'S
 ok('matrix: a sold-out combination is not completed', !simulatePick(matrix, { color: 'Black', size: 'S' }).complete)
 ok('matrix: an in-stock one is', simulatePick(matrix, { color: 'Black', size: 'M' }).complete)
 ok('no preference: the first reachable combination', simulatePick(matrix).complete)
+// sold_out_with (reader 2026-09-28): New Balance marks Narrow sold out only for the colour on screen (Bayberry).
+const nbw = { axes_independent: true, axes: [{ name: 'Color', kind: 'color', values: ['BLACK with WHITE', 'BLACK with BAYBERRY'] }, { name: 'Size', kind: 'size', values: ['9 (9)'] }, { name: 'Width', kind: 'width', values: ['Narrow (B)', 'Standard (D)'] }],
+  variants: [{ options: { Color: 'BLACK with WHITE' }, available: null }, { options: { Color: 'BLACK with BAYBERRY' }, available: null }, { options: { Size: '9 (9)' }, available: true },
+    { options: { Width: 'Narrow (B)' }, available: null, sold_out_with: { Color: 'BLACK with BAYBERRY' } }, { options: { Width: 'Standard (D)' }, available: true }] }
+ok('a width sold out only with the colour on screen: another colour + that width completes', simulatePick(nbw, { color: 'BLACK with WHITE', size: '9 (9)', width: 'Narrow (B)' }).complete)
+ok('…and that exact combination is blocked', !simulatePick(nbw, { color: 'BLACK with BAYBERRY', size: '9 (9)', width: 'Narrow (B)' }).complete)
+ok('…while the same colour with another width completes', simulatePick(nbw, { color: 'BLACK with BAYBERRY', size: '9 (9)', width: 'Standard (D)' }).complete)
 console.log(`\n${pass} checks passed`)
