@@ -109,8 +109,14 @@ export default defineEventHandler(async (event) => {
     }
   }
 
+  // THE STORE'S OWN PAGE FIRST, the feed only when it comes back empty (live 2026-09-28: New Balance's page now reads
+  // fine — colour, size and width in ~12 s — while the feed answered nothing, so the modal offered a running shoe with
+  // no size to pick and "Agregar al carrito" sent it to the store without one).
+  const store = await readStore(readUrl)
   const readUrlBrand = feedBrand(readUrl)
-  if (readUrlBrand) return await readFeed(readUrl, readUrlBrand)
-
-  return await readStore(readUrl)
+  if (readUrlBrand && !store.variants.length) {
+    const feed = await readFeed(readUrl, readUrlBrand)
+    if (feed.variants.length) return feed
+  }
+  return store
 })
