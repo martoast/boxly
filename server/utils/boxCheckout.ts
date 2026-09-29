@@ -7,7 +7,7 @@
 
 const STORE_ID_RE = /^[a-z0-9][a-z0-9_-]{0,39}$/
 
-export interface BoxItem { saved_id?: string, name?: string, quantity?: number, image?: string, price?: number, url?: string, size?: string, color?: string }
+export interface BoxItem { saved_id?: string, name?: string, quantity?: number, image?: string, price?: number, url?: string, size?: string, color?: string, options?: Record<string, string> }
 export interface WantedItem {
   store_id: string
   store_name?: string
@@ -55,6 +55,7 @@ export function withStoreOptions(it: BoxItem, fixes: Map<string, any>): BoxItem 
   const out: any = { ...it }
   if ('size' in o) { if (o.size) out.size = o.size; else delete out.size }
   if ('color' in o) { if (o.color) out.color = o.color; else delete out.color }
+  if (o.options && typeof o.options === 'object' && Object.keys(o.options).length) out.options = { ...o.options }
   return out
 }
 
@@ -153,6 +154,8 @@ export function wantedFromBox(box: BoxItem[], savedProducts: any[], carried: Car
     const variants: Record<string, string> = {}
     if (it.size && String(it.size).trim()) variants.size = String(it.size).trim().slice(0, 120)
     if (it.color && String(it.color).trim()) variants.color = String(it.color).trim().slice(0, 120)
+    // Other options picked on the chips (width, length, fit…), as the store names them.
+    for (const [k, v] of Object.entries((it as any).options || {})) if (k && typeof v === 'string' && v.trim() && !(k in variants) && Object.keys(variants).length < 8) variants[String(k).toLowerCase().slice(0, 40)] = v.trim().slice(0, 120)
     const w: WantedItem = { store_id: storeId, product_url: productUrl, title, quantity: Math.min(20, Math.max(1, Math.round(Number(it.quantity) || 1))), variants }
     if (find) { w.find = find; const brand = carriedStoreForTitle(title, carried); if (brand?.name) w.store_name = brand.name.slice(0, 120) }
     else if (saved?.store) w.store_name = String(saved.store).slice(0, 120)

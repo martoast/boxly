@@ -1437,6 +1437,9 @@ export default defineEventHandler(async (event) => {
                     key: itemKey,
                     size: last.size || sizeAxis ? storeValue(sizeAxis, last.size) : null,
                     color: last.color || colourAxis ? storeValue(colourAxis, last.color) : null,
+                    // Every other option picked on the chips (live New Balance: width "Standard (D)" never reached the
+                    // store, so the agent read the page's default width and reported the size sold out).
+                    options: Object.fromEntries(axes.filter((a: any) => a !== sizeAxis && a !== colourAxis && chosen[a.name] != null).map((a: any) => [String(a.kind && a.kind !== 'other' ? a.kind : a.name).toLowerCase(), chosen[a.name]])),
                   }]
                 }
               }

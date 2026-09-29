@@ -30,6 +30,10 @@ check('a card still streaming is ignored', eq(boxFromMessages([ship([A]), { role
 
 {
   const fx = storeOptionFixes([], [{ key: 'g', size: 'S (4-6)', color: null }])
+  const fw = storeOptionFixes([], [{ key: 'nb', size: '9 (9)', color: 'BLACK with WHITE', options: { width: 'Standard (D)' } }])
+  const nbItem = withStoreOptions({ saved_id: 'nb', name: 'Fresh Foam X 860v15', size: '9' }, fw)
+  check('a width picked on the chips rides on the box item', eq(nbItem.options, { width: 'Standard (D)' }))
+  check('…and reaches the cart line', eq(wantedFromBox([nbItem], [{ id: 'nb', title: 'Fresh Foam X 860v15', url: 'https://www.newbalance.com/pd/x.html', store_id: 'new-balance', store: 'New Balance' }]).wanted[0].variants, { size: '9 (9)', color: 'BLACK with WHITE', width: 'Standard (D)' }))
   check('the card being built can fix its own item (cart sync uses it too)', eq(withStoreOptions({ saved_id: 'g', name: 'L', size: 'S', color: 'negro' }, fx), { saved_id: 'g', name: 'L', size: 'S (4-6)' }))
 }
 
