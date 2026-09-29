@@ -19,14 +19,8 @@ const list = (name) => {
 const gallery = list('GALLERY_TOOLS');
 const nonGallery = list('NON_GALLERY_TOOLS');
 const loopLine = src.match(/const LOOP_TOOLS = [^\n]*/)[0];
-// LOOP_TOOLS filters the live-browse tools OUT of GALLERY_TOOLS at runtime, so mirror that here.
-const browse = list('LIVE_BROWSE_TOOLS');
-const loopExtra = [...loopLine.matchAll(/'([a-z_]+)'/g)].map((m) => m[1]).filter((t) => !browse.includes(t));
-const offered = new Set([...gallery.filter((t) => !browse.includes(t)), ...nonGallery, ...loopExtra]);
-// Boxly Lab's toolsets (2026-09-28): the live store gallery replaces the catalog/web gallery tools for its members.
-const labGallery = list('LAB_GALLERY_TOOLS');
-const labLoopLine = src.match(/const LAB_LOOP_TOOLS = [^\n]*/)[0];
-const labOffered = new Set([...labGallery, ...nonGallery.filter((t) => t !== 'web_search'), ...[...labLoopLine.matchAll(/'([a-z_]+)'/g)].map((m) => m[1])]);
+ok('the loop toolset is the gallery tools, the rest, and the narrowing question', /\[\.\.\.GALLERY_TOOLS, \.\.\.NON_GALLERY_TOOLS, 'ask_to_narrow'\]/.test(loopLine));
+const offered = new Set([...gallery, ...nonGallery, 'ask_to_narrow']);
 
 // Every tool declared in the handler.
 const declared = [...src.matchAll(/^\s{6}([a-z_]+): tool\(\{/gm)].map((m) => m[1]);
@@ -35,21 +29,21 @@ ok('the handler declares tools', declared.length > 10);
 // Deliberately withheld, each for a reason stated in the file.
 const WITHHELD = new Set([
   'suggest_followups',          // chips are generated off-loop
-  'browse_store', 'browse_stores', // engine needs a US exit IP, off since 2026-09-07
 ]);
 
-const unreachable = declared.filter((t) => !offered.has(t) && !labOffered.has(t) && !WITHHELD.has(t));
+const unreachable = declared.filter((t) => !offered.has(t) && !WITHHELD.has(t));
 ok(`no declared tool is unreachable (${unreachable.join(', ') || 'none'})`, unreachable.length === 0);
+const undeclared = [...offered].filter((t) => !declared.includes(t));
+ok(`every offered tool is declared (${undeclared.join(', ') || 'none'})`, undeclared.length === 0);
 
 // The specific one that bit us.
 ok('ask_to_narrow is offered', offered.has('ask_to_narrow'));
 ok('and only BEFORE a gallery — after it, the shopper refines by looking', !nonGallery.includes('ask_to_narrow'));
-
-// And the withheld ones really are withheld.
 ok('suggest_followups is not offered to the model', !offered.has('suggest_followups'));
-ok('live browsing stays off', !offered.has('browse_store') && !offered.has('browse_stores'));
-// The live store gallery is the Lab member's, and only theirs.
-ok('live_gallery is offered', labOffered.has('live_gallery'));
-const CATALOG_OR_WEB = ['search_products', 'curate_products', 'show_collection', 'find_on_google', 'find_on_amazon', 'find_live_product', 'browse_store', 'browse_stores', 'show_products', 'web_search'];
-ok('a Lab member is offered no catalog, SerpAPI or web tool', CATALOG_OR_WEB.every((t) => !labOffered.has(t)));
+
+// THE LIVE STORE GALLERY IS THE ONLY PRODUCT SEARCH (Alex, 2026-09-28): no catalog, SerpAPI or web tool exists.
+ok('live_gallery is the product search', gallery.includes('live_gallery'));
+ok('Finalizar is offered after the gallery', nonGallery.includes('finalize_order'));
+const REMOVED = ['search_products', 'curate_products', 'show_collection', 'find_on_google', 'find_on_amazon', 'find_live_product', 'browse_store', 'browse_stores', 'show_products', 'web_search', 'extract_product', 'show_assisted_summary', 'finalize_lab_order'];
+ok('no catalog, SerpAPI, web or assisted-purchase tool is declared or offered', REMOVED.every((t) => !declared.includes(t) && !offered.has(t)));
 console.log(`\n${pass} checks passed`);

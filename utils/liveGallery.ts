@@ -10,7 +10,7 @@
 /** The part the API appends when an engine search session ends (products are ProductV1). */
 export const LIVE_RESULTS_PART = 'tool-live_results'
 
-export interface LiveStore { id: string; name: string }
+export interface LiveStore { id: string; name: string; url?: string }
 
 /** "New Balance" / "new-balance" / "NewBalance" / "Bath & Body Works" → one comparable key. */
 export function storeKey(v: unknown): string {

@@ -326,11 +326,6 @@
                     <!-- Only the RICHEST gallery in this message renders — see
                          primaryGalleryIndex(): a model that fires two gallery
                          tools in one step must not draw two carousels. -->
-                    <!-- Collection header: the editorial title/subtitle above a curated set (show_collection only). -->
-                    <div v-if="part.type === 'tool-show_collection' && part.state === 'output-available' && part.output?.collection?.title && part.output?.products?.length && i === primaryGalleryIndex(m) && !galleryPending(m)" class="mb-1.5 px-1">
-                      <p class="text-[13px] font-semibold text-gray-900">{{ part.output.collection.title }}</p>
-                      <p v-if="part.output.collection.subtitle" class="text-[12px] text-gray-500">{{ part.output.collection.subtitle }}</p>
-                    </div>
                     <LazyProductGallery v-if="isGalleryTool(part) && part.state === 'output-available' && part.output?.products?.length && i === primaryGalleryIndex(m) && !galleryPending(m)" :products="orderedGallery(m, part.output.products)" @open="openProduct" />
                     <!-- Search/browse finished but found nothing — clean message, not an empty
                          carousel. Suppress it if ANOTHER search in this turn did find options. -->
@@ -347,37 +342,6 @@
                     <div v-else-if="TOOLS_WITH_LOADER.has(part.type) && toolFailed(m, part) && !hasProducts(m)" class="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[13px] text-gray-500 bg-white border border-gray-100 rounded-2xl px-4 py-3 shadow-sm">
                       <span>Se interrumpió la búsqueda. Puede pasar cuando una tienda tarda demasiado.</span>
                       <button @click="retryLastTurn" class="font-semibold text-primary-600 hover:text-primary-700">Reintentar</button>
-                    </div>
-
-                    <LazySearchLoader v-else-if="(part.type === 'tool-search_products' || part.type === 'tool-curate_products' || part.type === 'tool-show_collection') && part.state !== 'output-available'" />
-
-                    <!-- Live grab: our agent is fetching a specific product from the store
-                         in real time (~10s). Its own themed loader for that longer wait. -->
-                    <LazySearchLoader
-                      v-else-if="part.type === 'tool-find_live_product' && part.state !== 'output-available'"
-                      :messages="['Buscándolo en vivo en la tienda…', 'Abriendo la página del producto…', 'Trayendo precio e imagen…', 'Un momento, casi listo…']"
-                    />
-
-                    <!-- Out-of-catalog web search (Google Shopping): slower (~20-30s), its
-                         own copy so the shopper knows we're scouring the web for them. -->
-                    <LazySearchLoader
-                      v-else-if="part.type === 'tool-find_on_google' && part.state !== 'output-available'"
-                      :messages="['Buscándolo en la web…', 'Revisando tiendas de EE. UU.…', 'Comparando precios y opciones…', 'Trayendo lo mejor, un momento…']"
-                    />
-
-                    <LazySearchLoader
-                      v-else-if="part.type === 'tool-find_on_amazon' && part.state !== 'output-available'"
-                      :messages="['Buscando en Amazon…', 'Revisando precios y reseñas…', 'Trayendo las mejores opciones…']"
-                    />
-
-                    <LazySearchLoader
-                      v-else-if="(part.type === 'tool-browse_store' || part.type === 'tool-browse_stores') && part.state !== 'output-available'"
-                      :messages="['Revisando tiendas…', 'Abriendo el catálogo…', 'Trayendo lo mejor de la tienda…']"
-                    />
-
-                    <div v-else-if="part.type === 'tool-web_search' && part.state !== 'output-available'" class="flex items-center gap-2 text-xs text-gray-400 pl-1">
-                      <svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
-                      Buscando información…
                     </div>
 
                     <!-- Order tracking (hub): a single order's status timeline OR a tappable list. -->
@@ -642,7 +606,7 @@ import { cartPayloadFromChatProduct, variantsText } from '../utils/boxlyCart'
 import { withLiveRows, newLiveResultMessages } from '../utils/liveGallery'
 
 // Auto-continue ONLY for the client-side create_account tool once it has a
-// result. Server tools (search_products/browse_store/…) are fully resolved
+// result. Server tools (live_gallery/show_shipment/…) are fully resolved
 // server-side; auto-sending after them re-runs the model and duplicates the
 // reply (the "message sent twice" bug).
 const CLIENT_TOOLS = new Set(['tool-create_account', 'tool-create_self_order', 'tool-cancel_order'])
@@ -887,7 +851,7 @@ function registerProducts(list) {
     byId.set(id, {
       id, title, url,
       store: raw.store ?? prev.store ?? null,
-      // The catalog slug the Boxly cart needs; null for web rows (Google/Amazon), which have none.
+      // The store id the Boxly cart needs (the live gallery's rows carry the engine's).
       store_id: raw.store_id ?? prev.store_id ?? null,
       price: raw.price ?? raw.price_usd ?? prev.price ?? null,
       was: raw.was ?? prev.was ?? null,
@@ -1335,7 +1299,10 @@ function ensureCardImages(list) {
 }
 
 const isBusy = computed(() => chat.status === 'streaming' || chat.status === 'submitted')
-const GALLERY_TOOLS = ['tool-live_results', 'tool-show_products', 'tool-browse_store', 'tool-browse_stores', 'tool-search_products', 'tool-curate_products', 'tool-show_collection', 'tool-find_live_product', 'tool-find_on_google', 'tool-find_on_amazon', 'tool-show_saved_products']
+// The parts that draw a product gallery: the live store gallery (tool-live_results, appended by the API when the
+// engine is done) and a re-shown registry set. The rest are the catalog/web gallery tools removed on 2026-09-28 —
+// listed only so older chats still show (and register) the galleries they had.
+const GALLERY_TOOLS = ['tool-live_results', 'tool-show_saved_products', 'tool-show_products', 'tool-browse_store', 'tool-browse_stores', 'tool-search_products', 'tool-curate_products', 'tool-show_collection', 'tool-find_live_product', 'tool-find_on_google', 'tool-find_on_amazon']
 function isGalleryTool(part) { return GALLERY_TOOLS.includes(part?.type) }
 // The assistant reorders the gallery to lead with what it recommended: feature_products
 // returns the exact titles it spotlighted. Float those to the front (in the given order),
@@ -1422,7 +1389,7 @@ function hasProducts(m) { return (m.parts || []).some((p) => isGalleryTool(p) &&
  * So a lone unrelated product flashed up, sat there for the whole load, then got
  * swapped out. It reads like a stale cache — it isn't, it's just the only result
  * that had landed yet. Hold the gallery until every gallery tool in the turn has
- * settled; the SearchLoader already covers that window.
+ * settled; the tool's own loader covers that window.
  */
 function galleryPending(m) {
   return (m?.parts || []).some((p) => isGalleryTool(p) && p.state !== 'output-available' && !toolFailed(m, p))
@@ -1498,11 +1465,10 @@ function showNoResults(m, part) {
   const isCurrent = m.id === chat.messages[chat.messages.length - 1]?.id
   return !(isBusy.value && isCurrent)
 }
-// Tool calls that render their OWN in-place loader (spinner/SearchLoader) while
+// Tool calls that render their OWN in-place loader (a spinner line) while
 // running — for these we don't also show the bottom dots (that'd double up).
 const TOOLS_WITH_LOADER = new Set([
-  'tool-search_products', 'tool-curate_products', 'tool-show_collection', 'tool-find_live_product', 'tool-find_on_google', 'tool-find_on_amazon', 'tool-browse_store', 'tool-browse_stores',
-  'tool-web_search', 'tool-show_orders', 'tool-plan_in_person', 'tool-get_product_variants',
+  'tool-live_gallery', 'tool-show_orders', 'tool-plan_in_person', 'tool-get_product_variants',
 ])
 // Keep a loading indicator visible WHENEVER the assistant is working, so the chat
 // never goes blank between steps (the "did my click do anything?" confusion). Hide
@@ -1836,7 +1802,7 @@ const marqueeStores = [...STORE_LIST, ...STORE_LIST]
 // action; hovering previews the AI's next question. Icons = Boxly's language.
 const QUICK_PILLS = [
   { icon: 'search', label: 'Buscar producto', hover: '¿Qué producto estás buscando?', run: () => pickPipeline('search') },
-  { icon: 'link', label: 'Pegar link', hover: 'Pega un link de Amazon.', run: () => pickPipeline('search') },
+  { icon: 'link', label: 'Pegar link', hover: 'Pega el link del producto.', run: () => pickPipeline('search') },
   { icon: 'box', label: 'Crear envío', hover: 'Cuéntame qué compraste…', run: () => pickPipeline('register') },
   { icon: 'plane', label: 'Mi envío', hover: '¿Dónde está tu envío?', run: () => pickSuggestion('¿Dónde está mi envío? Muéstrame mis pedidos') },
 ]
@@ -1869,7 +1835,7 @@ const activePipelineMeta = computed(() => PIPELINES.find((p) => p.key === active
 const HUB_PHRASES = [
   'Dile a Boxly qué necesitas.',
   '¿Qué producto estás buscando?',
-  'Pega un link de Amazon.',
+  'Pega el link del producto.',
   'Vi esto en TikTok 👀',
   'Quiero crear mi envío.',
   'Necesito que Boxly compre esto.',
@@ -1991,8 +1957,8 @@ function onAssistedProduct(p) {
   sendAssisted(p)
 }
 // The persisted Boxly cart gets the product too, right away (even while the assistant is still streaming and the
-// chat message waits in pendingPick). Only catalog products carry a store slug; a web row (Google/Amazon) has
-// none and stays chat-only for now. A size the chat still has to ask for waits for the finished pick.
+// chat message waits in pendingPick). Only a product with a store id goes in (the live gallery's rows carry the
+// engine's); a size the chat still has to ask for waits for the finished pick.
 function addToBoxlyCart(p) {
   // Signed-in shoppers have the cart (a guest is sent to sign in before any live search or order).
   if (!user.value || p?.pick?.size_owed || !cartPayloadFromChatProduct(p)) return

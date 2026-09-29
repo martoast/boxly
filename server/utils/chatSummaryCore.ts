@@ -81,7 +81,8 @@ export function summaryBlock(state: SummaryState | null): string {
 }
 
 // ── transcript rendering (what the summarizer reads) ────────────────────────
-const GALLERY = new Set(['search_products', 'curate_products', 'find_live_product', 'browse_store', 'browse_stores', 'show_products', 'show_saved_products'])
+// live_results = the live store gallery (the only product search since 2026-09-28); the rest render older chats.
+const GALLERY = new Set(['live_results', 'search_products', 'curate_products', 'find_live_product', 'browse_store', 'browse_stores', 'show_products', 'show_saved_products'])
 const short = (s: any, n = 220) => String(s ?? '').replace(/\s+/g, ' ').trim().slice(0, n)
 
 function toolLine(name: string, input: any, output: any): string {

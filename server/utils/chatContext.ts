@@ -162,6 +162,30 @@ export function dropToolParts(messages: any[], toolNames: string[]): any[] {
   })
 }
 
+/**
+ * Parts of tools that no longer exist (the catalog/web gallery tools, web_search, the assisted-purchase card —
+ * removed 2026-09-28 when the live store gallery became the only product search), for chats that carry them. A
+ * gallery becomes one line of text (its galleryMarker), so the model still knows what was shown and the products
+ * stay reachable through the registry; every other such part is dropped. Either way the model is never replayed a
+ * call to a tool it no longer has. Returns the same message objects when there is nothing to change.
+ */
+export function legacyToolsAsText(messages: any[], galleryTools: string[], dropTools: string[], productId?: (p: any) => string | null): any[] {
+  const galleries = new Set(galleryTools.map((t) => 'tool-' + t))
+  const drops = new Set(dropTools.map((t) => 'tool-' + t))
+  return (messages || []).map((m) => {
+    if (!Array.isArray(m?.parts) || !m.parts.some((p: any) => galleries.has(p?.type) || drops.has(p?.type))) return m
+    const parts: any[] = []
+    for (const p of m.parts) {
+      if (drops.has(p?.type)) continue
+      if (!galleries.has(p?.type)) { parts.push(p); continue }
+      if (p?.state === 'output-available' && Array.isArray(p?.output?.products) && p.output.products.length) {
+        parts.push({ type: 'text', text: `[${galleryMarker(p, productId).gallery_marker}]` })
+      }
+    }
+    return { ...m, parts }
+  })
+}
+
 /** One-line prompt-size report for the usage log. */
 export function contextStats(input: any[], windowed: any[], dropped: number) {
   return { messages_in: input.length, messages_sent: windowed.length, dropped, est_tokens: estimateTokens(windowed) }

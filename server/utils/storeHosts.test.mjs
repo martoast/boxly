@@ -1,13 +1,16 @@
-// Pure tests for server/utils/storeHosts.ts — web rows on a carried store's domain get its store id.
+// Pure tests for server/utils/storeHosts.ts — links on a live store's domain get the engine's store id.
 import assert from 'node:assert/strict'
-import { storeHostsFromFacets, tagCarriedStores } from './storeHosts.ts'
+import { storeHostsFromLiveStores, tagCarriedStores } from './storeHosts.ts'
 
-const hosts = storeHostsFromFacets({ stores: [
-  { store_id: 'gymshark', store_name: 'Gymshark', host: 'gymshark.com' },
-  { store_id: 'old-navy', store_name: 'Old Navy', host: 'oldnavy.gap.com' },
-  { store_id: 'x', store_name: 'X', host: null },
-] })
+// The engine's store list (GET /live-shopping/stores): url is optional there.
+const hosts = storeHostsFromLiveStores([
+  { id: 'gymshark', name: 'Gymshark', url: 'https://www.gymshark.com/' },
+  { id: 'old-navy', name: 'Old Navy', url: 'https://oldnavy.gap.com' },
+  { id: 'x', name: 'X' },
+  { id: 'bad', name: 'Bad', url: 'not a url' },
+])
 assert.equal(hosts.size, 2)
+assert.equal(storeHostsFromLiveStores(null).size, 0, 'no list (a guest, the engine off) → nothing to tag')
 const bing = { id: 'pufc2fh', title: 'Gymshark Crest Joggers - Light Grey Marl', store: 'Gymshark', store_id: null, url: 'https://www.gymshark.com/products/gymshark-crest-joggers-light-grey-marl-aw22', source: 'bing_shopping' }
 const tagged = tagCarriedStores([bing], hosts)
 assert.equal(tagged[0].store_id, 'gymshark', 'a Bing row on gymshark.com is Gymshark')

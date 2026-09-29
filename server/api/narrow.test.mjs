@@ -25,7 +25,9 @@ ok('it only renders once the tool answered', /part\.state === 'output-available'
 // this match once already and the assertions silently moved to the wrong line.
 const prompt = api.match(/ONE QUESTION BEFORE A VAGUE SEARCH, NEVER MORE\.[^\n]*/)[0];
 ok('the prompt caps it at one question', /NEVER more|never twice in a row/i.test(prompt));
-ok('and tells it to browse rather than interrogate', /if in doubt, search first/i.test(prompt));
+// The live store browser has to go somewhere specific (2026-09-28), so a vague ask gets its one question — but a
+// specific ask is never interrogated.
+ok('a specific ask goes straight to the live search', /already specific[^\n]*goes straight to live_gallery/i.test(prompt));
 
 // ── WHETHER IT ASKS AT ALL IS NOT THE MODEL'S CALL ───────────────────────────
 //

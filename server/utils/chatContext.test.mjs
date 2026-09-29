@@ -3,7 +3,7 @@
  *
  *   node --experimental-strip-types server/utils/chatContext.test.mjs
  */
-import { ageGalleries, windowMessages, withContextOnLastUser, estimateTokens, galleryMarker, dropToolParts } from './chatContext.ts'
+import { ageGalleries, windowMessages, withContextOnLastUser, estimateTokens, galleryMarker, dropToolParts, legacyToolsAsText } from './chatContext.ts'
 import { attachFollowupChips, followupsWithin } from './followupChips.ts'
 
 let pass = 0, fail = 0
@@ -103,6 +103,22 @@ await (async () => {
   ok('followupsWithin swallows a rejection', (await followupsWithin(Promise.reject(new Error('x')), 100)).length === 0)
   ok('null promise → no chips', (await followupsWithin(null)).length === 0)
 })()
+
+// ── legacyToolsAsText (tools removed 2026-09-28) ─────────────────────────────
+{
+  const old = { role: 'assistant', parts: [
+    { type: 'tool-search_products', toolCallId: 'x1', state: 'output-available', input: { query: 'tenis', store: 'Nike' }, output: { products: products(3, 'tenis') } },
+    { type: 'tool-web_search', toolCallId: 'x2', state: 'output-available', input: { query: 'nike' }, output: {} },
+    { type: 'tool-show_assisted_summary', toolCallId: 'x3', state: 'output-available', input: {}, output: { items: [] } },
+    { type: 'tool-find_on_google', toolCallId: 'x4', state: 'output-available', input: { query: 'x' }, output: { products: [] } },
+    { type: 'text', text: 'Mira estos.' },
+  ] }
+  const fresh = { role: 'assistant', parts: [{ type: 'tool-show_shipment', toolCallId: 'y', state: 'output-available', input: { items: [] }, output: {} }] }
+  const out = legacyToolsAsText([user('tenis'), old, fresh], ['search_products', 'find_on_google'], ['web_search', 'show_assisted_summary'], (p) => 'p' + p.title.replace(/\s/g, ''))
+  ok('a legacy gallery becomes one line of text naming what was shown', out[1].parts[0].type === 'text' && /Galería anterior: 3 productos para «tenis · Nike»/.test(out[1].parts[0].text) && /ptenis1/.test(out[1].parts[0].text))
+  ok('other legacy tool parts and an empty legacy gallery are dropped', out[1].parts.length === 2 && out[1].parts[1].text === 'Mira estos.')
+  ok('current tools and untouched messages are the same objects', out[2] === fresh && out[0].parts[0].text === 'tenis')
+}
 
 console.log(`\n${pass} passed, ${fail} failed`)
 process.exit(fail ? 1 : 0)

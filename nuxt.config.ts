@@ -77,7 +77,9 @@ export default defineNuxtConfig({
     '/shop/**':           { redirect: { to: '/', statusCode: 301 } },
     // The product page is auth-gated (token-expensive) — client-rendered so the
     // auth middleware resolves the user reliably.
-    '/producto':          { ssr: false },
+    // The old search-results product page (reached only from /buscar, redirected above) is gone since 2026-09-28:
+    // products are found live in the chat.
+    '/producto':          { redirect: '/app/search' },
   },
   app: {
     head: {
