@@ -1,3 +1,4 @@
+import { bareStoreAsk } from '../utils/bareStore'
 import { streamText, tool, convertToModelMessages, stepCountIs, createUIMessageStreamResponse } from 'ai'
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { extractText, getDocumentProxy } from 'unpdf'
@@ -2137,6 +2138,12 @@ export default defineEventHandler(async (event) => {
   // advertised cards with a question instead of the store. The card narrows the search
   // by naming the brand; the prompt asks its question AFTER the gallery is up.
   const mustNarrow = !body?.fromStarterCard && audienceGap(messages)
+  // A message that is only a store's name ("Gymshark") must show that store — a product tool is mandatory on the
+  // first step (Alex, 2026-09-28: a pitch about shipping and cards and a question, no products). Short messages only,
+  // so nothing else waits on the store list.
+  const bareStore = !body?.fromStarterCard && !cartEvent && !labFinalize && !mustNarrow && String(question || '').split(/\s+/).length <= 7
+    ? bareStoreAsk(String(question || ''), [...(await catalogStoreHosts()).values()].map((s: any) => ({ id: s.id, name: s.name })))
+    : null
   // Lab members finalize with finalize_lab_order; this overrides every "show_assisted_summary is the only way to
   // order" line above (that tool is not even offered to them).
   const cartEventBlock = cartEvent
@@ -2149,7 +2156,8 @@ export default defineEventHandler(async (event) => {
     } Write only that reply; no tools, no gallery.`
     : ''
   const labBlock = isLab ? 'BOXLY LAB SHOPPER: when they finalize the box, call finalize_lab_order (no input) — it places the order and runs the real store checkouts live in the chat. show_assisted_summary does not exist for this shopper; ignore every instruction that mentions it.' : ''
-  const ctx = [summaryBlock(summaryState), shopperContext(!!token, shoppingProfile, savedProducts), narrowBlock(mustNarrow), labBlock, cartEventBlock].filter(Boolean).join('\n\n')
+  const bareStoreBlock = bareStore ? `THE SHOPPER TYPED ONLY A STORE: "${bareStore}". Show it NOW — curate_products with store "${bareStore}" and intent "browse" (or its show_collection spotlight when one exists for exactly this store). Then ONE short line inviting them to pick or narrow (hombre/mujer, a category). No pitch about shipping, cards or how Boxly works, and no question BEFORE the products.` : ''
+  const ctx = [summaryBlock(summaryState), shopperContext(!!token, shoppingProfile, savedProducts), narrowBlock(mustNarrow), labBlock, cartEventBlock, bareStoreBlock].filter(Boolean).join('\n\n')
   // History → model, bounded (see server/utils/chatContext.ts):
   //  1. old galleries collapse to a one-line marker (the products stay in the registry),
   //  2. hysteresis window (MAX 14 msgs / 6k tokens → keep 8; hard cap 9k),
@@ -2265,6 +2273,7 @@ export default defineEventHandler(async (event) => {
       // move and the prompt gave it an out. Here it is the ONLY move: one tool, and
       // toolChoice makes calling it mandatory. The model still writes the question.
       if (mustNarrow && !(steps || []).length) return { activeTools: ['ask_to_narrow'], toolChoice: 'required' }
+      if (bareStore && !(steps || []).length) return { activeTools: forUser(['curate_products', 'show_collection']), toolChoice: 'required' }
       // web_search IS A FALLBACK, NEVER AN OPENING MOVE. The eBay store card sends
       // "Ayúdame a encontrar y comparar las mejores opciones en eBay." and the model
       // answered it with web_search({query:"ebay"}) — which returns articles about the
