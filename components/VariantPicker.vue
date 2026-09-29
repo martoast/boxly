@@ -71,6 +71,7 @@
 </template>
 
 <script setup>
+import { normalizeVariants, deriveAxes, isIndependent, matches as pickerMatches, canPick as pickerCanPick, chosenVariant, isComplete } from '~/utils/pickerLogic'
 import { computed, reactive, ref, watchEffect } from 'vue'
 
 // Generic N-axis variant picker. Input (from the catalog's product-page read):
@@ -85,43 +86,13 @@ const emit = defineEmits(['pick', 'show-image', 'price'])
 
 const product = computed(() => ({ title: props.data?.product?.title || props.data?.product_title || '', image: props.data?.product?.image || null, url: props.data?.product?.url || null, store: props.data?.product?.store || null, price: props.data?.product?.price ?? null, list_price: props.data?.product?.list_price ?? null }))
 
-// Normalize every variant to { options: {axis: value} }.
-const variants = computed(() => (props.data?.variants || []).map((v) => {
-  const options = { ...(v.options && typeof v.options === 'object' ? v.options : {}) }
-  if (!Object.keys(options).length) { if (v.color) options.Color = String(v.color); if (v.size) options.Size = String(v.size) }
-  for (const k of Object.keys(options)) options[k] = String(options[k])
-  return { ...v, options }
-}))
-
-// Axes: the read's own list (page order) or derived from the variants' option keys.
-const axes = computed(() => {
-  const declared = Array.isArray(props.data?.axes) ? props.data.axes.filter((a) => a && typeof a === 'object' && a.name) : []
-  const names = declared.length ? declared.map((a) => a.name) : [...new Set(variants.value.flatMap((v) => Object.keys(v.options)))]
-  return names.map((name) => {
-    const d = declared.find((a) => a.name === name) || {}
-    const seen = []; for (const v of variants.value) { const val = v.options[name]; if (val != null && !seen.includes(val)) seen.push(val) }
-    const values = Array.isArray(d.values) && d.values.length ? d.values.map(String) : seen
-    return { name, kind: d.kind || guessKind(name), values }
-  })
-    // Drop reader noise: values with no letters/digits ("#:"), and axes left with nothing to choose.
-    .map((a) => ({ ...a, values: a.values.filter((v) => /[\p{L}\p{N}]/u.test(v)) }))
-    .filter((a) => a.values.length)
-})
+// Variants and axes: the same pure rules the variant benchmark measures (utils/pickerLogic.ts).
+const variants = computed(() => normalizeVariants(props.data))
+const axes = computed(() => deriveAxes(props.data, variants.value))
 // A single-value axis (Width: "Standard") is information, not a choice: auto-select it and don't render a row.
 const shownAxes = computed(() => axes.value.filter((a) => a.values.length > 1))
 watchEffect(() => { if (variants.value.length) emit('price', priceForSelection()) })
 watchEffect(() => { for (const a of axes.value) if (a.values.length === 1 && !sel[a.name]) sel[a.name] = a.values[0] })
-function guessKind(name) {
-  const n = String(name).toLowerCase()
-  if (/color|colour|shade|wash|finish/.test(n)) return 'color'
-  if (/length|inseam|largo/.test(n)) return 'length'
-  if (/width|ancho/.test(n)) return 'width'
-  if (/oz|capacity|capacidad|ml|size.*oz/.test(n)) return 'capacity'
-  if (/scent|fragrance|flavor|flavour|aroma/.test(n)) return 'scent'
-  if (/pack|count|cantidad|qty/.test(n)) return 'pack'
-  if (/size|talla|waist|cintura/.test(n)) return 'size'
-  return 'other'
-}
 const isGrid = (ax) => ['size', 'length', 'width'].includes(ax.kind)
 const LABELS = { size: 'Talla', color: 'Color', length: 'Largo', width: 'Ancho', capacity: 'Capacidad', scent: 'Aroma', pack: 'Paquete', material: 'Material', other: null }
 function axisLabel(ax) { const l = LABELS[ax.kind]; return l && /^(size|color|colour|length|width|capacity|scent|pack|material)$/i.test(ax.name) ? l : ax.name }
@@ -130,8 +101,7 @@ const sel = reactive({})
 // Some stores (SFCC: New Balance, Gap/Old Navy) expose one row PER AXIS VALUE (a colour row, a size row), not a
 // colour×size matrix. Then each axis validates on its own: the read says so (`axes_independent`), or we infer it
 // when no row carries values for two or more axes.
-const independent = computed(() => props.data?.axes_independent === true || props.data?.matrix === false
-  || (axes.value.length > 1 && !variants.value.some((v) => Object.keys(v.options).length > 1)))
+const independent = computed(() => isIndependent(props.data, axes.value, variants.value))
 // Pre-select what the page had selected (e.g. the colourway from the URL) so the shopper only picks what's missing.
 // NOTHING IS PRE-SELECTED (Alex, 2026-09-28: "let the user do that — they see all the available options and pick them
 // themselves, so it feels like a real shopping experience"); only an axis with a single value is filled in above.
@@ -144,23 +114,17 @@ const allUnknown = computed(() => variants.value.length > 0 && variants.value.ev
 const soldOutCount = computed(() => variants.value.filter((v) => v.available === false).length)
 const fresh = computed(() => { const t = props.data?.checked_at ? Date.now() - new Date(props.data.checked_at).getTime() : Infinity; return t < 15 * 60_000 })
 
-// A SINGLE-VALUE AXIS IS INFORMATION (live Alo 2026-09-28: Color "Black" and Length "7/8" on a colourway's own page,
-// while its stock rows carry only the size): a row that does not name it has that one value. Without this, tapping a
-// size cleared the colour and the button was stuck on "Elige color" with no colour chip to tap.
-function optOf(v, a) { const ax = typeof a === 'string' ? axes.value.find((x) => x.name === a) : a; const name = ax?.name ?? a; return v.options[name] ?? (ax && ax.values.length === 1 ? ax.values[0] : undefined) }
-// A value is pickable when some AVAILABLE variant matches it together with everything already selected on OTHER axes.
-function matches(v, axisName, val) {
-  if (optOf(v, axisName) !== val) return false
-  if (independent.value) return true
-  return axes.value.every((a) => a.name === axisName || !sel[a.name] || optOf(v, a) === sel[a.name])
-}
-function canPick(ax, val) { return variants.value.some((v) => v.available !== false && matches(v, ax.name, val)) }
+// Pickable / matching / complete: utils/pickerLogic.ts (a single-value axis is information — live Alo 2026-09-28).
+const ctx = () => ({ axes: axes.value, independent: independent.value, sel, variants: variants.value })
+const axisNamed = (name) => axes.value.find((a) => a.name === name) || { name, kind: 'other', values: [] }
+function matches(v, axisName, val) { return pickerMatches(v, axisNamed(axisName), val, ctx()) }
+function canPick(ax, val) { return pickerCanPick(ax, val, ctx()) }
 function isUnknown(ax, val) { return !variants.value.some((v) => v.available === true && matches(v, ax.name, val)) && variants.value.some((v) => v.available == null && matches(v, ax.name, val)) }
 function isLow(ax, val) { return variants.value.some((v) => v.available === true && v.low_stock && matches(v, ax.name, val)) }
 function pick(axisName, val) {
   sel[axisName] = sel[axisName] === val ? null : val
   // Clear later selections that are no longer compatible.
-  for (const a of axes.value) if (a.name !== axisName && a.values.length > 1 && sel[a.name] && !canPick(a, sel[a.name])) sel[a.name] = null
+  for (const a of axes.value) if (a.name !== axisName && a.values.length > 1 && sel[a.name] && !canPick(a, sel[a.name])) sel[a.name] = null // = applyPick
   // Picking a colour should CHANGE THE PHOTO — that is the whole point of picking it. The variant rows carry a
   // per-colour image now, so tell the modal which one to lead with.
   const ax = axes.value.find((a) => a.name === axisName)
@@ -182,16 +146,8 @@ function priceForSelection() {
   return { price: lo, from: lo !== hi }
 }
 // Matrix reads: the one row matching every axis. Independent reads: the row of the LAST axis (where price/stock live).
-const chosen = computed(() => {
-  if (!axes.value.length) return variants.value[0] || null
-  if (independent.value) { const last = axes.value[axes.value.length - 1]; return sel[last.name] ? (variants.value.find((v) => optOf(v, last) === sel[last.name]) || null) : null }
-  return variants.value.find((v) => axes.value.every((a) => sel[a.name] && optOf(v, a) === sel[a.name])) || null
-})
-const complete = computed(() => {
-  if (!axes.value.length) return !!(chosen.value && chosen.value.available !== false)
-  if (independent.value) return axes.value.every((a) => sel[a.name] && (a.values.length === 1 || variants.value.some((v) => v.available !== false && optOf(v, a) === sel[a.name])))
-  return !!(chosen.value && chosen.value.available !== false)
-})
+const chosen = computed(() => chosenVariant(ctx()))
+const complete = computed(() => isComplete(ctx()))
 // Price and photo live in the modal's header now, so the card no longer computes them.
 const ctaLabel = computed(() => {
   // The store shows sizes for this kind of product but the read did not find them, so the

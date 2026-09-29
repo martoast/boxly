@@ -38,6 +38,8 @@ ok('the tapped card\'s photo leads the modal gallery', /props\.product\?\.image 
 ok('the modal adds no pre-selection', !/preselect/.test(modal));
 // A single-value option (Alo's colourway page: Color "Black", stock rows by size only) matches every row.
 const picker = readFileSync(new URL('./VariantPicker.vue', import.meta.url), 'utf8');
-ok('a single-value option is information: rows without it still match', /function optOf\(v, a\)[^\n]*ax\.values\.length === 1 \? ax\.values\[0\]/.test(picker));
+const logic = readFileSync(new URL('../utils/pickerLogic.ts', import.meta.url), 'utf8');
+ok('the picker runs the shared rules the benchmark measures', /from '~\/utils\/pickerLogic'/.test(picker));
+ok('a single-value option is information: rows without it still match', /a\.values\.length === 1 \? a\.values\[0\]/.test(logic));
 ok('…and it is never cleared by another pick', /a\.values\.length > 1 && sel\[a\.name\] && !canPick/.test(picker));
 console.log(`\n${pass} checks passed`);
