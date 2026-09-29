@@ -15,7 +15,8 @@ export function pickedOptions(axes: Axis[], pick: Record<string, any> | null, pr
   const chosen: Record<string, string> = {}
   for (const a of axes || []) {
     const k = axisKind(a)
-    const want = source ? (source[a.name] ?? (k ? source[k] : undefined)) : undefined
+    // The picker keys each choice by its axis kind ("size", "color", "width", …) or its name.
+    const want = source ? (source[a.name] ?? (a.kind ? source[a.kind] : undefined) ?? (k ? source[k] : undefined) ?? source[String(a.name).toLowerCase()]) : undefined
     const v = want != null ? (a.values || []).find((x) => norm(x) === norm(want)) : undefined
     if (v != null) chosen[a.name] = String(v)
   }

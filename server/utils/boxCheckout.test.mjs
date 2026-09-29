@@ -1,5 +1,5 @@
 // Pure tests for server/utils/boxCheckout.ts — the chat box → the Boxly cart, for cart sync and Finalizar.
-import { boxFromMessages, wantedFromBox, planCart, carriedStoreForTitle } from './boxCheckout.ts'
+import { boxFromMessages, wantedFromBox, planCart, carriedStoreForTitle, storeOptionFixes, withStoreOptions } from './boxCheckout.ts'
 
 let passed = 0, failed = 0
 const check = (name, ok, detail = '') => { if (ok) { passed++; console.log(`  ✓ ${name}`) } else { failed++; console.log(`  ✗ ${name} ${detail}`) } }
@@ -26,6 +26,11 @@ check('a card still streaming is ignored', eq(boxFromMessages([ship([A]), { role
   const fixedBox = boxFromMessages([ship([G], { store_options: [{ key: 'g', size: 'S (4-6)', color: null }] }), { role: 'user', parts: [] }, ship([A, G])])
   check('the store\'s option values replace the model\'s words, from an earlier card', eq(fixedBox[1], { saved_id: 'g', name: 'Everyday Seamless Leggings', size: 'S (4-6)' }))
   check('other items untouched', eq(fixedBox[0], A))
+}
+
+{
+  const fx = storeOptionFixes([], [{ key: 'g', size: 'S (4-6)', color: null }])
+  check('the card being built can fix its own item (cart sync uses it too)', eq(withStoreOptions({ saved_id: 'g', name: 'L', size: 'S', color: 'negro' }, fx), { saved_id: 'g', name: 'L', size: 'S (4-6)' }))
 }
 
 console.log('wantedFromBox')

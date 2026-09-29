@@ -9,7 +9,7 @@ import { chatModel, isAnthropic, providerOptions, hasModelKey } from '../utils/a
 import { ageGalleries, windowMessages, withContextOnLastUser, dropToolParts, legacyToolsAsText, contextStats, WINDOW_DEFAULTS } from '../utils/chatContext'
 import { generateFollowups, followupPart, followupsWithin, attachFollowupChips } from '../utils/followups'
 import { readSummary, summaryBlock, summarize, shouldSummarize } from '../utils/chatSummary'
-import { boxFromMessages, wantedFromBox, planCart, type CarriedStore } from '../utils/boxCheckout'
+import { boxFromMessages, wantedFromBox, planCart, storeOptionFixes, withStoreOptions, type CarriedStore } from '../utils/boxCheckout'
 import { checkStoreLock } from '../utils/storeLock'
 import { storeHostsFromLiveStores, tagCarriedStores } from '../utils/storeHosts'
 import { resolveLiveStores, liveGalleryQuery, liveResultsAsText, type LiveStore } from '../../utils/liveGallery'
@@ -977,12 +977,20 @@ export default defineEventHandler(async (event) => {
   const storeRegistry = tagCarriedStores(savedProducts, liveHosts)
   // The live stores (id, name, host) for search to cart: an item whose title names one is found on its site.
   const carriedStores: CarriedStore[] = [...liveHosts.entries()].map(([host, st]) => ({ id: st.id, name: st.name || st.id, host }))
-  async function syncBox(box: any[], retryUrl: string | null = null, sent: Set<string> = new Set()): Promise<string | null> {
+  // Is the card's last item new to the box (not on the previous box card)? Then this card is an ADD.
+  const isNewAdd = (box: any[]) => {
+    const prev = boxFromMessages(messages) || []
+    const key = (it: any) => String(it?.saved_id || it?.url || it?.name || '')
+    const last = box[box.length - 1]
+    return !!last && !prev.some((p: any) => key(p) === key(last))
+  }
+  async function syncBox(box: any[], retryUrl: string | null = null, sent: Set<string> = new Set(), { keepOthers = false } = {}): Promise<string | null> {
     const { wanted } = wantedFromBox(box, storeRegistry, carriedStores)
     const cart = await callApi('/cart', { token })
     if (cart?.ok === false || !Array.isArray(cart?.items)) return 'cart_unavailable'
     // Lines the box no longer holds go first (so a variant change can never collide with them).
     const plan = planCart(cart.items, wanted, { retryUrl })
+    if (keepOthers) plan.remove = []
     for (const w of plan.add) sent.add(w.product_url)
     for (const u of plan.update) { const l = cart.items.find((x: any) => x.id === u.id); if (l) sent.add(l.product_url) }
     const failed = (r: any) => r?.ok === false
@@ -1458,10 +1466,16 @@ export default defineEventHandler(async (event) => {
           // the item just added is checked for a store that closed its whole site (drop / waiting room) — the
           // agent's live browser will show that page, so the chat says it in words.
           if (token) {
-            const added = out?.hold ? null : wantedFromBox(input.slice(-1), storeRegistry, carriedStores).wanted[0]
+            // The store's own option values go to the cart (not the model's words), from this card and earlier ones.
+            const fixes = storeOptionFixes(messages, Array.isArray(out?.store_options) ? out.store_options : [])
+            const boxNow = (out?.hold ? input.slice(0, -1) : input).map((it: any) => withStoreOptions(it, fixes))
+            const added = out?.hold ? null : wantedFromBox(boxNow.slice(-1), storeRegistry, carriedStores).wanted[0]
             const sent = new Set<string>()
             const [, lock] = await Promise.all([
-              syncBox(out?.hold ? input.slice(0, -1) : input, added?.product_url ?? null, sent).catch((e: any) => console.warn('[cart] box sync failed', e?.message || e)),
+              // A card that is ADDING a product (or holding one for its pick) never removes other cart lines: the model
+              // sometimes lists only the new item, and the sync then emptied the real cart (live 2026-09-28: the
+              // Gymshark leggings vanished when New Balance was added). Removing happens on a card that adds nothing.
+              (out?.hold ? Promise.resolve(null) : syncBox(boxNow, added?.product_url ?? null, sent, { keepOthers: !!added && isNewAdd(boxNow) })).catch((e: any) => console.warn('[cart] box sync failed', e?.message || e)),
               added ? checkStoreLock(added.product_url) : null,
             ])
             // THE BOX IS NOT THE STORE CART (Alex, 2026-09-25: "ONLY after it's actually added to the store's cart

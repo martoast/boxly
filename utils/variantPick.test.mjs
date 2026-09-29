@@ -11,6 +11,9 @@ ok('a value the store does not offer counts for nothing', pickedOptions(NB, { si
 ok('a pick this chat already made keeps the product in the box', pickedOptions(NB, null, { size: 'M9 / W10.5 (9)', color: 'BLACK with CASTLEROCK' }).missing.length === 0)
 const GYM = [{ name: 'Size', kind: 'size', values: ['XS (2-4)', 'S (4-6)'] }]
 ok('a colourway page has no colour to pick', JSON.stringify(pickedOptions(GYM, { size: 'S (4-6)' }).chosen) === JSON.stringify({ Size: 'S (4-6)' }))
+// Live New Balance 2026-09-28: the picker keys width by its kind ("width"); it must count.
+const NBW = [...NB, { name: 'Width', kind: 'width', values: ['Standard (D)', 'Wide (2E)'] }]
+ok('an option of any kind picked on the chips counts (width)', pickedOptions(NBW, { color: 'BLACK with CASTLEROCK', size: 'M9 / W10.5 (9)', width: 'Standard (D)' }).missing.length === 0)
 const api = readFileSync(new URL('../server/api/assistant.post.ts', import.meta.url), 'utf8')
 ok('the chat gate reads the picker choice from the message metadata', /lastUser\?\.metadata\?\.pick/.test(api) && /pickedOptions\(axes, pickRaw, prior\)/.test(api))
 ok('nothing typed is matched or pre-selected any more', !/variants_for\.selected =/.test(api) && !/const fromWords/.test(api))
