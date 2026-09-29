@@ -92,12 +92,15 @@ const axes = computed(() => deriveAxes(props.data, variants.value))
 // A single-value axis (Width: "Standard") is information, not a choice: auto-select it and don't render a row.
 const shownAxes = computed(() => axes.value.filter((a) => a.values.length > 1))
 watchEffect(() => { if (variants.value.length) emit('price', priceForSelection()) })
+// The selection lives ABOVE the single-value fill below: declared after it, the fill ran into an uninitialised `sel`
+// and silently did nothing — hidden while the page's own selection pre-filled the colour (live Alo 2026-09-28: stuck on
+// "Elige color" once pre-selection was removed).
+const sel = reactive({})
 watchEffect(() => { for (const a of axes.value) if (a.values.length === 1 && !sel[a.name]) sel[a.name] = a.values[0] })
 const isGrid = (ax) => ['size', 'length', 'width'].includes(ax.kind)
 const LABELS = { size: 'Talla', color: 'Color', length: 'Largo', width: 'Ancho', capacity: 'Capacidad', scent: 'Aroma', pack: 'Paquete', material: 'Material', other: null }
 function axisLabel(ax) { const l = LABELS[ax.kind]; return l && /^(size|color|colour|length|width|capacity|scent|pack|material)$/i.test(ax.name) ? l : ax.name }
 
-const sel = reactive({})
 // Some stores (SFCC: New Balance, Gap/Old Navy) expose one row PER AXIS VALUE (a colour row, a size row), not a
 // colour×size matrix. Then each axis validates on its own: the read says so (`axes_independent`), or we infer it
 // when no row carries values for two or more axes.
