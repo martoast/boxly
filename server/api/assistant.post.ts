@@ -830,7 +830,7 @@ MODE 1 — EXPERT (answer questions). Use the KNOWLEDGE BASE below to answer any
 MODE 2 — PRODUCT DISCOVERY, LIVE IN THE STORES (find things). Every product request is answered with live_gallery: it opens the store's OWN website in a real browser the shopper watches in the chat, searches the store's own search box, and the gallery (photo, name, price, link) lands in the chat by itself about 10–30 s later. There is no other product search — no catalog, no web search — so never answer a product ask with text alone, and never with products from memory.
   • WHERE: the store they named (a brand's own store: "tenis Nike" → Nike; "leggings Alo" → Alo). If they named none, the best-known stores for that category among LIVE STORES (the list is in the context block, with how many stores one search may open). A store that is not on LIVE STORES cannot be opened live yet — say so in one line and offer the closest one that is.
   • WHAT: query = what to type in the store's search box, SHORT and IN ENGLISH ("tacos de americano" → "football cleats", "tenis" → "sneakers", "sudadera" → "hoodie", "tele" → "tv"). No store names, prices or sizes in it.
-  • AFTER IT: ONE short line in Spanish that you are searching it live ("Lo estoy buscando en vivo en Gymshark 👇"). NEVER list, invent or promise products, prices or links before the gallery arrives — the gallery speaks for itself when it lands.
+  • WHAT THE SHOPPER SEES: the instant you call live_gallery the chat itself shows them a message in your voice — "¡Va! Déjame revisar New Balance por ti 🔎 Abro su tienda en un navegador en vivo…" — then the live browser, then the gallery. So call live_gallery RIGHT AWAY and write NO text of your own before or after it (it would say the same thing twice). Only when it cannot start (or a store you asked for cannot be opened live) do you write ONE short line. NEVER list, invent or promise products, prices or links — the gallery speaks for itself when it lands.
   THESE ARE ALL PRODUCT ASKS TOO, and each deserves live_gallery (after at most ONE narrowing question): a COMPARISON ("¿Nike o Adidas?" → both stores in one search, then compare the real items), ONE WORD or an EMOJI ("audífonos", "🎮" → video games and consoles, "👟" → sneakers), a STORE with no item ("qué hay en Target" → ask what they want there, then search it), a promo ask ("ofertas en Alo" → search the store; its gallery shows each item's real was-price when it is on sale — never promise discounts the store does not have).
 
 ONE QUESTION BEFORE A VAGUE SEARCH, NEVER MORE. The live browser has to go somewhere SPECIFIC. When the ask is too broad to search a store with — who it is for is missing ("un disfraz de Batman": hombre, mujer o niño are three different products), no product type ("un regalo", "algo para el gym", "ropa"), or only a store name ("Gymshark") — call ask_to_narrow with ONE question and 2-4 tappable answers, in a turn of its own, and say nothing else. The card asks it; do not repeat the question in your text and do not call live_gallery in the same turn. Then search with what they tapped. NEVER ask about size or colour (the picker handles those), never twice in a row, and never for an ask that is already specific — "tenis Nike Pegasus 41" goes straight to live_gallery.
@@ -1090,6 +1090,9 @@ export default defineEventHandler(async (event) => {
   // when it returns products; prepareStep() then strips gallery tools from later
   // steps. Wrap a gallery tool's result with markGallery() to arm it.
   let galleryShown = false
+  // A live search that started for every store asked: the chat itself already told the shopper what is happening (the
+  // "¡Va! Déjame revisar … por ti" message drawn from the call — ShoppingAssistant.vue), so the turn ends right there.
+  let liveSearchQuiet = false
   const markGallery = async (r: any) => {
     // A row on a live store's site is that store's product: tag it, so the box can put it in that store's real cart.
     if (r && Array.isArray(r.products) && r.products.some((p: any) => !p?.store_id)) {
@@ -1132,6 +1135,7 @@ export default defineEventHandler(async (event) => {
       // shopping-assistant voice — so we don't stop until a non-empty text line
       // exists, giving the model the step it needs to write it (stepCountIs is the
       // backstop).
+      () => liveSearchQuiet,
       ({ steps }: any) => {
         if (!galleryShown) return false
         return (steps || []).some((s: any) => String(s?.text || '').trim().length > 0)
@@ -1564,6 +1568,7 @@ export default defineEventHandler(async (event) => {
           // The live card goes up now; the products land in the chat when the engine is done (the API appends them
           // as a live-results message, and the chat fetches it the moment the browser ends).
           galleryShown = true
+          liveSearchQuiet = !unknown.length
           const names = picked.map((st) => st.name)
           return {
             ok: true,
@@ -1571,7 +1576,7 @@ export default defineEventHandler(async (event) => {
             stores: names,
             live_session: { id: r.id, store_id: r.store_id || picked[0].id, store_name: names.join(' · '), status: r.status || 'pending', note: `Buscando "${q}" en ${names.join(', ')}` },
             ...(unknown.length ? { skipped: unknown } : {}),
-            note: `LIVE — the browser is on screen, searching "${q}" at ${names.join(', ')}; the gallery appears in the chat by itself in about 10–30 s. Write ONE short line in Spanish that you are searching it live${names.length > 1 ? ' in those stores' : ` in ${names[0]}`}${unknown.length ? ` (and that ${unknown.join(', ')} cannot be opened live yet)` : ''}. Do NOT list, invent or promise products, prices or links, and call no other tool.`,
+            note: unknown.length ? `LIVE — the browser is on screen, searching "${q}" at ${names.join(', ')}; the gallery appears by itself. Write ONE short line in Spanish only saying ${unknown.join(', ')} cannot be opened live yet. Do NOT list, invent or promise products.` : `LIVE — the chat already showed the shopper that you are checking ${names.join(', ')} in a live browser. Write NO text. Do NOT list, invent or promise products — the gallery arrives by itself.`,
           }
         },
       }),

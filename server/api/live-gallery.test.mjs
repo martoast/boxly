@@ -23,6 +23,7 @@ writeFileSync(tmp, [
   '  let liveCatalog = ctx.liveCatalog',
   '  let liveStoresCache: any = null',
   '  let galleryShown = false',
+  '  let liveSearchQuiet = false',
   '  const authedNote = { ok: false, error: "not_authenticated" }',
   '  const REFUSAL = { refused: true }',
   '  const restrictedAsk = () => !!ctx.restricted',
@@ -51,7 +52,7 @@ const run = async (input, over = {}) => {
   ok('…to the API create, conversation-bound, the query as the objective', ctx.calls[0].path === '/live-shopping/sessions' && ctx.calls[0].method === 'POST' && ctx.calls[0].token === 't0k' && ctx.calls[0].body.conversation_id === 42 && ctx.calls[0].body.objective === 'running shoes' && ctx.calls[0].body.store_id === 'on')
   ok('the live card rides on the answer at once (the session shape the chat renders)', out.ok === true && out.live_session.id === 7 && out.live_session.store_name === 'On · New Balance · Nike' && /Buscando "running shoes"/.test(out.live_session.note))
   ok('a store the engine cannot open is named back, never guessed', JSON.stringify(out.skipped) === '["Hoka"]')
-  ok('the model is told to say one line and invent nothing', /ONE short line/.test(out.note) && /Do NOT list, invent/.test(out.note))
+  ok('the model writes nothing (the chat already spoke) — or one line naming a store it could not open — and invents nothing', (out.skipped ? /ONE short line/.test(out.note) : /Write NO text/.test(out.note)) && /Do NOT list, invent/.test(out.note))
   ok('the turn counts as its gallery (no second gallery tool after it)', shown === true)
 }
 {
@@ -97,4 +98,12 @@ ok('history and fresh results both read as gallery rows (price, store_id)', /par
 ok('the live card goes up for this page\'s own live_gallery answer only (never an old one from history)', /\/\^\\d\+\$\/\.test\(String\(m\.id\)\)/.test(vue) && /p\.type === 'tool-live_gallery' && p\.state === 'output-available' && p\.output\?\.live_session\?\.id/.test(vue))
 ok('when that browser ends, its gallery is fetched into the chat and registered', /if \(ended && galleryLiveIds\.has\(ended\.id\)\) \{ galleryLiveIds\.delete\(ended\.id\); fetchLiveGallery\(ended\.id\) \}/.test(vue) && /registerProducts\(part\.output\.products\)/.test(vue))
 ok('the session read first reconciles a terminal whose webhook has not landed', /await \$customFetch\(`\/live-shopping\/sessions\/\$\{sessionId\}`\)/.test(vue))
+// The first word is immediate (Alex, 2026-09-28): the chat draws "¡Va! Déjame revisar … por ti" from the call itself,
+// and a search that started for every store asked ends the turn without a second line from the model.
+{
+  const chat = readFileSync(new URL('../../components/ShoppingAssistant.vue', import.meta.url), 'utf8')
+  ok('the chat shows the assistant\'s first line the moment the search starts', /tool-live_gallery' && \(part\.state === 'input-streaming'/.test(chat) && /Déjame revisar \$\{names\} por ti/.test(chat))
+  ok('the turn ends right after a search that started quietly', /\(\) => liveSearchQuiet,/.test(api) && /liveSearchQuiet = !unknown\.length/.test(api))
+  ok('the prompt tells the model not to repeat it', /write NO text of your own before or after it/.test(api))
+}
 console.log(`\n${pass} checks passed`)

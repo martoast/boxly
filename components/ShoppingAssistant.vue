@@ -386,10 +386,14 @@
                       <svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
                       Preparando tu pedido…
                     </div>
-                    <!-- The live store gallery is opening (the live card and then the gallery follow). -->
-                    <div v-else-if="part.type === 'tool-live_gallery' && (part.state === 'input-streaming' || part.state === 'input-available')" class="flex items-center gap-2 text-xs text-gray-400 pl-1">
-                      <svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
-                      Abriendo la tienda en vivo…
+                    <!-- THE FIRST WORD IS IMMEDIATE (Alex, 2026-09-28: "the AI first responds like ok great let me check New
+                         Balance for you, so the user knows why a browser window opens and what he is waiting on"). Drawn
+                         from the search the moment the model starts it — before the browser is up — in the assistant's
+                         own bubble; the model writes nothing itself (assistant.post.ts). A search that could not start
+                         shows no promise: the model's own line explains. -->
+                    <div v-else-if="part.type === 'tool-live_gallery' && (part.state === 'input-streaming' || part.state === 'input-available' || (part.state === 'output-available' && part.output?.ok))"
+                         class="bg-white border border-gray-100 rounded-3xl rounded-bl-lg px-4 py-3 shadow-sm text-[15px] leading-relaxed">
+                      {{ liveSearchLine(part) }}
                     </div>
 
                     <a v-else-if="part.type === 'tool-show_contact_whatsapp' && part.state === 'output-available'"
@@ -1354,6 +1358,13 @@ function enrichShipment(shipment) {
 }
 // Merge ALL text parts of a message into one string so a multi-step reply renders
 // in ONE bubble instead of fragmenting into many (the "split bubbles" bug).
+// "¡Va! Déjame revisar New Balance por ti 🔎 …" — what a starting live search tells the shopper (see the template).
+function liveSearchLine(part) {
+  const stores = (part?.output?.stores || part?.input?.stores || []).filter((x) => typeof x === 'string' && x.trim())
+  const names = stores.length > 1 ? `${stores.slice(0, -1).join(', ')} y ${stores[stores.length - 1]}` : stores[0] || ''
+  if (!names) return '¡Va! Déjame buscarlo en vivo 🔎'
+  return `¡Va! Déjame revisar ${names} por ti 🔎 Abro ${stores.length > 1 ? 'sus tiendas' : 'su tienda'} en un navegador en vivo para buscar entre sus productos reales, con precio y disponibilidad de hoy. Puedes verlo aquí abajo 👇 y en unos segundos te muestro lo que encuentre.`
+}
 function msgText(m) { return (m.parts || []).filter((p) => p.type === 'text' && p.text).map((p) => p.text).join('\n\n') }
 // Did ANY gallery tool in this message return products? Used to suppress a stray
 // "no results" message when another search in the same turn did find options.
