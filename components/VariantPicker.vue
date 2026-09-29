@@ -144,11 +144,15 @@ const allUnknown = computed(() => variants.value.length > 0 && variants.value.ev
 const soldOutCount = computed(() => variants.value.filter((v) => v.available === false).length)
 const fresh = computed(() => { const t = props.data?.checked_at ? Date.now() - new Date(props.data.checked_at).getTime() : Infinity; return t < 15 * 60_000 })
 
+// A SINGLE-VALUE AXIS IS INFORMATION (live Alo 2026-09-28: Color "Black" and Length "7/8" on a colourway's own page,
+// while its stock rows carry only the size): a row that does not name it has that one value. Without this, tapping a
+// size cleared the colour and the button was stuck on "Elige color" with no colour chip to tap.
+function optOf(v, a) { const ax = typeof a === 'string' ? axes.value.find((x) => x.name === a) : a; const name = ax?.name ?? a; return v.options[name] ?? (ax && ax.values.length === 1 ? ax.values[0] : undefined) }
 // A value is pickable when some AVAILABLE variant matches it together with everything already selected on OTHER axes.
 function matches(v, axisName, val) {
-  if (v.options[axisName] !== val) return false
+  if (optOf(v, axisName) !== val) return false
   if (independent.value) return true
-  return axes.value.every((a) => a.name === axisName || !sel[a.name] || v.options[a.name] === sel[a.name])
+  return axes.value.every((a) => a.name === axisName || !sel[a.name] || optOf(v, a) === sel[a.name])
 }
 function canPick(ax, val) { return variants.value.some((v) => v.available !== false && matches(v, ax.name, val)) }
 function isUnknown(ax, val) { return !variants.value.some((v) => v.available === true && matches(v, ax.name, val)) && variants.value.some((v) => v.available == null && matches(v, ax.name, val)) }
@@ -156,7 +160,7 @@ function isLow(ax, val) { return variants.value.some((v) => v.available === true
 function pick(axisName, val) {
   sel[axisName] = sel[axisName] === val ? null : val
   // Clear later selections that are no longer compatible.
-  for (const a of axes.value) if (a.name !== axisName && sel[a.name] && !canPick(a, sel[a.name])) sel[a.name] = null
+  for (const a of axes.value) if (a.name !== axisName && a.values.length > 1 && sel[a.name] && !canPick(a, sel[a.name])) sel[a.name] = null
   // Picking a colour should CHANGE THE PHOTO — that is the whole point of picking it. The variant rows carry a
   // per-colour image now, so tell the modal which one to lead with.
   const ax = axes.value.find((a) => a.name === axisName)
@@ -180,12 +184,12 @@ function priceForSelection() {
 // Matrix reads: the one row matching every axis. Independent reads: the row of the LAST axis (where price/stock live).
 const chosen = computed(() => {
   if (!axes.value.length) return variants.value[0] || null
-  if (independent.value) { const last = axes.value[axes.value.length - 1]; return sel[last.name] ? (variants.value.find((v) => v.options[last.name] === sel[last.name]) || null) : null }
-  return variants.value.find((v) => axes.value.every((a) => sel[a.name] && v.options[a.name] === sel[a.name])) || null
+  if (independent.value) { const last = axes.value[axes.value.length - 1]; return sel[last.name] ? (variants.value.find((v) => optOf(v, last) === sel[last.name]) || null) : null }
+  return variants.value.find((v) => axes.value.every((a) => sel[a.name] && optOf(v, a) === sel[a.name])) || null
 })
 const complete = computed(() => {
   if (!axes.value.length) return !!(chosen.value && chosen.value.available !== false)
-  if (independent.value) return axes.value.every((a) => sel[a.name] && variants.value.some((v) => v.available !== false && v.options[a.name] === sel[a.name]))
+  if (independent.value) return axes.value.every((a) => sel[a.name] && (a.values.length === 1 || variants.value.some((v) => v.available !== false && optOf(v, a) === sel[a.name])))
   return !!(chosen.value && chosen.value.available !== false)
 })
 // Price and photo live in the modal's header now, so the card no longer computes them.
