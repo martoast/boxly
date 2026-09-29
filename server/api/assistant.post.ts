@@ -1,4 +1,5 @@
 import { bareStoreAsk } from '../utils/bareStore'
+import { pickedOptions } from '../../utils/variantPick'
 import { streamText, tool, convertToModelMessages, stepCountIs, createUIMessageStreamResponse } from 'ai'
 import { extractText, getDocumentProxy } from 'unpdf'
 import { z } from 'zod'
@@ -1375,22 +1376,28 @@ export default defineEventHandler(async (event) => {
                 // ("8.5" out of "8.5 Women"), which is how people actually write a size.
                 return parts.length > 1 ? parts.some((t) => saidTokens.has(t)) : false
               }
-              const fromWords = axes.flatMap((a: any) => (a.values || []).filter(saidIt))
-              const given = [last.size, last.color, ...fromWords].filter(Boolean).map(norm)
-              // What the shopper already named rides into the picker PRE-SELECTED, and the reply asks only for what is
-              // still missing (Alex, New Balance 9060, 2026-09-28: "talla 9" was in his message, and the picker asked
-              // for size AND colour again with nothing chosen).
+              void saidIt
+              // THE SHOPPER PICKS ON THE CHIPS (Alex, 2026-09-28: "let the user do that — they see all the available
+              // options and pick them themselves, so it feels like a real shopping experience"). A size or colour typed
+              // in the chat never adds a product with options and is never pre-selected: only the picker's own choice
+              // counts (it rides on the message as metadata.pick, keyed by the axis kind or name), or a pick this chat
+              // already made for this product (a later box update must not reopen the picker).
+              const itemKey = String(last.saved_id || last.url || last.name || '')
+              const lastUser = [...(messages || [])].reverse().find((m: any) => m?.role === 'user')
+              const pickRaw: any = lastUser?.metadata?.pick && typeof lastUser.metadata.pick === 'object' ? lastUser.metadata.pick : null
+              let prior: any = null
+              for (const m of messages || []) for (const p of (m?.role === 'assistant' ? (m.parts || []) : [])) {
+                if (p?.type === 'tool-show_shipment' && p.state === 'output-available') for (const o of (Array.isArray(p.output?.store_options) ? p.output.store_options : [])) if (String(o?.key) === itemKey) prior = o
+              }
               const multi = axes.filter((a: any) => (a?.values?.length || 0) > 1)
-              const chosen: Record<string, string> = {}
-              for (const a of multi) { const v = (a.values || []).find((x: any) => given.includes(norm(x))); if (v != null) chosen[a.name] = String(v) }
-              const missing = multi.filter((a: any) => chosen[a.name] == null)
-              if (Object.keys(chosen).length) ship.variants_for.selected = { ...(r.selected && typeof r.selected === 'object' ? r.selected : {}), ...chosen }
+              const { chosen, missing } = pickedOptions(axes, pickRaw, prior)
+              const given = Object.values(chosen).map(norm)
               const picked = missing.length === 0
               const isSize = (a: any) => a?.kind === 'size' || /size|talla/i.test(String(a?.name || ''))
               const isColour = (a: any) => a?.kind === 'color' || /colou?r/i.test(String(a?.name || ''))
-              const askFor = missing.length === 1 && isSize(missing[0]) ? 'la talla'
-                : missing.length === 1 && isColour(missing[0]) ? 'el color'
-                : missing.every((a: any) => isSize(a) || isColour(a)) && missing.some(isSize) && missing.some(isColour) ? 'la talla y el color'
+              const askFor = multi.length === 1 && isSize(multi[0]) ? 'la talla'
+                : multi.length === 1 && isColour(multi[0]) ? 'el color'
+                : multi.every((a: any) => isSize(a) || isColour(a)) && multi.some(isSize) && multi.some(isColour) ? 'la talla y el color'
                 : 'las opciones'
               if (realChoice && !picked) {
                 const held = await buildShipment(items.slice(0, -1))
@@ -1398,7 +1405,27 @@ export default defineEventHandler(async (event) => {
                   ...held, hold: true,
                   pending_item: { saved_id: last.saved_id, name: saved?.title || last.name || null, image: saved?.image || last.image || null, price: saved?.price ?? last.price ?? null },
                   variants_for: ship.variants_for,
-                  note: `STOP — "${saved?.title || last.name}" IS NOT IN THE BOX AND YOU MUST NOT SAY IT IS. The words "agregué", "agregado", "ya está en tu caja", "añadí" are FORBIDDEN in this reply. It needs ${missing.map((a: any) => a.name).join(' + ')} first${Object.keys(chosen).length ? ` — ${Object.entries(chosen).map(([k, v]) => `${k} ${v}`).join(', ')} is already chosen from what the shopper said and is pre-selected on the chips, do NOT ask for it again` : ''} (${avail.length} of ${r.variants.length} combinations available; the chips are already on screen, do NOT list the options in text). Reply with ONE short line in this shape: "Elige ${askFor} y lo agrego a tu caja 👇". Then STOP — no other tool calls. When the shopper picks, call show_shipment again for this product WITH size and color set, and only THEN say it is in the box.`,
+                  note: `STOP — "${saved?.title || last.name}" IS NOT IN THE BOX AND YOU MUST NOT SAY IT IS. The words "agregué", "agregado", "ya está en tu caja", "añadí" are FORBIDDEN in this reply. It needs the shopper to pick ${multi.map((a: any) => a.name).join(' + ')} on the chips (even if they typed a size or colour — they choose on the product's own options; nothing is pre-selected) (${avail.length} of ${r.variants.length} combinations available; the chips are already on screen, do NOT list the options in text). Reply with ONE short line in this shape: "Elige ${askFor} y lo agrego a tu caja 👇". Then STOP — no other tool calls. When the shopper picks on the chips, call show_shipment again for this product WITH that size and color, and only THEN say it is in the box.`,
+                }
+              }
+              // THE STORE'S OWN WORDS GO TO THE STORE (live 2026-09-28: "color negro" reached Gymshark's cart run for a
+              // product whose page IS the black colourway — it offers sizes only — and the add failed as "variant
+              // unavailable"). An option the page offers is sent as the store's value ("S" -> "S (4-6)"); one it does
+              // not offer is dropped (the page fixes it). boxFromMessages applies these to the box by product.
+              {
+                const sizeAxis = axes.find((a: any) => a?.kind === 'size' || /size|talla/i.test(String(a?.name || '')))
+                const colourAxis = axes.find((a: any) => a?.kind === 'color' || /colou?r/i.test(String(a?.name || '')))
+                const storeValue = (axis: any, said: any) => {
+                  if (!axis) return null
+                  const v = chosen[axis.name] ?? (axis.values || []).find((x: any) => norm(x) === norm(said)) ?? (axis.values || []).find((x: any) => given.includes(norm(x)))
+                  return v != null ? String(v) : (axis.values?.length === 1 ? String(axis.values[0]) : (said ? String(said) : null))
+                }
+                if (axes.length) {
+                  ship.store_options = [{
+                    key: itemKey,
+                    size: last.size || sizeAxis ? storeValue(sizeAxis, last.size) : null,
+                    color: last.color || colourAxis ? storeValue(colourAxis, last.color) : null,
+                  }]
                 }
               }
               ship.note = `SIZES/COLOURS READ for "${saved?.title || last.name}": ${avail.length} of ${r.variants.length} available (chips are on screen). Ask ONE short question — which size/colour they want, naming the available ones: ${avail.slice(0, 30).map((v: any) => v.key).join(' · ')}. When they answer, add it with show_shipment carrying that size/color.`

@@ -16,7 +16,7 @@
     "test:search-logging": "node --experimental-strip-types server/api/search-logging.test.mjs",
     "test:composer": "node components/composer-enter.test.mjs",
     "test:variant-read": "node components/variant-read.test.mjs",
-    "test:variant-pick": "node --experimental-strip-types server/api/variant-pick.test.mjs",
+    "test:variant-pick": "node --experimental-strip-types utils/variantPick.test.mjs",
     "test:variant-note": "node --experimental-strip-types server/api/variant-note.test.mjs",
     "test:picker-open": "node components/picker-open.test.mjs",
     "test:narrow": "node server/api/narrow.test.mjs",

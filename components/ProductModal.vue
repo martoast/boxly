@@ -401,12 +401,7 @@ async function loadVariants(p, overrideUrl) {
   try {
     // max_age_s 0 = a LIVE read of the product page every time it is opened, never a cached row.
     const r = await $fetch('/api/product-variants', { method: 'POST', body: { url, max_age_s: 0, skip_colorways: !!keep, page_token: overrideUrl ? null : (p?.page_token || null), title: p?.title || null }, timeout: 58000 })
-    const base = r && keep?.length ? { ...r, colorways: keep } : r
-    // What the shopper already named in the chat ("talla 9") opens pre-selected — only values the store offers.
-    const pre = p?.preselect && typeof p.preselect === 'object' && Array.isArray(base?.axes)
-      ? Object.fromEntries(Object.entries(p.preselect).filter(([k, v]) => base.axes.some((a) => a?.name === k && (a.values || []).map(String).includes(String(v)))))
-      : {}
-    const merged = base && Object.keys(pre).length ? { ...base, selected: { ...(base.selected || {}), ...pre } } : base
+    const merged = r && keep?.length ? { ...r, colorways: keep } : r
     if (merged?.variants?.length || merged?.colorways?.length) {
       variantData.value = merged
       variantsRead.value = 'ok'

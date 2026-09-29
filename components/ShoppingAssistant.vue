@@ -1435,7 +1435,7 @@ function openPickerFor(o) {
   if (selectedProduct.value) return ''
   const p = d.product || {}
   if (!p.url) return '' // nothing to open a product page on
-  nextTick(() => { selectedProduct.value = { title: d.product_title || p.title, url: p.url, image: p.image || null, price: p.price ?? null, was: p.list_price ?? null, store: p.store || null, ...(o.selected && typeof o.selected === 'object' ? { preselect: o.selected } : {}) } })
+  nextTick(() => { selectedProduct.value = { title: d.product_title || p.title, url: p.url, image: p.image || null, price: p.price ?? null, was: p.list_price ?? null, store: p.store || null } })
   return ''
 }
 
@@ -1976,7 +1976,10 @@ function sendAssisted(p) {
     ? `${p.pick.text}${urlPart}`
     : `Agrégalo a mi carrito Boxly: ${p.title}${store}${price}${urlPart}`
   ensureConversation(text)
-  chat.sendMessage({ text })
+  // The picker's exact choice rides with the message: only a pick made on the chips adds a product with options
+  // (a size typed in the chat never skips the picker — Alex, 2026-09-28).
+  const pick = p?.pick?.variants && typeof p.pick.variants === 'object' && Object.keys(p.pick.variants).length ? p.pick.variants : null
+  chat.sendMessage(pick ? { text, metadata: { pick } } : { text })
   scrollDown()
 }
 // Gallery "Pedir" — add to the consolidated shipment/order (self-import flow).

@@ -133,7 +133,8 @@ const sel = reactive({})
 const independent = computed(() => props.data?.axes_independent === true || props.data?.matrix === false
   || (axes.value.length > 1 && !variants.value.some((v) => Object.keys(v.options).length > 1)))
 // Pre-select what the page had selected (e.g. the colourway from the URL) so the shopper only picks what's missing.
-watchEffect(() => { const pre = props.data?.selected; if (pre && typeof pre === 'object') for (const [k, v] of Object.entries(pre)) if (v != null && !sel[k]) sel[k] = String(v) })
+// NOTHING IS PRE-SELECTED (Alex, 2026-09-28: "let the user do that — they see all the available options and pick them
+// themselves, so it feels like a real shopping experience"); only an axis with a single value is filled in above.
 const availableCount = computed(() => variants.value.filter((v) => v.available === true).length)
 const unknownCount = computed(() => variants.value.filter((v) => v.available == null).length)
 // The source told us nothing about stock (a feed without the field, an unreadable page): every chip stays
