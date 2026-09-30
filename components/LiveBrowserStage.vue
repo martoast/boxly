@@ -34,6 +34,12 @@
         <p :class="compact ? 'text-[11px] text-white/80' : 'text-sm text-white/80'">{{ loadingCopy }}</p>
       </template>
     </div>
+    <!-- The phone would not start the video by itself (autoplay refused): one tap starts it, never a black box with the
+         browser's own play button (Alex 2026-09-30, iPhone). -->
+    <button v-if="phase === 'playing' && needsTap" type="button" @click="startVideo" class="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-gray-900/80 text-white">
+      <svg class="w-8 h-8" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
+      <span :class="compact ? 'text-[11px]' : 'text-sm'">Toca para ver en vivo</span>
+    </button>
     <span class="sr-only" role="status" aria-atomic="true">{{ srStatus }}</span>
   </div>
 </template>
@@ -53,6 +59,15 @@ const emit = defineEmits<{ (e: 'ended'): void, (e: 'control', controller: string
 const nuxtApp = useNuxtApp() as any
 const { $customFetch } = nuxtApp
 const videoEl = ref<HTMLVideoElement | null>(null)
+// iOS Safari only autoplays a video that is muted as a PROPERTY (the template attribute is not always reflected) and
+// inline; a stream attached with srcObject still needs play(). When the phone refuses anyway, needsTap shows one tap.
+const needsTap = ref(false)
+function startVideo() {
+  const el = videoEl.value
+  if (!el) return
+  el.muted = true; el.defaultMuted = true; el.playsInline = true
+  el.play().then(() => { needsTap.value = false }).catch(() => { needsTap.value = true })
+}
 const phase = ref<'connecting' | 'queued' | 'playing' | 'ended' | 'error'>('connecting')
 // Its place in line while the engine is full (1 = next).
 const queuePosition = ref<number | null>(null)
@@ -110,7 +125,7 @@ async function attach() {
   viewer = nuxtApp.runWithContext(() => useWhepViewer({ getTicket: live.getTicket, remintTicket: live.remintTicket }))
   stops.push(watch(live.mediaState, (s: string) => { mediaState.value = s }, { immediate: true }))
   stops.push(watch(viewer.state, (s: string) => { if (s === 'playing') phase.value = 'playing'; else if (phase.value === 'playing' && s !== 'reconnecting') phase.value = 'connecting' }))
-  stops.push(watch(viewer.stream, (s: MediaStream | null) => { if (videoEl.value && s) videoEl.value.srcObject = s }))
+  stops.push(watch(viewer.stream, (s: MediaStream | null) => { if (videoEl.value && s) { videoEl.value.muted = true; videoEl.value.srcObject = s; startVideo() } }))
   // The ticket drives both planes: the video when it carries media, the customer's input when it carries an
   // input_url (only while they hold the browser, and only when this stage is interactive).
   stops.push(watch(live.ticket, (t: any) => {
