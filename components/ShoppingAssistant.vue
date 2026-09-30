@@ -728,7 +728,19 @@ function onLiveControl(controller, reason = null, occurredAt = null) {
 function onLiveEnded() {
   liveHelp.value = 'none'
   const ended = liveShown.value
-  if (ended && galleryLiveIds.has(ended.id)) { galleryLiveIds.delete(ended.id); fetchLiveGallery(ended.id) }
+  if (ended && galleryLiveIds.has(ended.id)) {
+    galleryLiveIds.delete(ended.id)
+    // A SEARCH browser is done once its results are in the chat (Alex 2026-09-30: the finished card "is just kind of
+    // pointless and invasive there"): the card goes — or the next store browser takes its place. Cart and checkout
+    // browsers still stay with their last frame (below).
+    fetchLiveGallery(ended.id).finally(() => {
+      if (liveShown.value?.id !== ended.id) return
+      const next = [checkoutLive.value, boxlyCart.cart.value?.live_sessions?.[0]].find((s) => s && s.id !== ended.id) || null
+      liveShown.value = next
+      if (!next) liveOpen.value = false
+    })
+    return
+  }
   clearTimeout(liveEndTimer)
   liveEndTimer = setTimeout(() => {
     // A finished store browser STAYS (Alex 2026-09-28: "it shouldn't close it … in case the user wants to go back

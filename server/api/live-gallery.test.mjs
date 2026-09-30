@@ -96,7 +96,8 @@ ok('the chat renders a live-results part as its normal gallery', /const GALLERY_
 ok('the live gallery\'s own spinner is its loader (no second typing indicator)', /const TOOLS_WITH_LOADER = new Set\(\[\s*'tool-live_gallery'/.test(vue))
 ok('history and fresh results both read as gallery rows (price, store_id)', /parts: withLiveRows\(/.test(vue))
 ok('the live card goes up for this page\'s own live_gallery answer only (never an old one from history)', /\/\^\\d\+\$\/\.test\(String\(m\.id\)\)/.test(vue) && /p\.type === 'tool-live_gallery' && p\.state === 'output-available' && p\.output\?\.live_session\?\.id/.test(vue))
-ok('when that browser ends, its gallery is fetched into the chat and registered', /if \(ended && galleryLiveIds\.has\(ended\.id\)\) \{ galleryLiveIds\.delete\(ended\.id\); fetchLiveGallery\(ended\.id\) \}/.test(vue) && /registerProducts\(part\.output\.products\)/.test(vue))
+ok('when that browser ends, its gallery is fetched into the chat and registered', /if \(ended && galleryLiveIds\.has\(ended\.id\)\) \{\s*galleryLiveIds\.delete\(ended\.id\)/.test(vue) && /fetchLiveGallery\(ended\.id\)\.finally\(/.test(vue) && /registerProducts\(part\.output\.products\)/.test(vue))
+ok('a finished SEARCH browser card goes once its results are in (cart/checkout cards stay)', /fetchLiveGallery\(ended\.id\)\.finally\(\(\) => \{[\s\S]{0,400}liveShown\.value = next[\s\S]{0,80}if \(!next\) liveOpen\.value = false/.test(vue))
 ok('the session read first reconciles a terminal whose webhook has not landed', /await \$customFetch\(`\/live-shopping\/sessions\/\$\{sessionId\}`\)/.test(vue))
 // The first word is immediate (Alex, 2026-09-28): the chat draws "¡Va! Déjame revisar … por ti" from the call itself,
 // and a search that started for every store asked ends the turn without a second line from the model.
