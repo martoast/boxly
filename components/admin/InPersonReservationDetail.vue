@@ -61,6 +61,10 @@
           <p v-if="r.final.sent_at" class="text-xs text-gray-500">{{ t.sentAt }}: {{ formatPacific(r.final.sent_at, language) }}</p>
           <button v-if="r.final.status === 'pending' && !confirmingInvoice" @click="confirmingInvoice = true"
             class="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold">{{ t.generate }}</button>
+          <div v-if="r.final_invoice_stuck" class="p-3 rounded-xl bg-red-50 border border-red-200 space-y-2">
+            <p class="text-sm text-red-800">{{ t.stuckNote }}</p>
+            <button @click="retryInvoice" :disabled="busy" class="w-full py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-semibold disabled:opacity-60">{{ t.retry }}</button>
+          </div>
           <div v-if="confirmingInvoice" class="p-3 rounded-xl bg-amber-50 border border-amber-200 space-y-3">
             <p class="text-sm text-amber-900">{{ t.generateConfirm(money(r.final.total_usd)) }}</p>
             <div class="flex gap-2">
@@ -151,6 +155,9 @@ const t = createTranslations({
   sentAt: { es: 'Enviado', en: 'Sent' },
   generate: { es: 'Generar cobro final', en: 'Generate final invoice' },
   generateConfirm: { es: (total) => `Se enviará al cliente un cobro por ${total} USD. ¿Confirmas?`, en: (total) => `The customer will be sent an invoice for ${total} USD. Confirm?` },
+  stuckNote: { es: 'El cobro final se quedó a medias (más de 10 minutos sin factura). Reintentar revisa Stripe: si la factura existe la recupera, si no libera el bloqueo para generarla de nuevo.', en: 'The final invoice got stuck (over 10 minutes without an invoice). Retry checks Stripe: if the invoice exists it recovers it, otherwise it releases the lock so you can generate it again.' },
+  retry: { es: 'Reintentar cobro final', en: 'Retry final invoice' },
+  retried: { es: 'Listo, revisa el estado del cobro', en: 'Done, check the billing status' },
   complete: { es: 'Marcar completada', en: 'Mark completed' },
   cancelRes: { es: 'Cancelar reserva', en: 'Cancel reservation' },
   cancelWarn: { es: 'Se le enviará un correo al cliente. El reembolso se acuerda por WhatsApp y se hace manualmente en Stripe.', en: 'The customer will be emailed. Refunds are agreed over WhatsApp and done manually in Stripe.' },
@@ -221,6 +228,7 @@ async function act(path, body, okMsg) {
 const submitCancel = () => act('cancel', { reason: form.reason.trim() }, t.value.cancelled)
 const submitComplete = () => act('complete', { hours_worked: Number(form.hours), amount_spent_usd: Number(form.spent) }, t.value.completed)
 const generateInvoice = () => act('final-invoice', undefined, t.value.invoiceSent)
+const retryInvoice = () => act('retry-final-invoice', undefined, t.value.retried)
 const refundAction = (path, okMsg) => act(path, undefined, okMsg)
 const waive = () => { if (confirm(t.value.waiveConfirm)) refundAction('waive-refund', t.value.waiveDone) }
 
