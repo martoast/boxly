@@ -50,3 +50,12 @@ assert.deepEqual(kept[0], part); console.log('reload: the history mapping keeps 
   assert.equal(sent[1].title, undefined); assert.equal(sent[1].image, undefined)
   console.log('VS re-pin: title+image sent, the pinned URL is the card\'s read_url; colourway reads send neither ✓')
 }
+{
+  // Reader price_with (2026-09-30, Walmart Huggies): a pack price stated for Size 1 is not shown once the shopper picks Size 2.
+  const { readFileSync } = await import('node:fs')
+  const vp = readFileSync(new URL('../../components/VariantPicker.vue', import.meta.url), 'utf8')
+  const card = readFileSync(new URL('../../components/ProductPickerCard.vue', import.meta.url), 'utf8')
+  assert.ok(/const holds = \(v\) => !v\.price_with \|\| Object\.entries\(v\.price_with\)\.every/.test(vp) && /\{ price: null, unknown: true \}/.test(vp))
+  assert.ok(/pickedPrice\.value\?\.unknown \? null/.test(card))
+  console.log('a pack price stated for another size is unknown, never shown ✓')
+}

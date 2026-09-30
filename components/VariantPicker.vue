@@ -156,8 +156,11 @@ function priceForSelection() {
   const colour = indep ? axes.value.find((a) => a.kind === 'color' && sel[a.name]) : null
   const colourRows = colour ? pool.filter((v) => val(v, colour) === sel[colour.name] && typeof v.price === 'number') : []
   if (colourRows.length) pool = colourRows
-  const prices = pool.map((v) => v.price).filter((p) => typeof p === 'number')
-  if (!prices.length) return null
+  // A price the page stated for this option WITH the other axes as they were then (reader price_with: Walmart's
+  // "96, $24.97" is Size 1's) does not hold once the shopper picked another value there: unknown, never shown.
+  const holds = (v) => !v.price_with || Object.entries(v.price_with).every(([k, want]) => !sel[k] || sel[k] === want)
+  const prices = pool.filter(holds).map((v) => v.price).filter((p) => typeof p === 'number')
+  if (!prices.length) return pool.some((v) => typeof v.price === 'number' && !holds(v)) ? { price: null, unknown: true } : null
   const lo = Math.min(...prices), hi = Math.max(...prices)
   return { price: lo, from: lo !== hi }
 }

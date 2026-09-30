@@ -60,7 +60,7 @@
       <div v-if="marketplace" class="rounded-2xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-[12.5px] text-amber-800 leading-snug">
         Este artículo lo vende <b>{{ seller.name }}</b>, un vendedor externo en {{ product.store_name || 'la tienda' }}. Boxly solo compra lo que vende la tienda directamente — pídeme uno parecido vendido por {{ product.store_name || 'la tienda' }}.
       </div>
-      <LazyVariantPicker v-else-if="hasChoices" :key="readKey" :data="pickerData" :busy="busy" @pick="onVariantPick" @show-image="(u) => (leadImage = u)" @price="(p) => (pickedPrice = p && typeof p.price === 'number' ? p : null)" />
+      <LazyVariantPicker v-else-if="hasChoices" :key="readKey" :data="pickerData" :busy="busy" @pick="onVariantPick" @show-image="(u) => (leadImage = u)" @price="(p) => (pickedPrice = p && (typeof p.price === 'number' || p.unknown) ? p : null)" />
       <button v-else type="button" :disabled="busy" @click="assisted()"
         class="w-full flex items-center justify-center gap-2 rounded-2xl bg-primary-500 hover:bg-primary-600 active:scale-[.98] transition text-white font-bold py-3 text-[14px] disabled:opacity-50">
         {{ missingSize ? 'Elegir talla' : 'Agregar al carrito' }}
@@ -132,7 +132,8 @@ const broken = ref(null)
 const pickedPrice = ref(null)
 watch(readKey, () => { leadImage.value = null; pickedPrice.value = null })
 const image = computed(() => [leadImage.value, product.value.image, read.value?.product?.image, read.value?.product?.images?.[0]].find((u) => typeof u === 'string' && u && u !== broken.value) || null)
-const price = computed(() => pickedPrice.value?.price ?? read.value?.product?.price ?? product.value.price ?? null)
+// A selection the page never priced (another size than the one its pack prices were stated for) shows no price, not a guess.
+const price = computed(() => (pickedPrice.value?.unknown ? null : pickedPrice.value?.price ?? read.value?.product?.price ?? product.value.price ?? null))
 const was = computed(() => product.value.was ?? read.value?.product?.list_price ?? null)
 const onSale = computed(() => !!(was.value && price.value && was.value > price.value))
 
