@@ -295,7 +295,9 @@
 
       <!-- ===== CHAT STATE ===== -->
       <template v-if="!loadingChat && (chat.messages.length || activeId)">
-        <div ref="scroller" @scroll.passive="onScroll" class="md:flex-1 md:overflow-y-auto md:overscroll-contain px-3 md:px-4 py-5 scroll-smooth">
+        <!-- flex-1 on mobile too: a short chat still fills the screen, so the composer sits at the bottom, not right
+             under the last message (Alex 2026-09-30: after sending, the input stayed "pushed up" mid-screen). -->
+        <div ref="scroller" @scroll.passive="onScroll" class="flex-1 md:overflow-y-auto md:overscroll-contain px-3 md:px-4 py-5 scroll-smooth">
           <div v-if="loadingOlder" class="flex justify-center pb-3">
             <svg class="w-5 h-5 animate-spin text-gray-300" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
           </div>
