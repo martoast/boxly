@@ -36,3 +36,17 @@ assert.equal(r.colorways.length, 2); assert.equal(JSON.parse(posted[1].opts.body
 const { withLiveRows } = await import('../../utils/liveGallery.ts')
 const kept = withLiveRows([part])
 assert.deepEqual(kept[0], part); console.log('reload: the history mapping keeps the picker part as saved ✓')
+// VS family link (2026-09-30): the card's title + image reach the reader; a re-pin becomes the card's read_url (the cart adds
+// THAT style); a colourway re-read sends neither.
+{
+  const sent = []
+  stub({ $fetch: async (url, opts) => { sent.push(opts.body); return { variants: [{ options: { Size: 'M' }, available: true }, { options: { Size: 'L' }, available: true }], product: { title: 'Rose Lace Push-Up Bra', url: 'https://vs.com/b?choice=54A2&genericId=11259398' }, repinned: { from: 'https://vs.com/b', to: 'https://vs.com/b?choice=54A2&genericId=11259398' } } } })
+  const n0 = posted.length
+  r = await h({ body: { url: 'https://vs.com/b', title: 'Rose Lace Push-Up Bra', image: 'https://i/1125939854A2_OM_F.jpg', conversation_id: 7, token: 'tk', product: { url: 'https://vs.com/b', title: 'Rose Lace Push-Up Bra' } } })
+  assert.equal(sent[0].title, 'Rose Lace Push-Up Bra'); assert.equal(sent[0].image, 'https://i/1125939854A2_OM_F.jpg')
+  assert.equal(r.repinned.to, 'https://vs.com/b?choice=54A2&genericId=11259398'); assert.equal(r.style_mismatch, null)
+  assert.equal(JSON.parse(posted[n0].opts.body).messages[0].content.parts[0].output.read_url, 'https://vs.com/b?choice=54A2&genericId=11259398')
+  await h({ body: { url: 'https://vs.com/b2', title: 'X', image: 'https://i/y.jpg', colorways: [{ name: 'A', url: 'https://vs.com/b2' }] } })
+  assert.equal(sent[1].title, undefined); assert.equal(sent[1].image, undefined)
+  console.log('VS re-pin: title+image sent, the pinned URL is the card\'s read_url; colourway reads send neither ✓')
+}

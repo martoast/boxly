@@ -2175,10 +2175,10 @@ async function readIntoCard(key, product, { readUrl = product.url, maxAge = 0, c
     if (user.value) await ensureChatToken()
     const r = await $fetch('/api/product-variants', {
       method: 'POST', timeout: 58000,
-      body: { url: readUrl, max_age_s: maxAge, skip_colorways: !!colorways?.length, title: product.title || null, ...(colorways?.length ? { colorways } : {}), ...(conv && token.value ? { conversation_id: conv, token: token.value, product } : {}) },
+      body: { url: readUrl, max_age_s: maxAge, skip_colorways: !!colorways?.length, title: product.title || null, image: product.image || null, ...(colorways?.length ? { colorways } : {}), ...(conv && token.value ? { conversation_id: conv, token: token.value, product } : {}) },
     })
     // Same line as the modal: a read that worked and found nothing to choose is a single-SKU product, not a failure.
-    if (r && (!r.reason || r.reason === 'no_variants' || r.reason === 'need_url')) next = { type: PICKER_PART, toolCallId: 'picker-local', state: 'output-available', input: {}, output: { product, read: r, read_at: new Date().toISOString(), read_url: readUrl } }
+    if (r && (!r.reason || r.reason === 'no_variants' || r.reason === 'need_url')) next = { type: PICKER_PART, toolCallId: 'picker-local', state: 'output-available', input: {}, output: { product, read: r, read_at: new Date().toISOString(), read_url: r.repinned?.to || readUrl } }
   } catch { /* handled below: the card offers a retry */ }
   cardsReading.value = new Set([...cardsReading.value].filter((k) => k !== key))
   // The shopper moved to another chat meanwhile: the server saved the card there; that chat reloads it when reopened.

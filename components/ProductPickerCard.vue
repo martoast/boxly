@@ -111,7 +111,7 @@ const familyMismatch = computed(() => {
   const pinned = f.urls && typeof f.urls[tapped] === 'string' ? f.urls[tapped] : null
   return { served: f.served, tapped, pinned }
 })
-const familyServed = computed(() => familyMismatch.value?.served || null)
+const familyServed = computed(() => familyMismatch.value?.served || read.value?.style_mismatch?.served_title || null)
 // …and when the store's own pinned link for the tapped style is known (?choice=…&genericId=…), read THAT style into
 // this card instead — once per card, so a store that still serves another style can never loop.
 let repinned = false

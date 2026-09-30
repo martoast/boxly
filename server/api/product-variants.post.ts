@@ -79,7 +79,7 @@ export default defineEventHandler(async (event) => {
         method: 'POST',
         // The card's title lets the reader re-pin a family page that served another style (VS, 2026-09-30); a
         // colourway pick is a deliberate other style, so it goes without.
-        body: { url: u, max_age_s: maxAgeS, skip_colorways: !!body?.skip_colorways, ...(body?.title && !body?.colorways?.length ? { title: String(body.title).slice(0, 300) } : {}) },
+        body: { url: u, max_age_s: maxAgeS, skip_colorways: !!body?.skip_colorways, ...(!body?.colorways?.length ? { ...(body?.title ? { title: String(body.title).slice(0, 300) } : {}), ...(body?.image ? { image: String(body.image).slice(0, 2000) } : {}) } : {}) },
         timeout: 55_000,
       })
       const variants = Array.isArray(r?.variants) ? r.variants : []
@@ -94,6 +94,10 @@ export default defineEventHandler(async (event) => {
         // Sibling colourways: stores that sell each colour as its own page (DFYNE, Alo, YoungLA) — the modal offers
         // them all and re-reads the one the shopper picks, because availability is per colourway.
         colorways: Array.isArray(r?.colorways) ? r.colorways : [],
+        // The reader read the card's own style instead of the family page's default ({from, to}), or could not
+        // (style_mismatch {card_title, served_title, served_price}): the picker names the served product, never passes it off.
+        repinned: r?.repinned?.to ? r.repinned : null,
+        style_mismatch: r?.style_mismatch?.served_title ? r.style_mismatch : null,
         // BUSY IS NOT "THIS PRODUCT HAS NO OPTIONS" (2026-09-12, found by pdp-truth-retail). The reader answers
         // {busy:true} when another read holds the browser, and mapping that to no_variants gave the shopper an
         // instant, permanent "no sizes" on a product with plenty — indistinguishable from a real single-SKU page,
@@ -138,7 +142,8 @@ export default defineEventHandler(async (event) => {
   }
   // A colourway re-read skips re-discovering the siblings; the chat's picker card keeps the set it already holds.
   if (Array.isArray(body?.colorways) && body.colorways.length && !out.colorways?.length) out = { ...out, colorways: body.colorways.slice(0, 60) }
-  await persistPickerCard(body, url, out)
+  // A re-pinned read's URL is the card's own style: the cart adds THAT, not the family link's default.
+  await persistPickerCard(body, out.repinned?.to || url, out)
   return out
 })
 
