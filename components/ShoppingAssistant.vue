@@ -15,10 +15,10 @@
     </Transition>
     <!-- ===== Mobile history drawer ===== -->
     <Transition name="backdrop">
-      <div v-if="showSidebar && drawerOpen" class="md:hidden absolute inset-0 z-40 bg-black/30 backdrop-blur-sm" @click="drawerOpen = false" />
+      <div v-if="showSidebar && drawerOpen" class="md:hidden fixed inset-0 z-40 bg-black/30 backdrop-blur-sm" @click="drawerOpen = false" />
     </Transition>
     <Transition name="drawer">
-      <aside v-if="showSidebar && drawerOpen" class="md:hidden absolute inset-y-0 left-0 z-50 w-72 bg-white border-r border-gray-200 flex flex-col shadow-2xl">
+      <aside v-if="showSidebar && drawerOpen" class="md:hidden fixed inset-y-0 left-0 z-50 w-72 bg-white border-r border-gray-200 flex flex-col shadow-2xl">
         <ConversationsList :conversations="conversations" :active-id="activeId" :user="user" :show-profile="standalone" :hub="hub" @new="newChat" @open="openChat" @delete="deleteConversation" @memory="showMemory = true" @logout="logout" />
       </aside>
     </Transition>
@@ -30,8 +30,8 @@
 
     <!-- ===== Chat area ===== -->
     <main class="flex-1 flex flex-col min-w-0">
-      <!-- Mobile top bar (history access) -->
-      <header v-if="showSidebar" class="md:hidden flex items-center justify-between px-3 min-h-[3rem] border-b border-gray-100 bg-white/80 backdrop-blur shrink-0" :class="(fullscreenMobile || standalone) ? 'pt-[env(safe-area-inset-top)]' : ''">
+      <!-- Mobile top bar (history access). Sticky: on mobile the PAGE scrolls, and a long chat scrolled it away (Alex 2026-09-30). -->
+      <header v-if="showSidebar" class="md:hidden sticky top-0 z-30 flex items-center justify-between px-3 min-h-[3rem] border-b border-gray-100 bg-white/90 backdrop-blur shrink-0" :class="(fullscreenMobile || standalone) ? 'pt-[env(safe-area-inset-top)]' : ''">
         <button @click="drawerOpen = true" class="p-2 -ml-1 rounded-lg text-gray-600 active:scale-90 transition-transform" aria-label="Historial">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
         </button>
