@@ -101,14 +101,25 @@ const activeColorway = computed(() => colorways.value.find((c) => c.url === outp
 const pickerData = computed(() => ({ ...read.value, product: { ...(read.value?.product || {}), title: product.value.title || read.value?.product?.title || '', url: output.value.read_url || product.value.url } }))
 // A STYLE-FAMILY LINK (reader: product.family = {served, styles}, 2026-09-30): the same Victoria's Secret URL can open
 // another style than the tile tapped. Say so only when the tapped title names a DIFFERENT style of that family.
-const familyServed = computed(() => {
+const familyMismatch = computed(() => {
   const f = read.value?.product?.family
   if (!f?.served || !Array.isArray(f.styles)) return null
   const n = (x) => String(x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim()
-  const styleOf = (t) => f.styles.map(n).filter((st) => st && t.startsWith(st)).sort((a, b) => b.length - a.length)[0] || null
+  const styleOf = (t) => f.styles.filter((st) => n(st) && t.startsWith(n(st))).sort((a, b) => b.length - a.length)[0] || null
   const tapped = styleOf(n(product.value.title)), served = styleOf(n(f.served))
-  return tapped && served && tapped !== served ? f.served : null
+  if (!tapped || !served || tapped === served) return null
+  const pinned = f.urls && typeof f.urls[tapped] === 'string' ? f.urls[tapped] : null
+  return { served: f.served, tapped, pinned }
 })
+const familyServed = computed(() => familyMismatch.value?.served || null)
+// …and when the store's own pinned link for the tapped style is known (?choice=…&genericId=…), read THAT style into
+// this card instead — once per card, so a store that still serves another style can never loop.
+let repinned = false
+watch(familyMismatch, (m) => {
+  if (!m?.pinned || repinned || props.busy || output.value.read_url === m.pinned) return
+  repinned = true
+  emit('colorway', { name: m.tapped, url: m.pinned })
+}, { immediate: true })
 // Who sells it (the reader's product.seller): a marketplace seller (is_store false) is shown and never added.
 const seller = computed(() => (read.value?.product?.seller?.name ? read.value.product.seller : null))
 const marketplace = computed(() => seller.value?.is_store === false)
