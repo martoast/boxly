@@ -216,8 +216,8 @@ export default defineNuxtConfig({
       MAPBOX_API_TOKEN: process.env.MAPBOX_API_TOKEN,
       gtagId: process.env.GTAG_ID,
       inPersonWhatsapp: process.env.IN_PERSON_WHATSAPP || '16194937969',
-      // The live store-browser video in the chat. Off (Alex 2026-09-30): a progress card says what the agent is doing
-      // instead; a store's human check still shows the browser. LIVE_VIDEO=1 brings the video back everywhere.
+      // The live video for SEARCH browsers (Alex 2026-09-30): off, a progress card says what the agent is doing; cart
+      // adds and checkout always show the live browser. LIVE_VIDEO=1 shows searches live too.
       liveVideo: process.env.LIVE_VIDEO === '1',
     }
   }

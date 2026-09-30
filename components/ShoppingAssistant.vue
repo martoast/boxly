@@ -229,7 +229,7 @@
 
             <!-- C4: a store browser already running for the cart shows here too, above the input. -->
             <div v-if="liveShown" class="mb-4">
-              <LiveBrowserCard :session="liveShown" :expanded="liveOpen" :is-desktop="isDesktop" :help="liveHelp" :hide-video="!liveVideo" :mode="liveMode" @expand="liveOpen = true" @ended="onLiveEnded" @control="onLiveControl" />
+              <LiveBrowserCard :session="liveShown" :expanded="liveOpen" :is-desktop="isDesktop" :help="liveHelp" :hide-video="liveMode === 'search' && !liveVideo" :mode="liveMode" @expand="liveOpen = true" @ended="onLiveEnded" @control="onLiveControl" />
             </div>
 
             <!-- input at the top -->
@@ -384,7 +384,7 @@
 
                     <!-- The order placed from the box — live store checkouts, real totals, then Pagar. (tool-finalize_lab_order
                          is the same card in chats from the Boxly Lab days, before 2026-09-28.) -->
-                    <LazyCheckoutCard v-else-if="FINALIZE_PARTS.has(part.type) && part.state === 'output-available' && part.output?.purchase_request_id" :purchase-request-id="part.output.purchase_request_id" :request-number="part.output.request_number" @watch="watchLive" @live="onCheckoutLive" :live-video="liveVideo" />
+                    <LazyCheckoutCard v-else-if="FINALIZE_PARTS.has(part.type) && part.state === 'output-available' && part.output?.purchase_request_id" :purchase-request-id="part.output.purchase_request_id" :request-number="part.output.request_number" @watch="watchLive" @live="onCheckoutLive" />
                     <div v-else-if="FINALIZE_PARTS.has(part.type) && (part.state === 'input-streaming' || part.state === 'input-available')" class="flex items-center gap-2 text-xs text-gray-400 pl-1">
                       <svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
                       Preparando tu pedido…
@@ -469,7 +469,7 @@
 
           <!-- C4: the store browser the agent is running (a live gallery, a cart add or a checkout), live in the chat. -->
           <div v-if="liveShown" class="max-w-2xl mx-auto mt-4 flex justify-start">
-            <LiveBrowserCard :session="liveShown" :expanded="liveOpen" :is-desktop="isDesktop" :help="liveHelp" :hide-video="!liveVideo" :mode="liveMode" @expand="liveOpen = true" @ended="onLiveEnded" @control="onLiveControl" />
+            <LiveBrowserCard :session="liveShown" :expanded="liveOpen" :is-desktop="isDesktop" :help="liveHelp" :hide-video="liveMode === 'search' && !liveVideo" :mode="liveMode" @expand="liveOpen = true" @ended="onLiveEnded" @control="onLiveControl" />
           </div>
 
           <div v-if="showTyping" class="max-w-2xl mx-auto mt-4 flex justify-start">
@@ -657,7 +657,8 @@ const boxlyCart = useBoxlyCart()
 // seconds after the agent finishes, then goes.
 const liveShown = ref(null)
 const liveOpen = ref(false)
-// The live video is off unless LIVE_VIDEO=1 (nuxt.config): the card shows the agent's progress instead.
+// Search browsers show a progress card, not video, unless LIVE_VIDEO=1 (nuxt.config). Cart adds and checkout always
+// show the live browser (Alex 2026-09-30: the video is for "the real deal of adding it to their cart").
 const liveVideo = !!useRuntimeConfig().public.liveVideo
 // Which job the shown browser is doing, for the progress card's steps.
 const liveMode = computed(() => {
@@ -2161,15 +2162,22 @@ async function readIntoCard(key, product, { readUrl = product.url, maxAge = 0, c
   cardsReading.value = new Set([...cardsReading.value, key])
   const conv = activeId.value
   let next = null
-  try {
-    if (user.value) await ensureChatToken()
-    const r = await $fetch('/api/product-variants', {
-      method: 'POST', timeout: 58000,
-      body: { url: readUrl, max_age_s: maxAge, skip_colorways: !!colorways?.length, title: product.title || null, image: product.image || null, ...(colorways?.length ? { colorways } : {}), ...(conv && token.value ? { conversation_id: conv, token: token.value, product } : {}) },
-    })
-    // Same line as the modal: a read that worked and found nothing to choose is a single-SKU product, not a failure.
-    if (r && (!r.reason || r.reason === 'no_variants' || r.reason === 'need_url')) next = { type: PICKER_PART, toolCallId: 'picker-local', state: 'output-available', input: {}, output: { product, read: r, read_at: new Date().toISOString(), read_url: r.repinned?.to || readUrl } }
-  } catch { /* handled below: the card offers a retry */ }
+  // One quiet retry before the card says it could not read (Alex 2026-09-30: a New Balance read failed once and
+  // read fine seconds later); a store that blocks us or a reader that is busy answers the same way twice.
+  for (let attempt = 0; attempt < 2 && !next; attempt++) {
+    if (attempt) await new Promise((res) => setTimeout(res, 1500))
+    try {
+      if (user.value) await ensureChatToken()
+      const r = await $fetch('/api/product-variants', {
+        method: 'POST', timeout: 58000,
+        body: { url: readUrl, max_age_s: maxAge, skip_colorways: !!colorways?.length, title: product.title || null, image: product.image || null, ...(colorways?.length ? { colorways } : {}), ...(conv && token.value ? { conversation_id: conv, token: token.value, product } : {}) },
+      })
+      // Same line as the modal: a read that worked and found nothing to choose is a single-SKU product, not a failure.
+      if (r && (!r.reason || r.reason === 'no_variants' || r.reason === 'need_url')) next = { type: PICKER_PART, toolCallId: 'picker-local', state: 'output-available', input: {}, output: { product, read: r, read_at: new Date().toISOString(), read_url: r.repinned?.to || readUrl } }
+      // A definite answer is not retried: the store blocked us, the link is dead, or a marketplace sells it.
+      else if (['blocked', 'page_not_found', 'marketplace'].includes(r?.reason) || r?.error === 'page_not_found') break
+    } catch { /* retried once, then handled below: the card offers a retry */ }
+  }
   cardsReading.value = new Set([...cardsReading.value].filter((k) => k !== key))
   // The shopper moved to another chat meanwhile: the server saved the card there; that chat reloads it when reopened.
   if (activeId.value !== conv) { if (conv) msgCache.delete(conv); return }
