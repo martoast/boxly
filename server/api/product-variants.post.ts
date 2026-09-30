@@ -129,9 +129,52 @@ export default defineEventHandler(async (event) => {
   // no size to pick and "Agregar al carrito" sent it to the store without one).
   const store = sane(await readStore(readUrl))
   const readUrlBrand = feedBrand(readUrl)
+  let out: any = store
   if (readUrlBrand && !store.variants.length) {
     const feed = await readFeed(readUrl, readUrlBrand)
-    if (feed.variants.length) return feed
+    if (feed.variants.length) out = feed
   }
-  return store
+  // A colourway re-read skips re-discovering the siblings; the chat's picker card keeps the set it already holds.
+  if (Array.isArray(body?.colorways) && body.colorways.length && !out.colorways?.length) out = { ...out, colorways: body.colorways.slice(0, 60) }
+  await persistPickerCard(body, url, out)
+  return out
 })
+
+// THE PICKER CARD LIVES IN THE CONVERSATION (Alex, 2026-09-29: "make it directly in the chat itself … so it stays there,
+// even if the client refreshes"). When the chat asks for a read with its conversation, the read is saved there as one
+// assistant message carrying a tool-product_picker part — written here, server-side, so the card survives even a tab
+// closed mid-read. Same owner-authenticated call the assistant's persistTurn makes. Only a read that worked is saved
+// (a busy / walled / unreachable read is retried from the card instead); a failed save never costs the shopper the read.
+const READ_SUCCEEDED_EMPTY = new Set(['no_variants', 'need_url'])
+async function persistPickerCard(body: any, url: string, read: any) {
+  const conversationId = Number(body?.conversation_id)
+  const token = typeof body?.token === 'string' ? body.token : ''
+  if (!(conversationId > 0) || !token || (read?.reason && !READ_SUCCEEDED_EMPTY.has(read.reason))) return
+  const p = body?.product && typeof body.product === 'object' ? body.product : {}
+  const str = (v: any, n: number) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, n) : null)
+  const num = (v: any) => (typeof v === 'number' && Number.isFinite(v) ? v : null)
+  const cardUrl = str(p.url, 2000) || url
+  const part = {
+    type: 'tool-product_picker',
+    toolCallId: 'picker-' + Date.now().toString(36),
+    state: 'output-available',
+    input: {},
+    output: {
+      product: { store_id: str(p.store_id, 64), store_name: str(p.store_name, 120), url: cardUrl, title: str(p.title, 300), image: str(p.image, 2000), price: num(p.price), was: num(p.was) },
+      read,
+      read_at: new Date().toISOString(),
+      read_url: url,
+    },
+  }
+  try {
+    const res = await fetch(`${API_BASE}/conversations/${conversationId}/messages`, {
+      method: 'POST',
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ messages: [{ role: 'assistant', content: { parts: [part] } }] }),
+      signal: AbortSignal.timeout(10_000),
+    })
+    if (!res.ok) console.warn('[product-variants] picker card not saved:', res.status)
+  } catch (e: any) {
+    console.warn('[product-variants] picker card not saved:', e?.message || e)
+  }
+}

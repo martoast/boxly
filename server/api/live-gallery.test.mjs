@@ -90,7 +90,7 @@ ok('the live gallery is the loop\'s product search', /const GALLERY_TOOLS = \['l
 ok('two live galleries per turn at most, like every gallery tool', /filter\(\(c: any\) => GALLERY_TOOLS\.includes\(c\.toolName\)\)/.test(prep))
 ok('the prompt names the engine\'s own stores', /LIVE STORES \(the only stores live_gallery can open[\s\S]{0,400}\$\{liveCatalog\.stores\.map/.test(api) && /narrowBlock\(mustNarrow\), liveBlock, cartEventBlock/.test(api))
 ok('a signed-out visitor is sent to sign in for any product request', /THIS VISITOR IS NOT SIGNED IN\. For ANY product request or order, call create_account/.test(api))
-ok('history: a live-results part (and an old catalog gallery) is replayed as text before the tool-part filters run', /stripIncompleteToolCalls\(legacyToolsAsText\(liveResultsAsText\(await pdfPartsToText\(messages\)\), LEGACY_GALLERY_TOOLS, LEGACY_TOOLS, registryId\)\)/.test(api))
+ok('history: a live-results part, a picker card (and an old catalog gallery) is replayed as text before the tool-part filters run', /stripIncompleteToolCalls\(legacyToolsAsText\(pickerCardsAsText\(liveResultsAsText\(await pdfPartsToText\(messages\)\), registryId\), LEGACY_GALLERY_TOOLS, LEGACY_TOOLS, registryId\)\)/.test(api))
 
 ok('the chat renders a live-results part as its normal gallery', /const GALLERY_TOOLS = \['tool-live_results'/.test(vue))
 ok('the live gallery\'s own spinner is its loader (no second typing indicator)', /const TOOLS_WITH_LOADER = new Set\(\[\s*'tool-live_gallery'/.test(vue))

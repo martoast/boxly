@@ -26,6 +26,8 @@
     "test:bare-store": "node --experimental-strip-types server/utils/bareStore.test.mjs",
     "test:live-gallery": "node --experimental-strip-types utils/liveGallery.test.mjs && node --experimental-strip-types server/api/live-gallery.test.mjs",
     "test:picker-logic": "node --experimental-strip-types utils/pickerLogic.test.mjs",
+    "test:typed-pick": "node --experimental-strip-types utils/typedPick.test.mjs",
+    "test:picker-card": "node --experimental-strip-types server/api/picker-card.test.mjs",
     "test:variant-sane": "node server/api/variant-sane.test.mjs",
     "test:variant-chrome":"node --experimental-strip-types server/api/variant-chrome.test.mjs"
   },

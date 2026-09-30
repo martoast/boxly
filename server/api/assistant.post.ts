@@ -1,5 +1,6 @@
 import { bareStoreAsk } from '../utils/bareStore'
 import { pickedOptions } from '../../utils/variantPick'
+import { pickerCards, resolveTypedPick, pickerCardsAsText } from '../../utils/typedPick'
 import { streamText, tool, convertToModelMessages, stepCountIs, createUIMessageStreamResponse } from 'ai'
 import { extractText, getDocumentProxy } from 'unpdf'
 import { z } from 'zod'
@@ -836,7 +837,7 @@ MODE 2 — PRODUCT DISCOVERY, LIVE IN THE STORES (find things). Every product re
 ONE QUESTION BEFORE A VAGUE SEARCH, NEVER MORE. The live browser has to go somewhere SPECIFIC. When the ask is too broad to search a store with — who it is for is missing ("un disfraz de Batman": hombre, mujer o niño are three different products), no product type ("un regalo", "algo para el gym", "ropa"), or only a store name ("Gymshark") — call ask_to_narrow with ONE question and 2-4 tappable answers, in a turn of its own, and say nothing else. The card asks it; do not repeat the question in your text and do not call live_gallery in the same turn. Then search with what they tapped. NEVER ask about size or colour (the picker handles those), never twice in a row, and never for an ask that is already specific — "tenis Nike Pegasus 41" goes straight to live_gallery.
 
 MODE 3 — BUILD THE BOX, THEN FINALIZE (where the money is made). The box IS their real cart: every item the box card shows goes into their Boxly cart, and the Boxly agent puts it in THAT STORE'S REAL CART in a live browser while they keep shopping. Finalizar then runs the real checkouts in each store (live in the chat), creates their purchase request and sends the invoice with its Stripe payment link.
-  ⓪ PICK, THEN ADD. When the shopper picks a product from the gallery ("quiero ese", "el segundo", a tap on "Agregar"), call show_shipment with EVERY item in the box — each with its saved_id (the registry id of the product), quantity and packing type. A product with real sizes/colours comes back "NOT IN THE BOX" and the product modal opens for the pick: say one line asking for it, never claim it was added, and add it on the NEXT turn with size/color set. A product with nothing to choose is added immediately.
+  ⓪ PICK, THEN ADD. When the shopper picks a product from the gallery ("quiero ese", "el segundo", a tap on "Agregar"), call show_shipment with EVERY item in the box — each with its saved_id (the registry id of the product), quantity and packing type. A product with real sizes/colours comes back "NOT IN THE BOX" and its picker card in the chat shows the options: say one line asking for the pick, never claim it was added, and add it on the NEXT turn with size/color set. When the shopper TYPES their choice for a product whose picker card is in the chat ("la negra en talla 9"), call show_shipment adding that product (its saved_id) with what they said — the box checks their words against the card and adds it only on an exact, in-stock match; otherwise it tells you what to ask. A product with nothing to choose is added immediately.
   ① ADDED ≠ IN THE STORE'S CART. After show_shipment the agent is still putting it in the store's cart: follow the tool's note — ONE short line that it is going into the store's cart right now, no "listo", no link. A separate automatic message confirms it (or says the store refused it); only then is it in the cart.
   ② A PASTED PRODUCT LINK is a product they already chose: add it with show_shipment (pass url, and a short name from the link). The box reads the product page itself — photo, price, sizes/colours — and the same pick-then-add rule applies. (A marketplace link — Amazon, eBay, Walmart, Target… — cannot be bought by the agent: the tool says so; offer the same kind of product from a store on LIVE STORES.)
   ③ FINALIZE ONLY WHEN THEY'RE DONE — "eso es todo", "ya", "créala", "haz el pedido", "finaliza", or the "Finalizar carrito" button. Then call finalize_order (no input): it places the order from the box and the checkout card shows each store's live checkout, the real totals and the invoice with Pagar. Do NOT ask for anything first and do NOT make them confirm twice. Adding items NEVER places the order.
@@ -1068,7 +1069,8 @@ export default defineEventHandler(async (event) => {
   // A live-results part (the live gallery, appended by the API) is not a call the model made: it is replayed as one
   // line of text (liveResultsAsText) before anything else looks at tool parts — and so is a gallery of a tool that
   // no longer exists, in a chat from before 2026-09-28 (legacyToolsAsText; the rest of those parts are dropped).
-  const cleaned = dropToolParts(sanitizeToolInputs(stripIncompleteToolCalls(legacyToolsAsText(liveResultsAsText(await pdfPartsToText(messages)), LEGACY_GALLERY_TOOLS, LEGACY_TOOLS, registryId))), ['suggest_followups'])
+  // A product's picker card (appended by the app, not called by the model) is replayed as text the same way.
+  const cleaned = dropToolParts(sanitizeToolInputs(stripIncompleteToolCalls(legacyToolsAsText(pickerCardsAsText(liveResultsAsText(await pdfPartsToText(messages)), registryId), LEGACY_GALLERY_TOOLS, LEGACY_TOOLS, registryId))), ['suggest_followups'])
   const windowed = windowMessages(ageGalleries(cleaned, GALLERY_TOOLS, { keepLast: 2, productId: registryId, compactProduct }))
   const promptStats = contextStats(cleaned, windowed.messages, windowed.dropped)
   // On the hub surface the assistant becomes the OS for all pipelines. The router is
@@ -1396,7 +1398,24 @@ export default defineEventHandler(async (event) => {
               // already made for this product (a later box update must not reopen the picker).
               const itemKey = String(last.saved_id || last.url || last.name || '')
               const lastUser = [...(messages || [])].reverse().find((m: any) => m?.role === 'user')
-              const pickRaw: any = lastUser?.metadata?.pick && typeof lastUser.metadata.pick === 'object' ? lastUser.metadata.pick : null
+              let pickRaw: any = lastUser?.metadata?.pick && typeof lastUser.metadata.pick === 'object' ? lastUser.metadata.pick : null
+              // A CHOICE TYPED FOR A PRODUCT WHOSE PICKER CARD IS OPEN (Alex, 2026-09-29: "I can even just say it in a
+              // message … and the AI should still be smart"). It counts exactly like the chips' pick, but only when it
+              // names one value of every choice on exactly ONE card, that card is this product's, and the combination is
+              // buyable (utils/typedPick.ts). No card in the chat → nothing typed counts (the first search never preselects).
+              let typedWhy: string | null = null
+              if (!pickRaw) {
+                const cards = pickerCards(messages)
+                const mine = cards.some((c) => c.urls.some((u) => sameUrl(u, url)))
+                const typed = cards.length ? resolveTypedPick(said, cards) : null
+                if (typed?.ok && typed.urls.some((u) => sameUrl(u, url))) pickRaw = typed.pick
+                else if (mine && typed && typed.ok === false && typed.reason !== 'no_match') {
+                  typedWhy = typed.reason === 'sold_out' ? 'the combination they typed is SOLD OUT — say so and ask them to choose another on the card'
+                    : typed.reason === 'incomplete' ? `they did not say ${(typed.missing || []).join(' + ')} — ask for it (on the card)`
+                    : typed.reason === 'colorway' ? 'the colour they typed is another colourway page — ask them to tap that colour on the card'
+                    : 'their message matches more than one option or more than one open product card — ask which one, pointing at the card'
+                }
+              }
               let prior: any = null
               for (const m of messages || []) for (const p of (m?.role === 'assistant' ? (m.parts || []) : [])) {
                 if (p?.type === 'tool-show_shipment' && p.state === 'output-available') for (const o of (Array.isArray(p.output?.store_options) ? p.output.store_options : [])) if (String(o?.key) === itemKey) prior = o
@@ -1417,7 +1436,7 @@ export default defineEventHandler(async (event) => {
                   ...held, hold: true,
                   pending_item: { saved_id: last.saved_id, name: saved?.title || last.name || null, image: saved?.image || last.image || null, price: saved?.price ?? last.price ?? null },
                   variants_for: ship.variants_for,
-                  note: `STOP — "${saved?.title || last.name}" IS NOT IN THE BOX AND YOU MUST NOT SAY IT IS. The words "agregué", "agregado", "ya está en tu caja", "añadí" are FORBIDDEN in this reply. It needs the shopper to pick ${multi.map((a: any) => a.name).join(' + ')} on the chips (even if they typed a size or colour — they choose on the product's own options; nothing is pre-selected) (${avail.length} of ${r.variants.length} combinations available; the chips are already on screen, do NOT list the options in text). Reply with ONE short line in this shape: "Elige ${askFor} y lo agrego a tu caja 👇". Then STOP — no other tool calls. When the shopper picks on the chips, call show_shipment again for this product WITH that size and color, and only THEN say it is in the box.`,
+                  note: `STOP — "${saved?.title || last.name}" IS NOT IN THE BOX AND YOU MUST NOT SAY IT IS. The words "agregué", "agregado", "ya está en tu caja", "añadí" are FORBIDDEN in this reply. It needs the shopper to pick ${multi.map((a: any) => a.name).join(' + ')} on the product's picker card in the chat (a typed choice counts only when it names exactly one option of every choice on that card and the combination is in stock${typedWhy ? ` — this one did not: ${typedWhy}` : ''}; nothing is pre-selected) (${avail.length} of ${r.variants.length} combinations available; the chips are already on screen, do NOT list the options in text). Reply with ONE short line in this shape: "Elige ${askFor} y lo agrego a tu caja 👇". Then STOP — no other tool calls. When the shopper picks on the chips, call show_shipment again for this product WITH that size and color, and only THEN say it is in the box.`,
                 }
               }
               // THE STORE'S OWN WORDS GO TO THE STORE (live 2026-09-28: "color negro" reached Gymshark's cart run for a

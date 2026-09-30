@@ -16,7 +16,7 @@ ok('show_shipment only opens the picker while the item is HELD', /part\.output\?
 ok('and still requires variants to exist', /variants_for\?\.variants\?\.length/.test(line));
 
 // The guard inside openPickerFor.
-const body = sfc.match(/function openPickerFor\(o\) \{[\s\S]*?\n\}/)[0];
+const body = sfc.match(/function openPickerFor\(o, m\) \{[\s\S]*?\n\}/)[0];
 // The guard reads the axes (or rebuilds them from the variants — live Lab 2026-09-28: a payload without axes never
 // opened the modal) and needs a real choice.
 const axesFn = sfc.match(/function axesFromVariants\(variants\) \{[\s\S]*?\n\}/)[0];

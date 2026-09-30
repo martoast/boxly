@@ -300,7 +300,7 @@
             <svg class="w-5 h-5 animate-spin text-gray-300" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
           </div>
           <TransitionGroup tag="div" name="msg" class="max-w-2xl mx-auto space-y-4">
-            <div v-for="m in chat.messages" v-show="!isCartEvent(m)" :key="m.id" :class="m.role === 'user' ? 'flex justify-end' : 'flex justify-start'">
+            <div v-for="m in chat.messages" v-show="!isCartEvent(m) && !isRepeatCard(m)" :key="m.id" :class="m.role === 'user' ? 'flex justify-end' : 'flex justify-start'">
               <div :class="m.role === 'user' ? 'bg-primary-500 text-white rounded-3xl rounded-br-lg px-4 py-2.5 max-w-[85%] shadow-sm' : 'w-full max-w-[95%] space-y-3'">
                 <!-- USER: their text + any uploaded image -->
                 <template v-if="m.role === 'user'">
@@ -374,10 +374,12 @@
                          draw yet, so show the picker alone rather than an empty "Tu caja Boxly 0" card. -->
                     <LazyShipmentCard v-if="part.type === 'tool-show_shipment' && part.state === 'output-available' && !(part.output?.hold && !part.output?.items?.length)" :store-status="user ? itemStatus : null" :shipment="enrichShipment(part.output)" :requested="ordered" @order="onFinalizeShipment" @add="onAddMore" />
                     <!-- Sizes/colours with LIVE availability for the item just added (read from its stored URL by show_shipment). -->
-                    <!-- The picker NEVER renders inline in the chat (Alex, 2026-09-11: "this UI/UX of the variant
-                         selection should never be in the chat, it should be in the modal"). When the box holds an item
-                         for a pick, we OPEN THE PRODUCT MODAL for it — one place to choose, every time. -->
-                    <span v-if="part.type === 'tool-show_shipment' && part.state === 'output-available' && part.output?.hold && part.output?.variants_for?.variants?.length" class="hidden" :data-open-picker="openPickerFor(part.output.variants_for)"></span>
+                    <!-- The pick happens on the product's PICKER CARD in the chat (Alex, 2026-09-29, replacing the modal of
+                         2026-09-11). When the box holds an item for a pick, the chat points at that card (creating it if missing). -->
+                    <span v-if="part.type === 'tool-show_shipment' && part.state === 'output-available' && part.output?.hold && part.output?.variants_for?.variants?.length" class="hidden" :data-open-picker="openPickerFor(part.output.variants_for, m)"></span>
+                    <!-- A product's picker card: drawn where it first appeared, with its latest read (a refresh saves a newer one). -->
+                    <LazyProductPickerCard v-else-if="cardAt(m, part)" :data-picker-msg="m.id" :part="cardAt(m, part).part" :busy="cardsReading.has(cardAt(m, part).key)"
+                      @assisted="onAssistedProduct" @refresh="refreshCard(cardAt(m, part))" @colorway="(c) => pickCardColorway(cardAt(m, part), c)" />
 
                     <!-- The order placed from the box — live store checkouts, real totals, then Pagar. (tool-finalize_lab_order
                          is the same card in chats from the Boxly Lab days, before 2026-09-28.) -->
@@ -433,7 +435,7 @@
                     </div>
 
                     <!-- Variant picker: sizes/colours with LIVE availability for the product the shopper chose. -->
-                    <span v-else-if="part.type === 'tool-get_product_variants' && part.state === 'output-available' && part.output?.variants?.length" class="hidden" :data-open-picker="openPickerFor(part.output)"></span>
+                    <span v-else-if="part.type === 'tool-get_product_variants' && part.state === 'output-available' && part.output?.variants?.length" class="hidden" :data-open-picker="openPickerFor(part.output, m)"></span>
 
                     <!-- Tappable follow-ups (cross-sell / build-the-set) -->
                     <!-- ONE TAPPABLE QUESTION. The shopper answers by choosing, not by typing — the thing
@@ -608,6 +610,7 @@ import { DefaultChatTransport } from 'ai'
 import { useBoxlyCart } from '../composables/useBoxlyCart'
 import { cartPayloadFromChatProduct, variantsText } from '../utils/boxlyCart'
 import { withLiveRows, newLiveResultMessages } from '../utils/liveGallery'
+import { PICKER_PART } from '../utils/typedPick'
 
 // Auto-continue ONLY for the client-side create_account tool once it has a
 // result. Server tools (live_gallery/show_shipment/…) are fully resolved
@@ -1428,25 +1431,28 @@ function variantPickText(v) {
 }
 // The picker's data: the tool output plus the registry product (image / price / store / url) so the card
 // shows the product the shopper chose, not just its variants.
-// A variant payload that arrives in the chat means the shopper still has to choose — so open the PRODUCT MODAL
-// on that product (photos + sizes + quantity + add to cart), which is the single place a pick ever happens.
-// Idempotent: each tool call opens once, and never while another modal is already up.
+// A variant payload that arrives in the chat means the shopper still has to choose — so show that product's PICKER
+// CARD (scroll to it, or create it), which is the single place a pick ever happens. Idempotent: each tool call opens
+// once, and only for this page's own turns — reopening a chat never re-reads old holds.
 const pickerOpened = new Set()
-function openPickerFor(o) {
-  if (!import.meta.client || !o) return ''
+function openPickerFor(o, m) {
+  if (!import.meta.client || !o || !m || /^\d+$/.test(String(m.id))) return ''
   // NOTHING TO PICK, NOTHING TO OPEN. The picker hides any axis with a single value, so a one-size product
   // would open a modal with no chips in it — and the shopper has no way to answer what it asks.
   // Axes missing from an older payload: rebuild them from the variants themselves (size / color keys).
   const axes = (o.axes && o.axes.length) ? o.axes : axesFromVariants(o.variants)
   if (!axes.some((a) => (a?.values?.length || 0) > 1)) return ''
   const d = variantData(o)
-  const key = o.saved_id || d.product?.url || d.product_title || JSON.stringify(o.axes || []).slice(0, 60)
+  const product = o.saved_id || d.product?.url || d.product_title || JSON.stringify(o.axes || []).slice(0, 60)
+  const key = product && `${m.id}:${product}` // each hold points at the card once (a later hold scrolls to it again)
   if (!key || pickerOpened.has(key)) return ''
   pickerOpened.add(key)
-  if (selectedProduct.value) return ''
   const p = d.product || {}
   if (!p.url) return '' // nothing to open a product page on
-  nextTick(() => { selectedProduct.value = { title: d.product_title || p.title, url: p.url, image: p.image || null, price: p.price ?? null, was: p.list_price ?? null, store: p.store || null } })
+  // The card is keyed by the url the shopper saw in the gallery (the registry row), so a hold for a product they
+  // already opened scrolls to that card. The box's own read is minutes old at most: the catalog serves it (900 s).
+  const saved = o.saved_id ? savedProducts.value.find((x) => x.id === o.saved_id) : null
+  nextTick(() => openProduct({ url: saved?.url || p.url, title: d.product_title || p.title, image: p.image || null, price: p.price ?? null, was: p.list_price ?? null, store: p.store || saved?.store || null, store_id: saved?.store_id ?? null }, { maxAge: 900 }))
   return ''
 }
 
@@ -2049,7 +2055,103 @@ function trackOrder(ord) {
 const FINALIZE_PARTS = new Set(['tool-finalize_order', 'tool-finalize_lab_order'])
 const ordered = computed(() => chat.messages.some((m) => (m.parts || []).some((p) => FINALIZE_PARTS.has(p.type) && p.output?.purchase_request_id)))
 
-function openProduct(p) { selectedProduct.value = p }
+// THE PICKER CARD IN THE CHAT (Alex, 2026-09-29: "instead of making the variant picker a pop-up modal, make it directly
+// in the chat itself … if I close the modal I have to wait again to open it"). A gallery tap appends the product's card
+// as an assistant message and reads the store once; the read is saved to the conversation by /api/product-variants
+// (server-side), so the card is still there after a refresh. Tapping the same product again scrolls to its card.
+// One card per product (url without its query, as the server's sameUrl): it is drawn where it first appeared, with the
+// latest read of that product.
+const cardKey = (u) => String(u || '').split('?')[0]
+const cardProduct = (part) => part?.output?.product || part?.input?.product || null
+const pickerIndex = computed(() => {
+  const idx = new Map()
+  for (const m of chat.messages) {
+    if (m.role !== 'assistant') continue
+    for (const part of m.parts || []) {
+      const key = part?.type === PICKER_PART ? cardKey(cardProduct(part)?.url) : ''
+      if (!key) continue
+      const e = idx.get(key)
+      if (!e) idx.set(key, { key, msgId: m.id, part })
+      else if (part.state === 'output-available') e.part = part
+    }
+  }
+  return idx
+})
+function cardAt(m, part) {
+  if (part?.type !== PICKER_PART) return null
+  const e = pickerIndex.value.get(cardKey(cardProduct(part)?.url))
+  return e && e.msgId === m.id ? e : null
+}
+// A later read of a product whose card is further up (a refresh saved after a reload) draws nothing of its own.
+function isRepeatCard(m) {
+  return m.role === 'assistant' && !!m.parts?.length && m.parts.every((part) => part?.type === PICKER_PART && pickerIndex.value.get(cardKey(cardProduct(part)?.url))?.msgId !== m.id)
+}
+// A card tapped while the assistant is answering waits for the answer to finish: appending a message mid-stream
+// would split the streamed reply.
+const cardQueue = []
+const queuedCard = (key) => cardQueue.find((m) => cardKey(cardProduct(m.parts[0])?.url) === key)
+function flushCardQueue() {
+  if (!cardQueue.length) return
+  chat.messages = [...chat.messages, ...cardQueue.splice(0)]
+  syncLocalThread()
+  scrollDown()
+}
+function scrollToCard(key) {
+  const e = pickerIndex.value.get(key)
+  if (!e || !import.meta.client) return
+  nextTick(() => document.querySelector(`[data-picker-msg="${CSS.escape(String(e.msgId))}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
+}
+function openProduct(p, { maxAge = 0 } = {}) {
+  const key = cardKey(p?.url)
+  if (!key) return
+  if (pickerIndex.value.has(key) || queuedCard(key)) { scrollToCard(key); return }
+  const product = { store_id: p.store_id ?? null, store_name: p.store ?? null, url: p.url, title: p.title ?? null, image: p.image ?? null, price: p.price ?? null, was: p.was ?? null }
+  const msg = { id: 'picker-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), role: 'assistant', parts: [{ type: PICKER_PART, toolCallId: 'picker-local', state: 'input-available', input: { product } }] }
+  if (isBusy.value) cardQueue.push(msg)
+  else { chat.messages = [...chat.messages, msg]; scrollDown() }
+  readIntoCard(key, product, { maxAge })
+}
+// One live read into a card: the first read, "Actualizar disponibilidad", or a colourway (its own page; the set of
+// colourways it belongs to is kept). The server saves each good read to the conversation; here the card updates in place.
+const cardsReading = ref(new Set())
+async function readIntoCard(key, product, { readUrl = product.url, maxAge = 0, colorways = null } = {}) {
+  if (cardsReading.value.has(key)) return
+  cardsReading.value = new Set([...cardsReading.value, key])
+  const conv = activeId.value
+  let next = null
+  try {
+    if (user.value) await ensureChatToken()
+    const r = await $fetch('/api/product-variants', {
+      method: 'POST', timeout: 58000,
+      body: { url: readUrl, max_age_s: maxAge, skip_colorways: !!colorways?.length, title: product.title || null, ...(colorways?.length ? { colorways } : {}), ...(conv && token.value ? { conversation_id: conv, token: token.value, product } : {}) },
+    })
+    // Same line as the modal: a read that worked and found nothing to choose is a single-SKU product, not a failure.
+    if (r && (!r.reason || r.reason === 'no_variants' || r.reason === 'need_url')) next = { type: PICKER_PART, toolCallId: 'picker-local', state: 'output-available', input: {}, output: { product, read: r, read_at: new Date().toISOString(), read_url: readUrl } }
+  } catch { /* handled below: the card offers a retry */ }
+  cardsReading.value = new Set([...cardsReading.value].filter((k) => k !== key))
+  // The shopper moved to another chat meanwhile: the server saved the card there; that chat reloads it when reopened.
+  if (activeId.value !== conv) { if (conv) msgCache.delete(conv); return }
+  const q = queuedCard(key)
+  const cur = q ? q.parts[0] : pickerIndex.value.get(key)?.part
+  if (!cur) return
+  // A failed refresh keeps the options already read (and says it could not update); a failed first read shows a retry.
+  if (!next) next = cur.state === 'output-available' ? { ...cur, output: { ...cur.output, refresh_failed: true } } : { type: PICKER_PART, toolCallId: 'picker-local', state: 'output-error', input: { product }, errorText: 'read_failed' }
+  if (q) { q.parts = [next]; return }
+  chat.messages = chat.messages.map((m) => (m.parts || []).includes(cur) ? { ...m, parts: m.parts.map((x) => (x === cur ? next : x)) } : m)
+  syncLocalThread()
+}
+function refreshCard(e) {
+  const out = e?.part?.output
+  const product = cardProduct(e?.part)
+  if (!product) return
+  const readUrl = out?.read_url || product.url
+  readIntoCard(e.key, product, { readUrl, colorways: readUrl !== product.url ? out?.read?.colorways : null })
+}
+function pickCardColorway(e, c) {
+  const product = cardProduct(e?.part)
+  if (!product || !c?.url) return
+  readIntoCard(e.key, product, { readUrl: c.url, colorways: e.part?.output?.read?.colorways || null })
+}
 function onModalAssisted(p) { selectedProduct.value = null; onAssistedProduct(p) }
 
 async function toggleMic() {
@@ -2133,6 +2235,8 @@ watch(() => chat.status, async (s) => {
 watch(() => chat.status, async (s) => {
   scrollDown()
   registerFromMessages() // keep the product registry current with what's shown
+  // Picker cards tapped while the assistant was answering go in now.
+  if (s === 'ready' || s === 'error') flushCardQueue()
   // Flush a product pick that was queued while the assistant was streaming.
   if ((s === 'ready' || s === 'error') && pendingPick.value) {
     const { p, assisted } = pendingPick.value
