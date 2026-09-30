@@ -4,7 +4,7 @@
 // for this product" is measured with the rules the shopper actually gets.
 
 export interface PickerVariant { options: Record<string, string>, available?: boolean | null, sold_out_with?: Record<string, string> | null, price?: number | null, image?: string | null, color?: string | null, size?: string | null, low_stock?: any }
-export interface PickerAxis { name: string, kind: string, values: string[], swatches?: Record<string, string> }
+export interface PickerAxis { name: string, kind: string, values: string[], swatches?: Record<string, string>, chips?: Record<string, string> }
 export type Selection = Record<string, string | null | undefined>
 
 export function guessKind(name: string): string {
@@ -37,7 +37,7 @@ export function deriveAxes(data: any, variants: PickerVariant[] = normalizeVaria
     const d = declared.find((a: any) => a.name === name) || {}
     const seen: string[] = []; for (const v of variants) { const val = v.options[name]; if (val != null && !seen.includes(val)) seen.push(val) }
     const values = Array.isArray(d.values) && d.values.length ? d.values.map(String) : seen
-    return { name, kind: d.kind || guessKind(name), values, ...(d.swatches ? { swatches: d.swatches } : {}) }
+    return { name, kind: d.kind || guessKind(name), values, ...(d.swatches ? { swatches: d.swatches } : {}), ...(d.chips ? { chips: d.chips } : {}) }
   })
     .map((a) => ({ ...a, values: a.values.filter((v) => /[\p{L}\p{N}]/u.test(v)) }))
     .filter((a) => a.values.length)

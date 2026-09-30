@@ -42,7 +42,9 @@
           <!-- The STORE'S OWN swatch photo when the page had one (Alex, 2026-09-12: "it's not clear which of the
                colors is shown, and it doesn't pull any of the other images... I don't know what they look like").
                A guessed dot cannot describe "URBAN SAFARI" or "TANGLEWOOD"; the real thumbnail can. -->
+          <!-- A colour photo the reader derived from the store's naming can fail to load: the store's own chip stands in. -->
           <img v-if="ax.swatches && ax.swatches[val]" :src="ax.swatches[val]" :alt="val" loading="lazy" referrerpolicy="no-referrer"
+            @error="(e) => { const c = ax.chips?.[val]; if (c && e.target.src !== c) e.target.src = c; else e.target.style.visibility = 'hidden' }"
             class="w-7 h-7 -ml-1 rounded-full object-cover border border-black/10 bg-gray-50" />
           <span v-else-if="ax.kind === 'color'" class="inline-block w-3 h-3 rounded-full border border-black/10" :style="{ background: swatch(val) }"></span>
           {{ val }}
