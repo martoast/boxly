@@ -145,9 +145,18 @@ function pick(axisName, val) {
 // the page — while the pre-selected "Water in the Desert" actually starts at $27.99. A shopper reads the big
 // number, picks a colour, and is quoted something else. With a full selection this is that variant's price; with
 // a partial one it is the cheapest still reachable, which is the honest "from".
+// On an INDEPENDENT read a colour row carries no size (and a size row no colour), so a row matches when every axis
+// it HAS is the chosen value — and a colour row's own price wins (Victoria's Secret prices each colour's style apart:
+// Crystal Lilac $3.99 on a $14.50 page, 2026-09-30).
 function priceForSelection() {
-  const matching = variants.value.filter((v) => axes.value.every((a) => !sel[a.name] || (v.options?.[a.name] ?? v[a.kind]) === sel[a.name]))
-  const prices = (matching.length ? matching : variants.value).map((v) => v.price).filter((p) => typeof p === 'number')
+  const val = (v, a) => v.options?.[a.name] ?? v[a.kind]
+  const indep = isIndependent(props.data, axes.value, variants.value) // not `independent`: an effect above calls this first
+  const matching = variants.value.filter((v) => axes.value.every((a) => !sel[a.name] || (indep && val(v, a) == null) || val(v, a) === sel[a.name]))
+  let pool = matching.length ? matching : variants.value
+  const colour = indep ? axes.value.find((a) => a.kind === 'color' && sel[a.name]) : null
+  const colourRows = colour ? pool.filter((v) => val(v, colour) === sel[colour.name] && typeof v.price === 'number') : []
+  if (colourRows.length) pool = colourRows
+  const prices = pool.map((v) => v.price).filter((p) => typeof p === 'number')
   if (!prices.length) return null
   const lo = Math.min(...prices), hi = Math.max(...prices)
   return { price: lo, from: lo !== hi }
