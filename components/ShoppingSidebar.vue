@@ -241,7 +241,7 @@ const navItems = computed(() => [
   { route: '/app/shopping/purchased-products', icon: ShoppingBagIcon,        label: t.value.purchasedProducts },
   { route: '/app/shopping/stores',            icon: BuildingStorefrontIcon,  label: t.value.storeBrands },
   { route: '/app/shopping/categories',        icon: TagIcon,                 label: t.value.storeCategories },
-  { route: '/app/shopping/shopping-trips',    icon: CalendarDaysIcon,        label: t.value.shoppingTrips },
+  { route: '/app/shopping/availability',       icon: CalendarDaysIcon,        label: t.value.shoppingTrips },
   { route: '/app/shopping/campaigns',         icon: MegaphoneIcon,           label: t.value.campaigns },
   { route: '/app/shopping/ai-search',         icon: MagnifyingGlassIcon,     label: t.value.aiSearch },
 ]);

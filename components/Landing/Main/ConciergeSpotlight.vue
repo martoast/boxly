@@ -59,9 +59,9 @@ const { t: createTranslations } = useLanguage()
 const t = createTranslations({
   eyebrow:  { es: 'Servicio premium', en: 'Premium service' },
   headline: { es: 'Tu personal shopper en USA', en: 'Your personal shopper in the US' },
-  subline:  { es: 'Vamos a los outlets y tiendas que tú elijas en San Diego, compramos por ti y lo enviamos a México.', en: 'We visit the San Diego outlets and stores you pick, shop for you, and ship to Mexico.' },
-  cta:      { es: 'Agendar visita', en: 'Schedule a visit' },
-  hint:     { es: 'Reservas con $10 USD por tienda', en: 'Reserve with $10 USD per store' },
+  subline:  { es: 'Reserva una hora con tu shopper en Las Américas Premium Outlets, compra por ti y lo enviamos a México.', en: 'Reserve an hour with your shopper at Las Américas Premium Outlets, she shops for you and we ship to Mexico.' },
+  cta:      { es: 'Reservar horario', en: 'Reserve a time' },
+  hint:     { es: 'Reservas tu horario con $30 USD', en: 'Reserve your time with $30 USD' },
   imageAlt: { es: 'Personal shopper de Boxly en San Diego', en: 'Boxly personal shopper in San Diego' },
 })
 </script>

@@ -1,157 +1,188 @@
 <template>
- <!-- Step 1 of the in-person flow: pick a trip date from admin-configured
- open trips. Cards are pre-selected when the customer returns from a
- later step. -->
- <section class="min-h-screen bg-gray-50 pb-20">
- <div class="bg-white border-b border-gray-200">
- <div class="max-w-3xl mx-auto px-4 py-5">
- <div class="flex items-start gap-3 mb-5">
- <NuxtLink :to="backTo" class="p-2 -ml-2 hover:bg-gray-100 rounded-lg" :aria-label="t.back">
- <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
- </NuxtLink>
- <div class="flex-1 min-w-0">
- <h1 class="text-xl font-bold text-gray-900">{{ t.title }}</h1>
- <p class="text-sm text-gray-500 mt-0.5">{{ t.subtitle }}</p>
- </div>
- <TutorialVideoButton loom-id="01640d8214164acd9f21f37c8fdd3cd6" />
- </div>
- <InPersonStepper :current="1" :steps="stepLabels" />
- </div>
- </div>
+  <!-- Reserve a personal-shopping hour at Las Américas: day -> hour -> how many hours -> pay $30 on Stripe.
+       Nothing is held until the payment is confirmed (first payment wins), see the API plan. -->
+  <section class="min-h-screen bg-gray-50 pb-28 sm:pb-16">
+    <div class="bg-white border-b border-gray-200">
+      <div class="max-w-3xl mx-auto px-4 py-5 flex items-start gap-3">
+        <NuxtLink :to="backTo" class="p-2 -ml-2 hover:bg-gray-100 rounded-lg" :aria-label="t.back">
+          <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        </NuxtLink>
+        <div class="flex-1 min-w-0">
+          <h1 class="text-xl font-bold text-gray-900">{{ t.title }}</h1>
+          <p class="text-sm text-gray-500 mt-0.5">{{ t.subtitle }}</p>
+        </div>
+        <TutorialVideoButton loom-id="01640d8214164acd9f21f37c8fdd3cd6" />
+      </div>
+    </div>
 
- <div class="max-w-3xl mx-auto px-4 py-6 space-y-3">
- <div v-if="loading" class="text-center py-12 text-gray-500 text-sm">{{ t.loading }}</div>
+    <div class="max-w-3xl mx-auto px-4 py-6 space-y-5">
+      <div v-if="route.query.cancelled" class="p-4 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-900">{{ t.cancelled }}</div>
+      <div v-if="error" class="p-4 rounded-xl bg-red-50 border border-red-200 text-sm text-red-800">{{ error }}</div>
 
- <div v-else-if="trips.length === 0" class="bg-white rounded-2xl border border-gray-200 p-8 text-center">
- <div class="w-14 h-14 mx-auto mb-3 bg-gray-100 rounded-full flex items-center justify-center">
- <svg class="w-7 h-7 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
- </div>
- <p class="text-gray-900 font-semibold">{{ t.noneTitle }}</p>
- <p class="text-sm text-gray-500 mt-1">{{ t.noneDesc }}</p>
- </div>
+      <div v-if="loading" class="text-center py-12 text-gray-500 text-sm">{{ t.loading }}</div>
 
- <button
- v-for="trip in trips"
- :key="trip.id"
- @click="pick(trip)"
- :class="[
- 'w-full text-left bg-white rounded-2xl border-2 p-4 sm:p-5 transition-all',
- selectedTrip?.id === trip.id
- ? 'border-primary-600 ring-2 ring-primary-100'
- : 'border-gray-200 hover:border-primary-300'
- ]"
- >
- <div class="flex items-center justify-between gap-4">
- <div class="min-w-0">
- <div class="text-xs uppercase tracking-wider text-primary-600 font-semibold">
- {{ formatWeekday(trip.trip_date) }}
- </div>
- <div class="text-lg font-bold text-gray-900 mt-0.5">{{ formatDate(trip.trip_date) }}</div>
- <div v-if="trip.start_time || trip.end_time" class="text-sm text-gray-500 mt-1">
- {{ formatTime(trip.start_time) }}{{ trip.end_time ? ' – ' + formatTime(trip.end_time) : '' }}
- </div>
- <div class="text-xs text-gray-500 mt-1">{{ trip.location }}</div>
- <div v-if="trip.notes" class="text-xs text-gray-500 mt-2 italic">"{{ trip.notes }}"</div>
- </div>
- <div
- :class="[
- 'w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0',
- selectedTrip?.id === trip.id ? 'bg-primary-600 text-white' : 'border-2 border-gray-300'
- ]"
- >
- <svg v-if="selectedTrip?.id === trip.id" class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
- </div>
- </div>
- </button>
- </div>
+      <!-- No availability: never a dead end -->
+      <div v-else-if="days.length === 0" class="bg-white rounded-2xl border border-gray-200 p-8 text-center">
+        <p class="text-gray-900 font-semibold">{{ t.noneTitle }}</p>
+        <p class="text-sm text-gray-500 mt-1 mb-4">{{ t.noneDesc }}</p>
+        <InPersonWhatsApp inline />
+      </div>
 
- <div v-if="selectedTrip" class="fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 px-4 py-4 shadow-lg">
- <div class="max-w-3xl mx-auto">
- <NuxtLink
- to="/in-person/stores"
- class="w-full inline-flex items-center justify-center gap-2 py-3.5 bg-primary-600 hover:bg-primary-700 text-white font-bold rounded-xl transition-colors"
- >
- {{ t.continue }}
- <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
- </NuxtLink>
- </div>
- </div>
- </section>
+      <template v-else>
+        <!-- 1) day -->
+        <div>
+          <h2 class="text-sm font-bold text-gray-700 mb-2">{{ t.step1 }}</h2>
+          <div class="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
+            <button v-for="d in days" :key="d.date" @click="pickDate(d.date)"
+              :class="['shrink-0 w-16 py-2.5 rounded-xl border-2 text-center transition', date === d.date ? 'border-primary-600 bg-primary-50 text-primary-700' : 'border-gray-200 bg-white text-gray-700 hover:border-primary-300']">
+              <span class="block text-[11px] uppercase font-semibold">{{ fmt(d.date, { weekday: 'short' }) }}</span>
+              <span class="block text-xl font-bold leading-tight">{{ fmt(d.date, { day: 'numeric' }) }}</span>
+              <span class="block text-[11px]">{{ fmt(d.date, { month: 'short' }) }}</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 2) hour + how many hours -->
+        <div v-if="day">
+          <h2 class="text-sm font-bold text-gray-700 mb-2">{{ t.step2 }} <span class="font-normal text-gray-400">· {{ t.tz }}</span></h2>
+          <div class="grid grid-cols-3 sm:grid-cols-4 gap-2">
+            <button v-for="s in day.slots" :key="s.id" @click="pickSlot(s)"
+              :class="['py-3 rounded-xl border-2 text-sm font-semibold transition', start === s.start_time.substring(0, 5) ? 'border-primary-600 bg-primary-600 text-white' : 'border-gray-200 bg-white text-gray-700 hover:border-primary-300']">
+              {{ formatTime(s.start_time, language) }}
+            </button>
+          </div>
+
+          <div v-if="slot" class="mt-4 bg-white rounded-2xl border border-gray-200 p-4">
+            <p class="text-sm font-bold text-gray-700 mb-2">{{ t.howMany }}</p>
+            <div class="flex items-center gap-4">
+              <button @click="hours--" :disabled="hours <= 1" class="w-11 h-11 rounded-full border border-gray-300 text-xl font-bold text-gray-700 disabled:opacity-30" :aria-label="t.less">−</button>
+              <span class="text-2xl font-extrabold text-gray-900 w-10 text-center">{{ hours }}</span>
+              <button @click="hours++" :disabled="hours >= maxHours" class="w-11 h-11 rounded-full border border-gray-300 text-xl font-bold text-gray-700 disabled:opacity-30" :aria-label="t.more">+</button>
+              <span class="text-xs text-gray-400">{{ t.max(maxHours) }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3) summary -->
+        <div v-if="slot" class="bg-white rounded-2xl border-2 border-primary-200 p-5 space-y-4">
+          <p class="text-sm text-gray-800 leading-relaxed">{{ t.summary(longDate, formatTime(start, language), formatTime(endTime(start, hours), language), hours) }}</p>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">{{ t.notes }}</label>
+            <textarea v-model="notes" rows="3" maxlength="1000" class="w-full rounded-xl border-gray-300 text-sm"></textarea>
+          </div>
+          <button @click="submit" :disabled="submitting" class="w-full py-3.5 bg-primary-600 hover:bg-primary-700 text-white font-bold rounded-xl disabled:opacity-60 transition-colors">
+            {{ submitting ? t.redirecting : t.reserve }}
+          </button>
+        </div>
+
+        <InPersonWhatsApp />
+      </template>
+    </div>
+  </section>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { hourOptions, endTime, formatTime, parseDate } from '~/utils/inPersonSlots'
 
 definePageMeta({
- layout: 'app',
- middleware: ['auth', 'customer', 'complete-profile'],
+  layout: 'app',
+  middleware: ['auth', 'customer', 'complete-profile'],
 })
 
 const { $customFetch } = useNuxtApp()
 const { t: createTranslations, language } = useLanguage()
 const route = useRoute()
+const { date, start, hours, notes, reset } = useInPersonRequest()
 
-// Round-trip back to whoever sent us here (?from=…) or default to the chooser.
 const backTo = computed(() => (typeof route.query.from === 'string' ? route.query.from : '/app/purchase-requests'))
-const { selectedTrip, setTrip } = useInPersonRequest()
 
 const t = createTranslations({
- back: { es: 'Volver', en: 'Back' },
- title: { es: 'Elige la fecha de tu visita', en: 'Pick your visit date' },
- subtitle: { es: 'Compramos por ti en outlets y tiendas físicas — ideal para boutiques y compras múltiples.', en: 'We shop US outlets and stores for you — built for boutiques and multi-store runs.' },
- loading: { es: 'Cargando fechas…', en: 'Loading dates…' },
- noneTitle: { es: 'No hay fechas abiertas', en: 'No open dates right now' },
- noneDesc: { es: 'Estamos planeando la próxima visita. Vuelve a checar pronto.', en: "We're planning the next trip. Check back soon." },
- continue: { es: 'Continuar', en: 'Continue' },
+  back: { es: 'Volver', en: 'Back' },
+  title: { es: 'Reserva tu horario de compras', en: 'Reserve your shopping time' },
+  subtitle: { es: 'Un shopper compra por ti en Las Américas Premium Outlets. Elige el día y la hora.', en: 'A personal shopper shops for you at Las Américas Premium Outlets. Pick the day and time.' },
+  loading: { es: 'Cargando horarios…', en: 'Loading times…' },
+  cancelled: { es: 'No se hizo ningún cobro y no se reservó nada. Cuando quieras, elige tu horario de nuevo.', en: 'You were not charged and nothing was reserved. Pick your time again whenever you like.' },
+  noneTitle: { es: 'Por ahora no hay horarios publicados', en: 'No times are published right now' },
+  noneDesc: { es: 'Escríbele a tu shopper por WhatsApp y te avisa en cuanto abra horarios.', en: 'Message your shopper on WhatsApp and she will let you know as soon as times open.' },
+  step1: { es: '1. Elige el día', en: '1. Pick the day' },
+  step2: { es: '2. Elige la hora', en: '2. Pick the time' },
+  tz: { es: 'hora de California', en: 'California time' },
+  howMany: { es: '¿Cuántas horas necesitas?', en: 'How many hours do you need?' },
+  less: { es: 'Menos horas', en: 'Fewer hours' },
+  more: { es: 'Más horas', en: 'More hours' },
+  max: { es: (n) => `máx. ${n} h a partir de esta hora`, en: (n) => `max ${n} h from this time` },
+  summary: {
+    es: (d, a, b, n) => `Reservas el ${d} de ${a} a ${b} (${n} h). Hoy solo pagas $30 USD para apartar tu horario; las horas y el 10% de tus compras se cobran al terminar.`,
+    en: (d, a, b, n) => `You reserve ${d} from ${a} to ${b} (${n} h). Today you only pay $30 USD to hold your time; the hours and 10% of your purchases are charged when we finish.`,
+  },
+  notes: { es: '¿Algo que quieras comprar o que debamos saber?', en: 'Anything you want to buy or that we should know?' },
+  reserve: { es: 'Reservar y pagar $30', en: 'Reserve and pay $30' },
+  redirecting: { es: 'Llevándote a pagar…', en: 'Taking you to pay…' },
+  taken: { es: 'Ese horario ya fue reservado, elige otro', en: 'That time was just reserved, pick another' },
+  failed: { es: 'No pudimos iniciar el pago. Intenta de nuevo.', en: 'We could not start the payment. Please try again.' },
 })
 
-const stepLabels = computed(() => [
- language.value === 'es' ? 'Fecha' : 'Date',
- language.value === 'es' ? 'Tiendas' : 'Stores',
- language.value === 'es' ? 'Pagar' : 'Pay',
-])
-
-const trips = ref([])
+const days = ref([])
 const loading = ref(true)
+const submitting = ref(false)
+const error = ref('')
 
-function pick(trip) {
- setTrip(trip)
+const day = computed(() => days.value.find((d) => d.date === date.value) ?? null)
+const slot = computed(() => day.value?.slots.find((s) => s.start_time.substring(0, 5) === start.value) ?? null)
+const maxHours = computed(() => hourOptions(slot.value?.max_consecutive_hours).length)
+const longDate = computed(() => (date.value ? parseDate(date.value).toLocaleDateString(language.value === 'es' ? 'es-MX' : 'en-US', { weekday: 'long', day: 'numeric', month: 'long' }) : ''))
+
+const fmt = (d, opts) => parseDate(d).toLocaleDateString(language.value === 'es' ? 'es-MX' : 'en-US', opts)
+
+function pickDate(d) {
+  date.value = d
+  start.value = null
+  hours.value = 1
+}
+function pickSlot(s) {
+  start.value = s.start_time.substring(0, 5)
+  hours.value = Math.min(hours.value, hourOptions(s.max_consecutive_hours).length)
 }
 
-function tripDate(date) {
- // Robust to both 'YYYY-MM-DD' and full ISO date-time strings.
- const datePart = String(date ?? '').substring(0, 10)
- const dt = new Date(datePart + 'T12:00')
- return isNaN(dt.getTime()) ? null : dt
+async function load() {
+  try {
+    const res = await $customFetch('/in-person/availability')
+    days.value = res?.data ?? []
+  } catch (e) {
+    console.error(e)
+  } finally {
+    loading.value = false
+  }
+  // Drop a pick that is no longer offered.
+  if (date.value && !day.value) pickDate(null)
+  else if (start.value && !slot.value) start.value = null
 }
 
-function formatWeekday(date) {
- const dt = tripDate(date)
- return dt ? dt.toLocaleDateString(language.value === 'es' ? 'es-MX' : 'en-US', { weekday: 'long' }) : ''
+async function submit() {
+  submitting.value = true
+  error.value = ''
+  try {
+    const res = await $customFetch('/in-person/reservations', {
+      method: 'POST',
+      body: { date: date.value, start_time: start.value, hours: hours.value, customer_notes: notes.value.trim() || undefined },
+    })
+    if (!res?.checkout_url) throw new Error('no checkout url')
+    window.location.href = res.checkout_url
+  } catch (e) {
+    console.error(e)
+    if (e?.statusCode === 422 || e?.status === 422) {
+      error.value = t.value.taken
+      await load()
+    } else {
+      error.value = e?.data?.message ?? t.value.failed
+    }
+    submitting.value = false
+  }
 }
 
-function formatDate(date) {
- const dt = tripDate(date)
- return dt ? dt.toLocaleDateString(language.value === 'es' ? 'es-MX' : 'en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : ''
-}
-
-function formatTime(time) {
- if (!time) return ''
- // time is 'HH:MM:SS'
- const [h, m] = time.split(':')
- const d = new Date()
- d.setHours(+h, +m, 0)
- return d.toLocaleTimeString(language.value === 'es' ? 'es-MX' : 'en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
-}
-
-onMounted(async () => {
- try {
- const res = await $customFetch('/shopping-trips/availability')
- trips.value = res?.data ?? []
- } catch (e) {
- console.error(e)
- } finally {
- loading.value = false
- }
+onMounted(() => {
+  reset()
+  load()
 })
 </script>

@@ -22,6 +22,10 @@ export default defineNuxtConfig({
   // the server, and every hop of it reads a composable post-await.
   experimental: { asyncContext: true },
   routeRules: {
+    // Retired in-person wizard pages: keep old links working.
+    '/in-person/stores': { redirect: '/in-person' },
+    '/in-person/review': { redirect: '/in-person' },
+    '/in-person/details': { redirect: '/in-person' },
     // /login and /register used to be listed here as { ssr: false }. That was
     // never a decision about these pages — 9f9f568 flipped the whole app from
     // ssr:false to ssr:true and carved out everything that was already SPA, and
@@ -212,6 +216,7 @@ export default defineNuxtConfig({
       cookieDomain: process.env.COOKIE_DOMAIN,
       MAPBOX_API_TOKEN: process.env.MAPBOX_API_TOKEN,
       gtagId: process.env.GTAG_ID,
+      inPersonWhatsapp: process.env.IN_PERSON_WHATSAPP || '16194937969',
     }
   }
  })

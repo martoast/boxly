@@ -86,6 +86,7 @@
           </div>
 
           <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <InPersonWhatsApp />
             <NuxtLink
               to="/in-person"
               class="inline-flex items-center justify-center gap-2 px-8 py-4 bg-white text-primary-700 font-bold rounded-full shadow-lg hover:bg-gray-100 transition-all duration-300"
@@ -126,9 +127,9 @@
 useHead({
   title: 'Compras presenciales en outlets de San Diego | Boxly',
   meta: [
-    { name: 'description', content: 'Vamos por ti a Las Americas Outlets. Dinos qué buscas, lo compramos en persona y te lo mandamos a México en una sola caja.' },
+    { name: 'description', content: 'Reserva una hora con tu shopper en Las Americas Outlets. Compra en persona por ti y te lo mandamos a México en una sola caja.' },
     { property: 'og:title', content: 'Compras presenciales en outlets de San Diego | Boxly' },
-    { property: 'og:description', content: 'Vamos por ti a Las Americas Outlets. Dinos qué buscas, lo compramos en persona y te lo mandamos a México en una sola caja.' },
+    { property: 'og:description', content: 'Reserva una hora con tu shopper en Las Americas Outlets. Compra en persona por ti y te lo mandamos a México en una sola caja.' },
   ],
 })
 
@@ -152,8 +153,8 @@ const translations = {
     en: "Your personal shopper at US outlets and physical stores",
   },
   heroSubtitle: {
-    es: "Agendamos una visita a Las Américas Outlets o a las tiendas que tú elijas en San Diego. Vamos en persona, compramos por ti y te enviamos a México.",
-    en: "We book a visit to Las Americas Outlets or the stores you pick in San Diego. We shop in person and ship to Mexico.",
+    es: "Reserva una hora con tu shopper en Las Américas Premium Outlets, San Diego. Va en persona, compra por ti y te enviamos a México.",
+    en: "Reserve an hour with your shopper at Las Américas Premium Outlets, San Diego. She shops in person for you and we ship to Mexico.",
   },
   ctaBadge: {
     es: "Compra remota en USA",
@@ -164,12 +165,12 @@ const translations = {
     en: "Book your San Diego visit",
   },
   ctaSubtitle: {
-    es: "Elige la fecha, marca las tiendas que quieres visitar y reserva con $10 USD por tienda. Lo demás es nuestro trabajo.",
-    en: "Pick the date, mark the stores you want us to visit, and reserve with $10 USD per store. We handle the rest.",
+    es: "Elige fecha y hora, paga $30 USD para apartar tu horario y tu shopper te contacta por WhatsApp. Lo demás es nuestro trabajo.",
+    en: "Pick a date and time, pay $30 USD to hold your slot, and your shopper contacts you on WhatsApp. We handle the rest.",
   },
-  trust1: { es: "Outlets y tiendas físicas", en: "Outlets and physical stores" },
-  trust2: { es: "Reservas con $10 USD/tienda", en: "Reserve with $10 USD/store" },
-  trust3: { es: "Pagas la mercancía al final", en: "Pay merchandise at the end" },
+  trust1: { es: "Elige fecha y hora", en: "Pick a date and time" },
+  trust2: { es: "Reservas con $30 USD", en: "Reserve with $30 USD" },
+  trust3: { es: "$30 por hora + 10% de tus compras, al final", en: "$30 per hour + 10% of your purchases, at the end" },
   ctaButton: {
     es: "Agendar mi visita",
     en: "Schedule my visit",

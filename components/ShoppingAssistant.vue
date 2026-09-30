@@ -354,14 +354,13 @@
                       Buscando tus pedidos…
                     </div>
 
-                    <!-- In-person planner (Las Americas) → create PR + deposit checkout. -->
+                    <!-- In-person (Las Americas): link to the booking page. -->
                     <template v-else-if="part.type === 'tool-plan_in_person' && part.state === 'output-available'">
-                      <LazyDepositCheckoutCard v-if="inPersonResult" :checkout-url="inPersonResult.checkoutUrl" :deposit="inPersonResult.deposit" :request-number="inPersonResult.requestNumber" />
-                      <LazyInPersonPlanner v-else :plan="part.output" :loading="inPersonLoading" :error="inPersonError" @confirm="submitInPerson" />
+                      <LazyInPersonPlanner />
                     </template>
                     <div v-else-if="part.type === 'tool-plan_in_person' && part.state !== 'output-available'" class="flex items-center gap-2 text-xs text-gray-400 pl-1">
                       <svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
-                      Preparando el planificador…
+                      Un momento…
                     </div>
                   </template>
 
@@ -1150,31 +1149,6 @@ function dismissCancel() {
   const toolCallId = pendingCancel.value.toolCallId
   pendingCancel.value = null
   chat.addToolResult({ tool: 'cancel_order', toolCallId, output: { success: false, cancelled: true } })
-}
-
-// ── Phase 4: in-person (Las Americas) planner → create PR + deposit checkout. ─────
-const inPersonLoading = ref(false)
-const inPersonError = ref('')
-const inPersonResult = ref(null)   // { checkoutUrl, requestNumber, deposit }
-async function submitInPerson(sel) {
-  inPersonError.value = ''
-  inPersonLoading.value = true
-  try {
-    const res = await $customFetch('/purchase-requests/in-person', { method: 'POST', body: sel })
-    const data = res?.data || res
-    const pr = data?.purchase_request || data
-    inPersonResult.value = {
-      checkoutUrl: data?.checkout_url || res?.checkout_url || pr?.payment_link || '',
-      requestNumber: pr?.request_number || '',
-      deposit: pr?.deposit_amount_usd ?? data?.deposit_amount_usd ?? null,
-    }
-    loadConversations().catch(() => {})
-    scrollDown()
-  } catch (e) {
-    inPersonError.value = e?.data?.message || 'No se pudo crear la solicitud. Intenta de nuevo.'
-  } finally {
-    inPersonLoading.value = false
-  }
 }
 
 // Create a shipping (casillero) order from arbitrary items + the receipt as proof.

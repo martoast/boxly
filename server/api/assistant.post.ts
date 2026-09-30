@@ -899,7 +899,7 @@ const PIPELINE_HINT: Record<string, string> = {
   register: 'The customer tapped **Registrar compra** — they ALREADY BOUGHT something themselves and want Boxly to receive/import it (CASILLERO, no 15%). Ask them to upload the receipt/confirmation OR tell you what they bought, then use create_self_order.',
   assisted: 'The customer tapped **Compra asistida** — they want Boxly to BUY a product for them (+15%). Ask for the product link or what they want: a link goes into the box (show_shipment with its url), a description is searched live (live_gallery); then Finalizar (finalize_order) runs the real checkout and sends the invoice.',
   status: 'The customer tapped **Estado de envío** — they want to track their orders/shipments. Show their orders and their status.',
-  in_person: 'The customer tapped **Compras presenciales** — they want Boxly to shop in person at San Diego outlets. Help them schedule a trip and pick stores.',
+  in_person: 'The customer tapped **Compras presenciales** — they want Boxly to shop in person at San Diego outlets. Call plan_in_person: they pick a day and hour on the booking page and pay $30 USD to reserve it.',
 }
 function hubPreamble(loggedIn: boolean, pipeline?: string): string {
   const hint = pipeline && PIPELINE_HINT[pipeline] ? `\n\nACTIVE PIPELINE THIS TURN: ${PIPELINE_HINT[pipeline]}` : ''
@@ -910,7 +910,7 @@ THE FOUR THINGS A CUSTOMER CAN DO (route to the one that fits their message):
 1) BUSCAR PRODUCTOS 🛍️ — find/buy products from US stores, live in the stores' own sites (live_gallery).
 2) COMPRA ASISTIDA 💳 — Boxly BUYS a product for them (they paste a link / describe it). A link goes straight into the box (show_shipment with its url); a description is searched live. When they're done, finalize_order places the order and its checkout card shows the live store checkouts, the real total and the invoice — do NOT say it's created and do NOT invent a PR number. Use when they don't have a US card or just want us to buy it.
 3) REGISTRAR COMPRA (CASILLERO) 📦 — they ALREADY bought it themselves and want Boxly to receive + import it. Ends in create_self_order. NO 15% commission — never mention it here.
-5) COMPRAS PRESENCIALES 🏬 — Boxly shops IN PERSON at San Diego / Las Americas outlets for them (boutiques, wholesale, multi-store). When they want this ('vayan por mí', 'compras presenciales', 'en persona'), call plan_in_person to render the date/store/interest planner; they pick and pay a small deposit.
+5) COMPRAS PRESENCIALES 🏬 — Boxly shops IN PERSON at San Diego / Las Americas outlets for them (boutiques, wholesale, multi-store). When they want this ('vayan por mí', 'compras presenciales', 'en persona'), call plan_in_person to show the 'Reserva tu horario' card; they pick a day and hour on the booking page and pay $30 USD to reserve it.
 4) ESTADO / MIS PEDIDOS 🚚 — track and MANAGE existing orders. ALWAYS use show_orders (NOT plain text): no args → a tappable list of their orders; with order_id/order_number → that order's visual status timeline. Answer "¿dónde está mi envío/pedido?", "mis pedidos", "estado de mi orden" by calling show_orders, then add ONE short line. To CANCEL an order they ask to cancel, call cancel_order (it opens a confirm dialog — never cancel without it).
 
 ROUTING: infer intent from what they say. A link or "cómprenlo por mí" → asistida. "Ya lo compré / aquí está mi recibo" → registrar (casillero). "¿dónde está mi caja / mi pedido?" → estado. Otherwise, if they're looking for something to buy → búsqueda. When it's genuinely ambiguous, ask ONE short question. Switch pipelines fluidly as their need changes within the same conversation.
@@ -1668,25 +1668,12 @@ export default defineEventHandler(async (event) => {
       // Rich tracking card (hub). Renders a visual shipment status timeline for one
       // order, or a tappable list of all the user's orders. PREFER this over
       // list_orders on the dashboard — it draws the UI instead of listing text.
-      // In-person (Las Americas) planner: loads open trip dates + in-person stores +
-      // categories so the customer picks a date, stores and interests right in chat.
+      // In-person (Las Americas): the customer books a day and hour on /in-person, so the
+      // tool only renders a "Reserva tu horario" link card (nothing to load here).
       plan_in_person: tool({
-        description: "Show the IN-PERSON shopping planner (Boxly shops for the customer at San Diego / Las Americas outlets). Call this when they want in-person / presencial shopping ('vayan por mí a Las Americas', 'compras presenciales', 'shop for me at the outlets'). It renders a card to pick a trip DATE, choose STORES and interests, and set a minimum budget; then they pay a small deposit. Requires the user to be signed in.",
+        description: "Show a 'Reserva tu horario' card linking to the IN-PERSON shopping booking page (Boxly's shopper goes to Las Americas outlets for the customer: they pick a day and hour there and pay $30 USD to hold it). Call this when they want in-person / presencial shopping ('vayan por mí a Las Americas', 'compras presenciales', 'shop for me at the outlets'). Requires the user to be signed in.",
         inputSchema: z.object({}),
-        execute: async () => {
-          if (!token) return authedNote
-          const [avail, storesRes, cats]: any = await Promise.all([
-            callApi('/shopping-trips/availability', { token }),
-            callApi('/shopping-trips/in-person-stores', { token }),
-            callApi('/shopping-trips/categories', { token }),
-          ])
-          return {
-            trips: Array.isArray(avail) ? avail : [],
-            stores: storesRes?.stores || [],
-            categories: Array.isArray(cats) ? cats : [],
-            per_store_fee_usd: storesRes?.per_store_fee_usd ?? 10,
-          }
-        },
+        execute: async () => (token ? { url: '/in-person' } : authedNote),
       }),
 
       show_orders: tool({

@@ -92,7 +92,7 @@ const destinations = [
   { route: '/app/admin/drop-off-receipts', es: 'Recibos de Entrega', en: 'Drop-off Receipts', kw: 'drop off dropoff receipts recibos entrega comprobante' },
   { route: '/app/admin/boxes', es: 'Cajas', en: 'Boxes', kw: 'boxes cajas' },
   { route: '/app/admin/customers', es: 'Clientes', en: 'Customers', kw: 'customers clientes users usuarios' },
-  { route: '/app/admin/shopping-trips', es: 'Visitas en Persona', en: 'In-Person Trips', kw: 'shopping trips visitas presencial las americas' },
+  { route: '/app/admin/availability', es: 'Visitas en Persona', en: 'In-Person Trips', kw: 'shopping trips visitas presencial las americas' },
   { route: '/app/admin/stores', es: 'Tiendas (presencial)', en: 'Stores (in-person)', kw: 'stores tiendas brands' },
   { route: '/app/admin/categories', es: 'Categorías (presencial)', en: 'Categories (in-person)', kw: 'categories categorias' },
   { route: '/app/admin/affiliates', es: 'Afiliados', en: 'Affiliates', kw: 'affiliates afiliados referrals payouts' },
