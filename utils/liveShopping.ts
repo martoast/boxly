@@ -312,7 +312,7 @@ export function availabilityText(a: any): string | null {
 export const EVENT_TYPES = [
   'session.created', 'worker.starting', 'worker.running', 'worker.progress',
   'candidate', 'candidate.cleared', 'media.publishing', 'media.ready', 'media.failed',
-  'control.changed', // C4: {controller: 'agent'|'pausing'|'customer'} — who holds the store browser
+  'control.changed', // C4: {controller: 'agent'|'pausing'|'customer', reason?: 'challenge'} — who holds the store browser
   'session.completed', 'session.failed', 'session.cancelling', 'session.cancelled',
 ] as const
 
@@ -368,6 +368,40 @@ export function terminalStatusFromEvent(type: string): 'completed' | 'failed' | 
   if (type === 'session.cancelled') return 'cancelled'
   return null
 }
+
+// ── Who holds the store browser (C4) + the challenge hand-off ────────────────
+// control.changed payload, CLOSED: {controller} or, when the agent handed the browser to the shopper for a store's
+// human check ("Press & Hold"), {controller:'customer', reason:'challenge'}. Anything else is not a control change.
+export type ControlChange = { controller: 'agent' | 'pausing' | 'customer'; reason: 'challenge' | null }
+export function parseControlChange(ev: { type?: string; payload?: any } | null | undefined): ControlChange | null {
+  if (!ev || ev.type !== 'control.changed') return null
+  const p = ev.payload
+  if (!p || typeof p !== 'object' || Array.isArray(p)) return null
+  const keys = Object.keys(p).sort().join()
+  if (keys !== 'controller' && keys !== 'controller,reason') return null
+  if (p.controller !== 'agent' && p.controller !== 'pausing' && p.controller !== 'customer') return null
+  if (keys === 'controller') return { controller: p.controller, reason: null }
+  return p.reason === 'challenge' && p.controller === 'customer' ? { controller: 'customer', reason: 'challenge' } : null
+}
+
+// The shopper-facing state of a challenge hand-off: 'needed' while the store waits for the shopper's press & hold,
+// 'resumed' for a moment after the agent took the browser back ("¡Listo! Boxly continúa."), else 'none'. A return
+// replayed from long ago (a card re-attaching to an older session) never announces "Listo" again.
+export type HelpState = 'none' | 'needed' | 'resumed'
+export const HELP_RESUMED_FRESH_MS = 30_000
+export function nextHelpState(current: HelpState, change: ControlChange | null, { occurredAt = null, nowMs = Date.now() }: { occurredAt?: string | null; nowMs?: number } = {}): HelpState {
+  if (!change) return current
+  if (change.controller === 'customer' && change.reason === 'challenge') return 'needed'
+  if (change.controller !== 'agent') return current === 'needed' ? 'needed' : 'none'
+  if (current !== 'needed') return current
+  const at = occurredAt ? Date.parse(occurredAt) : NaN
+  return Number.isFinite(at) && nowMs - at > HELP_RESUMED_FRESH_MS ? 'none' : 'resumed'
+}
+export function challengeHelpCopy(storeName?: string | null, where: 'chat' | 'panel' = 'chat'): string {
+  const store = String(storeName || '').trim() || 'La tienda'
+  return `${store} pide confirmar que eres una persona. Mantén presionado el botón «Press & Hold» en la tienda ${where === 'panel' ? 'de abajo' : 'en vivo'} hasta que termine; después Boxly sigue solo.`
+}
+export const CHALLENGE_RESUMED_COPY = '¡Listo! Boxly continúa.'
 
 export type LiveActivity = 'starting' | 'browsing' | 'cancelling' | 'media_publishing' | 'media_ready' | 'media_failed'
 

@@ -2,7 +2,8 @@
   <!-- One store browser the agent is running (C4, watch in chat). View-only for now: pause & take control
        comes next. Attaches to an EXISTING session (the cart's live_sessions), never creates one. -->
   <div class="relative bg-gray-900 overflow-hidden" :class="compact ? 'rounded-xl' : 'rounded-2xl'" style="aspect-ratio: 16 / 9">
-    <video ref="videoEl" tabindex="0" autoplay playsinline muted class="w-full h-full object-contain outline-none" :class="interactive ? 'cursor-default ring-2 ring-primary-400 ring-inset' : ''" />
+    <!-- Interactive: touch-action none so a press-and-hold on a phone never scrolls or opens the callout menu. -->
+    <video ref="videoEl" tabindex="0" autoplay playsinline muted class="w-full h-full object-contain outline-none" :class="interactive ? 'cursor-default ring-2 ring-primary-400 ring-inset touch-none select-none' : ''" :style="interactive ? '-webkit-touch-callout: none' : ''" />
 
     <!-- Finished: the store's LAST FRAME stays (Alex 2026-09-28: "it shouldn't close it — keep it there in case the
          user wants to go back to it"), with a small done badge, instead of a dark cover. -->
@@ -39,7 +40,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
-import { parseSessionCreateResponse, isTerminal } from '~/utils/liveShopping'
+import { parseSessionCreateResponse, isTerminal, parseControlChange } from '~/utils/liveShopping'
 import { useLiveSession } from '~/composables/useLiveSession'
 import { useWhepViewer } from '~/composables/useWhepViewer'
 import { useInputRelay } from '~/composables/useInputRelay'
@@ -47,7 +48,7 @@ import { useInputRelay } from '~/composables/useInputRelay'
 // interactive (C4 phase B): the customer holds the browser (paused agent) — their mouse and keyboard on the video
 // are relayed to the store. Bound ONLY while interactive, so typing in the chat is never captured otherwise.
 const props = defineProps<{ sessionId: number, storeName?: string | null, compact?: boolean, interactive?: boolean }>()
-const emit = defineEmits<{ (e: 'ended'): void, (e: 'control', controller: string): void, (e: 'refused', code: string): void }>()
+const emit = defineEmits<{ (e: 'ended'): void, (e: 'control', controller: string, reason: string | null, occurredAt: string | null): void, (e: 'refused', code: string): void }>()
 
 const nuxtApp = useNuxtApp() as any
 const { $customFetch } = nuxtApp
@@ -102,8 +103,9 @@ async function attach() {
 
   live = nuxtApp.runWithContext(() => useLiveSession(h, {
     onTerminal: () => { captureLastFrame(); viewer?.stop(); relay.stop(); phase.value = 'ended'; emit('ended') },
-    // C4: who holds the browser (agent | pausing | customer).
-    onEvent: (ev: any) => { if (ev?.type === 'control.changed' && typeof ev.payload?.controller === 'string') emit('control', ev.payload.controller) },
+    // C4: who holds the browser (agent | pausing | customer), and why when the agent asked for the shopper's help
+    // (reason 'challenge': a store's human check only a person may pass).
+    onEvent: (ev: any) => { const c = parseControlChange(ev); if (c) emit('control', c.controller, c.reason, typeof ev?.occurredAt === 'string' ? ev.occurredAt : null) },
   }))
   viewer = nuxtApp.runWithContext(() => useWhepViewer({ getTicket: live.getTicket, remintTicket: live.remintTicket }))
   stops.push(watch(live.mediaState, (s: string) => { mediaState.value = s }, { immediate: true }))

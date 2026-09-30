@@ -18,6 +18,9 @@
 
     <div class="flex-1 min-h-0 flex items-center justify-center p-3 sm:p-4">
       <div class="w-full">
+        <!-- Challenge hand-off: the store asks for a human check; the shopper presses and holds it on the video. -->
+        <p v-if="!ended && help === 'needed'" class="mb-2 rounded-xl bg-amber-400/15 border border-amber-300/40 px-3 py-2 text-sm text-amber-100" role="alert">{{ challengeHelpCopy(name, 'panel') }}</p>
+        <p v-else-if="!ended && help === 'resumed'" class="mb-2 rounded-xl bg-green-400/15 border border-green-300/40 px-3 py-2 text-sm text-green-100" role="status">{{ CHALLENGE_RESUMED_COPY }}</p>
         <LiveBrowserStage :session-id="session.id" :store-name="name" :interactive="controller === 'customer'" @ended="onEnded" @control="onControl" @refused="onRefused" />
         <p v-if="notice" class="mt-2 text-xs text-amber-300" role="status">{{ notice }}</p>
       </div>
@@ -34,7 +37,7 @@
       </span>
       <template v-else>
         <span class="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-primary-500/20 text-primary-200">
-          <span class="w-1.5 h-1.5 rounded-full bg-primary-300" aria-hidden="true" />Tú controlas la tienda
+          <span class="w-1.5 h-1.5 rounded-full bg-primary-300" aria-hidden="true" />{{ help === 'needed' ? 'Confirma que eres una persona' : 'Tú controlas la tienda' }}
         </span>
         <button type="button" :disabled="busy" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary-500 hover:bg-primary-600 text-white text-sm font-semibold disabled:opacity-60" @click="handBack">
           <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
@@ -49,9 +52,12 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import type { LiveCartSession } from '~/utils/boxlyCart'
+import { challengeHelpCopy, CHALLENGE_RESUMED_COPY, type HelpState } from '~/utils/liveShopping'
 
-const props = defineProps<{ session: LiveCartSession, mobile?: boolean }>()
-const emit = defineEmits<{ (e: 'close'): void, (e: 'ended'): void, (e: 'control', controller: string): void }>()
+// help: the challenge hand-off state the chat keeps (utils/liveShopping nextHelpState) — 'needed' while the store waits
+// for the shopper's press & hold, 'resumed' for a moment after the agent took the browser back.
+const props = defineProps<{ session: LiveCartSession, mobile?: boolean, help?: HelpState }>()
+const emit = defineEmits<{ (e: 'close'): void, (e: 'ended'): void, (e: 'control', controller: string, reason: string | null, occurredAt: string | null): void }>()
 const name = computed(() => props.session.store_name || props.session.store_id)
 const ended = ref(false)
 function onEnded() { ended.value = true; controller.value = 'agent'; emit('ended') }
@@ -64,11 +70,12 @@ const busy = ref(false)
 const notice = ref('')
 let noticeTimer: any = null
 const subtitle = computed(() => ended.value ? 'El agente terminó en la tienda.'
+  : props.help === 'needed' ? 'La tienda pide confirmar que eres una persona.'
   : controller.value === 'customer' ? 'Tú controlas el navegador; el agente está en pausa.'
   : controller.value === 'pausing' ? 'Pausando al agente…'
   : props.session.note ? `${props.session.note}.` : 'El agente está agregando tus productos al carrito real de la tienda.')
-function onControl(c: string) {
-  if (c === 'agent' || c === 'pausing' || c === 'customer') { controller.value = c; emit('control', c) }
+function onControl(c: string, reason: string | null = null, occurredAt: string | null = null) {
+  if (c === 'agent' || c === 'pausing' || c === 'customer') { controller.value = c; emit('control', c, reason, occurredAt) }
 }
 async function setController(target: 'customer' | 'agent') {
   busy.value = true

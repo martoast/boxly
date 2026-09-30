@@ -16,6 +16,7 @@
  *   node --experimental-strip-types utils/liveShopping.test.mjs
  */
 import { liveResultsCaveat, liveFailureCopy,
+  parseControlChange, nextHelpState, challengeHelpCopy, CHALLENGE_RESUMED_COPY, HELP_RESUMED_FRESH_MS,
   createSSEParser,
   parseEventV1, extractCandidates, terminalStatusFromEvent, eventActivity, EVENT_TYPES,
   validateProduct, validateHttpsUrl, availabilityText,
@@ -538,6 +539,36 @@ console.log('media.failed detail payload is ignored by the reader')
   const legacy = parseEventV1(frame({ error_code: 'capture_exited' }), 'sess-9')
   check('media.failed with only error_code (older engine) parses the same', legacy !== null && eventActivity(legacy.type) === 'media_failed')
   check('unknown extra keys on media.failed are ignored, never a parse failure', parseEventV1(frame({ error_code: 'x', reason: 'y', blocking_line: null, extra: 1 }), 'sess-9') !== null)
+}
+
+// ── Challenge hand-off: control.changed {controller, reason?:'challenge'} ────
+console.log('control.changed + challenge hand-off')
+{
+  const ev = (payload) => ({ type: 'control.changed', payload })
+  const framed = parseEventV1(evFrame({ type: 'control.changed', payload: { controller: 'customer', reason: 'challenge' } }), SID)
+  check('the envelope accepts control.changed with a reason', framed !== null && framed.payload.reason === 'challenge')
+  check('reason parsed (closed)', JSON.stringify(parseControlChange(framed)) === JSON.stringify({ controller: 'customer', reason: 'challenge' }))
+  check('no reason → null reason', JSON.stringify(parseControlChange(ev({ controller: 'agent' }))) === JSON.stringify({ controller: 'agent', reason: null }))
+  check('pausing is a controller', parseControlChange(ev({ controller: 'pausing' }))?.controller === 'pausing')
+  check('unknown reason refused', parseControlChange(ev({ controller: 'customer', reason: 'captcha' })) === null)
+  check('a reason on the agent refused', parseControlChange(ev({ controller: 'agent', reason: 'challenge' })) === null)
+  check('extra keys refused', parseControlChange(ev({ controller: 'agent', extra: 1 })) === null)
+  check('unknown controller refused', parseControlChange(ev({ controller: 'boss' })) === null)
+  check('other event types are not control changes', parseControlChange({ type: 'worker.progress', payload: { controller: 'agent' } }) === null)
+  check('no payload refused', parseControlChange({ type: 'control.changed' }) === null)
+
+  const now = Date.parse('2026-09-30T12:00:00Z')
+  const help = { controller: 'customer', reason: 'challenge' }, back = { controller: 'agent', reason: null }
+  check('a challenge hand-off → needed', nextHelpState('none', help) === 'needed')
+  check('the agent takes it back (fresh) → resumed', nextHelpState('needed', back, { occurredAt: '2026-09-30T11:59:58Z', nowMs: now }) === 'resumed')
+  check('a return replayed from long ago → none (no stale "Listo")', nextHelpState('needed', back, { occurredAt: new Date(now - HELP_RESUMED_FRESH_MS - 1000).toISOString(), nowMs: now }) === 'none')
+  check('an ordinary pause/resume never shows the prompt', nextHelpState('none', { controller: 'pausing', reason: null }) === 'none' && nextHelpState('none', { controller: 'customer', reason: null }) === 'none' && nextHelpState('none', back, { nowMs: now }) === 'none')
+  check('needed stays needed until the agent returns', nextHelpState('needed', { controller: 'customer', reason: null }) === 'needed')
+  check('a second check after resumed → needed again', nextHelpState('resumed', help) === 'needed')
+  check('a parse failure changes nothing', nextHelpState('needed', null) === 'needed')
+  check('the Spanish prompt names the store and the button', challengeHelpCopy('Bath & Body Works') === 'Bath & Body Works pide confirmar que eres una persona. Mantén presionado el botón «Press & Hold» en la tienda en vivo hasta que termine; después Boxly sigue solo.')
+  check('panel copy points below; no store name → La tienda', challengeHelpCopy(null, 'panel').startsWith('La tienda pide confirmar') && challengeHelpCopy('X', 'panel').includes('en la tienda de abajo'))
+  check('resumed copy', CHALLENGE_RESUMED_COPY === '¡Listo! Boxly continúa.')
 }
 
 console.log(`\n${pass} passed, ${fail} failed`)

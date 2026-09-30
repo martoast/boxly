@@ -56,6 +56,11 @@ check('scroll clamped to the engine bound (steps)', boundMessage({ type: 'pointe
 check('scroll zero refused', boundMessage({ type: 'pointer.scroll', dy: 0 }, intr) === null)
 check('text over the cap refused', boundMessage({ type: 'text.type', value: 'x'.repeat(MAX_TEXT_CHARS + 1) }, intr) === null)
 check('unknown button refused', boundMessage({ type: 'pointer.click', button: 'back' }, intr) === null)
+// Challenge hand-off: a real-time hold is pointer.down {x,y,button} … pointer.up {button}.
+check('down in bounds passes', JSON.stringify(boundMessage({ type: 'pointer.down', x: 10, y: 20, button: 'left' }, intr)) === JSON.stringify({ type: 'pointer.down', x: 10, y: 20, button: 'left' }))
+check('down out of bounds refused', boundMessage({ type: 'pointer.down', x: 1280, y: 0, button: 'left' }, intr) === null)
+check('down with an unknown button refused', boundMessage({ type: 'pointer.down', x: 1, y: 1, button: 'back' }, intr) === null)
+check('up passes with a known button only', boundMessage({ type: 'pointer.up', button: 'left' }, intr) !== null && boundMessage({ type: 'pointer.up', button: 'x' }, intr) === null)
 
 // inbound
 check('state frame parses', parseInbound('{"type":"state","controller":"agent"}')?.controller === 'agent')
@@ -90,6 +95,9 @@ function fakeSocketFactory() {
   check('flush sends the LATEST move only', s.sent.length === 2 && s.sent[1].x === 20)
   c.send({ type: 'pointer.click', button: 'left' })
   check('click sent after flushing any pending move', s.sent[2].type === 'pointer.click')
+  c.send({ type: 'pointer.down', x: 30, y: 40, button: 'left' }); c.send({ type: 'pointer.up', button: 'left' })
+  check('a hold is sent as down then up, verbatim', JSON.stringify(s.sent.slice(3, 5)) === JSON.stringify([{ type: 'pointer.down', x: 30, y: 40, button: 'left' }, { type: 'pointer.up', button: 'left' }]))
+  s.sent.splice(3, 2)
   check('out-of-bounds move never sent', c.send({ type: 'pointer.move', x: 5000, y: 0 }) === false)
   s.onmessage({ data: '{"type":"refused","code":"rate_limited"}' })
   check('refusal surfaced, state stays open', refused[0] === 'rate_limited' && c.getState() === 'open')

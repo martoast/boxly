@@ -29,7 +29,7 @@ export function useInputRelay() {
   const received = ref(0) // raw DOM pointer/key events seen on the bound element
   const focusedTag = ref('none') // TAG#id of document.activeElement, for the page's focus readout
   const lastKey = ref('none') // the last keydown seen and what it became, for the page's key readout
-  const sentByType = ref<Record<string, number>>({ 'pointer.move': 0, 'pointer.click': 0, 'pointer.scroll': 0, 'key.press': 0, 'text.type': 0 })
+  const sentByType = ref<Record<string, number>>({ 'pointer.move': 0, 'pointer.click': 0, 'pointer.down': 0, 'pointer.up': 0, 'pointer.scroll': 0, 'key.press': 0, 'text.type': 0 })
 
   const relay = createInputRelayController({
     connect: (url) => new WebSocket(url) as any,
@@ -54,6 +54,8 @@ export function useInputRelay() {
     handleKeydown(ev, 'doc')
   }
   let raf: number | null = null
+  let held: 'left' | 'right' | 'middle' | null = null // the button a pointer.down pressed, until its pointer.up
+  const release = () => { if (!held) return; const button = held; held = null; send({ type: 'pointer.up', button }) }
   const listeners: Array<[string, any, any?]> = []
 
   const intrinsic = () => ({ width: el?.videoWidth || 0, height: el?.videoHeight || 0 })
@@ -99,14 +101,23 @@ export function useInputRelay() {
     on('pointermove', (ev: PointerEvent) => { const p = point(ev); if (p) { send({ type: 'pointer.move', ...p }); scheduleFlush() } })
     // mousedown focuses too (some builds fire it before pointerdown, or when a pointerdown default was consumed).
     on('mousedown', () => ensureVideoFocus())
+    // A press is a real-time hold: pointer.down now, pointer.up when the finger/button lifts (a click is a quick
+    // down+up; a store's "Press & Hold" human check gets the whole hold). The pointer is captured so the up arrives
+    // even if it slides off the video; leaving or a cancelled touch also releases.
     on('pointerdown', (ev: PointerEvent) => {
       ensureVideoFocus()
       const p = point(ev); if (!p) return
       ev.preventDefault()
       flushText() // a word typed before this click lands in the store first
+      if (held) release()
+      const button = ev.button === 2 ? 'right' : ev.button === 1 ? 'middle' : 'left'
       send({ type: 'pointer.move', ...p }); relay.flushMove()
-      send({ type: 'pointer.click', button: ev.button === 2 ? 'right' : ev.button === 1 ? 'middle' : 'left' })
+      if (send({ type: 'pointer.down', ...p, button })) held = button
+      try { el?.setPointerCapture?.(ev.pointerId) } catch { /* not capturable: pointerleave releases */ }
     })
+    on('pointerup', () => release())
+    on('pointercancel', () => release())
+    on('pointerleave', () => release())
     on('contextmenu', (ev: Event) => ev.preventDefault())
     on('wheel', (ev: WheelEvent) => { const p = point(ev); if (!p) return; ev.preventDefault(); const dy = scrollStepsFor(ev.deltaY, ev.deltaMode); if (dy) send({ type: 'pointer.scroll', dy }) }, { passive: false })
     on('keydown', (ev: KeyboardEvent) => {
@@ -123,6 +134,7 @@ export function useInputRelay() {
     on('paste', (ev: ClipboardEvent) => { ev.preventDefault(); textBuffer.push({ type: 'text.type', value: ev.clipboardData?.getData('text/plain') || '' }); flushText() })
   }
   function unbind() {
+    release()
     for (const [t, fn, opts] of listeners) { if (t === '__doc_keydown__') { if (typeof document !== 'undefined') document.removeEventListener('keydown', fn, opts as any) } else el?.removeEventListener(t, fn, opts) }
     listeners.length = 0
     el = null
@@ -131,7 +143,7 @@ export function useInputRelay() {
   }
 
   const start = (ticket: ViewerTicket) => { lastRefusal.value = null; relay.start(ticket) }
-  const stop = () => { flushText(); relay.stop() }
+  const stop = () => { flushText(); release(); relay.stop() }
 
   if (getCurrentInstance()) onBeforeUnmount(() => { unbind(); relay.stop() })
 

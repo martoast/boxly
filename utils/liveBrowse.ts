@@ -13,6 +13,9 @@ import type { Candidate, EventV1, ViewerTicket } from './liveShopping'
 export type InputMessage =
   | { type: 'pointer.move'; x: number; y: number }
   | { type: 'pointer.click'; button: 'left' | 'right' | 'middle' }
+  // A real-time hold (a store's "Press & Hold" human check the shopper passes): down at a point, up later.
+  | { type: 'pointer.down'; x: number; y: number; button: 'left' | 'right' | 'middle' }
+  | { type: 'pointer.up'; button: 'left' | 'right' | 'middle' }
   | { type: 'pointer.scroll'; dy: number }
   | { type: 'key.press'; key: string; modifiers: Array<'ctrl' | 'shift' | 'alt'> }
   | { type: 'text.type'; value: string }
@@ -167,7 +170,12 @@ export function boundMessage(m: InputMessage, intrinsic: { width: number; height
       if (!Number.isInteger(m.x) || !Number.isInteger(m.y) || m.x < 0 || m.y < 0 || m.x >= intrinsic.width || m.y >= intrinsic.height) return null
       return m
     case 'pointer.click':
+    case 'pointer.up':
       return (POINTER_BUTTONS as readonly string[]).includes(m.button) ? m : null
+    case 'pointer.down':
+      if (!(POINTER_BUTTONS as readonly string[]).includes(m.button)) return null
+      if (!Number.isInteger(m.x) || !Number.isInteger(m.y) || m.x < 0 || m.y < 0 || m.x >= intrinsic.width || m.y >= intrinsic.height) return null
+      return m
     case 'pointer.scroll': {
       if (!Number.isFinite(m.dy) || m.dy === 0) return null
       const dy = Math.max(-MAX_SCROLL_STEPS, Math.min(MAX_SCROLL_STEPS, Math.round(m.dy)))

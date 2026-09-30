@@ -229,7 +229,7 @@
 
             <!-- C4: a store browser already running for the cart shows here too, above the input. -->
             <div v-if="liveShown" class="mb-4">
-              <LiveBrowserCard :session="liveShown" :expanded="liveOpen" :is-desktop="isDesktop" @expand="liveOpen = true" @ended="onLiveEnded" />
+              <LiveBrowserCard :session="liveShown" :expanded="liveOpen" :is-desktop="isDesktop" :help="liveHelp" @expand="liveOpen = true" @ended="onLiveEnded" @control="onLiveControl" />
             </div>
 
             <!-- input at the top -->
@@ -468,7 +468,7 @@
 
           <!-- C4: the store browser the agent is running (a live gallery, a cart add or a checkout), live in the chat. -->
           <div v-if="liveShown" class="max-w-2xl mx-auto mt-4 flex justify-start">
-            <LiveBrowserCard :session="liveShown" :expanded="liveOpen" :is-desktop="isDesktop" @expand="liveOpen = true" @ended="onLiveEnded" />
+            <LiveBrowserCard :session="liveShown" :expanded="liveOpen" :is-desktop="isDesktop" :help="liveHelp" @expand="liveOpen = true" @ended="onLiveEnded" @control="onLiveControl" />
           </div>
 
           <div v-if="showTyping" class="max-w-2xl mx-auto mt-4 flex justify-start">
@@ -568,11 +568,11 @@
 
     <!-- C4: opened, the store browser takes the right-hand column (desktop) or the whole screen (mobile). -->
     <aside v-if="liveShown && liveOpen && isDesktop" class="hidden md:flex w-1/2 max-w-[60rem] shrink-0 border-l border-gray-800">
-      <LiveBrowserPanel class="w-full" :session="liveShown" @close="liveOpen = false" @ended="onLiveEnded" />
+      <LiveBrowserPanel class="w-full" :session="liveShown" :help="liveHelp" @close="liveOpen = false" @ended="onLiveEnded" @control="onLiveControl" />
     </aside>
     <Teleport to="body">
       <div v-if="liveShown && liveOpen && !isDesktop" class="fixed inset-0 z-[80] md:hidden">
-        <LiveBrowserPanel mobile :session="liveShown" @close="liveOpen = false" @ended="onLiveEnded" />
+        <LiveBrowserPanel mobile :session="liveShown" :help="liveHelp" @close="liveOpen = false" @ended="onLiveEnded" @control="onLiveControl" />
       </div>
     </Teleport>
 
@@ -610,6 +610,7 @@ import { DefaultChatTransport } from 'ai'
 import { useBoxlyCart } from '../composables/useBoxlyCart'
 import { cartPayloadFromChatProduct, variantsText } from '../utils/boxlyCart'
 import { withLiveRows, newLiveResultMessages } from '../utils/liveGallery'
+import { nextHelpState } from '../utils/liveShopping'
 import { PICKER_PART } from '../utils/typedPick'
 
 // Auto-continue ONLY for the client-side create_account tool once it has a
@@ -708,7 +709,24 @@ async function fetchLiveGallery(sessionId) {
     await new Promise((resolve) => setTimeout(resolve, 1500))
   }
 }
+// CHALLENGE HAND-OFF: the store asked for a human check and the agent handed the browser to the shopper
+// (control.changed reason 'challenge'). The browser opens by itself (beside the chat / full screen) and the card and
+// panel ask the shopper to press and hold; when the agent takes it back, "¡Listo! Boxly continúa." for a moment.
+const liveHelp = ref('none')
+let liveHelpTimer = null
+watch(() => liveShown.value?.id, () => { liveHelp.value = 'none'; clearTimeout(liveHelpTimer) })
+function onLiveControl(controller, reason = null, occurredAt = null) {
+  const before = liveHelp.value
+  const next = nextHelpState(before, { controller, reason }, { occurredAt })
+  liveHelp.value = next
+  if (next === 'needed' && before !== 'needed') liveOpen.value = true
+  if (next === 'resumed' && before !== 'resumed') {
+    clearTimeout(liveHelpTimer)
+    liveHelpTimer = setTimeout(() => { if (liveHelp.value === 'resumed') liveHelp.value = 'none' }, 5000)
+  }
+}
 function onLiveEnded() {
+  liveHelp.value = 'none'
   const ended = liveShown.value
   if (ended && galleryLiveIds.has(ended.id)) { galleryLiveIds.delete(ended.id); fetchLiveGallery(ended.id) }
   clearTimeout(liveEndTimer)
