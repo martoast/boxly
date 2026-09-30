@@ -894,6 +894,7 @@ function registerProducts(list) {
       // The store id the Boxly cart needs (the live gallery's rows carry the engine's).
       store_id: raw.store_id ?? prev.store_id ?? null,
       price: raw.price ?? raw.price_usd ?? prev.price ?? null,
+      price_from: raw.price_from ?? prev.price_from ?? false,
       was: raw.was ?? prev.was ?? null,
       on_sale: raw.on_sale ?? raw.onSale ?? prev.on_sale ?? false,
       image: img || prev.image || null,

@@ -91,4 +91,10 @@ ok('only live-results messages the chat does not show yet are fetched in', () =>
   assert.deepEqual(newLiveResultMessages(null, new Set()), [])
 })
 
+ok('a price RANGE tile (price_from) reads "desde" in the row and in the model\'s text; a plain tile carries no flag', () => {
+  const [row] = liveGalleryRows([v1({ price_from: true, list_price: null })])
+  assert.equal(row.price_from, true)
+  assert.equal('price_from' in liveGalleryRows([v1()])[0], false)
+})
+
 console.log(`\n${pass} checks passed`)

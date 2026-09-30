@@ -67,7 +67,7 @@
         <div class="px-0.5 pt-2 flex flex-col flex-1">
           <span class="text-[13px] font-semibold text-gray-900 leading-snug line-clamp-2">{{ p.title }}</span>
           <p v-if="p.price" class="mt-1 text-[12.5px] text-gray-700 leading-none">
-            <span class="font-bold text-gray-900">${{ p.price }}</span> <span class="text-[10px] font-semibold text-gray-400">USD</span>
+            <span v-if="p.priceFrom" class="font-normal text-gray-500">desde </span><span class="font-bold text-gray-900">${{ p.price }}</span> <span class="text-[10px] font-semibold text-gray-400">USD</span>
             <span v-if="p.was" class="ml-1 text-[10px] font-medium text-gray-300 line-through">${{ p.was }}</span>
             <span class="text-gray-400 font-normal"> · Precio de tienda</span>
           </p>
@@ -178,6 +178,7 @@ const normalized = computed(() =>
       image,
       images,
       price,
+      priceFrom: p.price_from === true,
       was,
       onSale,
       discount,

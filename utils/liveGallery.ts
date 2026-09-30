@@ -68,6 +68,8 @@ export function liveGalleryRows(products: unknown): any[] {
     out.push({
       title: x.title, url: x.url, image: x.image ?? null,
       price, was, on_sale: was !== null,
+      // A tile showing a price RANGE ("$37.00 - $180.00", Ulta sizes): the price is the low end, shown as "desde".
+      ...(x.price_from === true ? { price_from: true } : {}),
       store: x.store ?? null, store_id: x.store_id ?? null,
       availability: x.availability ?? 'unknown',
       source: 'live',
@@ -97,7 +99,7 @@ export function liveResultsAsText(messages: any[]): any[] {
         if (p?.type !== LIVE_RESULTS_PART) return p
         const rows = liveGalleryRows(p?.output?.products)
         if (!rows.length) return { type: 'text', text: '[Galería en vivo: la tienda no devolvió productos para esa búsqueda.]' }
-        const list = rows.slice(0, 12).map((r) => `${String(r.title || '').slice(0, 80)} (${r.store || r.store_id || ''}${r.price != null ? `, $${r.price}` : ''})`).join('; ')
+        const list = rows.slice(0, 12).map((r) => `${String(r.title || '').slice(0, 80)} (${r.store || r.store_id || ''}${r.price != null ? `, ${r.price_from ? 'desde ' : ''}$${r.price}` : ''})`).join('; ')
         return { type: 'text', text: `[Galería en vivo mostrada en el chat — ${rows.length} productos leídos del sitio de la tienda: ${list}${rows.length > 12 ? '; …' : ''}. Están en PRODUCTS ALREADY SHOWN con sus ids.]` }
       }),
     }
