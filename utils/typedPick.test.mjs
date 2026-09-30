@@ -66,4 +66,10 @@ ok('cards replay as text for the model (ready and still reading)', asText.every(
 const withPhoto = card('https://s.com/tee', { ...tee, product: { url: 'https://s.com/tee', image: 'https://img.s.com/tee.jpg' } })
 ok('a card\'s product photo stands in for a missing one (query ignored)', pickerCardPhoto([withPhoto], 'https://s.com/tee?x=1') === 'https://img.s.com/tee.jpg')
 ok('no card for that url → no photo', pickerCardPhoto([withPhoto], 'https://s.com/other') === null)
+// A third-party marketplace seller (reader: product.seller.is_store false) is never a typed pick.
+const mkt = { ...tee, product: { url: 'https://s.com/tee', seller: { name: 'SUNBS Direct', is_store: false } } }
+r = resolveTypedPick('talla M', pickerCards([card('https://s.com/tee', mkt)]))
+ok('a marketplace seller is refused', !r.ok && r.reason === 'marketplace')
+r = resolveTypedPick('talla M', pickerCards([card('https://s.com/tee', { ...tee, product: { url: 'https://s.com/tee', seller: { name: 'Walmart.com', is_store: true } } })]))
+ok('the store itself as seller is fine', r.ok)
 console.log(`\n${pass} checks passed`)

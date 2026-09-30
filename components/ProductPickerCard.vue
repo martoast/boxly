@@ -16,6 +16,7 @@
           <span class="text-[11px] font-semibold text-gray-400">USD</span>
           <span v-if="onSale" class="ml-1 text-[12px] font-medium text-gray-400 line-through">${{ was }}</span>
         </p>
+        <p v-if="seller" class="mt-0.5 text-[11px]" :class="marketplace ? 'text-amber-700 font-semibold' : 'text-gray-400'">Vendido por {{ seller.name }}</p>
       </div>
     </div>
 
@@ -53,7 +54,11 @@
         <svg class="w-3.5 h-3.5 animate-spin text-primary-500" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"/><path class="opacity-80" fill="currentColor" d="M4 12a8 8 0 018-8v3a5 5 0 00-5 5H4z"/></svg>
         Leyendo opciones en vivo…
       </div>
-      <LazyVariantPicker v-if="hasChoices" :key="readKey" :data="pickerData" :busy="busy" @pick="onVariantPick" @show-image="(u) => (leadImage = u)" @price="(p) => (pickedPrice = p && typeof p.price === 'number' ? p : null)" />
+      <!-- Boxly only buys what the store sells itself; a third-party marketplace seller cannot be added (Alex). -->
+      <div v-if="marketplace" class="rounded-2xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-[12.5px] text-amber-800 leading-snug">
+        Este artículo lo vende <b>{{ seller.name }}</b>, un vendedor externo en {{ product.store_name || 'la tienda' }}. Boxly solo compra lo que vende la tienda directamente — pídeme uno parecido vendido por {{ product.store_name || 'la tienda' }}.
+      </div>
+      <LazyVariantPicker v-else-if="hasChoices" :key="readKey" :data="pickerData" :busy="busy" @pick="onVariantPick" @show-image="(u) => (leadImage = u)" @price="(p) => (pickedPrice = p && typeof p.price === 'number' ? p : null)" />
       <button v-else type="button" :disabled="busy" @click="assisted()"
         class="w-full flex items-center justify-center gap-2 rounded-2xl bg-primary-500 hover:bg-primary-600 active:scale-[.98] transition text-white font-bold py-3 text-[14px] disabled:opacity-50">
         {{ missingSize ? 'Elegir talla' : 'Agregar al carrito' }}
@@ -92,6 +97,9 @@ const colorways = computed(() => (Array.isArray(read.value?.colorways) ? read.va
 const activeColorway = computed(() => colorways.value.find((c) => c.url === output.value.read_url) || colorways.value.find((c) => c.current) || null)
 // The picker reads the product's title for its sentence; the card's own title is the one the shopper tapped.
 const pickerData = computed(() => ({ ...read.value, product: { ...(read.value?.product || {}), title: product.value.title || read.value?.product?.title || '', url: output.value.read_url || product.value.url } }))
+// Who sells it (the reader's product.seller): a marketplace seller (is_store false) is shown and never added.
+const seller = computed(() => (read.value?.product?.seller?.name ? read.value.product.seller : null))
+const marketplace = computed(() => seller.value?.is_store === false)
 const hasChoices = computed(() => colorways.value.length > 1 || (read.value?.axes || []).some((a) => (a?.values?.length || 0) > 1)
   // Older reads carry no axes list; the picker derives them from the variants.
   || (!(read.value?.axes || []).length && (read.value?.variants || []).length > 1))

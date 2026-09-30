@@ -13,7 +13,7 @@ export const PICKER_PART = 'tool-product_picker'
 export interface PickerCard { url: string, urls: string[], title: string | null, store: string | null, read: any }
 export type TypedPick =
   | { ok: true, url: string, urls: string[], pick: Record<string, string> }
-  | { ok: false, reason: 'no_card' | 'no_match' | 'ambiguous' | 'incomplete' | 'sold_out' | 'colorway', url?: string, urls?: string[], missing?: string[] }
+  | { ok: false, reason: 'no_card' | 'no_match' | 'ambiguous' | 'incomplete' | 'sold_out' | 'colorway' | 'marketplace', url?: string, urls?: string[], missing?: string[] }
 
 /** The picker cards in a conversation: one per product url (its latest read), in the order they first appeared. */
 export function pickerCards(messages: any[]): PickerCard[] {
@@ -97,6 +97,8 @@ export function resolveTypedPick(text: string, cards: PickerCard[]): TypedPick {
   if (named.length > 1) return { ok: false, reason: 'ambiguous' }
   const f = named[0]
   const where = { url: f.card.url, urls: f.card.urls }
+  // A third-party marketplace seller is never added, typed or tapped (the card says so).
+  if (f.card.read?.product?.seller?.is_store === false) return { ok: false, reason: 'marketplace', ...where }
   if (f.colorway) return { ok: false, reason: 'colorway', ...where }
   if (Object.values(f.chosen).some((v) => v.length > 1)) return { ok: false, reason: 'ambiguous', ...where }
   if (f.missing.length) return { ok: false, reason: 'incomplete', ...where, missing: f.missing }

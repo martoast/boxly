@@ -1413,7 +1413,8 @@ export default defineEventHandler(async (event) => {
                 const typed = cards.length ? resolveTypedPick(said, cards) : null
                 if (typed?.ok && typed.urls.some((u) => sameUrl(u, url))) pickRaw = typed.pick
                 else if (mine && typed && typed.ok === false && typed.reason !== 'no_match') {
-                  typedWhy = typed.reason === 'sold_out' ? 'the combination they typed is SOLD OUT — say so and ask them to choose another on the card'
+                  typedWhy = typed.reason === 'marketplace' ? 'it is sold by a third-party marketplace seller (the card says who) — Boxly only buys what the store sells itself: say so and offer a similar product sold by the store'
+                    : typed.reason === 'sold_out' ? 'the combination they typed is SOLD OUT — say so and ask them to choose another on the card'
                     : typed.reason === 'incomplete' ? `they did not say ${(typed.missing || []).join(' + ')} — ask for it (on the card)`
                     : typed.reason === 'colorway' ? 'the colour they typed is another colourway page — ask them to tap that colour on the card'
                     : 'their message matches more than one option or more than one open product card — ask which one, pointing at the card'
