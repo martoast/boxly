@@ -108,3 +108,8 @@ ok('the session read first reconciles a terminal whose webhook has not landed', 
   ok('the prompt tells the model not to repeat it', /write NO text of your own before or after it/.test(api))
 }
 console.log(`\n${pass} checks passed`)
+
+// Alex 2026-09-30: "quiero agregar más velas" after a cart add got a TEXT list of the candles; the same gallery must come back.
+ok('"more of a kind already shown" re-shows the saved gallery, never a text list', /MORE OF A KIND ALREADY SHOWN[^`]*show_saved_products with EVERY id of that kind[^`]*NEVER answer with a text list/.test(api) && /asks for MORE of a kind already shown/.test(api))
+// Alex 2026-09-30: tapping a gallery product did not bring its picker card (options + add button) into view.
+ok('a tapped product\'s card is revealed on insert and again when its first read grows it', /chat\.messages = \[\.\.\.chat\.messages, msg\]; scrollDown\(\); revealCard\(msg\.id\)/.test(vue) && /if \(firstRead && msgId && chat\.messages\[chat\.messages\.length - 1\]\?\.id === msgId\) revealCard\(msgId\)/.test(vue) && /ref="composerBar" class="sticky bottom-0/.test(vue))

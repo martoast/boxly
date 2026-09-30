@@ -558,7 +558,7 @@
           </Transition>
         </div>
 
-        <div class="sticky bottom-0 z-10 md:static bg-gradient-to-t from-gray-50 via-gray-50 to-transparent px-3 md:px-4 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <div ref="composerBar" class="sticky bottom-0 z-10 md:static bg-gradient-to-t from-gray-50 via-gray-50 to-transparent px-3 md:px-4 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           <div class="max-w-2xl mx-auto">
             <AssistantComposer v-model:text="input" :mic-recording="micRecording" :mic-transcribing="micTranscribing" :mic-levels="micLevels" :mic-error="micError" :busy="isBusy" :placeholder="composerPlaceholder" @send="onComposerSend" @mic="toggleMic" />
           </div>
@@ -2131,6 +2131,25 @@ function scrollToCard(key) {
   if (!e || !import.meta.client) return
   nextTick(() => document.querySelector(`[data-picker-msg="${CSS.escape(String(e.msgId))}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
 }
+// A tapped product's card lands at the bottom of the chat as a lazy component, then GROWS when its read lands (options +
+// the add button): one scroll at insert time left them below the fold (Alex 2026-09-30). Once it is on screen, scroll so
+// its bottom sits just above the composer (sticky over the page on mobile), or its top if the card is taller than that.
+const composerBar = ref(null)
+function revealCard(msgId, tries = 20) {
+  if (!import.meta.client) return
+  requestAnimationFrame(() => {
+    const el = document.querySelector(`[data-picker-msg="${CSS.escape(String(msgId))}"]`)
+    if (!el) { if (tries > 0) setTimeout(() => revealCard(msgId, tries - 1), 50); return }
+    const host = scrollHost()
+    if (!host) return
+    const page = host === document.scrollingElement
+    const box = page ? { top: 0, bottom: window.innerHeight } : host.getBoundingClientRect()
+    const bottom = box.bottom - (page ? composerBar.value?.offsetHeight || 0 : 0) - 8
+    const r = el.getBoundingClientRect()
+    const delta = r.height > bottom - box.top - 8 ? r.top - box.top - 8 : r.bottom - bottom
+    if (delta > 0) host.scrollBy({ top: delta, behavior: 'smooth' })
+  })
+}
 function openProduct(p, { maxAge = 0 } = {}) {
   const key = cardKey(p?.url)
   if (!key) return
@@ -2138,7 +2157,7 @@ function openProduct(p, { maxAge = 0 } = {}) {
   const product = { store_id: p.store_id ?? null, store_name: p.store ?? null, url: p.url, title: p.title ?? null, image: p.image ?? null, price: p.price ?? null, was: p.was ?? null }
   const msg = { id: 'picker-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), role: 'assistant', parts: [{ type: PICKER_PART, toolCallId: 'picker-local', state: 'input-available', input: { product } }] }
   if (isBusy.value) cardQueue.push(msg)
-  else { chat.messages = [...chat.messages, msg]; scrollDown() }
+  else { chat.messages = [...chat.messages, msg]; scrollDown(); revealCard(msg.id) }
   readIntoCard(key, product, { maxAge })
 }
 // One live read into a card: the first read, "Actualizar disponibilidad", or a colourway (its own page; the set of
@@ -2167,8 +2186,12 @@ async function readIntoCard(key, product, { readUrl = product.url, maxAge = 0, c
   // A failed refresh keeps the options already read (and says it could not update); a failed first read shows a retry.
   if (!next) next = cur.state === 'output-available' ? { ...cur, output: { ...cur.output, refresh_failed: true } } : { type: PICKER_PART, toolCallId: 'picker-local', state: 'output-error', input: { product }, errorText: 'read_failed' }
   if (q) { q.parts = [next]; return }
+  const firstRead = cur.state !== 'output-available'
+  const msgId = pickerIndex.value.get(key)?.msgId
   chat.messages = chat.messages.map((m) => (m.parts || []).includes(cur) ? { ...m, parts: m.parts.map((x) => (x === cur ? next : x)) } : m)
   syncLocalThread()
+  // The first read is what grows the card (options + the add button): bring it up — unless the chat moved on meanwhile.
+  if (firstRead && msgId && chat.messages[chat.messages.length - 1]?.id === msgId) revealCard(msgId)
 }
 function refreshCard(e) {
   const out = e?.part?.output
