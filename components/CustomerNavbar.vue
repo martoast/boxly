@@ -210,6 +210,17 @@
                       <p class="text-xs text-gray-500">{{ t.prMineDesc }}</p>
                     </div>
                   </a>
+                  <a
+                    href="/app/in-person"
+                    @click.prevent="handleNavigation('/app/in-person')"
+                    class="group flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-primary-50 hover:text-primary-600 transition-colors duration-200"
+                    role="menuitem"
+                  >
+                    <div>
+                      <p class="font-medium">{{ t.prInPersonMine }}</p>
+                      <p class="text-xs text-gray-500">{{ t.prInPersonMineDesc }}</p>
+                    </div>
+                  </a>
                   <div class="border-t border-gray-100 my-1"></div>
                   <a
                     href="/app/purchase-requests/create/online"
@@ -465,6 +476,18 @@
 
           <DisclosureButton
             as="a"
+            href="/app/in-person"
+            @click.prevent="handleNavigation('/app/in-person')"
+            :class="[
+              isActiveRoute('/app/in-person')
+                ? 'bg-primary-50 border-primary-500 text-primary-600'
+                : 'border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900',
+              'block border-l-4 py-2 pl-6 pr-4 text-base font-medium',
+            ]"
+          >{{ t.prInPersonMine }}</DisclosureButton>
+
+          <DisclosureButton
+            as="a"
             href="/app/purchase-requests/create/online"
             @click.prevent="handleNavigation('/app/purchase-requests/create/online')"
             :class="[
@@ -601,6 +624,8 @@ const translations = {
   purchaseRequests: { es: 'Solicitudes de Compra', en: 'Purchase Requests' },
   prMineTitle: { es: 'Mis solicitudes', en: 'My requests' },
   prMineDesc: { es: 'Ver el estado de las que ya enviaste', en: 'See the status of the ones you sent' },
+  prInPersonMine: { es: 'Mis compras presenciales', en: 'My in-person shopping' },
+  prInPersonMineDesc: { es: 'Reservas, historial y cobros', en: 'Reservations, history and charges' },
   prOnlineTitle: { es: 'Compra Online', en: 'Online Purchase' },
   prOnlineDesc: { es: 'Mándanos el link de cualquier tienda USA', en: 'Send us a link from any US store' },
   prInPersonTitle: { es: 'Personal Shopping', en: 'Personal Shopping' },

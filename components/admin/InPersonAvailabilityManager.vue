@@ -121,6 +121,7 @@
                   <a v-if="waDigits" :href="`https://wa.me/${waDigits}`" target="_blank" rel="noopener"
                     class="mt-2 inline-flex items-center px-3 py-2 rounded-xl bg-green-500 hover:bg-green-600 text-white font-semibold">{{ t.whatsapp }}</a>
                 </div>
+                <NuxtLink :to="`/app${apiBase}/in-person/${selected.id}`" class="inline-block font-semibold text-indigo-700 underline">{{ t.viewDetail }}</NuxtLink>
                 <dl class="grid grid-cols-2 gap-3">
                   <div class="col-span-2"><dt class="text-xs text-gray-500">{{ t.when }}</dt><dd class="font-semibold">{{ formatDate(selectedDate) }} · {{ hoursRange(selected.start_time, selected.hours_reserved) }}</dd></div>
                   <div><dt class="text-xs text-gray-500">{{ t.paid }}</dt><dd class="font-semibold">${{ selected.amount_usd }} USD</dd></div>
@@ -211,6 +212,7 @@ const t = createTranslations({
   saved: { es: 'Horarios guardados', en: 'Hours saved' },
   blockedTitle: { es: 'No se guardó: estas horas tienen una reserva. Cancela la reserva primero.', en: 'Not saved: these hours have a reservation. Cancel the reservation first.' },
   reservation: { es: 'Reserva', en: 'Reservation' },
+  viewDetail: { es: 'Ver detalle', en: 'View details' },
   close: { es: 'Cerrar', en: 'Close' },
   whatsapp: { es: 'Escribir por WhatsApp', en: 'Message on WhatsApp' },
   when: { es: 'Cuándo (hora de California)', en: 'When (California time)' },

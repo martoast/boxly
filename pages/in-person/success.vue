@@ -54,6 +54,7 @@
         </div>
 
         <InPersonWhatsApp inline class="mt-6 w-full" :label="t.talk" :message="waMessage" />
+        <NuxtLink :to="`/app/in-person/${r.reservation_number}`" class="mt-3 block w-full py-3 bg-white border border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-colors">{{ t.viewDetail }}</NuxtLink>
         <NuxtLink to="/app" class="mt-3 block w-full py-3 bg-white border border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-colors">{{ t.goHome }}</NuxtLink>
       </template>
     </div>
@@ -93,6 +94,7 @@ const t = createTranslations({
     en: 'Your shopper will contact you on WhatsApp to coordinate what you are looking for. The service costs $30 USD per hour + 10% of the total spent. Your first hour is already paid; the rest is charged when we finish.',
   },
   talk: { es: 'Hablar con mi shopper', en: 'Talk to my shopper' },
+  viewDetail: { es: 'Ver mi reserva', en: 'View my reservation' },
   goHome: { es: 'Ir al inicio', en: 'Go home' },
   takenTitle: { es: 'Alguien reservó ese horario justo antes', en: 'Someone reserved that time just before you' },
   takenBody: { es: 'Tu pago de $30 será reembolsado. Elige otro horario y con gusto te ayudamos por WhatsApp.', en: 'Your $30 payment will be refunded. Pick another time, and we are happy to help on WhatsApp.' },
