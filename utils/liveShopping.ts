@@ -270,6 +270,10 @@ export function terminalReasonText(code: string | null | undefined): string {
       return 'El servicio de sesiones en vivo no está disponible en este momento.'
     case 'worker_cancelled':
       return 'La sesión en vivo se canceló antes de terminar.'
+    // The store's own search has no product with the model number asked for (New Balance "550" answered with 950s):
+    // no look-alikes are shown.
+    case 'model_not_listed':
+      return 'La tienda no tiene ese modelo en su catálogo.'
     // The engine OBSERVED the retailer's own application/server error page
     // (rev 11). That is not the store blocking us, and saying so was the
     // wrong claim the old store_blocked mapping made for every failure.
