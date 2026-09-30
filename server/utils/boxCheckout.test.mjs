@@ -99,6 +99,13 @@ console.log('any store')
   // A carried store's name at the start of the title still wins: its own site is searched.
   const r2 = wantedFromBox([{ saved_id: 'x', name: 'Owala FreeSip 24oz' }], [{ id: 'x', title: 'Owala FreeSip 24oz', url: 'https://www.somewebshop.com/p/9', store_id: null }], [{ id: 'owala', name: 'Owala', host: 'owalalife.com' }]).wanted[0]
   check('a carried brand still wins over the outside seller', r2?.store_id === 'owala' && !!r2?.find)
+  // A pasted link on a carried store's own site is THAT store (not a made-up web store, not a marketplace refusal), even
+  // when its title starts with a carried brand.
+  const liveCarried = [{ id: 'dicks', name: "Dick's Sporting Goods", host: 'dickssportinggoods.com' }, { id: 'walmart', name: 'Walmart', host: 'walmart.com' }, { id: 'brooks', name: 'Brooks', host: 'brooksrunning.com' }]
+  const d = wantedFromBox([{ name: "Brooks Men's Ghost 18 Running Shoes", url: 'https://www.dickssportinggoods.com/p/brooks-ghost-18/26bro', size: '7.5' }], [], liveCarried).wanted[0]
+  check("a pasted Dick's link goes to the carried store dicks", d?.store_id === 'dicks' && d?.store_name === "Dick's Sporting Goods" && !d?.find && d?.product_url.includes('dickssportinggoods.com'), JSON.stringify(d))
+  const wm = wantedFromBox([{ name: 'Cheerios 18 oz', url: 'https://www.walmart.com/ip/Cheerios/363183524' }], [], liveCarried)
+  check('a pasted Walmart link is the carried store, not a marketplace refusal', wm.wanted[0]?.store_id === 'walmart' && !wm.unsupported.length, JSON.stringify(wm))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

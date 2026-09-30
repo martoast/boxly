@@ -134,6 +134,15 @@ export function wantedFromBox(box: BoxItem[], savedProducts: any[], carried: Car
     let storeId = typeof saved?.store_id === 'string' ? saved.store_id : ''
     let productUrl = url
     let find: string | undefined
+    // A link ON a carried store's own site is that store's product (a pasted Dick's / Walmart / Target link was sent
+    // to a made-up web store "dickssportinggoods-com" — a second cart for the same store — or refused as a
+    // marketplace, 2026-09-30). This comes first: the brand in its title ("Brooks …") is not where it is sold.
+    let carriedHit: CarriedStore | null = null
+    if (url && !STORE_ID_RE.test(storeId)) {
+      let h = ''; try { h = new URL(url).hostname.toLowerCase().replace(/^www\./, '') } catch {}
+      carriedHit = (carried || []).find((s) => s?.host && String(s.host).toLowerCase().replace(/^www\./, '') === h && STORE_ID_RE.test(s.id)) || null
+      if (carriedHit) storeId = carriedHit.id
+    }
     // A web result with no carried store, whose title names one: found on that store's own site by the agent.
     if (title && !STORE_ID_RE.test(storeId)) {
       const brand = carriedStoreForTitle(title, carried)
@@ -159,6 +168,7 @@ export function wantedFromBox(box: BoxItem[], savedProducts: any[], carried: Car
     const w: WantedItem = { store_id: storeId, product_url: productUrl, title, quantity: Math.min(20, Math.max(1, Math.round(Number(it.quantity) || 1))), variants }
     if (find) { w.find = find; const brand = carriedStoreForTitle(title, carried); if (brand?.name) w.store_name = brand.name.slice(0, 120) }
     else if (saved?.store) w.store_name = String(saved.store).slice(0, 120)
+    else if (carriedHit?.name) w.store_name = carriedHit.name.slice(0, 120)
     else if (webHost) w.store_name = webHost.slice(0, 120)
     const image = https(saved?.image || it.image)
     if (image) w.image_url = image
