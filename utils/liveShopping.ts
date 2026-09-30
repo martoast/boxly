@@ -1543,3 +1543,18 @@ export function liveResultsCaveat(output: unknown): string {
     ? 'Verificado en la tienda, pero no cumple todo lo que pediste — revisa los detalles antes de decidir.'
     : ''
 }
+
+/** Which live job a progress card describes (the chat's search browser, a cart add, or the checkout). */
+export type LiveProgressMode = 'search' | 'cart' | 'checkout'
+/**
+ * What the agent is doing, step by step, for the progress card that replaces the live video (Alex 2026-09-30:
+ * "a nice loading animation that is telling them what the agent is doing at that time"). The card advances one step
+ * every few seconds and stays on the last one until the result arrives.
+ */
+export function liveProgressSteps(mode: LiveProgressMode, store: string, note: string | null = null): string[] {
+  const s = store || 'la tienda'
+  if (mode === 'search') return [`Abriendo ${s}…`, `Buscando en ${s}…`, 'Revisando precios y fotos…', 'Preparando tus resultados…']
+  if (mode === 'checkout') return [`Abriendo tu carrito en ${s}…`, 'Poniendo la dirección de nuestra bodega en San Diego…', 'Calculando envío e impuestos…', 'Revisando el total real…']
+  void note
+  return [`Abriendo ${s}…`, 'Buscando tu producto…', 'Eligiendo tus opciones…', 'Agregándolo a tu carrito…', 'Confirmando que quedó en el carrito…']
+}

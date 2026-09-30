@@ -53,8 +53,10 @@ import { useInputRelay } from '~/composables/useInputRelay'
 
 // interactive (C4 phase B): the customer holds the browser (paused agent) — their mouse and keyboard on the video
 // are relayed to the store. Bound ONLY while interactive, so typing in the chat is never captured otherwise.
-const props = defineProps<{ sessionId: number, storeName?: string | null, compact?: boolean, interactive?: boolean }>()
-const emit = defineEmits<{ (e: 'ended'): void, (e: 'control', controller: string, reason: string | null, occurredAt: string | null): void, (e: 'refused', code: string): void }>()
+// videoHidden (Alex 2026-09-30: the stream "is just creating complication"): the session is still followed (its end,
+// its control changes) but no video is pulled; turning it off (a store's human check) starts the video then.
+const props = defineProps<{ sessionId: number, storeName?: string | null, compact?: boolean, interactive?: boolean, videoHidden?: boolean }>()
+const emit = defineEmits<{ (e: 'ended'): void, (e: 'control', controller: string, reason: string | null, occurredAt: string | null): void, (e: 'refused', code: string): void, (e: 'phase', phase: string, queuePosition: number | null): void }>()
 
 const nuxtApp = useNuxtApp() as any
 const { $customFetch } = nuxtApp
@@ -122,22 +124,32 @@ async function attach() {
     // (reason 'challenge': a store's human check only a person may pass).
     onEvent: (ev: any) => { const c = parseControlChange(ev); if (c) emit('control', c.controller, c.reason, typeof ev?.occurredAt === 'string' ? ev.occurredAt : null) },
   }))
-  viewer = nuxtApp.runWithContext(() => useWhepViewer({ getTicket: live.getTicket, remintTicket: live.remintTicket }))
   stops.push(watch(live.mediaState, (s: string) => { mediaState.value = s }, { immediate: true }))
-  stops.push(watch(viewer.state, (s: string) => { if (s === 'playing') phase.value = 'playing'; else if (phase.value === 'playing' && s !== 'reconnecting') phase.value = 'connecting' }))
-  stops.push(watch(viewer.stream, (s: MediaStream | null) => { if (videoEl.value && s) { videoEl.value.muted = true; videoEl.value.srcObject = s; startVideo() } }))
+  if (!props.videoHidden) startViewer()
   // The ticket drives both planes: the video when it carries media, the customer's input when it carries an
   // input_url (only while they hold the browser, and only when this stage is interactive).
   stops.push(watch(live.ticket, (t: any) => {
     if (!t || isTerminal(live.status.value)) return
-    const vs = viewer.state.value
-    if (t.mediaAvailable && (vs === 'idle' || vs === 'closed' || vs === 'failed')) viewer.start()
+    const vs = viewer?.state.value
+    if (viewer && t.mediaAvailable && (vs === 'idle' || vs === 'closed' || vs === 'failed')) viewer.start()
     const rs = relay.state.value
     if (props.interactive && t.inputUrl && (rs === 'idle' || rs === 'closed' || rs === 'failed')) relay.start(t)
   }, { immediate: true }))
   stops.push(watch(relay.lastRefusal, (code: any) => { if (code) emit('refused', String(code)) }))
   live.start()
 }
+
+// The video plane, only when it is to be seen.
+function startViewer() {
+  if (viewer || !live) return
+  viewer = nuxtApp.runWithContext(() => useWhepViewer({ getTicket: live.getTicket, remintTicket: live.remintTicket }))
+  stops.push(watch(viewer.state, (s: string) => { if (s === 'playing') phase.value = 'playing'; else if (phase.value === 'playing' && s !== 'reconnecting') phase.value = 'connecting' }))
+  stops.push(watch(viewer.stream, (s: MediaStream | null) => { if (videoEl.value && s) { videoEl.value.muted = true; videoEl.value.srcObject = s; startVideo() } }))
+  const t = live.ticket?.value
+  if (t?.mediaAvailable && !isTerminal(live.status.value)) viewer.start()
+}
+watch(() => props.videoHidden, (hidden) => { if (!hidden) startViewer() })
+watch([phase, queuePosition], ([p, q]) => emit('phase', p, q), { immediate: true })
 
 // Taking control: bind the input to the video and re-mint the ticket (the new one carries input_url). Handing
 // back: close the input first, so nothing the customer does after that reaches the store.

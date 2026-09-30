@@ -19,7 +19,7 @@
             <div class="text-[11px] mt-0.5" :class="statusClass(q)">{{ storeQuoteLabel(q) }}</div>
           </div>
           <div v-if="billable(q)" class="text-right shrink-0 text-[13px] font-bold text-gray-900 tabular-nums">{{ formatCents(q.total_cents, q.currency) }}</div>
-          <button v-else-if="q.live_session_id" type="button" class="shrink-0 inline-flex items-center gap-1.5 text-[12px] font-semibold text-primary-700 active:scale-95 transition-transform" @click="$emit('watch', sessionOf(q))">
+          <button v-else-if="q.live_session_id && liveVideo" type="button" class="shrink-0 inline-flex items-center gap-1.5 text-[12px] font-semibold text-primary-700 active:scale-95 transition-transform" @click="$emit('watch', sessionOf(q))">
             <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse" aria-hidden="true" />Ver en vivo
           </button>
         </div>
@@ -91,7 +91,8 @@
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { formatCents, quoteInFlight, storeQuoteLabel, type StoreQuote } from '~/utils/storeQuotes'
 
-const props = defineProps<{ purchaseRequestId: number, requestNumber?: string | null }>()
+// liveVideo false (the chat's default since 2026-09-30): no "Ver en vivo" — the chat's progress card shows the checkout.
+const props = withDefaults(defineProps<{ purchaseRequestId: number, requestNumber?: string | null, liveVideo?: boolean }>(), { liveVideo: true })
 const emit = defineEmits<{ (e: 'watch', session: any): void, (e: 'live', session: any): void }>()
 
 const { $customFetch } = useNuxtApp() as any

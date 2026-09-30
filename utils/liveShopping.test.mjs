@@ -15,7 +15,7 @@
  *
  *   node --experimental-strip-types utils/liveShopping.test.mjs
  */
-import { liveResultsCaveat, liveFailureCopy,
+import { liveResultsCaveat, liveFailureCopy, liveProgressSteps,
   parseControlChange, nextHelpState, challengeHelpCopy, CHALLENGE_RESUMED_COPY, HELP_RESUMED_FRESH_MS,
   createSSEParser,
   parseEventV1, extractCandidates, terminalStatusFromEvent, eventActivity, EVENT_TYPES,
@@ -569,6 +569,14 @@ console.log('control.changed + challenge hand-off')
   check('the Spanish prompt names the store and the button', challengeHelpCopy('Bath & Body Works') === 'Bath & Body Works pide confirmar que eres una persona. Mantén presionado el botón «Press & Hold» en la tienda en vivo hasta que termine; después Boxly sigue solo.')
   check('panel copy points below; no store name → La tienda', challengeHelpCopy(null, 'panel').startsWith('La tienda pide confirmar') && challengeHelpCopy('X', 'panel').includes('en la tienda de abajo'))
   check('resumed copy', CHALLENGE_RESUMED_COPY === '¡Listo! Boxly continúa.')
+}
+
+{
+  // The progress card that replaces the live video (Alex 2026-09-30): what the agent is doing, per job, in order.
+  check('search steps name the store and end on the results', liveProgressSteps('search', 'Gymshark')[0] === 'Abriendo Gymshark…' && /resultados/.test(liveProgressSteps('search', 'Gymshark').at(-1)))
+  check('cart steps end on confirming the cart', /carrito/.test(liveProgressSteps('cart', 'BBW').at(-1)))
+  check('checkout steps mention shipping and tax', liveProgressSteps('checkout', 'BBW').some((x) => /envío e impuestos/.test(x)))
+  check('no store name falls back', liveProgressSteps('search', '')[0] === 'Abriendo la tienda…')
 }
 
 console.log(`\n${pass} passed, ${fail} failed`)

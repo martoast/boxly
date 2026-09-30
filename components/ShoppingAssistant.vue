@@ -229,7 +229,7 @@
 
             <!-- C4: a store browser already running for the cart shows here too, above the input. -->
             <div v-if="liveShown" class="mb-4">
-              <LiveBrowserCard :session="liveShown" :expanded="liveOpen" :is-desktop="isDesktop" :help="liveHelp" @expand="liveOpen = true" @ended="onLiveEnded" @control="onLiveControl" />
+              <LiveBrowserCard :session="liveShown" :expanded="liveOpen" :is-desktop="isDesktop" :help="liveHelp" :hide-video="!liveVideo" :mode="liveMode" @expand="liveOpen = true" @ended="onLiveEnded" @control="onLiveControl" />
             </div>
 
             <!-- input at the top -->
@@ -384,7 +384,7 @@
 
                     <!-- The order placed from the box — live store checkouts, real totals, then Pagar. (tool-finalize_lab_order
                          is the same card in chats from the Boxly Lab days, before 2026-09-28.) -->
-                    <LazyCheckoutCard v-else-if="FINALIZE_PARTS.has(part.type) && part.state === 'output-available' && part.output?.purchase_request_id" :purchase-request-id="part.output.purchase_request_id" :request-number="part.output.request_number" @watch="watchLive" @live="onCheckoutLive" />
+                    <LazyCheckoutCard v-else-if="FINALIZE_PARTS.has(part.type) && part.state === 'output-available' && part.output?.purchase_request_id" :purchase-request-id="part.output.purchase_request_id" :request-number="part.output.request_number" @watch="watchLive" @live="onCheckoutLive" :live-video="liveVideo" />
                     <div v-else-if="FINALIZE_PARTS.has(part.type) && (part.state === 'input-streaming' || part.state === 'input-available')" class="flex items-center gap-2 text-xs text-gray-400 pl-1">
                       <svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
                       Preparando tu pedido…
@@ -469,7 +469,7 @@
 
           <!-- C4: the store browser the agent is running (a live gallery, a cart add or a checkout), live in the chat. -->
           <div v-if="liveShown" class="max-w-2xl mx-auto mt-4 flex justify-start">
-            <LiveBrowserCard :session="liveShown" :expanded="liveOpen" :is-desktop="isDesktop" :help="liveHelp" @expand="liveOpen = true" @ended="onLiveEnded" @control="onLiveControl" />
+            <LiveBrowserCard :session="liveShown" :expanded="liveOpen" :is-desktop="isDesktop" :help="liveHelp" :hide-video="!liveVideo" :mode="liveMode" @expand="liveOpen = true" @ended="onLiveEnded" @control="onLiveControl" />
           </div>
 
           <div v-if="showTyping" class="max-w-2xl mx-auto mt-4 flex justify-start">
@@ -657,6 +657,15 @@ const boxlyCart = useBoxlyCart()
 // seconds after the agent finishes, then goes.
 const liveShown = ref(null)
 const liveOpen = ref(false)
+// The live video is off unless LIVE_VIDEO=1 (nuxt.config): the card shows the agent's progress instead.
+const liveVideo = !!useRuntimeConfig().public.liveVideo
+// Which job the shown browser is doing, for the progress card's steps.
+const liveMode = computed(() => {
+  const id = liveShown.value?.id
+  if (!id) return 'cart'
+  if (checkoutLive.value?.id === id) return 'checkout'
+  return liveGalleryIds.value.has(id) ? 'search' : 'cart'
+})
 const isDesktop = ref(false)
 let desktopQuery = null
 const onDesktopChange = () => { isDesktop.value = !!desktopQuery?.matches }
@@ -687,6 +696,7 @@ function itemStatus(it) {
 // a live browser. Its card goes up the moment the tool answers, and when that browser ends the gallery the engine
 // built is fetched into the chat (the API appended it to the conversation as a live-results message).
 const galleryLiveIds = new Set() // gallery browsers whose results are still to fetch
+const liveGalleryIds = ref(new Set()) // the same ids, reactive (the progress card's mode reads it)
 const gallerySeen = new Set() // every gallery browser this page has put up (never twice)
 async function fetchLiveGallery(sessionId) {
   const cid = activeId.value
@@ -1375,7 +1385,9 @@ function enrichShipment(shipment) {
 function liveSearchLine(part) {
   const stores = (part?.output?.stores || part?.input?.stores || []).filter((x) => typeof x === 'string' && x.trim())
   const names = stores.length > 1 ? `${stores.slice(0, -1).join(', ')} y ${stores[stores.length - 1]}` : stores[0] || ''
-  if (!names) return '¡Va! Déjame buscarlo en vivo 🔎'
+  if (!names) return liveVideo ? '¡Va! Déjame buscarlo en vivo 🔎' : '¡Va! Un momento, lo estoy buscando para ti 🔎'
+  // Without the video (Alex 2026-09-30): "one moment, I'm opening up the store and getting the results for you now".
+  if (!liveVideo) return `¡Va! Un momento: estoy abriendo ${stores.length > 1 ? names : `la tienda de ${names}`} y buscando los resultados para ti 🔎`
   return `¡Va! Déjame revisar ${names} por ti 🔎 Abro ${stores.length > 1 ? 'sus tiendas' : 'su tienda'} en un navegador en vivo para buscar entre sus productos reales, con precio y disponibilidad de hoy. Puedes verlo aquí abajo 👇 y en unos segundos te muestro lo que encuentre.`
 }
 function msgText(m) { return (m.parts || []).filter((p) => p.type === 'text' && p.text).map((p) => p.text).join('\n\n') }
@@ -1656,6 +1668,7 @@ watch(() => {
   if (!s || gallerySeen.has(s.id)) return
   gallerySeen.add(s.id)
   galleryLiveIds.add(s.id)
+  liveGalleryIds.value = new Set([...liveGalleryIds.value, s.id])
   clearTimeout(liveEndTimer)
   liveShown.value = s
 })
