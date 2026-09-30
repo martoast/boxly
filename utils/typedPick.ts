@@ -32,6 +32,15 @@ export function pickerCards(messages: any[]): PickerCard[] {
   return [...byUrl.values()]
 }
 
+/** The product photo a picker card read for this product url (null when no card has one). */
+export function pickerCardPhoto(messages: any[], url: string): string | null {
+  const bare = (u: any) => String(u || '').split('?')[0]
+  const card = pickerCards(messages).find((c) => c.urls.some((u) => bare(u) === bare(url)))
+  const p = card?.read?.product
+  const img = [p?.image, Array.isArray(p?.images) ? p.images[0] : null].find((u) => typeof u === 'string' && /^https?:\/\//.test(u))
+  return img || null
+}
+
 // Case, accents and punctuation never matter; a value is matched as whole words (tokens), never as a substring —
 // "9" is not "9.5", "Black" inside "Black Watch" is not "Black".
 const fold = (s: any) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')

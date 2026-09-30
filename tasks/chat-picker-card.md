@@ -40,7 +40,11 @@
 - [x] Typed pick: exact-match resolver over the card's axes + tests (unique match, sold-out refusal, ambiguous → ask)
 - [x] Reload: history maps the part (mapMsg) so the card renders after refresh
 - [x] Tests (pickerLogic + resolver + part mapping)
-- [ ] A live boxly.mx run: tap → card → refresh → pick by tap and by text → added to box (needs a deploy — not done here)
+- [x] A live boxly.mx run (2026-09-30, conversation 889, lab tester): tap Target Billy → card in the chat (no modal) → typed
+  "la negra en talla 7" → box Black · 7 → real Target cart ✓; cold reload of the chat → both cards render from history, no
+  re-read ✓; Dick's Brooks Ghost 18 tapped Black/Black/Ebony · 7.5 · Medium/D → Agregar → box + Dick's cart sync ✓
+- [x] Fix found live: a gallery tile without a photo (Dick's) left the box item photo-less; the item now takes the photo
+  its picker card read (`pickerCardPhoto`, +2 tests)
 
 ## Review
 **What changed**

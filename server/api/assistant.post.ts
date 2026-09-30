@@ -1,6 +1,6 @@
 import { bareStoreAsk } from '../utils/bareStore'
 import { pickedOptions } from '../../utils/variantPick'
-import { pickerCards, resolveTypedPick, pickerCardsAsText } from '../../utils/typedPick'
+import { pickerCards, resolveTypedPick, pickerCardsAsText, pickerCardPhoto } from '../../utils/typedPick'
 import { streamText, tool, convertToModelMessages, stepCountIs, createUIMessageStreamResponse } from 'ai'
 import { extractText, getDocumentProxy } from 'unpdf'
 import { z } from 'zod'
@@ -1303,8 +1303,11 @@ export default defineEventHandler(async (event) => {
             const saved = (it.saved_id ? savedProducts.find((p: any) => p.id === it.saved_id) : null)
               || (it.url ? savedProducts.find((p: any) => sameUrl(p.url, it.url)) : null)
               || (it.name ? savedProducts.find((p: any) => sameName(p.title, it.name)) : null)
-            if (!saved) return it
-            return { ...it, name: saved.title || it.name, image: saved.image || it.image || null, price: saved.price ?? it.price }
+            // A gallery tile without a photo (Dick's, 2026-09-30) leaves the registry with none; the product's picker
+            // card read the page itself, so its photo stands in (utils/typedPick.ts).
+            const photo = (u: any) => (u ? pickerCardPhoto(messages, u) : null)
+            if (!saved) return it.image ? it : { ...it, image: photo(it.url) }
+            return { ...it, name: saved.title || it.name, image: saved.image || it.image || photo(saved.url || it.url), price: saved.price ?? it.price }
           })
           const ship: any = await buildShipment(items)
           // ENFORCED IN CODE (Alex): the moment a sized/coloured product lands in the box is THE moment to read

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { registerHooks } from 'node:module'
 // typedPick.ts imports './pickerLogic' without an extension (as the Nuxt build wants); resolve it to the .ts file here.
 registerHooks({ resolve(spec, ctx, next) { try { return next(spec, ctx) } catch (e) { if (/^\.\.?\//.test(spec) && !/\.[a-z]+$/.test(spec)) return next(spec + '.ts', ctx); throw e } } })
-const { resolveTypedPick, pickerCards, pickerCardsAsText, PICKER_PART } = await import('./typedPick.ts')
+const { resolveTypedPick, pickerCards, pickerCardsAsText, pickerCardPhoto, PICKER_PART } = await import('./typedPick.ts')
 
 let pass = 0; const ok = (n, c) => { assert.ok(c, n); console.log('  ✓ ' + n); pass++ }
 const card = (url, read, title = 'Producto') => ({ role: 'assistant', parts: [{ type: PICKER_PART, state: 'output-available', output: { product: { url, title, store_name: 'Tienda' }, read, read_at: '2026-09-29T00:00:00Z' } }] })
@@ -62,4 +62,8 @@ const hist = [card('https://s.com/tee', { ...tee, variants: tee.variants.map((v)
 ok('one card per product, latest read', pickerCards(hist).length === 1 && resolveTypedPick('M', pickerCards(hist)).ok)
 const asText = pickerCardsAsText([...hist, { role: 'assistant', parts: [{ type: PICKER_PART, state: 'input-available', input: { product: { url: 'https://s.com/y', title: 'Y' } } }] }], () => 'p1')
 ok('cards replay as text for the model (ready and still reading)', asText.every((m) => m.parts.every((p) => p.type === 'text')) && /Size: S, M, L/.test(asText[0].parts[0].text) && /leyendo/.test(asText[3].parts[0].text))
+// The box item's photo when the gallery tile had none: the product's card read it (Dick's, 2026-09-30).
+const withPhoto = card('https://s.com/tee', { ...tee, product: { url: 'https://s.com/tee', image: 'https://img.s.com/tee.jpg' } })
+ok('a card\'s product photo stands in for a missing one (query ignored)', pickerCardPhoto([withPhoto], 'https://s.com/tee?x=1') === 'https://img.s.com/tee.jpg')
+ok('no card for that url → no photo', pickerCardPhoto([withPhoto], 'https://s.com/other') === null)
 console.log(`\n${pass} checks passed`)
