@@ -16,7 +16,10 @@
     </div>
 
     <div class="max-w-3xl mx-auto px-4 py-6 space-y-5">
-      <div v-if="showCancelledBanner(route.query.cancelled)" class="p-4 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-900">{{ t.cancelled }}</div>
+      <div v-if="showCancelledBanner(route.query.cancelled)" class="p-4 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-900">
+        <template v-if="isLegacyCancel(route.query)">{{ t.legacyCancelled }} <NuxtLink to="/app/purchase-requests" class="font-semibold underline">{{ t.legacyLink }}</NuxtLink></template>
+        <template v-else>{{ t.cancelled }}</template>
+      </div>
       <div v-if="error" class="p-4 rounded-xl bg-red-50 border border-red-200 text-sm text-red-800">{{ error }}</div>
 
       <div v-if="loading" class="text-center py-12 text-gray-500 text-sm">{{ t.loading }}</div>
@@ -84,7 +87,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { hourOptions, endTime, formatTime, parseDate, readLimits } from '~/utils/inPersonSlots'
-import { showCancelledBanner } from '~/utils/inPersonSuccess'
+import { showCancelledBanner, isLegacyCancel } from '~/utils/inPersonSuccess'
 
 definePageMeta({
   layout: 'app',
@@ -104,6 +107,8 @@ const t = createTranslations({
   subtitle: { es: 'Un shopper compra por ti en Las Américas Premium Outlets. Elige el día y la hora.', en: 'A personal shopper shops for you at Las Américas Premium Outlets. Pick the day and time.' },
   loading: { es: 'Cargando horarios…', en: 'Loading times…' },
   cancelled: { es: 'No se hizo ningún cobro y no se reservó nada. Cuando quieras, elige tu horario de nuevo.', en: 'You were not charged and nothing was reserved. Pick your time again whenever you like.' },
+  legacyCancelled: { es: 'Tu solicitud sigue esperando el depósito.', en: 'Your request is still waiting for the deposit.' },
+  legacyLink: { es: 'Ver mis solicitudes', en: 'View my requests' },
   noneTitle: { es: 'Por ahora no hay horarios publicados', en: 'No times are published right now' },
   noneDesc: { es: 'Escríbele a tu shopper por WhatsApp y te avisa en cuanto abra horarios.', en: 'Message your shopper on WhatsApp and she will let you know as soon as times open.' },
   step1: { es: '1. Elige el día', en: '1. Pick the day' },

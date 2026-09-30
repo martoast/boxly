@@ -1,7 +1,6 @@
 // Pure helpers for the in-person reservation "event" pages (customer list/detail, team detail).
-// Final billing rule: $30 x hours worked + 10% x amount spent - the $30 already paid.
-export const HOURLY_USD = 30
-export const COMMISSION_PERCENT = 10
+// Final billing rule: hourly rate x hours worked + commission % x amount spent - the reservation already paid.
+export const COMMISSION_PERCENT = 10 // fallback only; the API value (availability.commission_percent) wins
 export const RESERVE_USD = 30
 
 type Lang = 'es' | 'en'
@@ -10,11 +9,11 @@ const L = (lang: string): Lang => (lang === 'es' ? 'es' : 'en')
 export const money = (n: number | string | null | undefined) => `$${(Math.round(Number(n || 0) * 100) / 100).toFixed(2)}`
 
 // What the team is about to bill, computed the same way the API does (cents rounded).
-export function computeFinal(hoursWorked: number | string, amountSpent: number | string, credit: number = RESERVE_USD) {
+export function computeFinal(hoursWorked: number | string, amountSpent: number | string, hourlyRate: number | string, commissionPercent: number | string, credit: number = RESERVE_USD) {
   const hours = Number(hoursWorked) || 0
   const spent = Number(amountSpent) || 0
-  const hoursFee = Math.round(hours * HOURLY_USD * 100) / 100
-  const commission = Math.round(spent * COMMISSION_PERCENT) / 100
+  const hoursFee = Math.round(hours * (Number(hourlyRate) || 0) * 100) / 100
+  const commission = Math.round(spent * (Number(commissionPercent) || 0)) / 100
   const total = Math.max(0, Math.round((hoursFee + commission - credit) * 100) / 100)
   return { hours, spent, hoursFee, commission, credit, total }
 }

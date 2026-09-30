@@ -1,5 +1,5 @@
 // Run: node --experimental-strip-types utils/inPersonSuccess.test.mjs
-import { successView, viewCopy, loginUrl, showCancelledBanner, isReservationRef } from './inPersonSuccess.ts'
+import { successView, viewCopy, loginUrl, showCancelledBanner, isReservationRef, isLegacyCancel } from './inPersonSuccess.ts'
 
 let bad = 0
 const check = (label, got, want) => {
@@ -16,7 +16,7 @@ check('RV ref', isReservationRef('RV-ABC'), true)
 check('PR ref is legacy', isReservationRef('PR-12345'), false)
 
 // first render: fetch
-check('RV before fetch', successView({ ref: 'RV-1' }), { kind: 'polling', reason: null, refundPending: false, fetch: true, poll: false, actions: [] })
+check('RV before fetch', successView({ ref: 'RV-1' }), { kind: 'polling', reason: null, refundPending: false, refunded: false, fetch: true, poll: false, actions: [] })
 
 // RV confirmed (webhook already in)
 let v = V({ reservation: { status: 'confirmed' } })
@@ -36,7 +36,7 @@ has('delayed copy', C(v).body, 'No pagues de nuevo')
 has('delayed copy en', C(v, 'en').body, 'do not pay again')
 
 // slot_taken: refund done vs pending, reasons
-v = V({ reservation: { status: 'slot_taken', slot_taken_reason: 'paid_first', refund_pending: false } })
+v = V({ reservation: { status: 'slot_taken', slot_taken_reason: 'paid_first', refund_pending: false, refunded: true } })
 check('taken paid_first', [v.kind, v.reason, v.refundPending], ['taken', 'paid_first', false])
 has('paid_first es', C(v).title, 'Alguien reservó ese horario')
 has('refund done es', C(v).body, 'fue reembolsado', '$30 USD')
@@ -57,7 +57,16 @@ for (const s of ['cancelled', 'expired']) {
   check(s, v.kind, 'inactive')
   has(s + ' copy', C(v).title, 'ya no está activa')
 }
-has('cancelled with pending refund', C(V({ reservation: { status: 'cancelled', refund_pending: true } })).body, 'reembolso', 'te contactaremos')
+check('cancelled never shows refund text', C(V({ reservation: { status: 'cancelled', refund_pending: true } })).body, 'Puedes elegir un nuevo horario cuando quieras.')
+has('cancelled but refunded', C(V({ reservation: { status: 'cancelled', refunded: true } })).body, 'fue reembolsado')
+has('taken refunded', C(V({ reservation: { status: 'slot_taken', refunded: true } })).body, 'fue reembolsado')
+check('taken no refund info', C(V({ reservation: { status: 'slot_taken' } })).body.includes('reembols'), false)
+
+// legacy cancel detection
+check('legacy=1', isLegacyCancel({ legacy: '1' }), true)
+check('ref PR-', isLegacyCancel({ ref: 'PR-123' }), true)
+check('ref BK-', isLegacyCancel({ ref: 'bk-9' }), true)
+check('plain cancel', [isLegacyCancel({ cancelled: '1' }), isLegacyCancel({ ref: 'RV-1' }), isLegacyCancel({ legacy: '0' })], [false, false, false])
 
 // Stripe cancel_url return: /in-person?cancelled=1 (and legacy /in-person/review?cancelled=1 redirect)
 check('cancelled=1', showCancelledBanner('1'), true)

@@ -17,7 +17,13 @@
             <span class="px-3 py-1 rounded-full text-xs font-semibold" :class="statusTone(r.status)">{{ statusLabel(r.status, language) }}</span>
           </div>
 
-          <p v-if="r.refund_pending" class="mt-3 p-3 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-sm">{{ t.refundPending }}<span v-if="r.stripe_payment_intent_id"> {{ t.stripeId }}: <span class="font-mono break-all">{{ r.stripe_payment_intent_id }}</span></span></p>
+          <div v-if="r.team_refund_pending" class="mt-3 p-3 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-sm">
+            <p>{{ t.refundPending }}<span v-if="r.stripe_payment_intent_id"> {{ t.stripeId }}: <span class="font-mono break-all">{{ r.stripe_payment_intent_id }}</span></span></p>
+            <div class="mt-2 flex flex-wrap gap-2">
+              <button @click="refundAction('mark-refunded', t.refundDone)" :disabled="busy" class="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold disabled:opacity-60">{{ t.markRefunded }}</button>
+              <button @click="waive" :disabled="busy" class="px-3 py-2 rounded-xl bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 font-semibold disabled:opacity-60">{{ t.waiveRefund }}</button>
+            </div>
+          </div>
 
           <div class="mt-4 text-sm">
             <div class="text-base font-bold text-gray-900">{{ r.customer?.name }}</div>
@@ -132,7 +138,12 @@ const t = createTranslations({
   hours: { es: 'Horas reservadas', en: 'Hours reserved' },
   paid: { es: 'Reserva pagada', en: 'Reservation paid' },
   refunded: { es: 'reembolsada', en: 'refunded' },
-  refundPending: { es: 'Reembolso pendiente: hazlo en Stripe y márcalo en la sección "Reembolsos pendientes".', en: 'Refund pending: do it in Stripe and mark it in the "Pending refunds" section.' },
+  refundPending: { es: 'Reembolso pendiente: hazlo en Stripe y luego márcalo aquí, o indica que no se reembolsa.', en: 'Refund pending: do it in Stripe and then mark it here, or mark it as no refund.' },
+  markRefunded: { es: 'Marcar reembolsado', en: 'Mark refunded' },
+  refundDone: { es: 'Marcado como reembolsado', en: 'Marked as refunded' },
+  waiveRefund: { es: 'Sin reembolso', en: 'No refund' },
+  waiveConfirm: { es: 'Esta reserva no se reembolsará. ¿Confirmas?', en: 'This reservation will not be refunded. Confirm?' },
+  waiveDone: { es: 'Marcado sin reembolso', en: 'Marked as no refund' },
   notes: { es: 'Notas del cliente', en: 'Customer notes' },
   timeline: { es: 'Historial', en: 'Timeline' },
   finalTitle: { es: 'Cobro final', en: 'Final billing' },
@@ -160,11 +171,13 @@ const loading = ref(true)
 const busy = ref(false)
 const mode = ref(null)
 const confirmingInvoice = ref(false)
+const hourlyRate = ref(30) // overwritten by GET /in-person/availability (hourly_rate_usd)
+const commissionPercent = ref(10) // availability.commission_percent, fallback 10
 const form = reactive({ reason: '', hours: '', spent: '' })
 
 const waDigits = computed(() => whatsappDigits(r.value?.customer?.phone))
 const longDate = computed(() => parseDate(r.value.date).toLocaleDateString(language.value === 'es' ? 'es-MX' : 'en-US', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }))
-const preview = computed(() => computeFinal(form.hours, form.spent))
+const preview = computed(() => computeFinal(form.hours, form.spent, hourlyRate.value, commissionPercent.value))
 const breakdown = computed(() => {
   const f = r.value.final
   return { hours: f.hours_worked, spent: f.amount_spent_usd, hoursFee: f.hours_fee_usd, commission: f.commission_usd, credit: f.credit_usd, total: f.total_usd }
@@ -181,6 +194,14 @@ async function load() {
   }
 }
 
+async function loadRates() {
+  try {
+    const res = await $customFetch('/in-person/availability')
+    if (res?.hourly_rate_usd != null) hourlyRate.value = Number(res.hourly_rate_usd)
+    if (res?.commission_percent != null) commissionPercent.value = Number(res.commission_percent)
+  } catch (e) { console.error(e) } // keep the fallbacks; the API's own final{} is always authoritative
+}
+
 // One place for every action: call, toast, refresh, show the API's 422 message.
 async function act(path, body, okMsg) {
   busy.value = true
@@ -192,6 +213,7 @@ async function act(path, body, okMsg) {
     await load()
   } catch (e) {
     console.error(e); $toast.error(e?.data?.message ?? t.value.actionError)
+    await load() // e.g. 422 "ya se está generando / ya fue enviado": show the real state
   } finally {
     busy.value = false
   }
@@ -199,6 +221,8 @@ async function act(path, body, okMsg) {
 const submitCancel = () => act('cancel', { reason: form.reason.trim() }, t.value.cancelled)
 const submitComplete = () => act('complete', { hours_worked: Number(form.hours), amount_spent_usd: Number(form.spent) }, t.value.completed)
 const generateInvoice = () => act('final-invoice', undefined, t.value.invoiceSent)
+const refundAction = (path, okMsg) => act(path, undefined, okMsg)
+const waive = () => { if (confirm(t.value.waiveConfirm)) refundAction('waive-refund', t.value.waiveDone) }
 
-onMounted(load)
+onMounted(() => { load(); loadRates() })
 </script>

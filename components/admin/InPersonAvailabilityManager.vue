@@ -47,6 +47,7 @@
             </div>
             <a v-if="whatsappDigits(p.customer?.phone)" :href="`https://wa.me/${whatsappDigits(p.customer.phone)}`" target="_blank" rel="noopener" class="px-3 py-2 rounded-xl bg-green-500 hover:bg-green-600 text-white font-semibold">{{ t.whatsapp }}</a>
             <button @click="markRefunded(p)" :disabled="refundBusy === p.id" class="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold disabled:opacity-60">{{ t.markRefunded }}</button>
+            <button @click="waiveRefund(p)" :disabled="refundBusy === p.id" class="px-3 py-2 rounded-xl bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 font-semibold disabled:opacity-60">{{ t.waiveRefund }}</button>
           </li>
         </ul>
       </div>
@@ -244,6 +245,9 @@ const t = createTranslations({
   reasonTaken: { es: 'Horario ocupado', en: 'Slot taken' },
   reasonCancelled: { es: 'Cancelada', en: 'Cancelled' },
   markRefunded: { es: 'Marcar reembolsado', en: 'Mark refunded' },
+  waiveRefund: { es: 'Sin reembolso', en: 'No refund' },
+  waiveConfirm: { es: 'Esta reserva no se reembolsará y saldrá de la lista. ¿Confirmas?', en: 'This reservation will not be refunded and will leave the list. Confirm?' },
+  waiveDone: { es: 'Marcado sin reembolso', en: 'Marked as no refund' },
   refundDone: { es: 'Marcado como reembolsado', en: 'Marked as refunded' },
   notes: { es: 'Notas del cliente', en: 'Customer notes' },
   complete: { es: 'Marcar completada', en: 'Mark completed' },
@@ -418,6 +422,20 @@ async function markRefunded(p) {
   try {
     await $customFetch(`${props.apiBase}/in-person/reservations/${p.id}/mark-refunded`, { method: 'POST' })
     $toast.success(t.value.refundDone)
+    await fetchRefunds()
+  } catch (e) {
+    console.error(e); $toast.error(e?.data?.message ?? t.value.saveError)
+  } finally {
+    refundBusy.value = null
+  }
+}
+
+async function waiveRefund(p) {
+  if (!confirm(t.value.waiveConfirm)) return
+  refundBusy.value = p.id
+  try {
+    await $customFetch(`${props.apiBase}/in-person/reservations/${p.id}/waive-refund`, { method: 'POST' })
+    $toast.success(t.value.waiveDone)
     await fetchRefunds()
   } catch (e) {
     console.error(e); $toast.error(e?.data?.message ?? t.value.saveError)

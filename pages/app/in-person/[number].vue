@@ -41,7 +41,7 @@
           <h2 class="text-base font-bold text-gray-900">{{ t.payments }}</h2>
           <div class="flex justify-between gap-3 text-sm">
             <span class="text-gray-600">{{ t.reserve }}</span>
-            <span class="font-semibold">{{ money(r.amount_usd) }} USD · {{ r.paid_at ? t.paid : t.unpaid }}<template v-if="r.refunded_at"> · {{ t.refunded }}</template></span>
+            <span class="font-semibold">{{ money(r.amount_usd) }} USD · {{ r.paid_at ? t.paid : t.unpaid }}<template v-if="r.refunded"> · {{ t.refunded }}</template></span>
           </div>
 
           <template v-if="r.final">

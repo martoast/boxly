@@ -7,10 +7,11 @@ const check = (label, got, want) => {
   if (g !== w) { console.log(`FAIL ${label}: got ${g}, want ${w}`); bad++ }
 }
 
-check('2h $250', computeFinal(2, 250), { hours: 2, spent: 250, hoursFee: 60, commission: 25, credit: 30, total: 55 })
-check('decimals', computeFinal('1.5', '99.99').total, 45 + 10 - 30)
-check('never negative', computeFinal(1, 0).total, 0)
-check('empty', computeFinal('', '').total, 0)
+check('2h $250', computeFinal(2, 250, 30, 10), { hours: 2, spent: 250, hoursFee: 60, commission: 25, credit: 30, total: 55 })
+check('decimals', computeFinal('1.5', '99.99', 30, 10).total, 45 + 10 - 30)
+check('never negative', computeFinal(1, 0, 30, 10).total, 0)
+check('empty', computeFinal('', '', 30, 10).total, 0)
+check('other rate/percent', computeFinal(2, 100, 40, 15).total, 80 + 15 - 30)
 check('money', money('55'), '$55.00')
 check('money null', money(null), '$0.00')
 check('status es', statusLabel('confirmed', 'es'), 'Confirmada')
