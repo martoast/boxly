@@ -1,5 +1,5 @@
 <template>
-  <!-- Reserve a personal-shopping hour at Las Américas: day -> hour -> how many hours -> pay $30 on Stripe.
+  <!-- Reserve a personal-shopping hour at Las Américas: day -> hour -> how many hours -> pay on Stripe.
        Nothing is held until the payment is confirmed (first payment wins), see the API plan. -->
   <section class="min-h-screen bg-gray-50 pb-28 sm:pb-16">
     <div class="bg-white border-b border-gray-200">
@@ -16,7 +16,7 @@
     </div>
 
     <div class="max-w-3xl mx-auto px-4 py-6 space-y-5">
-      <div v-if="route.query.cancelled" class="p-4 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-900">{{ t.cancelled }}</div>
+      <div v-if="showCancelledBanner(route.query.cancelled)" class="p-4 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-900">{{ t.cancelled }}</div>
       <div v-if="error" class="p-4 rounded-xl bg-red-50 border border-red-200 text-sm text-red-800">{{ error }}</div>
 
       <div v-if="loading" class="text-center py-12 text-gray-500 text-sm">{{ t.loading }}</div>
@@ -65,13 +65,13 @@
 
         <!-- 3) summary -->
         <div v-if="slot" class="bg-white rounded-2xl border-2 border-primary-200 p-5 space-y-4">
-          <p class="text-sm text-gray-800 leading-relaxed">{{ t.summary(longDate, formatTime(start, language), formatTime(endTime(start, hours), language), hours) }}</p>
+          <p class="text-sm text-gray-800 leading-relaxed">{{ t.summary(longDate, formatTime(start, language), formatTime(endTime(start, hours), language), hours, rate) }}</p>
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">{{ t.notes }}</label>
             <textarea v-model="notes" rows="3" maxlength="1000" class="w-full rounded-xl border-gray-300 text-sm"></textarea>
           </div>
           <button @click="submit" :disabled="submitting" class="w-full py-3.5 bg-primary-600 hover:bg-primary-700 text-white font-bold rounded-xl disabled:opacity-60 transition-colors">
-            {{ submitting ? t.redirecting : t.reserve }}
+            {{ submitting ? t.redirecting : t.reserve(rate) }}
           </button>
         </div>
 
@@ -83,7 +83,8 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { hourOptions, endTime, formatTime, parseDate } from '~/utils/inPersonSlots'
+import { hourOptions, endTime, formatTime, parseDate, readLimits } from '~/utils/inPersonSlots'
+import { showCancelledBanner } from '~/utils/inPersonSuccess'
 
 definePageMeta({
   layout: 'app',
@@ -113,24 +114,26 @@ const t = createTranslations({
   more: { es: 'Más horas', en: 'More hours' },
   max: { es: (n) => `máx. ${n} h a partir de esta hora`, en: (n) => `max ${n} h from this time` },
   summary: {
-    es: (d, a, b, n) => `Reservas el ${d} de ${a} a ${b} (${n} h). Hoy solo pagas $30 USD para apartar tu horario; las horas y el 10% de tus compras se cobran al terminar.`,
-    en: (d, a, b, n) => `You reserve ${d} from ${a} to ${b} (${n} h). Today you only pay $30 USD to hold your time; the hours and 10% of your purchases are charged when we finish.`,
+    es: (d, a, b, n, p) => `Reservas el ${d} de ${a} a ${b} (${n} h). Hoy solo pagas${p ? ` $${p} USD` : ''} para apartar tu horario; las horas y el 10% de tus compras se cobran al terminar.`,
+    en: (d, a, b, n, p) => `You reserve ${d} from ${a} to ${b} (${n} h). Today you only pay${p ? ` $${p} USD` : ''} to hold your time; the hours and 10% of your purchases are charged when we finish.`,
   },
   notes: { es: '¿Algo que quieras comprar o que debamos saber?', en: 'Anything you want to buy or that we should know?' },
-  reserve: { es: 'Reservar y pagar $30', en: 'Reserve and pay $30' },
+  reserve: { es: (p) => (p ? `Reservar y pagar $${p}` : 'Reservar y pagar'), en: (p) => (p ? `Reserve and pay $${p}` : 'Reserve and pay') },
   redirecting: { es: 'Llevándote a pagar…', en: 'Taking you to pay…' },
   taken: { es: 'Ese horario ya fue reservado, elige otro', en: 'That time was just reserved, pick another' },
   failed: { es: 'No pudimos iniciar el pago. Intenta de nuevo.', en: 'We could not start the payment. Please try again.' },
 })
 
 const days = ref([])
+const rate = ref(null) // hourly_rate_usd from the availability API
+const capHours = ref(1) // max_hours from the availability API
 const loading = ref(true)
 const submitting = ref(false)
 const error = ref('')
 
 const day = computed(() => days.value.find((d) => d.date === date.value) ?? null)
 const slot = computed(() => day.value?.slots.find((s) => s.start_time.substring(0, 5) === start.value) ?? null)
-const maxHours = computed(() => hourOptions(slot.value?.max_consecutive_hours).length)
+const maxHours = computed(() => hourOptions(slot.value?.max_consecutive_hours, capHours.value).length)
 const longDate = computed(() => (date.value ? parseDate(date.value).toLocaleDateString(language.value === 'es' ? 'es-MX' : 'en-US', { weekday: 'long', day: 'numeric', month: 'long' }) : ''))
 
 const fmt = (d, opts) => parseDate(d).toLocaleDateString(language.value === 'es' ? 'es-MX' : 'en-US', opts)
@@ -142,19 +145,23 @@ function pickDate(d) {
 }
 function pickSlot(s) {
   start.value = s.start_time.substring(0, 5)
-  hours.value = Math.min(hours.value, hourOptions(s.max_consecutive_hours).length)
+  hours.value = Math.min(hours.value, hourOptions(s.max_consecutive_hours, capHours.value).length)
 }
 
 async function load() {
   try {
     const res = await $customFetch('/in-person/availability')
     days.value = res?.data ?? []
+    ;({ rate: rate.value, maxHours: capHours.value } = readLimits(res))
   } catch (e) {
     console.error(e)
   } finally {
     loading.value = false
   }
   // Drop a pick that is no longer offered.
+  // ?date=YYYY-MM-DD (e.g. a link from the team) opens that day when it is offered.
+  const wanted = typeof route.query.date === 'string' ? route.query.date : ''
+  if (!date.value && wanted && days.value.some((d) => d.date === wanted)) pickDate(wanted)
   if (date.value && !day.value) pickDate(null)
   else if (start.value && !slot.value) start.value = null
 }

@@ -308,6 +308,7 @@ const translations = {
   purchaseRequests: { es: 'Compra Asistida', en: 'Assisted Purchase' },
   purchasedProducts: { es: 'Productos Comprados', en: 'Purchased Products' },
   shoppingTrips: { es: 'Visitas en Persona', en: 'In-Person Trips' },
+  pastTrips: { es: 'Viajes anteriores', en: 'Past trips' }, // legacy shopping-trip bookings; remove when none remain
   packages: { es: 'Paquetes', en: 'Packages' },
   dropOffReceipts: { es: 'Recibos de Entrega', en: 'Drop-off Receipts' },
   customers: { es: 'Clientes', en: 'Customers' },
@@ -339,6 +340,7 @@ const navItems = computed(() => [
   { route: '/app/admin/purchase-requests', icon: ShoppingCartIcon, label: t.value.purchaseRequests },
   { route: '/app/admin/purchased-products', icon: ClipboardDocumentCheckIcon, label: t.value.purchasedProducts },
   { route: '/app/admin/availability', icon: CalendarDaysIcon, label: t.value.shoppingTrips },
+  { route: '/app/admin/shopping-trips', icon: CalendarDaysIcon, label: t.value.pastTrips },
   { route: '/app/admin/packages', icon: ArchiveBoxIcon, label: t.value.packages },
   { route: '/app/admin/drop-off-receipts', icon: ArchiveBoxArrowDownIcon, label: t.value.dropOffReceipts },
   { route: '/app/admin/customers', icon: UsersIcon, label: t.value.customers },

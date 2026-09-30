@@ -17,6 +17,8 @@
             <span class="px-3 py-1 rounded-full text-xs font-semibold" :class="statusTone(r.status)">{{ statusLabel(r.status, language) }}</span>
           </div>
 
+          <p v-if="r.refund_pending" class="mt-3 p-3 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-sm">{{ t.refundPending }}<span v-if="r.stripe_payment_intent_id"> {{ t.stripeId }}: <span class="font-mono break-all">{{ r.stripe_payment_intent_id }}</span></span></p>
+
           <div class="mt-4 text-sm">
             <div class="text-base font-bold text-gray-900">{{ r.customer?.name }}</div>
             <div v-if="r.customer?.phone" class="text-gray-600">{{ r.customer.phone }}</div>
@@ -130,6 +132,7 @@ const t = createTranslations({
   hours: { es: 'Horas reservadas', en: 'Hours reserved' },
   paid: { es: 'Reserva pagada', en: 'Reservation paid' },
   refunded: { es: 'reembolsada', en: 'refunded' },
+  refundPending: { es: 'Reembolso pendiente: hazlo en Stripe y márcalo en la sección "Reembolsos pendientes".', en: 'Refund pending: do it in Stripe and mark it in the "Pending refunds" section.' },
   notes: { es: 'Notas del cliente', en: 'Customer notes' },
   timeline: { es: 'Historial', en: 'Timeline' },
   finalTitle: { es: 'Cobro final', en: 'Final billing' },

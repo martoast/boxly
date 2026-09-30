@@ -31,6 +31,26 @@
         </ul>
       </div>
 
+      <!-- Pending refunds: slot_taken / cancelled payments still to be returned in Stripe -->
+      <div v-if="refunds.length" class="mb-4 p-4 rounded-xl bg-amber-50 border border-amber-300">
+        <h2 class="font-bold text-amber-900 flex items-center gap-2">{{ t.refundsTitle }}
+          <span class="px-2 py-0.5 rounded-full bg-amber-600 text-white text-xs font-bold">{{ refunds.length }}</span>
+        </h2>
+        <p class="text-xs text-amber-900 mt-1">{{ t.refundsHint }}</p>
+        <ul class="mt-3 space-y-2">
+          <li v-for="p in refunds" :key="p.id" class="bg-white rounded-xl border border-amber-200 p-3 text-sm flex flex-wrap items-center gap-x-4 gap-y-2">
+            <div class="min-w-0 flex-1">
+              <div class="font-mono font-bold text-gray-900">{{ p.reservation_number }} <span class="font-sans font-semibold text-gray-500">· {{ p.status === 'slot_taken' ? t.reasonTaken : t.reasonCancelled }}</span></div>
+              <div class="text-gray-700">{{ p.customer?.name }} · <span class="font-semibold">${{ Number(p.amount_usd) }} USD</span> · {{ formatDate(p.date) }} {{ formatTime(p.start_time, language) }}</div>
+              <div v-if="p.stripe_payment_intent_id" class="text-xs text-gray-500">{{ t.stripeId }}: <span class="font-mono break-all">{{ p.stripe_payment_intent_id }}</span></div>
+              <div v-if="p.cancel_reason" class="text-xs text-gray-500">{{ p.cancel_reason }}</div>
+            </div>
+            <a v-if="whatsappDigits(p.customer?.phone)" :href="`https://wa.me/${whatsappDigits(p.customer.phone)}`" target="_blank" rel="noopener" class="px-3 py-2 rounded-xl bg-green-500 hover:bg-green-600 text-white font-semibold">{{ t.whatsapp }}</a>
+            <button @click="markRefunded(p)" :disabled="refundBusy === p.id" class="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold disabled:opacity-60">{{ t.markRefunded }}</button>
+          </li>
+        </ul>
+      </div>
+
       <div v-if="loading" class="text-center py-12 text-gray-500 text-sm">{{ t.loading }}</div>
       <template v-else>
         <div v-if="!hasAny" class="mb-4 p-4 rounded-xl bg-white border border-dashed border-gray-300 text-sm text-gray-600">{{ t.empty }}</div>
@@ -219,6 +239,12 @@ const t = createTranslations({
   paid: { es: 'Pagado', en: 'Paid' },
   status: { es: 'Estado', en: 'Status' },
   refunded: { es: 'reembolsada', en: 'refunded' },
+  refundsTitle: { es: 'Reembolsos pendientes', en: 'Pending refunds' },
+  refundsHint: { es: 'El reembolso se hace en Stripe con el ID del pago; después toca "Marcar reembolsado".', en: 'Do the refund in Stripe using the payment ID, then tap "Mark refunded".' },
+  reasonTaken: { es: 'Horario ocupado', en: 'Slot taken' },
+  reasonCancelled: { es: 'Cancelada', en: 'Cancelled' },
+  markRefunded: { es: 'Marcar reembolsado', en: 'Mark refunded' },
+  refundDone: { es: 'Marcado como reembolsado', en: 'Marked as refunded' },
   notes: { es: 'Notas del cliente', en: 'Customer notes' },
   complete: { es: 'Marcar completada', en: 'Mark completed' },
   cancelRes: { es: 'Cancelar reserva', en: 'Cancel reservation' },
@@ -241,8 +267,10 @@ const locale = computed(() => (language.value === 'es' ? 'es-MX' : 'en-US'))
 
 const today = () => pacificNow().date
 const todayDate = ref(today())
-const weekStart = ref(mondayOf(today()))
-const tabDate = ref(null)
+const route = useRoute()
+const wantedDate = /^\d{4}-\d{2}-\d{2}$/.test(String(route.query.date ?? '')) ? String(route.query.date) : null // ?date=YYYY-MM-DD opens that week/day
+const weekStart = ref(mondayOf(wantedDate ?? today()))
+const tabDate = ref(wantedDate)
 const slots = ref([])
 const loading = ref(true)
 const saving = ref(false)
@@ -250,6 +278,8 @@ const copying = ref(false)
 const busy = ref(false)
 const changed = ref(new Set())
 const blocked = ref([])
+const refunds = ref([])
+const refundBusy = ref(null)
 const selected = ref(null)
 const selectedDate = ref('')
 const mode = ref(null)
@@ -377,5 +407,24 @@ async function act(path, body, okMsg) {
 const submitCancel = () => act('cancel', { reason: form.reason.trim() }, t.value.cancelled)
 const submitComplete = () => act('complete', { hours_worked: Number(form.hours), amount_spent_usd: Number(form.spent) }, t.value.completed)
 
-onMounted(fetchSlots)
+async function fetchRefunds() {
+  try {
+    const res = await $customFetch(`${props.apiBase}/in-person/reservations/pending-refunds`)
+    refunds.value = res?.data ?? []
+  } catch (e) { console.error(e) }
+}
+async function markRefunded(p) {
+  refundBusy.value = p.id
+  try {
+    await $customFetch(`${props.apiBase}/in-person/reservations/${p.id}/mark-refunded`, { method: 'POST' })
+    $toast.success(t.value.refundDone)
+    await fetchRefunds()
+  } catch (e) {
+    console.error(e); $toast.error(e?.data?.message ?? t.value.saveError)
+  } finally {
+    refundBusy.value = null
+  }
+}
+
+onMounted(() => { fetchSlots(); fetchRefunds() })
 </script>

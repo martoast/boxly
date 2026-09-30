@@ -232,6 +232,7 @@ const t = createTranslations({
   campaigns:        { es: 'Campañas',               en: 'Campaigns' },
   aiSearch:         { es: 'Búsqueda con IA',        en: 'AI Search' },
   shoppingTrips:    { es: 'Visitas en Persona',     en: 'In-Person Trips' },
+  pastTrips: { es: 'Viajes anteriores', en: 'Past trips' }, // legacy shopping-trip bookings; remove when none remain
   shoppingRole:     { es: 'Compras',                en: 'Shopping' },
   logout:           { es: 'Cerrar Sesión',          en: 'Sign out' },
 });
@@ -242,6 +243,7 @@ const navItems = computed(() => [
   { route: '/app/shopping/stores',            icon: BuildingStorefrontIcon,  label: t.value.storeBrands },
   { route: '/app/shopping/categories',        icon: TagIcon,                 label: t.value.storeCategories },
   { route: '/app/shopping/availability',       icon: CalendarDaysIcon,        label: t.value.shoppingTrips },
+  { route: '/app/shopping/shopping-trips', icon: CalendarDaysIcon, label: t.value.pastTrips },
   { route: '/app/shopping/campaigns',         icon: MegaphoneIcon,           label: t.value.campaigns },
   { route: '/app/shopping/ai-search',         icon: MagnifyingGlassIcon,     label: t.value.aiSearch },
 ]);

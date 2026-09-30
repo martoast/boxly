@@ -1,7 +1,7 @@
 // Run: node --experimental-strip-types utils/inPersonSlots.test.mjs
 import {
   addDays, mondayOf, weekDates, pacificNow, isPast, cellStates, cellKey, toggleCell, toggleDay,
-  slotsPayload, hoursRange, hourOptions, nextMondays, formatTime, whatsappDigits, endTime, HOURS,
+  slotsPayload, hoursRange, hourOptions, readLimits, nextMondays, formatTime, whatsappDigits, endTime, HOURS,
 } from './inPersonSlots.ts'
 
 let bad = 0
@@ -63,9 +63,13 @@ check('range 10-12', slotsPayload(toggleDay(new Set(), st, '2026-10-06', [10, 12
 // reservation helpers
 check('hours range', hoursRange('11:00:00', 2), '2 h: 11:00–13:00')
 check('end time', endTime('22:00', 1), '23:00')
-check('options capped at 6', hourOptions(9), [1, 2, 3, 4, 5, 6])
-check('options by consecutive', hourOptions(3), [1, 2, 3])
-check('options missing', hourOptions(undefined), [1])
+check('options capped by API cap', hourOptions(9, 6), [1, 2, 3, 4, 5, 6])
+check('options capped at 4', hourOptions(9, 4), [1, 2, 3, 4])
+check('options by consecutive', hourOptions(3, 6), [1, 2, 3])
+check('options missing', hourOptions(undefined, 6), [1])
+check('options cap missing', hourOptions(5, undefined), [1])
+check('limits top-level', readLimits({ data: [], hourly_rate_usd: 35, max_hours: 5 }), { rate: 35, maxHours: 5 })
+check('limits missing', readLimits({ data: [] }), { rate: null, maxHours: 1 })
 check('format es', formatTime('13:00', 'es'), '13:00')
 check('format en', formatTime('13:00', 'en'), '1 PM')
 check('format en noon', formatTime('12:00', 'en'), '12 PM')

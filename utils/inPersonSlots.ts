@@ -4,7 +4,6 @@
 export const TZ = 'America/Tijuana'
 export const FIRST_HOUR = 6
 export const LAST_HOUR = 22 // last bookable hour starts 22:00 and ends 23:00
-export const MAX_HOURS = 6
 
 export const hourLabel = (h: number) => String(h).padStart(2, '0') + ':00'
 export const HOURS: number[] = Array.from({ length: LAST_HOUR - FIRST_HOUR + 1 }, (_, i) => FIRST_HOUR + i)
@@ -104,9 +103,9 @@ export function hoursRange(start: string, hours: number): string {
   return `${hours} h: ${String(start).substring(0, 5)}–${endTime(start, hours)}`
 }
 
-// Stepper options 1..min(6, consecutive free hours of the chosen slot).
-export function hourOptions(maxConsecutive: number | null | undefined): number[] {
-  const max = Math.max(1, Math.min(MAX_HOURS, Number(maxConsecutive) || 1))
+// Stepper options 1..min(cap, consecutive free hours of the chosen slot); `cap` = max_hours from the availability API.
+export function hourOptions(maxConsecutive: number | null | undefined, cap: number | null | undefined): number[] {
+  const max = Math.max(1, Math.min(Number(cap) || 1, Number(maxConsecutive) || 1))
   return Array.from({ length: max }, (_, i) => i + 1)
 }
 
@@ -121,3 +120,10 @@ export function formatTime(t: string, lang: string): string {
 }
 
 export const whatsappDigits = (phone: string | null | undefined) => String(phone ?? '').replace(/\D/g, '')
+
+// hourly_rate_usd / max_hours as sent by GET /in-person/availability (beside `data`; also tolerated inside `meta`/`data`).
+export function readLimits(res: any): { rate: number | null; maxHours: number } {
+  const pick = (k: string) => res?.[k] ?? res?.meta?.[k] ?? (Array.isArray(res?.data) ? undefined : res?.data?.[k])
+  const rate = Number(pick('hourly_rate_usd')); const max = Number(pick('max_hours'))
+  return { rate: rate > 0 ? rate : null, maxHours: max >= 1 ? Math.floor(max) : 1 }
+}

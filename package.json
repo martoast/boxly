@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test:in-person": "node --experimental-strip-types utils/inPersonSlots.test.mjs && node --experimental-strip-types utils/inPersonReservation.test.mjs",
+    "test:in-person": "node --experimental-strip-types utils/inPersonSlots.test.mjs && node --experimental-strip-types utils/inPersonReservation.test.mjs && node --experimental-strip-types utils/inPersonSuccess.test.mjs",
     "test:live": "node --experimental-strip-types utils/liveShopping.test.mjs && node --experimental-strip-types utils/liveBrowse.test.mjs && node --experimental-strip-types utils/typingFlush.test.ts && node --experimental-strip-types composables/liveShopping.harness.test.mjs",
     "test:cart": "node --experimental-strip-types utils/boxlyCart.test.mjs && node --experimental-strip-types utils/storeQuotes.test.mjs && node --experimental-strip-types server/utils/boxCheckout.test.mjs && node --experimental-strip-types server/utils/storeLock.test.mjs && node --experimental-strip-types server/utils/storeHosts.test.mjs",
     "build": "nuxt build",

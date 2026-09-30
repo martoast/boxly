@@ -22,9 +22,8 @@ export default defineNuxtConfig({
   // the server, and every hop of it reads a composable post-await.
   experimental: { asyncContext: true },
   routeRules: {
-    // Retired in-person wizard pages: keep old links working.
+    // Retired in-person wizard pages: keep old links working (/in-person/review is pages/in-person/review.vue: it keeps ?cancelled=1).
     '/in-person/stores': { redirect: '/in-person' },
-    '/in-person/review': { redirect: '/in-person' },
     '/in-person/details': { redirect: '/in-person' },
     // /login and /register used to be listed here as { ssr: false }. That was
     // never a decision about these pages — 9f9f568 flipped the whole app from
