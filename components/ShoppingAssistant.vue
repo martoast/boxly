@@ -732,7 +732,7 @@ function onLiveEnded() {
     galleryLiveIds.delete(ended.id)
     // A SEARCH browser is done once its results are in the chat (Alex 2026-09-30: the finished card "is just kind of
     // pointless and invasive there"): the card goes — or the next store browser takes its place. Cart and checkout
-    // browsers still stay with their last frame (below).
+    // browsers go too, below.
     fetchLiveGallery(ended.id).finally(() => {
       if (liveShown.value?.id !== ended.id) return
       const next = [checkoutLive.value, boxlyCart.cart.value?.live_sessions?.[0]].find((s) => s && s.id !== ended.id) || null
@@ -743,11 +743,14 @@ function onLiveEnded() {
   }
   clearTimeout(liveEndTimer)
   liveEndTimer = setTimeout(() => {
-    // A finished store browser STAYS (Alex 2026-09-28: "it shouldn't close it … in case the user wants to go back
-    // to it"): its card keeps the last frame and "Listo"; only the next store's session takes its place.
-    const next = [checkoutLive.value, boxlyCart.cart.value?.live_sessions?.[0]].find((s) => s && s.id !== liveShown.value?.id) || null
-    if (next) liveShown.value = next
-  }, 6000)
+    // A finished cart/checkout browser goes too, after a beat on its "Listo" (Alex 2026-09-30: watching the agent
+    // work is the point; after that the chat's own message says it is done, and browsers are too scarce to hold
+    // open). The next store's session takes its place, if any.
+    if (liveShown.value?.id !== ended?.id) return
+    const next = [checkoutLive.value, boxlyCart.cart.value?.live_sessions?.[0]].find((s) => s && s.id !== ended?.id) || null
+    liveShown.value = next
+    if (!next) liveOpen.value = false
+  }, 1500)
 }
 onMounted(async () => {
   desktopQuery = window.matchMedia('(min-width: 768px)')

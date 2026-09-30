@@ -77,7 +77,9 @@ export default defineEventHandler(async (event) => {
     try {
       const r: any = await $fetch(`${CATALOG_BASE}/catalog/product-variants`, {
         method: 'POST',
-        body: { url: u, max_age_s: maxAgeS, skip_colorways: !!body?.skip_colorways },
+        // The card's title lets the reader re-pin a family page that served another style (VS, 2026-09-30); a
+        // colourway pick is a deliberate other style, so it goes without.
+        body: { url: u, max_age_s: maxAgeS, skip_colorways: !!body?.skip_colorways, ...(body?.title && !body?.colorways?.length ? { title: String(body.title).slice(0, 300) } : {}) },
         timeout: 55_000,
       })
       const variants = Array.isArray(r?.variants) ? r.variants : []

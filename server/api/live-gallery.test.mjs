@@ -97,7 +97,7 @@ ok('the live gallery\'s own spinner is its loader (no second typing indicator)',
 ok('history and fresh results both read as gallery rows (price, store_id)', /parts: withLiveRows\(/.test(vue))
 ok('the live card goes up for this page\'s own live_gallery answer only (never an old one from history)', /\/\^\\d\+\$\/\.test\(String\(m\.id\)\)/.test(vue) && /p\.type === 'tool-live_gallery' && p\.state === 'output-available' && p\.output\?\.live_session\?\.id/.test(vue))
 ok('when that browser ends, its gallery is fetched into the chat and registered', /if \(ended && galleryLiveIds\.has\(ended\.id\)\) \{\s*galleryLiveIds\.delete\(ended\.id\)/.test(vue) && /fetchLiveGallery\(ended\.id\)\.finally\(/.test(vue) && /registerProducts\(part\.output\.products\)/.test(vue))
-ok('a finished SEARCH browser card goes once its results are in (cart/checkout cards stay)', /fetchLiveGallery\(ended\.id\)\.finally\(\(\) => \{[\s\S]{0,400}liveShown\.value = next[\s\S]{0,80}if \(!next\) liveOpen\.value = false/.test(vue))
+ok('a finished SEARCH browser card goes once its results are in', /fetchLiveGallery\(ended\.id\)\.finally\(\(\) => \{[\s\S]{0,400}liveShown\.value = next[\s\S]{0,80}if \(!next\) liveOpen\.value = false/.test(vue))
 ok('the session read first reconciles a terminal whose webhook has not landed', /await \$customFetch\(`\/live-shopping\/sessions\/\$\{sessionId\}`\)/.test(vue))
 // The first word is immediate (Alex, 2026-09-28): the chat draws "¡Va! Déjame revisar … por ti" from the call itself,
 // and a search that started for every store asked ends the turn without a second line from the model.
@@ -113,3 +113,5 @@ console.log(`\n${pass} checks passed`)
 ok('"more of a kind already shown" re-shows the saved gallery, never a text list', /MORE OF A KIND ALREADY SHOWN[^`]*show_saved_products with EVERY id of that kind[^`]*NEVER answer with a text list/.test(api) && /asks for MORE of a kind already shown/.test(api))
 // Alex 2026-09-30: tapping a gallery product did not bring its picker card (options + add button) into view.
 ok('a tapped product\'s card is revealed on insert and again when its first read grows it', /chat\.messages = \[\.\.\.chat\.messages, msg\]; scrollDown\(\); revealCard\(msg\.id\)/.test(vue) && /if \(firstRead && msgId && chat\.messages\[chat\.messages\.length - 1\]\?\.id === msgId\) revealCard\(msgId\)/.test(vue) && /ref="composerBar" class="sticky bottom-0/.test(vue))
+// Alex 2026-09-30: a finished cart/checkout browser card goes too (after a short beat), unless another session took its place.
+ok('a finished cart/checkout browser card goes after a beat', /if \(liveShown\.value\?\.id !== ended\?\.id\) return[\s\S]{0,200}liveShown\.value = next\s*if \(!next\) liveOpen\.value = false\s*\}, 1500\)/.test(vue))
