@@ -16,6 +16,8 @@
           <span class="text-[11px] font-semibold text-gray-400">USD</span>
           <span v-if="onSale" class="ml-1 text-[12px] font-medium text-gray-400 line-through">${{ was }}</span>
         </p>
+        <!-- A style-family link (Victoria's Secret) can open another style than the tile the shopper tapped. -->
+        <p v-if="familyServed" class="mt-0.5 text-[11px] font-semibold text-amber-700 leading-snug">La tienda abrió: {{ familyServed }} — las opciones de abajo son de ese producto.</p>
         <p v-if="seller" class="mt-0.5 text-[11px]" :class="marketplace ? 'text-amber-700 font-semibold' : 'text-gray-400'">Vendido por {{ seller.name }}</p>
       </div>
     </div>
@@ -97,6 +99,16 @@ const colorways = computed(() => (Array.isArray(read.value?.colorways) ? read.va
 const activeColorway = computed(() => colorways.value.find((c) => c.url === output.value.read_url) || colorways.value.find((c) => c.current) || null)
 // The picker reads the product's title for its sentence; the card's own title is the one the shopper tapped.
 const pickerData = computed(() => ({ ...read.value, product: { ...(read.value?.product || {}), title: product.value.title || read.value?.product?.title || '', url: output.value.read_url || product.value.url } }))
+// A STYLE-FAMILY LINK (reader: product.family = {served, styles}, 2026-09-30): the same Victoria's Secret URL can open
+// another style than the tile tapped. Say so only when the tapped title names a DIFFERENT style of that family.
+const familyServed = computed(() => {
+  const f = read.value?.product?.family
+  if (!f?.served || !Array.isArray(f.styles)) return null
+  const n = (x) => String(x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim()
+  const styleOf = (t) => f.styles.map(n).filter((st) => st && t.startsWith(st)).sort((a, b) => b.length - a.length)[0] || null
+  const tapped = styleOf(n(product.value.title)), served = styleOf(n(f.served))
+  return tapped && served && tapped !== served ? f.served : null
+})
 // Who sells it (the reader's product.seller): a marketplace seller (is_store false) is shown and never added.
 const seller = computed(() => (read.value?.product?.seller?.name ? read.value.product.seller : null))
 const marketplace = computed(() => seller.value?.is_store === false)
