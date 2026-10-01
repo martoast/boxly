@@ -159,6 +159,9 @@ function priceForSelection() {
   const span = (v) => (typeof v.price === 'number' ? [v.price, v.price] : Array.isArray(v.price_range) && typeof v.price_range[0] === 'number' ? [v.price_range[0], typeof v.price_range[1] === 'number' ? v.price_range[1] : Infinity] : null)
   const colourRows = colour ? pool.filter((v) => val(v, colour) === sel[colour.name] && span(v)) : []
   if (colourRows.length) pool = colourRows
+  // A read that prices its colours one by one, with no price for THIS colour (the reader left it unknown: Cotton Praline is
+  // $14.50 and $3.99 clearance on one page): unknown — never the size rows' price, which can be another style's.
+  else if (colour && variants.value.some((v) => val(v, colour) != null && span(v))) return { price: null, unknown: true }
   // A price the page stated for this option WITH the other axes as they were then (reader price_with: Walmart's
   // "96, $24.97" is Size 1's) does not hold once the shopper picked another value there: unknown, never shown.
   const holds = (v) => !v.price_with || Object.entries(v.price_with).every(([k, want]) => !sel[k] || sel[k] === want)

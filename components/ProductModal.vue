@@ -356,10 +356,11 @@ const hasChoices = computed(() => {
 
 // What the picker says the current selection costs, and whether that is a floor rather than an exact price.
 const pickedPrice = ref(null)
-function onPickPrice(p) { pickedPrice.value = p && typeof p.price === 'number' ? p : null }
-const headerPrice = computed(() => pickedPrice.value?.price ?? fetchedPrice.value ?? props.product?.price ?? null)
+// An unknown price for the pick shows no price (as the picker card does), never the page fetch's (on a family page that can be another style's).
+function onPickPrice(p) { pickedPrice.value = p && (typeof p.price === 'number' || p.unknown) ? p : null }
+const headerPrice = computed(() => (pickedPrice.value?.unknown ? null : pickedPrice.value?.price ?? fetchedPrice.value ?? props.product?.price ?? null))
 const headerFrom = computed(() => !!pickedPrice.value?.from)
-const displayPrice = computed(() => pickedPrice.value?.price ?? fetchedPrice.value ?? props.product?.price ?? null)
+const displayPrice = computed(() => (pickedPrice.value?.unknown ? null : pickedPrice.value?.price ?? fetchedPrice.value ?? props.product?.price ?? null))
 const displayWas = computed(() => fetchedWas.value ?? props.product?.was ?? null)
 const displayOnSale = computed(() => fetchedOnSale.value ?? props.product?.onSale ?? false)
 const displayDiscount = computed(() => {
