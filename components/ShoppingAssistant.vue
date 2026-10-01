@@ -708,7 +708,13 @@ function itemStatus(it) {
   // With store sync off nothing moves a line out of 'pending': no store status at all (the box card would wait forever).
   if (boxlyCart.cart.value?.sync_enabled !== true) return null
   const lines = boxlyCart.cart.value?.items || []
-  const line = lines.find((l) => normTitle(l.title) === normTitle(it?.name)) || lines.find((l) => normTitle(it?.name) && normTitle(l.title).startsWith(normTitle(it.name)))
+  const exact = lines.filter((l) => normTitle(l.title) === normTitle(it?.name))
+  const titled = exact.length ? exact : lines.filter((l) => normTitle(it?.name) && normTitle(l.title).startsWith(normTitle(it.name)))
+  // ONE PRODUCT, TWO LINES (a second colour or size): the line with this item's own picks ('SMOKED VIOLET with BLACK · 9'
+  // vs variants {color, size: '9 (9)'}), else one still being added — never an older line's "en tu carrito" (2026-10-01).
+  const picks = String(it?.chosen || '').split(' · ').map(normTitle).filter(Boolean)
+  const fits = (l) => picks.length && picks.every((c) => Object.values(l.variants || {}).map(normTitle).some((v) => v === c || v.startsWith(c + ' ')))
+  const line = titled.find(fits) || titled.find((l) => l.sync_status === 'pending' || l.sync_status === 'syncing') || titled[0]
   return line ? { status: line.sync_status, store: line.store_name || line.store_id } : null
 }
 // THE LIVE STORE GALLERY (2026-09-28): live_gallery answers a product request by opening the store(s) in
