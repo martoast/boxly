@@ -375,7 +375,7 @@
                   <template v-for="(part, i) in m.parts" :key="'w' + i">
                     <!-- An item held for a size/colour pick returns hold:true; with nothing else in the box there is no box to
                          draw yet, so show the picker alone rather than an empty "Tu caja Boxly 0" card. -->
-                    <LazyShipmentCard v-if="part.type === 'tool-show_shipment' && part.state === 'output-available' && !(part.output?.hold && !part.output?.items?.length)" :store-status="user ? itemStatus : null" :shipment="enrichShipment(part.output)" :requested="ordered" @order="onFinalizeShipment" @add="onAddMore" />
+                    <LazyShipmentCard v-if="part.type === 'tool-show_shipment' && part.state === 'output-available' && !(part.output?.hold && !part.output?.items?.length) && i === lastShipmentPart(m)" :store-status="user ? itemStatus : null" :shipment="enrichShipment(part.output)" :requested="ordered" @order="onFinalizeShipment" @add="onAddMore" />
                     <!-- Sizes/colours with LIVE availability for the item just added (read from its stored URL by show_shipment). -->
                     <!-- The pick happens on the product's PICKER CARD in the chat (Alex, 2026-09-29, replacing the modal of
                          2026-09-11). When the box holds an item for a pick, the chat points at that card (creating it if missing). -->
@@ -1389,6 +1389,13 @@ function orderedGallery(m, products) {
 // them to show_shipment. Enrich the box's items here by matching each item name to a
 // product already shown in this chat (savedProducts has titles + images) — so the box
 // shows real thumbnails filling up. Falls back gracefully to no image.
+// One box card per reply: when the model calls show_shipment twice in one turn (live 2026-10-01: size "10", then "10 (10)"),
+// the last call is the box — the earlier one drew a second, identical card.
+function lastShipmentPart(m) {
+  const parts = m?.parts || []
+  for (let i = parts.length - 1; i >= 0; i--) if (parts[i]?.type === 'tool-show_shipment' && parts[i]?.state === 'output-available' && !(parts[i].output?.hold && !parts[i].output?.items?.length)) return i
+  return -1
+}
 function enrichShipment(shipment) {
   if (!shipment?.items?.length) return shipment
   const prods = savedProducts.value || []
