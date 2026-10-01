@@ -183,6 +183,7 @@ const normalized = computed(() =>
       onSale,
       discount,
       store: p.store || null,
+      store_id: p.store_id || null,
       note: p.note || p.reason || null,
       snippet: p.snippet || null,
       rating: p.rating ?? null,
