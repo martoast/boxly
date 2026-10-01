@@ -6,7 +6,7 @@
        person may pass it) brings the live browser back, since the shopper has to press it there. -->
   <div class="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden max-w-sm">
     <div v-if="progressOnly" class="flex items-center gap-3 px-4 py-3.5" role="status" aria-live="polite">
-      <LiveBrowserStage class="hidden" :session-id="session.id" :store-name="name" compact video-hidden @ended="done = true; $emit('ended')" @control="(c, reason, at) => $emit('control', c, reason, at)" @phase="onPhase" />
+      <LiveBrowserStage class="hidden" :session-id="session.id" :store-name="name" compact video-hidden @ended="(f) => { done = true; $emit('ended', f) }" @control="(c, reason, at) => $emit('control', c, reason, at)" @phase="onPhase" />
       <svg v-if="finished" class="w-5 h-5 text-green-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 13l4 4L19 7" /></svg>
       <span v-else class="w-5 h-5 rounded-full border-2 border-primary-100 border-t-primary-600 animate-spin shrink-0" aria-hidden="true" />
       <div class="min-w-0 flex-1">
@@ -17,7 +17,7 @@
       </div>
     </div>
     <button v-else type="button" class="w-full text-left" :aria-label="`Ver ${name} en vivo`" @click="$emit('expand')">
-      <LiveBrowserStage v-if="!expanded" :session-id="session.id" :store-name="name" compact @ended="done = true; $emit('ended')" @control="(c, reason, at) => $emit('control', c, reason, at)" />
+      <LiveBrowserStage v-if="!expanded" :session-id="session.id" :store-name="name" compact @ended="(f) => { done = true; $emit('ended', f) }" @control="(c, reason, at) => $emit('control', c, reason, at)" />
       <div v-else class="flex items-center justify-center bg-gray-900 text-white/80 text-xs" style="aspect-ratio: 16 / 9">
         Abierto {{ isDesktop ? 'a la derecha' : 'en pantalla completa' }}
       </div>
@@ -48,7 +48,7 @@ const props = defineProps<{ session: LiveCartSession, expanded?: boolean, isDesk
 const done = ref(false)
 watch(() => props.session?.id, () => { done.value = false; stepIdx.value = 0; queued.value = null })
 const finished = computed(() => done.value || (props.session?.status && props.session.status !== 'running'))
-defineEmits<{ (e: 'expand'): void, (e: 'ended'): void, (e: 'control', controller: string, reason: string | null, occurredAt: string | null): void }>()
+defineEmits<{ (e: 'expand'): void, (e: 'ended', lastFrame?: string | null): void, (e: 'control', controller: string, reason: string | null, occurredAt: string | null): void }>()
 const needsHelp = computed(() => !finished.value && props.help === 'needed')
 const name = computed(() => props.session.store_name || props.session.store_id)
 

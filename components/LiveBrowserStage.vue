@@ -56,7 +56,7 @@ import { useInputRelay } from '~/composables/useInputRelay'
 // videoHidden (Alex 2026-09-30: the stream "is just creating complication"): the session is still followed (its end,
 // its control changes) but no video is pulled; turning it off (a store's human check) starts the video then.
 const props = defineProps<{ sessionId: number, storeName?: string | null, compact?: boolean, interactive?: boolean, videoHidden?: boolean }>()
-const emit = defineEmits<{ (e: 'ended'): void, (e: 'control', controller: string, reason: string | null, occurredAt: string | null): void, (e: 'refused', code: string): void, (e: 'phase', phase: string, queuePosition: number | null): void }>()
+const emit = defineEmits<{ (e: 'ended', lastFrame?: string | null): void, (e: 'control', controller: string, reason: string | null, occurredAt: string | null): void, (e: 'refused', code: string): void, (e: 'phase', phase: string, queuePosition: number | null): void }>()
 
 const nuxtApp = useNuxtApp() as any
 const { $customFetch } = nuxtApp
@@ -119,7 +119,7 @@ async function attach() {
   if (phase.value === 'queued') phase.value = 'connecting'
 
   live = nuxtApp.runWithContext(() => useLiveSession(h, {
-    onTerminal: () => { captureLastFrame(); viewer?.stop(); relay.stop(); phase.value = 'ended'; emit('ended') },
+    onTerminal: () => { captureLastFrame(); viewer?.stop(); relay.stop(); phase.value = 'ended'; emit('ended', lastFrame.value) },
     // C4: who holds the browser (agent | pausing | customer), and why when the agent asked for the shopper's help
     // (reason 'challenge': a store's human check only a person may pass).
     onEvent: (ev: any) => { const c = parseControlChange(ev); if (c) emit('control', c.controller, c.reason, typeof ev?.occurredAt === 'string' ? ev.occurredAt : null) },

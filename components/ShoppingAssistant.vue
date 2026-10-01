@@ -328,7 +328,17 @@
                     <!-- Only the RICHEST gallery in this message renders — see
                          primaryGalleryIndex(): a model that fires two gallery
                          tools in one step must not draw two carousels. -->
-                    <LazyProductGallery v-if="isGalleryTool(part) && part.state === 'output-available' && part.output?.products?.length && i === primaryGalleryIndex(m) && !galleryPending(m)" :products="orderedGallery(m, part.output.products)" @open="openProduct" />
+                    <template v-if="isGalleryTool(part) && part.state === 'output-available' && part.output?.products?.length && i === primaryGalleryIndex(m) && !galleryPending(m)">
+                      <!-- The store as the search browser left it: these products were read from its own site, live. -->
+                      <div v-if="part.output.store_snapshot?.image" class="mb-2 max-w-sm rounded-2xl border border-gray-200 bg-white overflow-hidden shadow-sm">
+                        <img :src="part.output.store_snapshot.image" alt="" class="w-full block bg-gray-100" style="aspect-ratio: 16 / 9; object-fit: cover; object-position: top" />
+                        <div class="flex items-center gap-1.5 px-3 py-1.5 text-[11px] text-gray-500">
+                          <svg class="w-3 h-3 text-green-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 13l4 4L19 7" /></svg>
+                          <span class="truncate">Leído en vivo de {{ part.output.store_snapshot.store || 'la tienda' }}</span>
+                        </div>
+                      </div>
+                      <LazyProductGallery :products="orderedGallery(m, part.output.products)" @open="openProduct" />
+                    </template>
                     <!-- Search/browse finished but found nothing — clean message, not an empty
                          carousel. Suppress it if ANOTHER search in this turn did find options. -->
                     <div v-else-if="showNoResults(m, part)" class="text-[13px] text-gray-500 bg-white border border-gray-100 rounded-2xl px-4 py-3 shadow-sm">No encontré opciones para eso ahora. ¿Probamos con otra marca o término?</div>
@@ -699,7 +709,25 @@ function itemStatus(it) {
 const galleryLiveIds = new Set() // gallery browsers whose results are still to fetch
 const liveGalleryIds = ref(new Set()) // the same ids, reactive (the progress card's mode reads it)
 const gallerySeen = new Set() // every gallery browser this page has put up (never twice)
-async function fetchLiveGallery(sessionId) {
+// The store as the search browser left it, shrunk for the chat (a still above the gallery it read).
+function shrinkFrame(dataUrl, width = 640) {
+  return new Promise((resolve) => {
+    if (!dataUrl || !import.meta.client) return resolve(null)
+    const img = new Image()
+    img.onload = () => {
+      try {
+        const k = Math.min(1, width / img.width)
+        const c = document.createElement('canvas')
+        c.width = Math.round(img.width * k); c.height = Math.round(img.height * k)
+        c.getContext('2d')?.drawImage(img, 0, 0, c.width, c.height)
+        resolve(c.toDataURL('image/jpeg', 0.75))
+      } catch { resolve(null) }
+    }
+    img.onerror = () => resolve(null)
+    img.src = dataUrl
+  })
+}
+async function fetchLiveGallery(sessionId, snapshot = null) {
   const cid = activeId.value
   if (!cid) return
   // The session read reconciles the engine's terminal into the conversation when its webhook has not landed yet.
@@ -711,6 +739,9 @@ async function fetchLiveGallery(sessionId) {
       const shown = new Set(chat.messages.map((m) => String(m.id)))
       const fresh = newLiveResultMessages(r?.data?.messages, shown).map(mapMsg)
       if (fresh.length) {
+        // The search browser's last frame rides on its gallery (Alex 2026-09-30: keep the store "up there and then show
+        // the gallery, so it really conveys that we actually pulled the real product from the store").
+        if (snapshot) for (const m of fresh) for (const part of m.parts || []) if (part?.output && Array.isArray(part.output.products)) part.output.store_snapshot = snapshot
         chat.messages = [...chat.messages, ...fresh]
         for (const m of fresh) for (const part of m.parts) if (Array.isArray(part?.output?.products)) registerProducts(part.output.products)
         syncLocalThread()
@@ -737,15 +768,14 @@ function onLiveControl(controller, reason = null, occurredAt = null) {
     liveHelpTimer = setTimeout(() => { if (liveHelp.value === 'resumed') liveHelp.value = 'none' }, 5000)
   }
 }
-function onLiveEnded() {
+function onLiveEnded(lastFrame = null) {
   liveHelp.value = 'none'
   const ended = liveShown.value
   if (ended && galleryLiveIds.has(ended.id)) {
     galleryLiveIds.delete(ended.id)
-    // A SEARCH browser is done once its results are in the chat (Alex 2026-09-30: the finished card "is just kind of
-    // pointless and invasive there"): the card goes — or the next store browser takes its place. Cart and checkout
-    // browsers go too, below.
-    fetchLiveGallery(ended.id).finally(() => {
+    // A SEARCH browser is done once its results are in the chat: the live card goes (or the next store browser takes
+    // its place) and a still of the store it read stays above the gallery instead. Cart and checkout cards go too, below.
+    shrinkFrame(lastFrame).then((img) => fetchLiveGallery(ended.id, img ? { image: img, store: ended.store_name || ended.store_id || null } : null)).finally(() => {
       if (liveShown.value?.id !== ended.id) return
       const next = [checkoutLive.value, boxlyCart.cart.value?.live_sessions?.[0]].find((s) => s && s.id !== ended.id) || null
       liveShown.value = next
