@@ -7,7 +7,7 @@ Problem: "Tu caja Boxly" with "Finalizar carrito" shows while the agent is still
       (step 2 = pending/syncing). The live video card is the only thing on screen during the add.
 - [x] ShoppingAssistant.vue onLiveEnded (cart branch): reload the cart right away, so the box card shows the
       moment the add ends (today the cart polls every 8 s, which is why the card still said "Agregando" under "Listo").
-- [x] Tests + build; push. [ ] verify on boxly.mx with one lab add.
+- [x] Tests + build; push (4b0bdf4). [x] Verified on boxly.mx (lab chat 955): no box card during the NB add, card with ✓ + Finalizar right after.
 
 ## Review
 - ShipmentCard: `v-if="step !== 2"` on the root: hidden while any item is pending/syncing in its store cart.
