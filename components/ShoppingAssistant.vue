@@ -2182,19 +2182,24 @@ async function readIntoCard(key, product, { readUrl = product.url, maxAge = 0, c
   let next = null
   // One quiet retry before the card says it could not read (Alex 2026-09-30: a New Balance read failed once and
   // read fine seconds later); a store that blocks us or a reader that is busy answers the same way twice.
-  for (let attempt = 0; attempt < 2 && !next; attempt++) {
-    if (attempt) await new Promise((res) => setTimeout(res, 1500))
+  // A slow read answers "reading" before Netlify's ~30 s cut (live 2026-10-01): ask again at once with the SAME request —
+  // the catalog keeps reading and joins an identical request to the read in flight (the join key includes max_age_s).
+  let failures = 0, readingSince = 0
+  for (let attempt = 0; attempt < 6 && failures < 2 && !next; attempt++) {
+    if (failures && !readingSince) await new Promise((res) => setTimeout(res, 1500))
     try {
       if (user.value) await ensureChatToken()
       const r = await $fetch('/api/product-variants', {
-        method: 'POST', timeout: 58000,
+        method: 'POST', timeout: 28000,
         body: { url: readUrl, max_age_s: maxAge, skip_colorways: !!colorways?.length, title: product.title || null, image: product.image || null, ...(colorways?.length ? { colorways } : {}), ...(conv && token.value ? { conversation_id: conv, token: token.value, product } : {}) },
       })
       // Same line as the modal: a read that worked and found nothing to choose is a single-SKU product, not a failure.
       if (r && (!r.reason || r.reason === 'no_variants' || r.reason === 'need_url')) next = { type: PICKER_PART, toolCallId: 'picker-local', state: 'output-available', input: {}, output: { product, read: r, read_at: new Date().toISOString(), read_url: r.repinned?.to || readUrl } }
       // A definite answer is not retried: the store blocked us, the link is dead, or a marketplace sells it.
       else if (['blocked', 'page_not_found', 'marketplace'].includes(r?.reason) || r?.error === 'page_not_found') break
-    } catch { /* retried once, then handled below: the card offers a retry */ }
+      else if (r?.reason === 'reading') readingSince = readingSince || Date.now()
+      else failures++
+    } catch { failures++ /* retried once, then handled below: the card offers a retry */ }
   }
   cardsReading.value = new Set([...cardsReading.value].filter((k) => k !== key))
   // The shopper moved to another chat meanwhile: the server saved the card there; that chat reloads it when reopened.

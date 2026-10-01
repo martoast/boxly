@@ -80,7 +80,10 @@ export default defineEventHandler(async (event) => {
         // The card's title lets the reader re-pin a family page that served another style (VS, 2026-09-30); a
         // colourway pick is a deliberate other style, so it goes without.
         body: { url: u, max_age_s: maxAgeS, skip_colorways: !!body?.skip_colorways, ...(!body?.colorways?.length ? { ...(body?.title ? { title: String(body.title).slice(0, 300) } : {}), ...(body?.image ? { image: String(body.image).slice(0, 2000) } : {}) } : {}) },
-        timeout: 55_000,
+        // NETLIFY CUTS THIS FUNCTION AT ~30 s (live 2026-10-01: a 41 s VS read and a 35 s Sprouts read both succeeded in the
+        // catalog but the shopper got a 502 → "No pudimos leer"). Wait 22 s; past that the card asks again ("reading") and
+        // the catalog — which keeps reading and joins an identical in-flight read — answers the retry.
+        timeout: 22_000,
       })
       const variants = Array.isArray(r?.variants) ? r.variants : []
       return {
@@ -109,6 +112,8 @@ export default defineEventHandler(async (event) => {
         reason: r?.busy ? 'busy' : (r?.blocked ? 'blocked' : (r?.error || (!variants.length ? (r?.reason || 'no_variants') : null))),
       }
     } catch (e: any) {
+      // Still reading (our own 22 s wait ran out, not the reader): the card retries and joins the read in flight.
+      if (/timeout|timed out|aborted/i.test(`${e?.message || ''} ${e?.cause?.name || ''}`)) return { variants: [], axes: [], reason: 'reading' } as any
       // Never block the modal on our reader: no variants simply means the picker stays hidden.
       console.warn('[product-variants] unreachable:', e?.message || e)
       return { variants: [], axes: [], reason: 'unreachable' } as any
@@ -136,6 +141,7 @@ export default defineEventHandler(async (event) => {
   const store = sane(await readStore(readUrl))
   const readUrlBrand = feedBrand(readUrl)
   let out: any = store
+  if (store.reason === 'reading') return store
   if (readUrlBrand && !store.variants.length) {
     const feed = await readFeed(readUrl, readUrlBrand)
     if (feed.variants.length) out = feed
