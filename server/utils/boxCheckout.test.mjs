@@ -120,5 +120,14 @@ console.log('pinned style link (VS family page)')
   check('a later card without the pin keeps the pinned line (no remove + re-add)', !later.add.length && !later.remove.length, JSON.stringify(later))
 }
 
+console.log('a line the store is taking')
+{
+  const line = { id: 7, product_url: 'https://www.gap.com/p/1?vid=2', quantity: 1, variants: { size: 'M', color: 'Black' }, sync_status: 'syncing', saved_id: 'a', title: 'Gap Tee', store_id: 'gap' }
+  const p = planCart([line], wantedFromBox([{ ...A, quantity: 2, size: 'L' }], registry).wanted)
+  check('mid-add: no update, no remove, no add', !p.update.length && !p.remove.length && !p.add.length, JSON.stringify(p))
+  const done = planCart([{ ...line, sync_status: 'in_store_cart' }], wantedFromBox([{ ...A, quantity: 2, size: 'L' }], registry).wanted)
+  check('after the add: the change goes through', done.update.length === 1, JSON.stringify(done))
+}
+
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed) process.exit(1)

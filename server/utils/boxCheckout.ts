@@ -210,6 +210,8 @@ export function planCart(cart: CartLine[], wanted: WantedItem[], opts: { retryUr
     if (opts.retryUrl && line.product_url === opts.retryUrl && ['failed', 'unavailable'].includes(String(line.sync_status))) {
       plan.remove.push(line.id); plan.add.push(w); continue
     }
+    // A line the store's cart is taking right now is left as it is (the API refuses changes mid-add); the next card plans it again.
+    if (line.sync_status === 'syncing') continue
     const have = Object.values(line.variants || {}).map(norm)
     const body: { quantity?: number, variants?: Record<string, string> } = {}
     if (Number(line.quantity) !== w.quantity) body.quantity = w.quantity
