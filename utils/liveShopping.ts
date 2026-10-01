@@ -1558,3 +1558,15 @@ export function liveProgressSteps(mode: LiveProgressMode, store: string, note: s
   void note
   return [`Abriendo ${s}…`, 'Buscando tu producto…', 'Eligiendo tus opciones…', 'Agregándolo a tu carrito…', 'Confirmando que quedó en el carrito…']
 }
+
+// ── Pre-open address (Victoria's Secret family pages) ─────────────────────────
+// A VS family page (…/panties-catalog/5000005331) serves a different style on each visit; the card's own photo names
+// its style and colour (…/112735981NG0_OM_F.jpg = genericId 11273598, choice 1NG0). The pre-open loads that exact
+// style, as the add will. Mirrors the engine's familyPinFromImage (catalog/page_stock.mjs). Anything else: as is.
+export function preopenUrl(url: string, imageUrl?: string | null): string {
+  let u: URL
+  try { u = new URL(url) } catch { return url }
+  if (!/(^|\.)victoriassecret\.com$/.test(u.hostname) || !/\/[a-z-]+-catalog\/\d+\/?$/.test(u.pathname) || u.searchParams.get('genericId')) return url
+  const m = /\/(\d{8})([A-Z0-9]{4})_[A-Z]{2}(?:_[A-Z0-9]+)?\.(?:jpe?g|png|webp)(?:$|[?#])/.exec(String(imageUrl || ''))
+  return m ? `${u.origin}${u.pathname.replace(/\/$/, '')}?choice=${m[2]}&genericId=${m[1]}` : url
+}

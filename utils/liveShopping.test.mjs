@@ -27,7 +27,7 @@ import { liveResultsCaveat, liveFailureCopy, liveProgressSteps,
   parseSessionStateResponse, terminalReasonText,
   reconnectDelayMs, MAX_RECONNECT_ATTEMPTS, RECONNECT_CAP_MS,
   buildWhepRequest, whepResourceUrl, buildWhepDelete, validateSdpAnswer, ticketAuthOrigin,
-  MAX_PRODUCTS_PER_EVENT, MAX_SDP_CHARS, MAX_OBSERVED_AT_FUTURE_MS,
+  MAX_PRODUCTS_PER_EVENT, MAX_SDP_CHARS, MAX_OBSERVED_AT_FUTURE_MS, preopenUrl,
 } from './liveShopping.ts'
 // GOLDEN cross-repo fixtures — the same bytes live in the engine and Laravel
 // suites; every validator must accept them exactly, evaluated at GOLDEN.now.
@@ -577,6 +577,14 @@ console.log('control.changed + challenge hand-off')
   check('cart steps end on confirming the cart', /carrito/.test(liveProgressSteps('cart', 'BBW').at(-1)))
   check('checkout steps mention shipping and tax', liveProgressSteps('checkout', 'BBW').some((x) => /envío e impuestos/.test(x)))
   check('no store name falls back', liveProgressSteps('search', '')[0] === 'Abriendo la tienda…')
+}
+
+{
+  const fam = 'https://www.victoriassecret.com/us/vs/panties-catalog/5000005331'
+  check('VS family page + style photo → that style pinned', preopenUrl(fam, 'https://www.victoriassecret.com/p/404x539/png/zz/25/08/19/00/112735981NG0_OM_F.jpg') === `${fam}?choice=1NG0&genericId=11273598`)
+  check('an already pinned VS link stays', preopenUrl(`${fam}?choice=54A2&genericId=11273598`, 'https://x/112735981NG0_OM_F.jpg') === `${fam}?choice=54A2&genericId=11273598`)
+  check('a photo naming no style → as is', preopenUrl(fam, 'https://x/photo.jpg') === fam)
+  check('another store → as is', preopenUrl('https://www.gymshark.com/products/x', 'https://x/112735981NG0_OM_F.jpg') === 'https://www.gymshark.com/products/x')
 }
 
 console.log(`\n${pass} passed, ${fail} failed`)
