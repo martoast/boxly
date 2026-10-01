@@ -78,3 +78,103 @@ export function storeQuoteRows(q: StoreQuote, lang: 'es' | 'en' = 'es'): Array<{
   }
   return rows
 }
+
+// ---- Sequential checkout: one store at a time, a chat line per finished store, one final summary. ----
+
+/** The store the agent is on: the running one, else the first waiting one (about to start). */
+export function currentQuote<T extends Pick<StoreQuote, 'status'>>(quotes: T[]): T | null {
+  return quotes.find((q) => q.status === 'running') ?? quotes.find((q) => q.status === 'pending') ?? null
+}
+
+export const quoteTerminal = (q: Pick<StoreQuote, 'status'>): boolean => !quoteInFlight(q)
+
+/** A quote that counts toward the invoice: verified (or partial) with a total. */
+export function quoteDone(q: Pick<StoreQuote, 'status' | 'total_cents'>): boolean {
+  return (q.status === 'verified' || q.status === 'partial') && typeof q.total_cents === 'number'
+}
+
+/** The row label: En curso / En espera / Listo / No cotizada. */
+export function storeStateLabel(q: Pick<StoreQuote, 'status' | 'total_cents'>): string {
+  if (q.status === 'running') return 'En curso'
+  if (q.status === 'pending') return 'En espera'
+  return quoteDone(q) ? 'Listo' : 'No cotizada'
+}
+
+const quoteName = (q: Pick<StoreQuote, 'store_name' | 'store_id'>) => q.store_name || q.store_id
+
+/** The store that follows `quote` (still waiting or running), in processing order; null when it was the last. */
+export function nextStoreName(quotes: StoreQuote[], quote: Pick<StoreQuote, 'store_id'>): string | null {
+  const i = quotes.findIndex((q) => q.store_id === quote.store_id)
+  const next = quotes.slice(i + 1).find((q) => quoteInFlight(q))
+  return next ? quoteName(next) : null
+}
+
+const SHORT_REASONS: Record<string, string> = {
+  no_quotable_items: 'no hay productos disponibles',
+  out_of_stock: 'sin existencias',
+  unavailable: 'no disponible',
+  timeout: 'tardó demasiado',
+}
+
+/** A short Spanish reason for a dropped store: the API's `reason`, else mapped from `error_code`. */
+export function dropReason(q: { reason?: string | null, error_code?: string | null }): string {
+  return (q.reason && q.reason.trim()) || (q.error_code && SHORT_REASONS[q.error_code]) || 'no disponible'
+}
+
+/** The deterministic chat line when a store finishes — built only from the API numbers. */
+export function storeDoneMessage(quote: StoreQuote & { reason?: string | null }, next: string | null): string {
+  const name = quoteName(quote)
+  const own = quoteDone(quote)
+    ? (() => {
+        const parts = [
+          typeof quote.shipping_cents === 'number' ? `envío ${formatCents(quote.shipping_cents, quote.currency)}` : '',
+          typeof quote.tax_cents === 'number' ? `impuestos ${formatCents(quote.tax_cents, quote.currency)}` : '',
+        ].filter(Boolean)
+        return `¡Listo con ${name}! ✅ Total en la tienda ${formatCents(quote.total_cents, quote.currency)}${parts.length ? ` (${parts.join(', ')})` : ''}.`
+      })()
+    : `No pude cotizar ${name} (${dropReason(quote)}).`
+  return next ? `${own} Sigo con ${next} 👇` : `${own} ¡Listo! Ya tengo todos los totales 👇`
+}
+
+// ---- The final summary (checkout_summary on GET /purchase-requests/{id}) ----
+
+export interface SummaryLine { title: string, variants?: unknown, quantity: number, unit_price_cents: number | null, state?: string }
+export interface SummaryStore {
+  store_id: string, store_name: string | null, status: StoreQuoteStatus, included: boolean, reason: string | null
+  lines: SummaryLine[]
+  merchandise_cents: number | null, discounts_cents: number | null, shipping_cents: number | null
+  tax_cents: number | null, fees_cents: number | null, total_cents: number | null
+}
+export interface CheckoutSummary {
+  stores: SummaryStore[], stores_total_cents: number, commission_percent: number, commission_cents: number
+  total_cents: number, invoice_total_cents: number | null, invoiced: boolean
+}
+
+/** A line's chosen options as text, whatever shape the API sends (string, list or name→value map). */
+export function variantsText(v: unknown): string {
+  const parts = typeof v === 'string' ? [v] : Array.isArray(v) ? v : v && typeof v === 'object' ? Object.values(v) : []
+  return parts.filter((x) => typeof x === 'string' && x.trim()).join(' · ')
+}
+
+/** "Talla M · ×2 · $29.00" style line detail: options, then quantity x unit price. */
+export function summaryLineDetail(l: SummaryLine, currency: string | null = 'USD'): string {
+  const qty = Math.max(1, Number(l.quantity) || 1)
+  const price = formatCents(l.unit_price_cents, currency)
+  return [variantsText(l.variants), price ? `${qty} × ${price}` : `${qty}`].filter(Boolean).join(' · ')
+}
+
+/** One store's totals rows: subtotal, discounts/fees only when non-zero, envío, impuestos, total de la tienda. */
+export function summaryRows(s: SummaryStore): Array<{ label: string, value: string, strong?: boolean }> {
+  const rows: Array<{ label: string, value: string, strong?: boolean }> = []
+  const add = (label: string, cents: number | null, opts: { skipZero?: boolean, free?: boolean, minus?: boolean, strong?: boolean } = {}) => {
+    if (typeof cents !== 'number' || (cents === 0 && opts.skipZero)) return
+    rows.push({ label, value: cents === 0 && opts.free ? 'Gratis' : (opts.minus ? '−' : '') + formatCents(Math.abs(cents)), strong: opts.strong })
+  }
+  add('Subtotal', s.merchandise_cents)
+  add('Descuentos', s.discounts_cents, { skipZero: true, minus: true })
+  add('Envío', s.shipping_cents, { free: true })
+  add('Impuestos', s.tax_cents)
+  add('Cargos de la tienda', s.fees_cents, { skipZero: true })
+  add('Total de la tienda', s.total_cents, { strong: true })
+  return rows
+}
