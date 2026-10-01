@@ -190,10 +190,11 @@ export interface SummaryTotal { kind: 'hidden' | 'estimated' | 'pay' | 'preparin
 
 /** What the final card's total block shows: a payable total only when an automatic invoice exists. */
 export function summaryTotal(s: CheckoutSummary): SummaryTotal {
+  // An invoice that exists is always payable, whoever made it: every store can fail and the team still invoice by hand.
+  if (typeof s.invoice_total_cents === 'number') return { kind: 'pay', label: 'Total a pagar', cents: s.invoice_total_cents, note: '', canPay: true }
   if (s.stores.length > 0 && s.stores.every((x) => !x.included)) return { kind: 'hidden', label: '', cents: null, note: '', canPay: false }
   if (s.invoice_mode === 'manual' && !s.invoiced) {
     return { kind: 'estimated', label: 'Total estimado', cents: s.total_cents, note: s.manual_reason?.trim() || 'Nuestro equipo te confirmará el total y te enviará la factura', canPay: false }
   }
-  if (typeof s.invoice_total_cents === 'number') return { kind: 'pay', label: 'Total a pagar', cents: s.invoice_total_cents, note: '', canPay: true }
   return { kind: 'preparing', label: 'Total a pagar', cents: s.total_cents, note: 'Preparando tu factura…', canPay: false }
 }
