@@ -154,14 +154,17 @@ function priceForSelection() {
   const matching = variants.value.filter((v) => axes.value.every((a) => !sel[a.name] || (indep && val(v, a) == null) || val(v, a) === sel[a.name]))
   let pool = matching.length ? matching : variants.value
   const colour = indep ? axes.value.find((a) => a.kind === 'color' && sel[a.name]) : null
-  const colourRows = colour ? pool.filter((v) => val(v, colour) === sel[colour.name] && typeof v.price === 'number') : []
+  // A colour group the page prices as a RANGE ("$29.99 - $34.99", reader price_range [lo, hi]; Dick's Owala 2026-10-01)
+  // has no single price: it counts as [lo, hi] (a "from $X" with no top as [X, ∞)) and is always shown as "desde lo".
+  const span = (v) => (typeof v.price === 'number' ? [v.price, v.price] : Array.isArray(v.price_range) && typeof v.price_range[0] === 'number' ? [v.price_range[0], typeof v.price_range[1] === 'number' ? v.price_range[1] : Infinity] : null)
+  const colourRows = colour ? pool.filter((v) => val(v, colour) === sel[colour.name] && span(v)) : []
   if (colourRows.length) pool = colourRows
   // A price the page stated for this option WITH the other axes as they were then (reader price_with: Walmart's
   // "96, $24.97" is Size 1's) does not hold once the shopper picked another value there: unknown, never shown.
   const holds = (v) => !v.price_with || Object.entries(v.price_with).every(([k, want]) => !sel[k] || sel[k] === want)
-  const prices = pool.filter(holds).map((v) => v.price).filter((p) => typeof p === 'number')
-  if (!prices.length) return pool.some((v) => typeof v.price === 'number' && !holds(v)) ? { price: null, unknown: true } : null
-  const lo = Math.min(...prices), hi = Math.max(...prices)
+  const spans = pool.filter(holds).map(span).filter(Boolean)
+  if (!spans.length) return pool.some((v) => typeof v.price === 'number' && !holds(v)) ? { price: null, unknown: true } : null
+  const lo = Math.min(...spans.map((x) => x[0])), hi = Math.max(...spans.map((x) => x[1]))
   return { price: lo, from: lo !== hi }
 }
 // Matrix reads: the one row matching every axis. Independent reads: the row of the LAST axis (where price/stock live).
