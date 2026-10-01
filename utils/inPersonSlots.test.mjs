@@ -1,7 +1,7 @@
 // Run: node --experimental-strip-types utils/inPersonSlots.test.mjs
 import {
   addDays, mondayOf, weekDates, pacificNow, isPast, cellStates, cellKey, toggleCell, toggleDay,
-  slotsPayload, hoursRange, hourOptions, readLimits, nextMondays, formatTime, whatsappDigits, endTime, HOURS,
+  slotsPayload, hoursRange, hourOptions, readLimits, nextMondays, formatTime, whatsappDigits, endTime, HOURS, quickScheduleHours,
 } from './inPersonSlots.ts'
 
 let bad = 0
@@ -74,6 +74,19 @@ check('format es', formatTime('13:00', 'es'), '13:00')
 check('format en', formatTime('13:00', 'en'), '1 PM')
 check('format en noon', formatTime('12:00', 'en'), '12 PM')
 check('whatsapp digits', whatsappDigits('+52 (664) 123-4567'), '526641234567')
+
+// quick schedule: Sat+Sun 10-18 for 1 week from Thursday 2026-10-01 09:30 Pacific (16:30 UTC)
+{
+  const now = new Date('2026-10-01T16:30:00Z')
+  const q = quickScheduleHours([5, 6], 10, 18, 1, now)
+  check('quick: 2 days x 8 hours', q.length, 16)
+  check('quick: first', q[0], { date: '2026-10-03', start_time: '10:00' })
+  check('quick: last starts 17:00', q.at(-1), { date: '2026-10-04', start_time: '17:00' })
+  // today (Thursday = 3) from 9 to 12 at 09:30: 09:00 is past, 10 and 11 stay
+  check('quick: past hours skipped', quickScheduleHours([3], 9, 12, 1, now).map((h) => h.start_time), ['10:00', '11:00'])
+  check('quick: 4 weeks', quickScheduleHours([5], 10, 12, 4, now).length, 8)
+  check('quick: no days', quickScheduleHours([], 10, 18, 2, now), [])
+}
 
 console.log(bad ? `${bad} FAILED` : 'all in-person slot checks passed')
 process.exit(bad ? 1 : 0)

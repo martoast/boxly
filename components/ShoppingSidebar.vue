@@ -231,18 +231,19 @@ const t = createTranslations({
   storeCategories:  { es: 'Categorías (presencial)', en: 'Categories (in-person)' },
   campaigns:        { es: 'Campañas',               en: 'Campaigns' },
   aiSearch:         { es: 'Búsqueda con IA',        en: 'AI Search' },
-  shoppingTrips:    { es: 'Visitas en Persona',     en: 'In-Person Trips' },
+  shoppingTrips:    { es: 'Mi disponibilidad',      en: 'My availability' },
   pastTrips: { es: 'Viajes anteriores', en: 'Past trips' }, // legacy shopping-trip bookings; remove when none remain
   shoppingRole:     { es: 'Compras',                en: 'Shopping' },
   logout:           { es: 'Cerrar Sesión',          en: 'Sign out' },
 });
 
 const navItems = computed(() => [
+  // First: the manager's own hours for in-person visits (Alex 2026-10-01: it was hard to find on the phone).
+  { route: '/app/shopping/availability',       icon: CalendarDaysIcon,        label: t.value.shoppingTrips },
   { route: '/app/shopping/purchase-requests', icon: ShoppingCartIcon,        label: t.value.purchaseRequests },
   { route: '/app/shopping/purchased-products', icon: ShoppingBagIcon,        label: t.value.purchasedProducts },
   { route: '/app/shopping/stores',            icon: BuildingStorefrontIcon,  label: t.value.storeBrands },
   { route: '/app/shopping/categories',        icon: TagIcon,                 label: t.value.storeCategories },
-  { route: '/app/shopping/availability',       icon: CalendarDaysIcon,        label: t.value.shoppingTrips },
   { route: '/app/shopping/shopping-trips', icon: CalendarDaysIcon, label: t.value.pastTrips },
   { route: '/app/shopping/campaigns',         icon: MegaphoneIcon,           label: t.value.campaigns },
   { route: '/app/shopping/ai-search',         icon: MagnifyingGlassIcon,     label: t.value.aiSearch },

@@ -1,3 +1,28 @@
+# Shopping manager: easy availability on the phone (Alex 2026-10-01)
+
+The manager couldn't find where to set in-person hours, and setting them on a phone is tap-by-tap
+(7 day tabs x one button per hour, then Save, then "copy week" at the bottom).
+
+- [x] Findable: shopping menu item "Visitas en Persona" -> "Mi disponibilidad", moved to the TOP of the menu
+      (today it is 5th, behind the hamburger, next to "Viajes anteriores" with the same icon).
+- [x] Findable: on the manager's landing page (Solicitudes de Compra) a banner "Abre tus horarios para visitas en
+      persona -> Configurar" when no hours are open in the next 14 days (one read of the existing slots endpoint).
+- [x] Quick schedule card at the top of the availability page (phone first): day chips L M X J V S D, "De"/"A" hour
+      pickers (default 10:00-18:00), "Por: 1 / 2 / 4 / 8 semanas", one big "Publicar horario" button with the
+      count ("Abrirás 32 horas"). One PUT to the existing endpoint (already accepts any future dates, idempotent);
+      past hours skipped. No API change.
+- [x] The hour-by-hour editor stays below as "Ajustar horas sueltas" (exceptions, bookings, refunds unchanged).
+- [x] Pure builder in utils/inPersonSlots.ts + unit test; build; push; check at phone width.
+
+## Review
+- Menu: "Mi disponibilidad" is the first item of the shopping menu (page title renamed to match).
+- Landing (Solicitudes de Compra): a banner links to it when no hours are open in the next 14 days.
+- Availability page: "Publica tu horario" card on top — day chips, Desde/Hasta, 1/2/4/8 semanas, one "Publicar horario
+  (N horas)" button → one PUT with `add` only (never removes; past hours skipped; the API's firstOrCreate makes a
+  re-publish harmless). quickScheduleHours() in utils/inPersonSlots.ts, 6 new checks.
+- The hour grid stays below as "Ajustar horas sueltas". No API change.
+- Also: the reply while the agent adds is one exact line (cc74321) — no "¿pasamos a finalizar?" mid-add.
+
 # Box card waits for the store add (Alex 2026-10-01, prod screenshot IMG_2130)
 
 Problem: "Tu caja Boxly" with "Finalizar carrito" shows while the agent is still adding the item in the store

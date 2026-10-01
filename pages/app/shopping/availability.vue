@@ -6,5 +6,5 @@
 import InPersonAvailabilityManager from '~/components/admin/InPersonAvailabilityManager.vue'
 
 definePageMeta({ layout: 'shopping', middleware: ['auth', 'shopping'] })
-useHead({ title: 'Visitas en persona — Boxly' })
+useHead({ title: 'Mi disponibilidad — Boxly' })
 </script>

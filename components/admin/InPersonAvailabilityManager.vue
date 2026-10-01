@@ -11,6 +11,47 @@
         <p class="text-sm text-gray-500 mt-1">{{ t.subtitle }}</p>
       </div>
 
+      <!-- QUICK SCHEDULE (Alex 2026-10-01: the manager sets hours from a phone and could not find how): days, from–to
+           and how many weeks, then one Publicar. The hour-by-hour week below stays for exceptions. -->
+      <div class="mb-6 bg-white rounded-2xl border border-indigo-200 shadow-sm p-4 sm:p-5">
+        <h2 class="text-lg font-extrabold text-gray-900">{{ t.quickTitle }}</h2>
+        <p class="text-xs text-gray-500 mt-0.5">{{ t.tz }}</p>
+
+        <p class="mt-4 text-sm font-semibold text-gray-800">{{ t.quickDays }}</p>
+        <div class="mt-2 grid grid-cols-7 gap-1.5">
+          <button v-for="(label, i) in dayLetters" :key="i" type="button" @click="toggleQuickDay(i)" :aria-pressed="quick.days.includes(i)"
+            :class="['h-12 rounded-xl border text-base font-bold', quick.days.includes(i) ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-700 border-gray-200']">{{ label }}</button>
+        </div>
+
+        <div class="mt-4 grid grid-cols-2 gap-3">
+          <label class="block">
+            <span class="text-sm font-semibold text-gray-800">{{ t.quickFrom }}</span>
+            <select v-model.number="quick.from" class="mt-1 w-full h-12 rounded-xl border-gray-300 text-base">
+              <option v-for="h in HOURS" :key="h" :value="h">{{ formatTime(hourLabel(h), language) }}</option>
+            </select>
+          </label>
+          <label class="block">
+            <span class="text-sm font-semibold text-gray-800">{{ t.quickTo }}</span>
+            <select v-model.number="quick.to" class="mt-1 w-full h-12 rounded-xl border-gray-300 text-base">
+              <option v-for="h in endHours" :key="h" :value="h">{{ formatTime(hourLabel(h), language) }}</option>
+            </select>
+          </label>
+        </div>
+
+        <p class="mt-4 text-sm font-semibold text-gray-800">{{ t.quickWeeks }}</p>
+        <div class="mt-2 grid grid-cols-4 gap-1.5">
+          <button v-for="n in [1, 2, 4, 8]" :key="n" type="button" @click="quick.weeks = n"
+            :class="['h-11 rounded-xl border text-sm font-semibold', quick.weeks === n ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-700 border-gray-200']">{{ t.weeksN(n) }}</button>
+        </div>
+
+        <button type="button" @click="publishQuick" :disabled="publishing || !quickHours.length"
+          class="mt-5 w-full h-14 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-base font-bold disabled:opacity-50">
+          {{ publishing ? t.saving : quickHours.length ? t.quickPublish(quickHours.length) : t.quickPick }}
+        </button>
+      </div>
+
+      <h2 class="text-base font-bold text-gray-900 mb-2">{{ t.fineTitle }}</h2>
+
       <!-- Week picker -->
       <div class="flex items-center gap-2 mb-4">
         <button @click="goWeek(-1)" class="p-2 rounded-lg bg-white border border-gray-200 hover:border-indigo-400" :aria-label="t.prevWeek">
@@ -197,11 +238,11 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { Dialog, DialogPanel, TransitionChild, TransitionRoot } from '@headlessui/vue'
 import {
   HOURS, hourLabel, cellKey, cellStates, effectiveOpen, toggleCell, toggleDay, slotsPayload, hoursRange,
-  mondayOf, weekDates, addDays, nextMondays, pacificNow, parseDate, formatTime, whatsappDigits,
+  mondayOf, weekDates, addDays, nextMondays, pacificNow, parseDate, formatTime, whatsappDigits, quickScheduleHours,
 } from '~/utils/inPersonSlots'
 
 // '/admin' or '/shopping': same controller behind both, only the gate differs.
@@ -213,7 +254,7 @@ const { $customFetch, $toast } = useNuxtApp()
 const { t: createTranslations, language } = useLanguage()
 
 const t = createTranslations({
-  title: { es: 'Visitas en persona', en: 'In-person visits' },
+  title: { es: 'Mi disponibilidad', en: 'My availability' },
   subtitle: { es: 'Abre las horas en las que puedes ir de compras en Las Américas. Los clientes solo ven estas horas.', en: 'Open the hours you can go shopping at Las Américas. Customers only see these hours.' },
   tz: { es: 'Todas las horas son hora de California', en: 'All times are California time' },
   prevWeek: { es: 'Semana anterior', en: 'Previous week' },
@@ -265,6 +306,16 @@ const t = createTranslations({
   saveError: { es: 'Error al guardar', en: 'Could not save' },
   unsaved: { es: (n) => `${n} cambios sin guardar`, en: (n) => `${n} unsaved changes` },
   copyNext: { es: (n) => `${n} semanas`, en: (n) => `${n} weeks` },
+  quickTitle: { es: 'Publica tu horario', en: 'Publish your hours' },
+  quickDays: { es: '¿Qué días puedes ir?', en: 'Which days can you go?' },
+  quickFrom: { es: 'Desde', en: 'From' },
+  quickTo: { es: 'Hasta', en: 'Until' },
+  quickWeeks: { es: '¿Por cuántas semanas?', en: 'For how many weeks?' },
+  weeksN: { es: (n) => (n === 1 ? '1 semana' : `${n} semanas`), en: (n) => (n === 1 ? '1 week' : `${n} weeks`) },
+  quickPick: { es: 'Elige los días', en: 'Pick the days' },
+  quickPublish: { es: (n) => `Publicar horario (${n} horas)`, en: (n) => `Publish hours (${n} hours)` },
+  quickDone: { es: (n) => `Listo: ${n} horas nuevas abiertas`, en: (n) => `Done: ${n} new hours open` },
+  fineTitle: { es: 'Ajustar horas sueltas', en: 'Adjust single hours' },
 })
 
 const locale = computed(() => (language.value === 'es' ? 'es-MX' : 'en-US'))
@@ -288,6 +339,29 @@ const selected = ref(null)
 const selectedDate = ref('')
 const mode = ref(null)
 const form = reactive({ reason: '', hours: '', spent: '' })
+
+// Quick schedule: weekdays 0 = Monday … 6 = Sunday; `to` is the end hour (10 → 18 opens 10:00…17:00).
+const quick = reactive({ days: [], from: 10, to: 18, weeks: 4 })
+const publishing = ref(false)
+const dayLetters = computed(() => (language.value === 'es' ? ['L', 'M', 'X', 'J', 'V', 'S', 'D'] : ['M', 'T', 'W', 'T', 'F', 'S', 'S']))
+const endHours = computed(() => HOURS.map((h) => h + 1).filter((h) => h > quick.from))
+watch(() => quick.from, (f) => { if (quick.to <= f) quick.to = f + 1 })
+const quickHours = computed(() => quickScheduleHours(quick.days, quick.from, quick.to, quick.weeks))
+function toggleQuickDay(i) { quick.days = quick.days.includes(i) ? quick.days.filter((d) => d !== i) : [...quick.days, i] }
+async function publishQuick() {
+  if (changed.value.size && !confirm(t.value.unsaved(changed.value.size) + '. ' + t.value.discard + '?')) return
+  publishing.value = true
+  try {
+    const res = await $customFetch(`${props.apiBase}/in-person/slots`, { method: 'PUT', body: { add: quickHours.value, remove: [] } })
+    $toast.success(t.value.quickDone(res?.data?.added ?? quickHours.value.length))
+    changed.value = new Set()
+    await fetchSlots()
+  } catch (e) {
+    console.error(e); $toast.error(e?.data?.message ?? t.value.saveError)
+  } finally {
+    publishing.value = false
+  }
+}
 
 const dates = computed(() => weekDates(weekStart.value))
 const activeDate = computed(() => (tabDate.value && dates.value.includes(tabDate.value) ? tabDate.value : dates.value.includes(todayDate.value) ? todayDate.value : dates.value[0]))

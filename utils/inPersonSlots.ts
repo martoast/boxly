@@ -127,3 +127,17 @@ export function readLimits(res: any): { rate: number | null; maxHours: number } 
   const rate = Number(pick('hourly_rate_usd')); const max = Number(pick('max_hours'))
   return { rate: rate > 0 ? rate : null, maxHours: max >= 1 ? Math.floor(max) : 1 }
 }
+
+// Quick schedule (Alex 2026-10-01: the manager sets hours from a phone): every hour from `fromHour` up to `toHour`
+// (end, exclusive — 10 to 18 opens 10:00…17:00) on the chosen weekdays (0 = Monday … 6 = Sunday), from `today` for
+// `weeks` weeks. Past hours are skipped (the API refuses them). The body's `add` for PUT /in-person/slots.
+export function quickScheduleHours(days: number[], fromHour: number, toHour: number, weeks: number, now: Date = new Date()): { date: string; start_time: string }[] {
+  const today = pacificNow(now).date
+  const out: { date: string; start_time: string }[] = []
+  for (let i = 0; i < 7 * weeks; i++) {
+    const date = addDays(today, i)
+    if (!days.includes((parseDate(date).getDay() + 6) % 7)) continue
+    for (const h of HOURS) if (h >= fromHour && h < toHour && !isPast(date, h, now)) out.push({ date, start_time: hourLabel(h) })
+  }
+  return out
+}

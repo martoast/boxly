@@ -63,6 +63,16 @@
 
     <!-- Main Content -->
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+      <!-- No in-person hours open soon: point the manager straight at them (Alex 2026-10-01: they could not find where). -->
+      <NuxtLink v-if="noHoursSoon" to="/app/shopping/availability"
+        class="mb-5 flex items-center gap-3 rounded-2xl border border-indigo-200 bg-indigo-50 p-4 hover:bg-indigo-100">
+        <span class="text-2xl" aria-hidden="true">🗓️</span>
+        <span class="min-w-0 flex-1">
+          <span class="block text-sm font-bold text-indigo-900">{{ t.hoursBannerTitle }}</span>
+          <span class="block text-xs text-indigo-800">{{ t.hoursBannerText }}</span>
+        </span>
+        <span class="shrink-0 rounded-xl bg-indigo-600 px-3 py-2 text-sm font-bold text-white">{{ t.hoursBannerCta }}</span>
+      </NuxtLink>
       <!-- Filter Section -->
       <div
         class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-6 p-4 animate-fadeIn"
@@ -647,6 +657,7 @@
 <script setup>
 import AdminPurchaseRequestMobileList from '~/components/admin/PurchaseRequestMobileList.vue';
 import { ref, onMounted, watch, computed } from "vue";
+import { pacificNow, addDays, isPast, hourOf } from "~/utils/inPersonSlots";
 
 definePageMeta({
   layout: 'shopping',
@@ -728,6 +739,9 @@ const translations = {
 
 const t = createTranslations({
   ...translations,
+  hoursBannerTitle: { es: "Abre tus horarios para visitas en persona", en: "Open your hours for in-person visits" },
+  hoursBannerText: { es: "No tienes horas abiertas en los próximos 14 días: los clientes no pueden reservar.", en: "No hours open in the next 14 days: customers cannot book." },
+  hoursBannerCta: { es: "Configurar", en: "Set up" },
   allSources: { es: "Todos los orígenes", en: "All sources" },
   sourceStore: { es: "Tienda Boxly", en: "Boxly Store" },
   sourceAssisted: { es: "Asistido", en: "Assisted" },
@@ -987,7 +1001,16 @@ const bulkUpdateStatus = async () => {
   }
 };
 
-onMounted(() => fetchRequests());
+// In-person hours open in the next 14 days? None → the banner above (a failed read shows nothing).
+const noHoursSoon = ref(false);
+async function checkHoursSoon() {
+  try {
+    const from = pacificNow().date;
+    const res = await $customFetch("/shopping/in-person/slots", { query: { from, to: addDays(from, 13) } });
+    noHoursSoon.value = !(res?.data?.slots ?? []).some((s) => !isPast(s.date, hourOf(s.start_time)));
+  } catch { noHoursSoon.value = false; }
+}
+onMounted(() => { fetchRequests(); checkHoursSoon(); });
 </script>
 
 <style scoped>
