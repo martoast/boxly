@@ -1466,7 +1466,10 @@ export default defineEventHandler(async (event) => {
                   }]
                 }
               }
-              ship.note = `SIZES/COLOURS READ for "${saved?.title || last.name}": ${avail.length} of ${r.variants.length} available (chips are on screen). Ask ONE short question — which size/colour they want, naming the available ones: ${avail.slice(0, 30).map((v: any) => v.key).join(' · ')}. When they answer, add it with show_shipment carrying that size/color.`
+              // A product with nothing to choose (the reader's lone "single" variant): never offer "single" as a size — live
+              // 2026-10-01 the model added a BBW candle with size "single" and the invoice showed it.
+              if (!axes.length) ship.note = `"${saved?.title || last.name}" has no size or colour to choose (one option${avail.length ? '' : ', out of stock'}): add it to the box as it is, with NO size and NO color.`
+              else ship.note = `SIZES/COLOURS READ for "${saved?.title || last.name}": ${avail.length} of ${r.variants.length} available (chips are on screen). Ask ONE short question — which size/colour they want, naming the available ones: ${avail.slice(0, 30).map((v: any) => v.key).join(' · ')}. When they answer, add it with show_shipment carrying that size/color.`
             } else if (r) {
               ship.note = `Variant read for "${saved?.title || last.name}" returned nothing (${r.reason || 'no_variants'}) — don't ask for size now; add it to the box as it is.`
             }
