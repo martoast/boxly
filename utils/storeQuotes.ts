@@ -102,13 +102,14 @@ export function storeStateLabel(q: Pick<StoreQuote, 'status' | 'total_cents'>): 
 
 const quoteName = (q: Pick<StoreQuote, 'store_name' | 'store_id'>) => q.store_name || q.store_id
 
-/** The store that follows `quote` (still waiting or running), in processing order; null when it was the last. */
+/** The store that follows `quote` in the API's order (the order stores were added): the first one still waiting or
+ *  running after it, else any earlier one still waiting (never skip a pending store); null when none is left. */
 export function nextStoreName(quotes: StoreQuote[], quote: Pick<StoreQuote, 'store_id'>): string | null {
   const i = quotes.findIndex((q) => q.store_id === quote.store_id)
-  const next = quotes.slice(i + 1).find((q) => quoteInFlight(q))
+  const open = (q: StoreQuote) => q.store_id !== quote.store_id && quoteInFlight(q)
+  const next = quotes.slice(i + 1).find(open) ?? quotes.find(open)
   return next ? quoteName(next) : null
 }
-
 const SHORT_REASONS: Record<string, string> = {
   no_quotable_items: 'no hay productos disponibles',
   out_of_stock: 'sin existencias',
@@ -122,7 +123,7 @@ export function dropReason(q: { reason?: string | null, error_code?: string | nu
 }
 
 /** The deterministic chat line when a store finishes — built only from the API numbers. */
-export function storeDoneMessage(quote: StoreQuote & { reason?: string | null }, next: string | null): string {
+export function storeDoneMessage(quote: StoreQuote & { reason?: string | null }, next: string | null, final = true): string {
   const name = quoteName(quote)
   const own = quoteDone(quote)
     ? (() => {
@@ -133,12 +134,14 @@ export function storeDoneMessage(quote: StoreQuote & { reason?: string | null },
         return `¡Listo con ${name}! ✅ Total en la tienda ${formatCents(quote.total_cents, quote.currency)}${parts.length ? ` (${parts.join(', ')})` : ''}.`
       })()
     : `No pude cotizar ${name} (${dropReason(quote)}).`
-  return next ? `${own} Sigo con ${next} 👇` : `${own} ¡Listo! Ya tengo todos los totales 👇`
+  if (next) return `${own} Sigo con ${next} 👇`
+  // The "all totals" line only when every store is terminal and this is the last one announced.
+  return final ? `${own} ¡Listo! Ya tengo todos los totales ✅` : own
 }
 
 // ---- The final summary (checkout_summary on GET /purchase-requests/{id}) ----
 
-export interface SummaryLine { title: string, variants?: unknown, quantity: number, unit_price_cents: number | null, state?: string }
+export interface SummaryLine { title: string, variants?: unknown, quantity: number, unit_price_cents: number | null, state?: 'unavailable' | string }
 export interface SummaryStore {
   store_id: string, store_name: string | null, status: StoreQuoteStatus, included: boolean, reason: string | null
   lines: SummaryLine[]
@@ -148,6 +151,7 @@ export interface SummaryStore {
 export interface CheckoutSummary {
   stores: SummaryStore[], stores_total_cents: number, commission_percent: number, commission_cents: number
   total_cents: number, invoice_total_cents: number | null, invoiced: boolean
+  invoice_mode?: 'auto' | 'manual', manual_reason?: string | null
 }
 
 /** A line's chosen options as text, whatever shape the API sends (string, list or name→value map). */
@@ -177,4 +181,19 @@ export function summaryRows(s: SummaryStore): Array<{ label: string, value: stri
   add('Cargos de la tienda', s.fees_cents, { skipZero: true })
   add('Total de la tienda', s.total_cents, { strong: true })
   return rows
+}
+
+/** A summary line that could not be bought: "No disponible", struck, no price counted. */
+export const lineUnavailable = (l: Pick<SummaryLine, 'state'>): boolean => l.state === 'unavailable'
+
+export interface SummaryTotal { kind: 'hidden' | 'estimated' | 'pay' | 'preparing', label: string, cents: number | null, note: string, canPay: boolean }
+
+/** What the final card's total block shows: a payable total only when an automatic invoice exists. */
+export function summaryTotal(s: CheckoutSummary): SummaryTotal {
+  if (s.stores.length > 0 && s.stores.every((x) => !x.included)) return { kind: 'hidden', label: '', cents: null, note: '', canPay: false }
+  if (s.invoice_mode === 'manual' && !s.invoiced) {
+    return { kind: 'estimated', label: 'Total estimado', cents: s.total_cents, note: s.manual_reason?.trim() || 'Nuestro equipo te confirmará el total y te enviará la factura', canPay: false }
+  }
+  if (typeof s.invoice_total_cents === 'number') return { kind: 'pay', label: 'Total a pagar', cents: s.invoice_total_cents, note: '', canPay: true }
+  return { kind: 'preparing', label: 'Total a pagar', cents: s.total_cents, note: 'Preparando tu factura…', canPay: false }
 }

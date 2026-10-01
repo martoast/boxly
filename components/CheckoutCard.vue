@@ -53,8 +53,14 @@
           <template v-else>
             <ul class="mt-1 space-y-1.5">
               <li v-for="(l, i) in s.lines" :key="i" class="min-w-0">
-                <p class="text-[12px] font-semibold text-gray-900 leading-tight break-words">{{ l.title }}</p>
-                <p class="text-[11px] text-gray-500 tabular-nums break-words">{{ summaryLineDetail(l) }}</p>
+                <template v-if="lineUnavailable(l)">
+                  <p class="text-[12px] font-semibold text-gray-400 line-through leading-tight break-words">{{ l.title }}</p>
+                  <p class="text-[11px] text-gray-400 break-words">No disponible</p>
+                </template>
+                <template v-else>
+                  <p class="text-[12px] font-semibold text-gray-900 leading-tight break-words">{{ l.title }}</p>
+                  <p class="text-[11px] text-gray-500 tabular-nums break-words">{{ summaryLineDetail(l) }}</p>
+                </template>
               </li>
             </ul>
             <div class="mt-2 space-y-0.5 text-[12px]">
@@ -67,10 +73,13 @@
         <div class="px-3.5 py-2.5 space-y-1 text-[12px]">
           <div class="flex justify-between gap-2 text-gray-700"><span class="font-semibold">Total en tiendas</span><span class="tabular-nums">{{ formatCents(summary.stores_total_cents) }}</span></div>
           <div class="flex justify-between gap-2 text-gray-700"><span class="font-semibold">Comisión Boxly ({{ summary.commission_percent }}%)</span><span class="tabular-nums">{{ formatCents(summary.commission_cents) }}</span></div>
-          <div class="flex justify-between items-baseline gap-2 pt-2 mt-1 border-t border-gray-200">
-            <span class="text-[13px] font-bold text-gray-900">Total a pagar</span>
-            <span class="text-[17px] font-extrabold text-gray-900 tabular-nums">{{ formatCents(summary.total_cents) }}</span>
-          </div>
+          <template v-if="sumTotal && sumTotal.kind !== 'hidden'">
+            <div class="flex justify-between items-baseline gap-2 pt-2 mt-1 border-t border-gray-200">
+              <span class="text-[13px] font-bold text-gray-900">{{ sumTotal.label }}</span>
+              <span class="text-[17px] font-extrabold text-gray-900 tabular-nums">{{ formatCents(sumTotal.cents) }}</span>
+            </div>
+            <p v-if="sumTotal.note" class="text-[11px] text-gray-500">{{ sumTotal.note }}</p>
+          </template>
         </div>
       </div>
       <template v-else>
@@ -102,10 +111,10 @@
       </div>
       </template>
 
-      <div v-if="invoiceReady" class="px-3.5 pb-3.5">
+      <div v-if="invoiceReady && canPay" class="px-3.5 pb-3.5">
         <a :href="request.payment_link" target="_blank" rel="noopener" class="flex items-center justify-center gap-2 w-full rounded-xl bg-[#635BFF] hover:bg-[#5249e6] text-white text-sm font-bold py-3 active:scale-[0.98] transition-transform shadow-sm">
           <svg viewBox="0 0 20 20" class="w-4 h-4" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 2a4 4 0 00-4 4v2H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-1V6a4 4 0 00-4-4zm2 6V6a2 2 0 10-4 0v2h4z" clip-rule="evenodd" /></svg>
-          Pagar {{ summary ? formatCents(summary.invoice_total_cents ?? summary.total_cents) : totalUsd }}
+          Pagar {{ sumTotal ? formatCents(sumTotal.cents) : totalUsd }} USD
         </a>
         <div class="mt-2 flex items-center justify-center gap-1.5 text-[11px] text-gray-500">
           <span>Pago seguro con</span>
@@ -114,8 +123,8 @@
         </div>
       </div>
       <p v-else-if="paid" class="px-3.5 pb-3.5 text-sm font-semibold text-green-700">Pagado ✓ — compramos tus productos y te avisamos.</p>
-      <p v-else-if="waitingInvoice" class="px-3.5 pb-3.5 text-xs text-gray-600">Preparando tu factura…</p>
-      <p v-else class="px-3.5 pb-3.5 text-xs text-gray-600">Nuestro equipo te envía la factura por WhatsApp.</p>
+      <p v-else-if="waitingInvoice && !manualInvoice" class="px-3.5 pb-3.5 text-xs text-gray-600">Preparando tu factura…</p>
+      <p v-else-if="!sumTotal || sumTotal.kind !== 'estimated'" class="px-3.5 pb-3.5 text-xs text-gray-600">Nuestro equipo te envía la factura por WhatsApp.</p>
     </div>
     <p v-else-if="paid" class="mt-3 text-sm font-semibold text-green-700">Pagado ✓ — compramos tus productos y te avisamos.</p>
     <p v-else-if="settledWithoutInvoice && waitingInvoice" class="mt-3 text-xs text-gray-600">Preparando tu factura…</p>
@@ -125,7 +134,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
-import { formatCents, quoteInFlight, quoteTerminal, storeStateLabel, nextStoreName, storeDoneMessage, dropReason, summaryRows, summaryLineDetail, type StoreQuote, type CheckoutSummary } from '~/utils/storeQuotes'
+import { formatCents, quoteInFlight, quoteTerminal, storeStateLabel, nextStoreName, storeDoneMessage, dropReason, summaryRows, summaryLineDetail, summaryTotal, lineUnavailable, type StoreQuote, type CheckoutSummary } from '~/utils/storeQuotes'
 
 // liveVideo false (the chat's default since 2026-09-30): no "Ver en vivo" — the chat's progress card shows the checkout.
 const props = withDefaults(defineProps<{ purchaseRequestId: number, requestNumber?: string | null, liveVideo?: boolean }>(), { liveVideo: true })
@@ -144,6 +153,10 @@ let stopped = false
 
 const quotes = computed<StoreQuote[]>(() => request.value?.store_quotes ?? [])
 const summary = computed<CheckoutSummary | null>(() => request.value?.checkout_summary ?? null)
+const sumTotal = computed(() => summary.value ? summaryTotal(summary.value) : null)
+const manualInvoice = computed(() => sumTotal.value?.kind === 'estimated')
+// Pagar only when the total is the automatic invoice's (no summary: the legacy card).
+const canPay = computed(() => !sumTotal.value || sumTotal.value.canPay)
 const status = computed(() => request.value?.status ?? null)
 const working = computed(() => !request.value || (status.value === 'pending_review' && (!quotes.value.length || quotes.value.some(quoteInFlight))))
 const invoiceReady = computed(() => status.value === 'quoted' && !!request.value?.payment_link)
@@ -179,11 +192,12 @@ const running = computed(() => quotes.value.find((q) => q.live_session_id) || nu
 const announced = new Set<string>()
 let firstLoad = true
 function announceDone() {
-  for (const q of quotes.value) {
-    if (!quoteTerminal(q) || announced.has(q.store_id)) continue
+  // Stores that finished within one poll are announced in the API's order; only the last says "todos los totales".
+  const fresh = quotes.value.filter((q) => quoteTerminal(q) && !announced.has(q.store_id))
+  fresh.forEach((q, i) => {
     announced.add(q.store_id)
-    if (!firstLoad) emit('store-done', { store_id: q.store_id, text: storeDoneMessage(q, nextStoreName(quotes.value, q)) })
-  }
+    if (!firstLoad) emit('store-done', { store_id: q.store_id, text: storeDoneMessage(q, nextStoreName(quotes.value, q), i === fresh.length - 1) })
+  })
   firstLoad = false
 }
 watch(() => running.value?.live_session_id ?? null, () => emit('live', running.value ? sessionOf(running.value) : null))

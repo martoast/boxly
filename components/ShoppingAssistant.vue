@@ -696,9 +696,14 @@ function onStoreDone(requestId, { store_id, text }) {
   const id = `store-done-${requestId}-${store_id}`
   if (!text || storeDoneSeen.has(id) || chat.messages.some((m) => m.id === id)) return
   storeDoneSeen.add(id)
-  chat.messages = [...chat.messages, { id, role: 'assistant', parts: [{ type: 'text', text }] }]
+  const msg = { id, role: 'assistant', parts: [{ type: 'text', text }] }
+  // Mid-stream an append would split the reply being streamed: wait (in order) until the chat is ready.
+  if (isBusy.value) { storeDoneQueue.push(msg); return }
+  chat.messages = [...chat.messages, msg]
+  syncLocalThread()
   scrollDown()
 }
+const storeDoneQueue = []
 function watchLive(s) {
   if (!s?.id) return
   clearTimeout(liveEndTimer)
@@ -2154,8 +2159,8 @@ function isRepeatCard(m) {
 const cardQueue = []
 const queuedCard = (key) => cardQueue.find((m) => cardKey(cardProduct(m.parts[0])?.url) === key)
 function flushCardQueue() {
-  if (!cardQueue.length) return
-  chat.messages = [...chat.messages, ...cardQueue.splice(0)]
+  if (!cardQueue.length && !storeDoneQueue.length) return
+  chat.messages = [...chat.messages, ...cardQueue.splice(0), ...storeDoneQueue.splice(0)]
   syncLocalThread()
   scrollDown()
 }
