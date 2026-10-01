@@ -12,9 +12,9 @@
         <p v-if="product.store_name" class="text-[10.5px] uppercase tracking-wider text-primary-500 font-bold">{{ product.store_name }}</p>
         <p class="text-[14px] font-bold text-gray-900 leading-snug line-clamp-2">{{ product.title || 'Producto' }}</p>
         <p v-if="price != null" class="mt-0.5 text-[15px] font-extrabold" :class="onSale ? 'text-red-600' : 'text-gray-900'">
-          <span v-if="pickedPrice?.from" class="text-[11px] font-semibold text-gray-400 mr-0.5">desde</span>${{ price }}
+          <span v-if="pickedPrice?.from" class="text-[11px] font-semibold text-gray-400 mr-0.5">desde</span>${{ usd(price) }}
           <span class="text-[11px] font-semibold text-gray-400">USD</span>
-          <span v-if="onSale" class="ml-1 text-[12px] font-medium text-gray-400 line-through">${{ was }}</span>
+          <span v-if="onSale" class="ml-1 text-[12px] font-medium text-gray-400 line-through">${{ usd(was) }}</span>
         </p>
         <!-- A style-family link (Victoria's Secret) can open another style than the tile the shopper tapped. -->
         <p v-if="familyServed" class="mt-0.5 text-[11px] font-semibold text-amber-700 leading-snug">La tienda abrió: {{ familyServed }} — las opciones de abajo son de ese producto.</p>
@@ -75,6 +75,8 @@
 </template>
 
 <script setup>
+// "$14.5" read as fourteen dollars five (live VS 2026-10-01): cents always show two digits; whole dollars stay whole.
+const usd = (n) => { const v = Number(n); return Number.isFinite(v) ? (Number.isInteger(v) ? String(v) : v.toFixed(2)) : n }
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 // `part`: a tool-product_picker part — reading (input-available, the product only), ready (output-available:

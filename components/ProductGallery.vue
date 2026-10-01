@@ -67,8 +67,8 @@
         <div class="px-0.5 pt-2 flex flex-col flex-1">
           <span class="text-[13px] font-semibold text-gray-900 leading-snug line-clamp-2">{{ p.title }}</span>
           <p v-if="p.price" class="mt-1 text-[12.5px] text-gray-700 leading-none">
-            <span v-if="p.priceFrom" class="font-normal text-gray-500">desde </span><span class="font-bold text-gray-900">${{ p.price }}</span> <span class="text-[10px] font-semibold text-gray-400">USD</span>
-            <span v-if="p.was" class="ml-1 text-[10px] font-medium text-gray-300 line-through">${{ p.was }}</span>
+            <span v-if="p.priceFrom" class="font-normal text-gray-500">desde </span><span class="font-bold text-gray-900">${{ usd(p.price) }}</span> <span class="text-[10px] font-semibold text-gray-400">USD</span>
+            <span v-if="p.was" class="ml-1 text-[10px] font-medium text-gray-300 line-through">${{ usd(p.was) }}</span>
             <span class="text-gray-400 font-normal"> · Precio de tienda</span>
           </p>
           <div v-if="p.rating" class="mt-1 flex items-center gap-1 text-[11px] text-gray-500">
@@ -123,6 +123,8 @@
 </template>
 
 <script setup>
+// "$14.5" read as fourteen dollars five (live VS 2026-10-01): cents always show two digits; whole dollars stay whole.
+const usd = (n) => { const v = Number(n); return Number.isFinite(v) ? (Number.isInteger(v) ? String(v) : v.toFixed(2)) : n }
 const props = defineProps({ products: { type: Array, default: () => [] } })
 defineEmits(['open'])
 
