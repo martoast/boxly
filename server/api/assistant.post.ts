@@ -668,6 +668,14 @@ function lastPastedUrl(msgs: any[]): string | null {
   return null
 }
 
+// The product link in the shopper's NEWEST message only (the picker's add names the picked style's page). Pure.
+function newestUserUrl(msgs: any[]): string | null {
+  const m = [...(msgs || [])].reverse().find((x: any) => x?.role === 'user')
+  const text = (m?.parts || []).filter((p: any) => p?.type === 'text').map((p: any) => p.text).join(' ')
+  const hit = [...String(text).matchAll(/https?:\/\/[^\s<>"')]+/gi)].map((x) => x[0]).filter((u) => !/boxly\.mx|localhost/i.test(u)).pop()
+  return hit ? hit.replace(/[.,;]+$/, '') : null
+}
+
 function buildShipment(items: any[]) {
   const norm = (items || []).map((it) => {
     const quantity = Math.max(1, Number(it.quantity) || 1)
@@ -1497,7 +1505,13 @@ export default defineEventHandler(async (event) => {
           if (token) {
             // The store's own option values go to the cart (not the model's words), from this card and earlier ones.
             const fixes = storeOptionFixes(messages, Array.isArray(out?.store_options) ? out.store_options : [])
-            const boxNow = (out?.hold ? input.slice(0, -1) : input).map((it: any) => withStoreOptions(it, fixes))
+            // The item just added keeps the exact page the shopper's add message named (the picker sends the picked
+            // style's pinned link; the registry holds the gallery's family link) — only the same page, only this turn's add.
+            const pinned = newestUserUrl(messages)
+            const page = (u: any) => String(u || '').split(/[?#]/)[0].replace(/\/+$/, '')
+            const samePage = (it: any) => !!pinned && (!it.url || page(it.url) === page(pinned)) && !!it.saved_id && storeRegistry.some((p: any) => p?.id === it.saved_id && p.url && page(p.url) === page(pinned))
+            const pinnedInput = input.map((it: any, i: number) => i === input.length - 1 && samePage(it) ? { ...it, url: pinned } : it)
+            const boxNow = (out?.hold ? pinnedInput.slice(0, -1) : pinnedInput).map((it: any) => withStoreOptions(it, fixes))
             const added = out?.hold ? null : wantedFromBox(boxNow.slice(-1), storeRegistry, carriedStores).wanted[0]
             const sent = new Set<string>()
             const [, lock] = await Promise.all([

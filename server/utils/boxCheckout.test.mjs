@@ -108,5 +108,17 @@ console.log('any store')
   check('a pasted Walmart link is the carried store, not a marketplace refusal', wm.wanted[0]?.store_id === 'walmart' && !wm.unsupported.length, JSON.stringify(wm))
 }
 
+console.log('pinned style link (VS family page)')
+{
+  const vs = [{ id: 'vs', title: 'No-Show Cotton Cheeky Panty', url: 'https://www.victoriassecret.com/us/vs/panties-catalog/5000005331', store_id: 'victorias-secret', store: "Victoria's Secret" }]
+  const pin = 'https://www.victoriassecret.com/us/vs/panties-catalog/5000005331?choice=54A2&genericId=11273598'
+  check('the item\'s pinned link on the same page wins over the registry\'s family link', wantedFromBox([{ saved_id: 'vs', name: 'x', url: pin }], vs).wanted[0]?.product_url === pin)
+  check('no item link → the registry link', wantedFromBox([{ saved_id: 'vs', name: 'x' }], vs).wanted[0]?.product_url === vs[0].url)
+  check('a link to ANOTHER page never replaces the registry product', wantedFromBox([{ saved_id: 'vs', name: 'x', url: 'https://www.victoriassecret.com/us/vs/bras/1111?genericId=2' }], vs).wanted[0]?.product_url === vs[0].url)
+  const line = { id: 9, product_url: pin, quantity: 1, variants: { size: 'S', color: 'Black' }, saved_id: null, title: 'No-Show Cotton Cheeky Panty', store_id: 'victorias-secret' }
+  const later = planCart([line], wantedFromBox([{ saved_id: 'vs', name: 'x', size: 'S', color: 'Black' }], vs).wanted)
+  check('a later card without the pin keeps the pinned line (no remove + re-add)', !later.add.length && !later.remove.length, JSON.stringify(later))
+}
+
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed) process.exit(1)

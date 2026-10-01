@@ -130,7 +130,10 @@ export function wantedFromBox(box: BoxItem[], savedProducts: any[], carried: Car
       || (it.url ? reg.find((p: any) => p?.url && bare(p.url) === bare(String(it.url))) : null)
       || (it.name ? reg.find((p: any) => sameName(p?.title, it.name)) : null)
     const title = String(saved?.title || it.name || '').trim().slice(0, 300)
-    const url = https(saved?.url || it.url)
+    // The item's own link wins over the registry's when both are the same page and it is more specific: a family page
+    // (VS 5000005331) serves a different style on each visit; the picker's add carries the picked style's ?choice=…&genericId=….
+    const own = https(it.url), stored = https(saved?.url)
+    const url = own && stored && own !== stored && bare(own) === bare(stored) ? own : (stored || own)
     let storeId = typeof saved?.store_id === 'string' ? saved.store_id : ''
     let productUrl = url
     let find: string | undefined
