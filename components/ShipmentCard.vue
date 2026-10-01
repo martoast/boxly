@@ -1,5 +1,7 @@
 <template>
-  <div class="rounded-2xl border border-primary-200 bg-gradient-to-b from-primary-50/80 to-white p-4 max-w-md shadow-sm">
+  <!-- In order (Alex 2026-10-01): while the agent is still adding an item in the store, the live video is the step on
+       screen; the box (and its Finalizar) shows once the add is done. -->
+  <div v-if="step !== 2" class="rounded-2xl border border-primary-200 bg-gradient-to-b from-primary-50/80 to-white p-4 max-w-md shadow-sm">
     <div class="flex items-center justify-between gap-2">
       <p class="text-[14px] font-extrabold text-primary-900 flex items-center gap-1.5">
         📦 Tu caja Boxly

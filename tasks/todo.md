@@ -1,3 +1,21 @@
+# Box card waits for the store add (Alex 2026-10-01, prod screenshot IMG_2130)
+
+Problem: "Tu caja Boxly" with "Finalizar carrito" shows while the agent is still adding the item in the store
+(New Balance 880v15 "Agregando en New Balance…" above the live video). Steps must go in order: add → then the box.
+
+- [x] ShipmentCard.vue: don't render the card while any of its items is still going into a store cart
+      (step 2 = pending/syncing). The live video card is the only thing on screen during the add.
+- [x] ShoppingAssistant.vue onLiveEnded (cart branch): reload the cart right away, so the box card shows the
+      moment the add ends (today the cart polls every 8 s, which is why the card still said "Agregando" under "Listo").
+- [x] Tests + build; push. [ ] verify on boxly.mx with one lab add.
+
+## Review
+- ShipmentCard: `v-if="step !== 2"` on the root: hidden while any item is pending/syncing in its store cart.
+- ShoppingAssistant: itemStatus returns null when the cart's sync is off (lines default to 'pending' in the DB and would
+  hide the card forever); onLiveEnded reloads the cart at once so the card appears right after the video's "Listo".
+- Every pending line is synced to a terminal state by the API (in_store_cart / unavailable / failed), so a card is
+  never hidden for good. A failed add shows the card with "No se pudo agregar".
+
 # Erick Martos, conversation 775 — four faults
 
 80 messages, 2026-09-22 01:07–01:30. Everything below is from that thread.

@@ -705,6 +705,8 @@ function watchLive(s) {
 // A box item's place in its store's real cart (the live Boxly cart, matched by product name).
 const normTitle = (v) => String(v ?? '').trim().toLowerCase()
 function itemStatus(it) {
+  // With store sync off nothing moves a line out of 'pending': no store status at all (the box card would wait forever).
+  if (boxlyCart.cart.value?.sync_enabled !== true) return null
   const lines = boxlyCart.cart.value?.items || []
   const line = lines.find((l) => normTitle(l.title) === normTitle(it?.name)) || lines.find((l) => normTitle(it?.name) && normTitle(l.title).startsWith(normTitle(it.name)))
   return line ? { status: line.sync_status, store: line.store_name || line.store_id } : null
@@ -769,6 +771,8 @@ function onLiveEnded() {
     })
     return
   }
+  // The add is done: read the cart now (not at the next 8 s poll) so the box card follows the video at once.
+  if (user.value) boxlyCart.load({ force: true })
   clearTimeout(liveEndTimer)
   liveEndTimer = setTimeout(() => {
     // A finished cart/checkout browser goes too, after a beat on its "Listo" (Alex 2026-09-30: watching the agent
