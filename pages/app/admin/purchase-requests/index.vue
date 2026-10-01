@@ -705,7 +705,7 @@ const t = createTranslations({
   allSources: { es: "Todos los orígenes", en: "All sources" },
   sourceStore: { es: "Tienda Boxly", en: "Boxly Store" },
   sourceAssisted: { es: "Asistido", en: "Assisted" },
-  sourceInPerson: { es: "En Persona (Las Américas)", en: "In Person (Las Americas)" },
+  sourceInPerson: { es: "En Persona (San Diego)", en: "In Person (San Diego)" },
 });
 const requests = ref([]);
 const loading = ref(true);

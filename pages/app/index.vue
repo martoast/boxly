@@ -31,7 +31,7 @@
           <span class="grid place-items-center w-12 h-12 rounded-2xl bg-white/20 border border-white/25 text-2xl shrink-0" aria-hidden="true">🛍️</span>
           <div class="min-w-0 flex-1">
             <p class="text-[11px] font-bold uppercase tracking-widest text-white/85">Compras personales</p>
-            <p class="mt-0.5 text-[17px] md:text-[19px] font-extrabold leading-snug">Una shopper compra por ti en Las Américas Premium Outlets</p>
+            <p class="mt-0.5 text-[17px] md:text-[19px] font-extrabold leading-snug">Una shopper compra por ti en San Diego</p>
             <p class="mt-1 text-[13px] text-white/90">Elige tu día y tu horario, y te lo traemos a México.</p>
           </div>
         </div>

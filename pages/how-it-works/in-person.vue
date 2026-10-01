@@ -127,9 +127,9 @@
 useHead({
   title: 'Compras presenciales en outlets de San Diego | Boxly',
   meta: [
-    { name: 'description', content: 'Reserva una hora con tu shopper en Las Americas Outlets. Compra en persona por ti y te lo mandamos a México en una sola caja.' },
+    { name: 'description', content: 'Reserva una hora con tu shopper en San Diego. Compra en persona por ti y te lo mandamos a México en una sola caja.' },
     { property: 'og:title', content: 'Compras presenciales en outlets de San Diego | Boxly' },
-    { property: 'og:description', content: 'Reserva una hora con tu shopper en Las Americas Outlets. Compra en persona por ti y te lo mandamos a México en una sola caja.' },
+    { property: 'og:description', content: 'Reserva una hora con tu shopper en San Diego. Compra en persona por ti y te lo mandamos a México en una sola caja.' },
   ],
 })
 
@@ -153,8 +153,8 @@ const translations = {
     en: "Your personal shopper at US outlets and physical stores",
   },
   heroSubtitle: {
-    es: "Reserva una hora con tu shopper en Las Américas Premium Outlets, San Diego. Va en persona, compra por ti y te enviamos a México.",
-    en: "Reserve an hour with your shopper at Las Américas Premium Outlets, San Diego. She shops in person for you and we ship to Mexico.",
+    es: "Reserva una hora con tu shopper en San Diego. Va en persona, compra por ti y te enviamos a México.",
+    en: "Reserve an hour with your shopper in San Diego. She shops in person for you and we ship to Mexico.",
   },
   ctaBadge: {
     es: "Compra remota en USA",

@@ -104,7 +104,7 @@ const backTo = computed(() => (typeof route.query.from === 'string' ? route.quer
 const t = createTranslations({
   back: { es: 'Volver', en: 'Back' },
   title: { es: 'Reserva tu horario de compras', en: 'Reserve your shopping time' },
-  subtitle: { es: 'Un shopper compra por ti en Las Américas Premium Outlets. Elige el día y la hora.', en: 'A personal shopper shops for you at Las Américas Premium Outlets. Pick the day and time.' },
+  subtitle: { es: 'Un shopper compra por ti en San Diego. Elige el día y la hora.', en: 'A personal shopper shops for you in San Diego. Pick the day and time.' },
   loading: { es: 'Cargando horarios…', en: 'Loading times…' },
   cancelled: { es: 'No se hizo ningún cobro y no se reservó nada. Cuando quieras, elige tu horario de nuevo.', en: 'You were not charged and nothing was reserved. Pick your time again whenever you like.' },
   legacyCancelled: { es: 'Tu solicitud sigue esperando el depósito.', en: 'Your request is still waiting for the deposit.' },

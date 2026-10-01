@@ -67,7 +67,7 @@ const TOPICS: Array<{ label: string; emoji: string; kw: string[] }> = [
   { label: 'Pagos y métodos', emoji: '💳', kw: ['pago', 'pagar', 'tarjeta', 'transferencia', 'oxxo', 'paypal', 'deposito', 'card', 'spei'] },
   { label: 'Aduana e impuestos', emoji: '🛂', kw: ['aduana', 'impuesto', 'iva', 'arancel', 'customs', 'tax', 'declarar'] },
   { label: 'Devoluciones y garantía', emoji: '↩️', kw: ['devol', 'reembolso', 'return', 'garantia', 'cambio'] },
-  { label: 'Compras presenciales', emoji: '🏬', kw: ['presencial', 'las americas', 'outlet', 'en persona', 'tienda fisica'] },
+  { label: 'Compras presenciales', emoji: '🏬', kw: ['presencial', 'san diego', 'las americas', 'outlet', 'en persona', 'tienda fisica'] },
   { label: 'Cómo funciona / confianza', emoji: '❓', kw: ['como funciona', 'seguro', 'confiab', 'legit', 'es real', 'estafa', 'funciona', 'how'] },
 ]
 

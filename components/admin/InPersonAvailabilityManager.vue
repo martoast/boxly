@@ -255,7 +255,7 @@ const { t: createTranslations, language } = useLanguage()
 
 const t = createTranslations({
   title: { es: 'Mi disponibilidad', en: 'My availability' },
-  subtitle: { es: 'Abre las horas en las que puedes ir de compras en Las Américas. Los clientes solo ven estas horas.', en: 'Open the hours you can go shopping at Las Américas. Customers only see these hours.' },
+  subtitle: { es: 'Abre las horas en las que puedes ir de compras en San Diego. Los clientes solo ven estas horas.', en: 'Open the hours you can go shopping in San Diego. Customers only see these hours.' },
   tz: { es: 'Todas las horas son hora de California', en: 'All times are California time' },
   prevWeek: { es: 'Semana anterior', en: 'Previous week' },
   nextWeek: { es: 'Semana siguiente', en: 'Next week' },

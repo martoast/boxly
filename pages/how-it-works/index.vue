@@ -74,7 +74,7 @@ const t = createTranslations({
   onlineTitle:      { es: 'Mándanos el link', en: 'Send us the link' },
   onlineDesc:       { es: 'Compramos en línea por ti desde cualquier tienda de USA.', en: 'We buy online from any US store for you.' },
   inPersonTitle:    { es: 'Compras presenciales', en: 'In-person shopping' },
-  inPersonDesc:     { es: 'Reserva una hora con tu shopper en Las Américas, San Diego.', en: 'Reserve an hour with your shopper at Las Américas, San Diego.' },
+  inPersonDesc:     { es: 'Reserva una hora con tu shopper en San Diego.', en: 'Reserve an hour with your shopper in San Diego.' },
   casilleroTitle:   { es: 'Tu casillero en USA', en: 'Your US locker' },
   casilleroDesc:    { es: 'Compra tú mismo y manda a nuestra bodega — consolidamos y enviamos.', en: 'Shop yourself and ship to our warehouse — we consolidate and forward.' },
 })

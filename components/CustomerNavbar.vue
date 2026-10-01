@@ -629,7 +629,7 @@ const translations = {
   prOnlineTitle: { es: 'Compra Online', en: 'Online Purchase' },
   prOnlineDesc: { es: 'Mándanos el link de cualquier tienda USA', en: 'Send us a link from any US store' },
   prInPersonTitle: { es: 'Personal Shopping', en: 'Personal Shopping' },
-  prInPersonDesc: { es: 'Vamos por ti a Las Americas Outlets', en: 'We shop for you at Las Americas Outlets' },
+  prInPersonDesc: { es: 'Compramos por ti en tiendas de San Diego', en: 'We shop for you at stores in San Diego' },
   shop: { es: 'Tienda', en: 'Shop' },
   cart: { es: 'Carrito', en: 'Cart' },
   signedInAs: { es: 'Sesión iniciada como', en: 'Signed in as' },

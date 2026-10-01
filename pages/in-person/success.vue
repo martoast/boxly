@@ -22,7 +22,7 @@
         <dl class="mt-5 text-left text-sm bg-gray-50 rounded-2xl p-4 space-y-2">
           <div class="flex justify-between gap-3"><dt class="text-gray-500">{{ t.date }}</dt><dd class="font-semibold text-gray-900 text-right">{{ longDate }}</dd></div>
           <div class="flex justify-between gap-3"><dt class="text-gray-500">{{ t.time }}</dt><dd class="font-semibold text-gray-900 text-right">{{ formatTime(r.start_time, language) }} – {{ formatTime(r.end_time, language) }} ({{ r.hours_reserved }} h) · {{ t.tz }}</dd></div>
-          <div class="flex justify-between gap-3"><dt class="text-gray-500">{{ t.place }}</dt><dd class="font-semibold text-gray-900 text-right">{{ r.location || 'Las Américas Premium Outlets' }}</dd></div>
+          <div class="flex justify-between gap-3"><dt class="text-gray-500">{{ t.place }}</dt><dd class="font-semibold text-gray-900 text-right">San Diego, California</dd></div>
           <div class="flex justify-between gap-3"><dt class="text-gray-500">{{ t.number }}</dt><dd class="font-mono font-bold text-gray-900">{{ r.reservation_number }}</dd></div>
           <div class="flex justify-between gap-3"><dt class="text-gray-500">{{ t.paid }}</dt><dd class="font-semibold text-gray-900">${{ Number(r.amount_usd) }} USD</dd></div>
         </dl>
@@ -84,7 +84,7 @@ const t = createTranslations({
 const longDate = computed(() => (r.value ? parseDate(r.value.date).toLocaleDateString(language.value === 'es' ? 'es-MX' : 'en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : ''))
 const waMessage = computed(() => {
   const n = r.value?.reservation_number || ref_.value
-  const base = language.value === 'es' ? 'Hola, tengo una duda sobre mi compra personal en Las Américas' : 'Hi, I have a question about my personal shopping at Las Américas'
+  const base = language.value === 'es' ? 'Hola, tengo una duda sobre mi compra personal en San Diego' : 'Hi, I have a question about my personal shopping in San Diego'
   return n ? `${base} (${n})` : base
 })
 

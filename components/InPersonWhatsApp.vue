@@ -27,8 +27,8 @@ const t = createTranslations({
 
 const url = computed(() => {
   const msg = props.message || (language.value === 'es'
-    ? 'Hola, tengo una duda sobre mi compra personal en Las Américas'
-    : 'Hi, I have a question about my personal shopping at Las Américas')
+    ? 'Hola, tengo una duda sobre mi compra personal en San Diego'
+    : 'Hi, I have a question about my personal shopping in San Diego')
   return `https://wa.me/${number}?text=${encodeURIComponent(msg)}`
 })
 </script>

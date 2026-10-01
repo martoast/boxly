@@ -21,7 +21,7 @@
           <dl class="mt-4 text-sm space-y-2">
             <div class="flex justify-between gap-3"><dt class="text-gray-500">{{ t.date }}</dt><dd class="font-semibold text-right">{{ longDate }}</dd></div>
             <div class="flex justify-between gap-3"><dt class="text-gray-500">{{ t.time }}</dt><dd class="font-semibold text-right">{{ hoursRange(r.start_time, r.hours_reserved) }} · {{ t.tz }}</dd></div>
-            <div class="flex justify-between gap-3"><dt class="text-gray-500">{{ t.place }}</dt><dd class="font-semibold text-right">{{ r.location || 'Las Américas Premium Outlets' }}</dd></div>
+            <div class="flex justify-between gap-3"><dt class="text-gray-500">{{ t.place }}</dt><dd class="font-semibold text-right">San Diego, California</dd></div>
             <div class="flex justify-between gap-3"><dt class="text-gray-500">{{ t.hours }}</dt><dd class="font-semibold">{{ r.hours_reserved }} h</dd></div>
           </dl>
           <div v-if="r.customer_notes" class="mt-4">
@@ -106,7 +106,7 @@ const breakdown = computed(() => {
   return { hours: f.hours_worked, spent: f.amount_spent_usd, hoursFee: f.hours_fee_usd, commission: f.commission_usd, credit: f.credit_usd, total: f.total_usd }
 })
 const waMessage = computed(() => {
-  const base = language.value === 'es' ? 'Hola, tengo una duda sobre mi compra personal en Las Américas' : 'Hi, I have a question about my personal shopping at Las Américas'
+  const base = language.value === 'es' ? 'Hola, tengo una duda sobre mi compra personal en San Diego' : 'Hi, I have a question about my personal shopping in San Diego'
   return `${base} (${route.params.number})`
 })
 

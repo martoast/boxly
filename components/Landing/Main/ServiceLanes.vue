@@ -96,7 +96,7 @@ const t = createTranslations({
 
   inPersonBadge:     { es: 'Nuevo', en: 'New' },
   inPersonTitle:     { es: 'Compras presenciales en San Diego', en: 'In-person shopping in San Diego' },
-  inPersonDesc:      { es: 'Reserva una hora con tu shopper en Las Américas Premium Outlets. Elige fecha y hora y paga $30 USD para apartarla.', en: 'Reserve an hour with your shopper at Las Américas Premium Outlets. Pick a date and time and pay $30 USD to hold it.' },
+  inPersonDesc:      { es: 'Reserva una hora con tu shopper en San Diego. Elige fecha y hora y paga $30 USD para apartarla.', en: 'Reserve an hour with your shopper in San Diego. Pick a date and time and pay $30 USD to hold it.' },
   inPersonCta:       { es: 'Reservar horario', en: 'Reserve a time' },
   inPersonImageAlt:  { es: 'Compras presenciales en outlets de San Diego', en: 'In-person shopping at San Diego outlets' },
 

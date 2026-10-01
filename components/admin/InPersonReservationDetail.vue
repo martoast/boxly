@@ -35,7 +35,7 @@
 
           <dl class="mt-4 text-sm space-y-2">
             <div class="flex justify-between gap-3"><dt class="text-gray-500">{{ t.when }}</dt><dd class="font-semibold text-right">{{ longDate }} · {{ hoursRange(r.start_time, r.hours_reserved) }}</dd></div>
-            <div class="flex justify-between gap-3"><dt class="text-gray-500">{{ t.place }}</dt><dd class="font-semibold text-right">{{ r.location || 'Las Américas Premium Outlets' }}</dd></div>
+            <div class="flex justify-between gap-3"><dt class="text-gray-500">{{ t.place }}</dt><dd class="font-semibold text-right">San Diego, California</dd></div>
             <div class="flex justify-between gap-3"><dt class="text-gray-500">{{ t.hours }}</dt><dd class="font-semibold">{{ r.hours_reserved }} h</dd></div>
             <div class="flex justify-between gap-3"><dt class="text-gray-500">{{ t.paid }}</dt><dd class="font-semibold">{{ money(r.amount_usd) }} USD<span v-if="r.refunded_at"> · {{ t.refunded }}</span></dd></div>
           </dl>

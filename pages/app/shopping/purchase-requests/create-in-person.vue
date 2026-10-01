@@ -179,7 +179,7 @@
         <!-- ── Step 2: how many stores ──────────────────────────────── -->
         <div v-if="selectedCustomer" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 animate-fadeIn">
           <h2 class="text-lg font-bold text-gray-900">¿Cuántas tiendas?</h2>
-          <p class="text-sm text-gray-500 mt-1">${{ feeLabel }} USD por cada tienda que visites en Las Américas.</p>
+          <p class="text-sm text-gray-500 mt-1">${{ feeLabel }} USD por cada tienda que visites en San Diego.</p>
 
           <div class="mt-5 flex items-center justify-between gap-6 flex-wrap">
             <div class="flex items-center gap-3">
@@ -344,7 +344,7 @@ const whatsappHref = computed(() => {
   if (!created.value) return '#'
   const text = encodeURIComponent(
     `Hola ${created.value.customerName}, aquí está tu link para apartar la visita a ${created.value.storeCount} ` +
-    `tienda(s) en Las Américas ($${created.value.total} USD): ${created.value.payment_link}`,
+    `tienda(s) en San Diego ($${created.value.total} USD): ${created.value.payment_link}`,
   )
   // Straight to their chat when we have a number on file, otherwise the
   // share sheet so she can pick the contact herself.

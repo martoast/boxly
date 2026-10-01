@@ -141,10 +141,10 @@ const { t: createTranslations } = useLanguage()
 const t = createTranslations({
   processTag:        { es: 'Compras presenciales', en: 'In-person shopping' },
   processTitle:      { es: 'Cómo funciona la compra presencial', en: 'How in-person shopping works' },
-  processSubtitle:   { es: 'Tres pasos. Tu shopper va por ti a Las Américas Premium Outlets en San Diego.', en: 'Three steps. Your shopper goes to Las Américas Premium Outlets in San Diego for you.' },
+  processSubtitle:   { es: 'Tres pasos. Tu shopper va por ti a las tiendas de San Diego.', en: 'Three steps. Your shopper goes to the stores in San Diego for you.' },
 
   step1Title:        { es: 'Elige fecha y hora', en: 'Pick a date and time' },
-  step1Desc:         { es: 'Elige el día y la hora en que tu shopper puede ir a Las Américas Premium Outlets y cuántas horas necesitas.', en: 'Pick the day and time your shopper can go to Las Américas Premium Outlets and how many hours you need.' },
+  step1Desc:         { es: 'Elige el día y la hora en que tu shopper puede ir de compras en San Diego y cuántas horas necesitas.', en: 'Pick the day and time your shopper can go shopping in San Diego and how many hours you need.' },
   step1CalloutTitle: { es: 'Paga $30 USD para apartar tu horario', en: 'Pay $30 USD to hold your time' },
   step1CalloutDesc:  { es: 'Tu primera hora ya queda pagada. Al terminar se cobran las horas restantes ($30 por hora) + 10% del total de tus compras.', en: 'Your first hour is already paid. When we finish, the remaining hours ($30 each) + 10% of the total spent are charged.' },
   step1Alt:          { es: 'Reserva tu visita desde tu celular', en: 'Book your visit from your phone' },

@@ -13,7 +13,7 @@
       <div class="flex items-center justify-between gap-4 mb-6">
         <div>
           <h1 class="text-2xl sm:text-3xl font-extrabold text-gray-900">Visitas en persona</h1>
-          <p class="text-sm text-gray-500 mt-1">Fechas que pueden agendar los clientes para Las Américas Outlets.</p>
+          <p class="text-sm text-gray-500 mt-1">Fechas que pueden agendar los clientes para compras en San Diego.</p>
         </div>
         <button @click="openCreate" class="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl shadow-lg shadow-indigo-500/20 transition-colors">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>

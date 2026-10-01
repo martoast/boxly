@@ -169,7 +169,7 @@
     laneOnlineTitle: { es: 'Mándanos el link', en: 'Send us the link' },
     laneOnlineDesc: { es: 'Cualquier tienda de USA — lo compramos por ti.', en: 'Any US store — we buy it for you.' },
     laneInPersonTitle: { es: 'Compras presenciales', en: 'In-person shopping' },
-    laneInPersonDesc: { es: 'Reserva una hora con tu shopper en Las Américas, San Diego.', en: 'Reserve an hour with your shopper at Las Américas, San Diego.' },
+    laneInPersonDesc: { es: 'Reserva una hora con tu shopper en San Diego.', en: 'Reserve an hour with your shopper in San Diego.' },
     startShopping: { es: 'Comenzar Compra Asistida', en: 'Start Assisted Purchase' },
     learnMore: { es: '¿Cómo funciona?', en: 'How does it work?' },
     items: { es: 'Artículos', en: 'Items' },

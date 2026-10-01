@@ -765,7 +765,7 @@ const translations = {
   price: { es: 'Precio', en: 'Price' },
   subtotal: { es: 'Subtotal', en: 'Subtotal' },
   customerNotes: { es: 'Notas del Cliente', en: 'Customer Notes' },
-  inPersonPanelTitle:    { es: 'Visita en persona a Las Américas', en: 'In-person trip to Las Americas' },
+  inPersonPanelTitle:    { es: 'Visita en persona en San Diego', en: 'In-person trip in San Diego' },
   inPersonPanelDesc:     { es: 'Lo que el cliente agendó. Los items abajo (estado "wishlist") son su lista — confírmalos después de la visita con el precio real.', en: 'What the customer scheduled. Items below in "wishlist" state are their list — confirm after the trip with the real price.' },
   inPersonTripLabel:     { es: 'Fecha de la visita', en: 'Visit date' },
   inPersonBudgetLabel:   { es: 'Presupuesto mínimo del cliente', en: "Customer's minimum budget" },

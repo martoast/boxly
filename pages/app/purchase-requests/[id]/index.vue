@@ -318,7 +318,7 @@ const translations = {
   depositPay:         { es: 'Pagar reserva', en: 'Pay deposit' },
   depositRedirecting: { es: 'Redirigiendo…', en: 'Redirecting…' },
   confirmedTitle:     { es: '¡Reserva confirmada!', en: 'Booking confirmed!' },
-  confirmedDesc:      { es: 'Pagaste tu reserva. Vamos a Las Américas en la fecha que elegiste y te enviamos la cuenta final con la mercancía después.', en: "You paid your deposit. We'll visit Las Americas on your chosen date and send the final bill with the merchandise after." },
+  confirmedDesc:      { es: 'Pagaste tu reserva. Vamos de compras en San Diego en la fecha que elegiste y te enviamos la cuenta final con la mercancía después.', en: "You paid your deposit. We'll go shopping in San Diego on your chosen date and send the final bill with the merchandise after." },
 
   quoteReady:    { es: '¡Tu cotización está lista!', en: 'Your quote is ready!' },
   quoteReadyDesc:{ es: 'Hemos revisado tu solicitud y calculado todos los costos. Realiza el pago para que procedamos.', en: 'We reviewed your request and calculated all costs. Pay to continue.' },
