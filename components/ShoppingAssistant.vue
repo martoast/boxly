@@ -2169,6 +2169,8 @@ function openProduct(p, { maxAge = 0 } = {}) {
   if (isBusy.value) cardQueue.push(msg)
   else { chat.messages = [...chat.messages, msg]; scrollDown(); revealCard(msg.id) }
   readIntoCard(key, product, { maxAge })
+  // Pre-open this customer's cart browser for the store while they pick, so "Agregar" starts warm (best-effort).
+  if (user.value && product.store_id && product.url?.startsWith('https://')) $customFetch('/live-shopping/preopen', { method: 'POST', body: { store_id: product.store_id, product_url: product.url } }).catch(() => {})
 }
 // One live read into a card: the first read, "Actualizar disponibilidad", or a colourway (its own page; the set of
 // colourways it belongs to is kept). The server saves each good read to the conversation; here the card updates in place.
