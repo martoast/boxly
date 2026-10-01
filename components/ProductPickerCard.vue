@@ -158,11 +158,21 @@ function askForSize(chosenText) {
   const base = chosenText ? chosenText.replace(/\s*—\s*agr[eé]galos a mi caja\s*$/i, '') : `Quiero ${what}`
   return `${base} — ¿qué tallas tienen disponibles? Dime las opciones y te digo cuál quiero.`
 }
+// THE CART OPENS THE PAGE OF WHAT WAS PICKED (live VS 2026-10-01: a family page holds 9 styles; the card's link is the
+// family's, so "Black" could reach the cart as another style's Black). The picked colour's own row link (the reader pins
+// each colour to its style), else the page the card read (its pinned style), else the colourway, else the card's link.
+function pickedUrl(variants = {}) {
+  const colour = variants.color
+  if (!colour) return null
+  const rows = Array.isArray(read.value?.variants) ? read.value.variants : []
+  const row = rows.find((v) => typeof v?.url === 'string' && v.url && (v.color === colour || Object.values(v.options || {}).includes(colour)))
+  return row?.url || null
+}
 function assisted(pick) {
   if (missingSize.value) pick = { text: askForSize(pick?.text), variants: pick?.variants || {}, size_owed: true }
   const p = product.value
   emit('assisted', {
-    title: p.title, url: activeColorway.value?.url || p.url, image: image.value, store: p.store_name, store_id: p.store_id,
+    title: p.title, url: pickedUrl(pick?.variants) || output.value.read_url || activeColorway.value?.url || p.url, image: image.value, store: p.store_name, store_id: p.store_id,
     price: price.value, was: was.value, onSale: onSale.value,
     ...(pick ? { pick } : {}),
   })
