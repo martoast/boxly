@@ -2,8 +2,10 @@
 // All dates are 'YYYY-MM-DD' and all times 'HH:MM' in Pacific (America/Tijuana) local time,
 // exactly as the API sends them: nothing here is ever converted to UTC.
 export const TZ = 'America/Tijuana'
-export const FIRST_HOUR = 6
-export const LAST_HOUR = 22 // last bookable hour starts 22:00 and ends 23:00
+// US retail business hours (Alex 2026-10-02): stores open at 9 at the earliest, and personal shopping ends ~2 h before a
+// late close — 9:00–18:00. Same window as the API's InPersonReservationService.
+export const FIRST_HOUR = 9
+export const LAST_HOUR = 17 // last bookable hour starts 17:00 and ends 18:00
 
 export const hourLabel = (h: number) => String(h).padStart(2, '0') + ':00'
 export const HOURS: number[] = Array.from({ length: LAST_HOUR - FIRST_HOUR + 1 }, (_, i) => FIRST_HOUR + i)

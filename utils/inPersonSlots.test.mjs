@@ -17,7 +17,7 @@ check('monday of a sunday', mondayOf('2026-10-04'), '2026-09-28')
 check('addDays over month', addDays('2026-09-30', 2), '2026-10-02')
 check('week dates', weekDates('2026-09-28')[6], '2026-10-04')
 check('next mondays', nextMondays('2026-09-28', 2), ['2026-10-05', '2026-10-12'])
-check('hours 6..22', [HOURS[0], HOURS.at(-1)], [6, 22])
+check('hours 9..17 (ends 18:00)', [HOURS[0], HOURS.at(-1)], [9, 17])
 
 // Pacific now: 2026-10-01T06:30Z is 23:30 on Sep 30 in Tijuana (PDT, UTC-7)
 check('pacific late evening', pacificNow(new Date('2026-10-01T06:30:00Z')), { date: '2026-09-30', hour: 23, minute: 30 })
