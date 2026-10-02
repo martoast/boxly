@@ -11,7 +11,7 @@ API (boxly-api):
       shopping group. Each: method, path, a one-line summary (doc comment, else the controller method's name in words),
       and the body fields when they can be read (a FormRequest's rules, or the controller's inline validate([...])).
       Also as markdown (?format=md) so it can be pasted into an AI, or fetched BY the AI with its own key.
-- [ ] /me/api-keys open to shopping managers too — BLOCKED by the permission check (widening who gets full-access keys); left admin-only, Alex to decide.
+- [x] /me/api-keys open to shopping managers (Alex OK 2026-10-01, API 0ed00d4): their key reaches /shopping/* only, /admin/* 403 (tested).
 - [x] Feature tests: admin sees admin routes, shopping manager sees only shopping routes, customer gets 403.
 
 App (boxly):

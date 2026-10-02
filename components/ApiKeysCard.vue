@@ -114,10 +114,13 @@ const fresh = ref(null)
 const error = ref('')
 const copied = ref(null)
 
+// Admins and shopping managers both create keys; a key reaches its owner's own role (Alex 2026-10-01).
+const user = useState('user')
+const isAdmin = computed(() => user.value?.role === 'admin')
 const apiBase = computed(() => useRuntimeConfig().public.apiUrl || 'https://api.boxly.mx')
 
 const example = computed(() =>
-  `curl ${apiBase.value}/admin/orders \\\n  -H "Authorization: Bearer ${fresh.value?.key ?? '<your-key>'}" \\\n  -H "Accept: application/json"`
+  `curl ${apiBase.value}${isAdmin.value ? '/admin/orders' : '/shopping/purchase-requests'} \\\n  -H "Authorization: Bearer ${fresh.value?.key ?? '<your-key>'}" \\\n  -H "Accept: application/json"`
 )
 
 const load = async () => {
@@ -182,41 +185,41 @@ onMounted(load)
 const COPY = {
   es: {
     title: 'Claves de API',
-    subtitle: 'Acceso programático a tu cuenta de administrador',
-    intro: 'Una clave de API te deja hacer desde tu propio código todo lo que puedes hacer aquí como administrador. Trátala como una contraseña.',
+    subtitle: 'Acceso programático a tu cuenta',
+    intro: 'Una clave de API te deja hacer desde tu propio código todo lo que puedes hacer aquí con tu cuenta. Trátala como una contraseña.',
     namePlaceholder: 'Nombre (ej. jarvis, script de reportes)',
     neverExpires: 'Sin vencimiento',
     days: (n) => `${n} días`,
     create: 'Crear clave', creating: 'Creando…', createFailed: 'No se pudo crear la clave.',
     copyNow: 'Cópiala ahora — no se volverá a mostrar.',
     copy: 'Copiar', copied: '¡Copiado!', gotIt: 'Listo, ya la copié',
-    warning: 'Da acceso completo de administrador a Boxly. No la compartas ni la subas a un repositorio.',
+    warning: 'Da acceso completo a tu cuenta de Boxly. No la compartas ni la subas a un repositorio.',
     loading: 'Cargando…', empty: 'Todavía no tienes claves de API.',
     lastUsed: (d) => `Último uso: ${d}`, neverUsed: 'Nunca usada',
     expires: (d) => `Vence el ${d}`,
     revoke: 'Revocar', revoking: 'Revocando…',
     confirmRevoke: (n) => `¿Revocar la clave “${n}”? Todo lo que la use dejará de funcionar de inmediato.`,
     howTo: '¿Cómo se usa?',
-    howToHint: 'Mándala en el encabezado Authorization. Llega a los mismos endpoints de administrador que usa esta interfaz.',
+    howToHint: 'Mándala en el encabezado Authorization. Llega a los mismos endpoints que usa esta interfaz con tu cuenta.',
   },
   en: {
     title: 'API keys',
-    subtitle: 'Programmatic access to your admin account',
-    intro: 'An API key lets your own code do everything you can do here as an admin. Treat it like a password.',
+    subtitle: 'Programmatic access to your account',
+    intro: 'An API key lets your own code do everything you can do here with your account. Treat it like a password.',
     namePlaceholder: 'Name (e.g. jarvis, reporting script)',
     neverExpires: 'Never expires',
     days: (n) => `${n} days`,
     create: 'Create key', creating: 'Creating…', createFailed: 'Could not create the key.',
     copyNow: 'Copy it now — it will not be shown again.',
     copy: 'Copy', copied: 'Copied!', gotIt: 'Got it, copied',
-    warning: 'This grants full admin access to Boxly. Don’t share it or commit it to a repository.',
+    warning: 'This grants full access to your Boxly account. Don’t share it or commit it to a repository.',
     loading: 'Loading…', empty: 'You don’t have any API keys yet.',
     lastUsed: (d) => `Last used ${d}`, neverUsed: 'Never used',
     expires: (d) => `Expires ${d}`,
     revoke: 'Revoke', revoking: 'Revoking…',
     confirmRevoke: (n) => `Revoke the key “${n}”? Anything using it stops working immediately.`,
     howTo: 'How do I use it?',
-    howToHint: 'Send it in the Authorization header. It reaches the same admin endpoints this interface uses.',
+    howToHint: 'Send it in the Authorization header. It reaches the same endpoints this interface uses for your account.',
   },
 }
 
