@@ -1,3 +1,26 @@
+# API docs in account settings, for admins and shopping managers (Alex 2026-10-01)
+
+Problem: an API key works, but nothing tells you (or your AI) which routes exist or what they take — "it's running
+blind". Shopping managers can't even create a key (keys are admin-only, and the shopping area has no account page).
+
+Facts: admin = 175 routes, shopping = 69. Only ~54% / 26% have a doc comment; most fields are validated inline.
+A hand-written list would go stale, so the reference is GENERATED from the live routes.
+
+API (boxly-api):
+- [x] GET /me/api-docs (auth): the routes YOUR role can call — admin -> the admin group, shopping manager -> the
+      shopping group. Each: method, path, a one-line summary (doc comment, else the controller method's name in words),
+      and the body fields when they can be read (a FormRequest's rules, or the controller's inline validate([...])).
+      Also as markdown (?format=md) so it can be pasted into an AI, or fetched BY the AI with its own key.
+- [ ] /me/api-keys open to shopping managers too — BLOCKED by the permission check (widening who gets full-access keys); left admin-only, Alex to decide.
+- [x] Feature tests: admin sees admin routes, shopping manager sees only shopping routes, customer gets 403.
+
+App (boxly):
+- [x] ApiDocsCard: grouped by area, search box, "Copiar para tu IA" (markdown), and the one-line tip
+      "your AI can read this itself: GET https://api.boxly.mx/me/api-docs?format=md with your key".
+- [x] Admin account page: under the API keys card.
+- [x] Shopping managers: new /app/shopping/account ("Mi cuenta", in the shopping menu) with API keys + the docs.
+- [x] Build, tests, push; check with a real admin call (I have no admin/shopping key: Alex or a probe).
+
 # Shopping manager: easy availability on the phone (Alex 2026-10-01)
 
 The manager couldn't find where to set in-person hours, and setting them on a phone is tap-by-tap

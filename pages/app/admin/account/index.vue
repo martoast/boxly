@@ -85,6 +85,9 @@
 
             <!-- API keys (admin-only: full programmatic admin access) -->
             <ApiKeysCard />
+
+            <!-- What those keys can call: generated from the live API routes -->
+            <ApiDocsCard />
   
            
           </div>

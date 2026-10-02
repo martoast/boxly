@@ -216,6 +216,7 @@ import {
   PhotoIcon,
   MagnifyingGlassIcon,
   CalendarDaysIcon,
+  CodeBracketIcon,
 } from '@heroicons/vue/24/outline';
 
 const { $customFetch } = useNuxtApp();
@@ -234,6 +235,7 @@ const t = createTranslations({
   shoppingTrips:    { es: 'Mi disponibilidad',      en: 'My availability' },
   pastTrips: { es: 'Viajes anteriores', en: 'Past trips' }, // legacy shopping-trip bookings; remove when none remain
   shoppingRole:     { es: 'Compras',                en: 'Shopping' },
+  apiDocs:          { es: 'API y documentación',    en: 'API & docs' },
   logout:           { es: 'Cerrar Sesión',          en: 'Sign out' },
 });
 
@@ -247,6 +249,7 @@ const navItems = computed(() => [
   { route: '/app/shopping/shopping-trips', icon: CalendarDaysIcon, label: t.value.pastTrips },
   { route: '/app/shopping/campaigns',         icon: MegaphoneIcon,           label: t.value.campaigns },
   { route: '/app/shopping/ai-search',         icon: MagnifyingGlassIcon,     label: t.value.aiSearch },
+  { route: '/app/shopping/api',               icon: CodeBracketIcon,         label: t.value.apiDocs },
 ]);
 
 const userInitials = computed(() => {
