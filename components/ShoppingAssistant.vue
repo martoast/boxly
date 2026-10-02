@@ -2036,8 +2036,12 @@ function onAssistedProduct(p) {
 function addToBoxlyCart(p) {
   // Signed-in shoppers have the cart (a guest is sent to sign in before any live search or order).
   if (!user.value || p?.pick?.size_owed || !cartPayloadFromChatProduct(p)) return
+  // ONE LINE, NOT TWO (Gerardo, Nike, 2026-10-01): the picked colour's own page (…-016) is not the card's (…-013), so the
+  // chat's box sync could not tell this line was the same product and added a second one — two pairs in the Nike bag.
+  // The card's registry id (pid of its url, as registerProducts makes it) lets the sync match it by saved_id.
+  const item = p.saved_id || p.id || !p.card_url ? p : { ...p, saved_id: pid({ url: p.card_url }) }
   ensureConversation(`Agrégalo a mi carrito Boxly: ${p.title || ''}`)
-    .then((cid) => boxlyCart.add(cartPayloadFromChatProduct(p, { conversationId: cid ?? activeId.value })))
+    .then((cid) => boxlyCart.add(cartPayloadFromChatProduct(item, { conversationId: cid ?? activeId.value })))
     .catch((e) => console.warn('boxly cart add failed', e?.data?.message || e))
 }
 function sendAssisted(p) {

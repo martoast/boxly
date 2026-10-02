@@ -1478,7 +1478,9 @@ export default defineEventHandler(async (event) => {
               // A product with nothing to choose (the reader's lone "single" variant): never offer "single" as a size — live
               // 2026-10-01 the model added a BBW candle with size "single" and the invoice showed it.
               if (!axes.length) ship.note = `"${saved?.title || last.name}" has no size or colour to choose (one option${avail.length ? '' : ', out of stock'}): add it to the box as it is, with NO size and NO color.`
-              else ship.note = `SIZES/COLOURS READ for "${saved?.title || last.name}": ${avail.length} of ${r.variants.length} available (chips are on screen). Ask ONE short question — which size/colour they want, naming the available ones: ${avail.slice(0, 30).map((v: any) => v.key).join(' · ')}. When they answer, add it with show_shipment carrying that size/color.`
+              // Past the hold above, the item IS going in with what was picked (Gerardo, Nike, 2026-10-01: this note still
+              // said "ask which size/colour" while the box added Black/Sail/Sail M — two instructions that disagree).
+              else ship.note = `"${saved?.title || last.name}" goes into the box with ${Object.entries(chosen).map(([k, v]) => `${k}: ${v}`).join(', ') || 'its only option'} (picked on the card). Do NOT ask for size or colour again.`
             } else if (r) {
               ship.note = `Variant read for "${saved?.title || last.name}" returned nothing (${r.reason || 'no_variants'}) — don't ask for size now; add it to the box as it is.`
             }

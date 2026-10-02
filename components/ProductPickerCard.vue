@@ -172,7 +172,7 @@ function assisted(pick) {
   if (missingSize.value) pick = { text: askForSize(pick?.text), variants: pick?.variants || {}, size_owed: true }
   const p = product.value
   emit('assisted', {
-    title: p.title, url: pickedUrl(pick?.variants) || output.value.read_url || activeColorway.value?.url || p.url, image: image.value, store: p.store_name, store_id: p.store_id,
+    title: p.title, url: pickedUrl(pick?.variants) || output.value.read_url || activeColorway.value?.url || p.url, card_url: p.url || null, image: image.value, store: p.store_name, store_id: p.store_id,
     price: price.value, was: was.value, onSale: onSale.value,
     ...(pick ? { pick } : {}),
   })
