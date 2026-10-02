@@ -481,8 +481,9 @@ const fetchProducts = async () => {
     loadingProducts.value = true
     const response = await $customFetch('/products')
     
-    // Filter only consolidated products
-    const consolidated = response.data.filter(product => product.consolidated === 'true')
+    // Filter only consolidated products — never the retired Extra Small box (still in Stripe for boxes in flight;
+    // Alex 2026-10-02: customers must never be offered it).
+    const consolidated = response.data.filter(product => product.consolidated === 'true' && !/extra small/i.test(product.name || ''))
     
     // Remove duplicates by product ID
     const uniqueProducts = []
