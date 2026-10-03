@@ -166,3 +166,9 @@ app still refuses it if some other store invents a new shape.
 - ShoppingAssistant follows activeId (new chat = empty cart); preopen sends the chat. assistant.post.ts syncs and finalizes
   the chat's own cart. After a successful finalize_order the box starts empty (boxFromMessages) + a prompt rule.
 - Tests: boxCheckout 51 (4 new), cart/tools/box-fit/context/picker/live suites pass; typecheck clean on touched files.
+
+## Name follows the picked colour + photo on the invoice card (Alex 2026-10-03)
+- [x] Invoice card (CheckoutCard summary): each line shows its photo (API d62213d adds image_url to the summary lines)
+- [x] Box card: the item name follows the picked colour (utils/boxlyCart titleForColour, same rule as the API)
+### Review
+- The cart line, the purchase request and the invoice get the right name from the API; the chat's box card uses the same rule. Tests pass.

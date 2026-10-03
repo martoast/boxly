@@ -141,7 +141,7 @@ export function storeDoneMessage(quote: StoreQuote & { reason?: string | null },
 
 // ---- The final summary (checkout_summary on GET /purchase-requests/{id}) ----
 
-export interface SummaryLine { title: string, variants?: unknown, quantity: number, unit_price_cents: number | null, state?: 'unavailable' | string }
+export interface SummaryLine { title: string, variants?: unknown, quantity: number, unit_price_cents: number | null, state?: 'unavailable' | string, image_url?: string | null }
 export interface SummaryStore {
   store_id: string, store_name: string | null, status: StoreQuoteStatus, included: boolean, reason: string | null
   lines: SummaryLine[]

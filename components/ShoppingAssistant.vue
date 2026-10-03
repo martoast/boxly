@@ -611,7 +611,7 @@
 import { Chat } from '@ai-sdk/vue'
 import { DefaultChatTransport } from 'ai'
 import { useBoxlyCart } from '../composables/useBoxlyCart'
-import { cartPayloadFromChatProduct, variantsText } from '../utils/boxlyCart'
+import { cartPayloadFromChatProduct, variantsText, titleForColour } from '../utils/boxlyCart'
 import { withLiveRows, newLiveResultMessages } from '../utils/liveGallery'
 import { nextHelpState, preopenUrl } from '../utils/liveShopping'
 import { PICKER_PART } from '../utils/typedPick'
@@ -1403,7 +1403,10 @@ function enrichShipment(shipment) {
   if (!shipment?.items?.length) return shipment
   const prods = savedProducts.value || []
   const norm = (t) => String(t || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
-  const items = shipment.items.map((it) => {
+  const items = shipment.items.map((raw) => {
+    // the name follows the picked colour (Alex 2026-10-03: "… Jacket - Black" shown with White picked)
+    const reg = raw.saved_id ? prods.find((p) => p.id === raw.saved_id) : null
+    const it = reg?.url && raw.color ? { ...raw, name: titleForColour(raw.name, reg.url, raw.color) } : raw
     if (it.image) return it
     // Prefer the exact registry row by saved_id (catalog + web products carry a stable id),
     // then fall back to a fuzzy title match — so a dropped/long image URL still resolves.

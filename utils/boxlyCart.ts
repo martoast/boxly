@@ -255,3 +255,17 @@ export function formatUsd(n: number | null | undefined): string {
   if (typeof n !== 'number' || !Number.isFinite(n)) return ''
   return `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD`
 }
+
+/** PURE. A product name follows the colour the shopper PICKED (Alex 2026-10-03: "Cropped Micro Plisse Jacket - Black" with White
+ *  picked). A "<name> - <colour>" suffix that is the product link's own colour (…-jacket-black) becomes the picked colour; any other
+ *  suffix ("Shorts - 5 Inch") stays. Same rule as the API's CartItem::titleForColour. */
+export function titleForColour(title: string, url: string | null | undefined, colour: string | null | undefined): string {
+  const t = String(title || '')
+  const c = String(colour || '').trim()
+  const m = /^(.*\S)\s+[-–—]\s+([^-–—]+?)\s*$/.exec(t)
+  if (!c || !m || m[2].toLowerCase() === c.toLowerCase()) return t
+  const slug = m[2].toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+  let handle = ''
+  try { handle = (new URL(String(url || '')).pathname.split('/').filter(Boolean).pop() || '').toLowerCase() } catch { return t }
+  return slug && (handle.endsWith(`-${slug}`) || handle.includes(`-${slug}-`)) ? `${m[1]} - ${c}` : t
+}

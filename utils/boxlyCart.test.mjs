@@ -1,5 +1,5 @@
 // Pure tests for utils/boxlyCart.ts — the Boxly cart's client helpers.
-import { cartNeedsSyncPoll,
+import { titleForColour, cartNeedsSyncPoll,
   normalizeVariants, cartPayloadFromChatProduct, cartPayloadFromCandidate, normalizeCart, groupCartItems,
   withQuantity, withoutItem, syncStatusLabel, variantsText, emptyCart, formatUsd, normalizeLiveSessions,
 } from './boxlyCart.ts'
@@ -9,6 +9,14 @@ const check = (name, ok, detail = '') => { if (ok) { passed++; console.log(`  �
 const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b)
 
 // variants
+// The name follows the picked colour (Alex 2026-10-03)
+{
+  const url = 'https://www.aloyoga.com/products/w4675r-cropped-micro-plisse-jacket-black'
+  check('name: page colour → picked colour', titleForColour('Cropped Micro Plisse Jacket - Black', url, 'White') === 'Cropped Micro Plisse Jacket - White')
+  check('name: same colour unchanged', titleForColour('Cropped Micro Plisse Jacket - Black', url, 'Black') === 'Cropped Micro Plisse Jacket - Black')
+  check('name: a suffix not in the link stays', titleForColour('Training Shorts - 5 Inch', 'https://www.gymshark.com/products/training-shorts-black', 'Navy') === 'Training Shorts - 5 Inch')
+  check('name: no colour picked unchanged', titleForColour('Cropped Micro Plisse Jacket - Black', url, null) === 'Cropped Micro Plisse Jacket - Black')
+}
 check('variants: keys lower-cased, values trimmed, empties dropped', eq(normalizeVariants({ Size: ' M ', Color: 'Black', Fit: '' , x: null }), { size: 'M', color: 'Black' }))
 check('variants: at most 6 keys', Object.keys(normalizeVariants({ a: '1', b: '2', c: '3', d: '4', e: '5', f: '6', g: '7' })).length === 6)
 check('variants: numbers become strings', eq(normalizeVariants({ size: 9 }), { size: '9' }))

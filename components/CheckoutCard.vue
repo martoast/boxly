@@ -52,15 +52,20 @@
           <p v-if="!s.included" class="text-[12px] text-gray-500 mt-0.5 break-words">{{ dropReason(s) }}</p>
           <template v-else>
             <ul class="mt-1 space-y-1.5">
-              <li v-for="(l, i) in s.lines" :key="i" class="min-w-0">
-                <template v-if="lineUnavailable(l)">
-                  <p class="text-[12px] font-semibold text-gray-400 line-through leading-tight break-words">{{ l.title }}</p>
-                  <p class="text-[11px] text-gray-400 break-words">No disponible</p>
-                </template>
-                <template v-else>
-                  <p class="text-[12px] font-semibold text-gray-900 leading-tight break-words">{{ l.title }}</p>
-                  <p class="text-[11px] text-gray-500 tabular-nums break-words">{{ summaryLineDetail(l) }}</p>
-                </template>
+              <!-- Each line with its photo (Alex 2026-10-03: the shopper sees exactly what they are paying for) -->
+              <li v-for="(l, i) in s.lines" :key="i" class="min-w-0 flex items-center gap-2.5">
+                <img v-if="l.image_url" :src="l.image_url" alt="" class="w-12 h-12 rounded-lg object-cover bg-gray-100 shrink-0" :class="lineUnavailable(l) ? 'opacity-40' : ''" loading="lazy" />
+                <div v-else class="w-12 h-12 rounded-lg bg-gray-100 shrink-0" />
+                <div class="min-w-0 flex-1">
+                  <template v-if="lineUnavailable(l)">
+                    <p class="text-[12px] font-semibold text-gray-400 line-through leading-tight break-words">{{ l.title }}</p>
+                    <p class="text-[11px] text-gray-400 break-words">No disponible</p>
+                  </template>
+                  <template v-else>
+                    <p class="text-[12px] font-semibold text-gray-900 leading-tight break-words">{{ l.title }}</p>
+                    <p class="text-[11px] text-gray-500 tabular-nums break-words">{{ summaryLineDetail(l) }}</p>
+                  </template>
+                </div>
               </li>
             </ul>
             <div class="mt-2 space-y-0.5 text-[12px]">
