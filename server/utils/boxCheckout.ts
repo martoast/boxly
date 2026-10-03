@@ -74,6 +74,20 @@ export function boxFromMessages(messages: any[]): BoxItem[] | null {
   return null
 }
 
+/** PURE. Every item ANY box card of this chat showed. The Boxly cart is the customer's across chats (Alex 2026-10-03:
+ * Finalizar orders everything in the cart): a sync may remove only a line THIS chat's box once held and has since dropped. */
+export function boxItemsEver(messages: any[]): BoxItem[] {
+  const fixes = storeOptionFixes(messages)
+  const out: BoxItem[] = []
+  for (const m of messages || []) {
+    if (m?.role !== 'assistant') continue
+    for (const p of m.parts || []) {
+      if (p?.type === 'tool-show_shipment' && p.state === 'output-available' && Array.isArray(p.input?.items)) out.push(...p.input.items.map((it: BoxItem) => withStoreOptions(it, fixes)))
+    }
+  }
+  return out
+}
+
 const https = (v: any): string | null => {
   if (typeof v !== 'string' || !v.trim()) return null
   try {
@@ -190,7 +204,7 @@ const norm = (v: any) => String(v ?? '').toLowerCase().normalize('NFD').replace(
  * its own variants (a tap from the product modal carries the store's exact option names) unless the box names a
  * size/colour that line does not have; lines the box no longer holds are removed.
  */
-export function planCart(cart: CartLine[], wanted: WantedItem[], opts: { retryUrl?: string | null } = {}): CartPlan {
+export function planCart(cart: CartLine[], wanted: WantedItem[], opts: { retryUrl?: string | null, removable?: WantedItem[] | null } = {}): CartPlan {
   const plan: CartPlan = { add: [], update: [], remove: [] }
   const free = [...(cart || [])]
   for (const w of wanted) {
@@ -218,6 +232,10 @@ export function planCart(cart: CartLine[], wanted: WantedItem[], opts: { retryUr
     if (Object.values(w.variants).some((v) => !have.includes(norm(v)))) body.variants = w.variants
     if (Object.keys(body).length) plan.update.push({ id: line.id, body })
   }
-  plan.remove.push(...free.map((l) => l.id))
+  // `removable` (this chat's box items, ever): a leftover line is removed only when this chat's box once held it — a line
+  // another chat added is the customer's and stays (Finalizar orders the whole cart). No list: every leftover goes, as before.
+  const ours = (l: CartLine) => !opts.removable || opts.removable.some((w) => l.product_url === w.product_url || bare(l.product_url) === bare(w.product_url)
+    || (!!w.saved_id && l.saved_id === w.saved_id) || (l.store_id === w.store_id && sameName(l.title, w.title)))
+  plan.remove.push(...free.filter(ours).map((l) => l.id))
   return plan
 }
