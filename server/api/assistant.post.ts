@@ -10,7 +10,7 @@ import { chatModel, isAnthropic, providerOptions, hasModelKey } from '../utils/a
 import { ageGalleries, windowMessages, withContextOnLastUser, dropToolParts, legacyToolsAsText, contextStats, WINDOW_DEFAULTS } from '../utils/chatContext'
 import { generateFollowups, followupPart, followupsWithin, attachFollowupChips } from '../utils/followups'
 import { readSummary, summaryBlock, summarize, shouldSummarize } from '../utils/chatSummary'
-import { boxFromMessages, boxItemsEver, wantedFromBox, planCart, storeOptionFixes, withStoreOptions, type CarriedStore } from '../utils/boxCheckout'
+import { boxFromMessages, wantedFromBox, planCart, storeOptionFixes, withStoreOptions, type CarriedStore } from '../utils/boxCheckout'
 import { checkStoreLock } from '../utils/storeLock'
 import { storeHostsFromLiveStores, tagCarriedStores } from '../utils/storeHosts'
 import { resolveLiveStores, liveGalleryQuery, liveResultsAsText, type LiveStore } from '../../utils/liveGallery'
@@ -999,9 +999,7 @@ export default defineEventHandler(async (event) => {
     const cart = await callApi('/cart', { token })
     if (cart?.ok === false || !Array.isArray(cart?.items)) return 'cart_unavailable'
     // Lines the box no longer holds go first (so a variant change can never collide with them).
-    // Only lines this chat's box once held can be removed: lines from other chats are the customer's (Finalizar = the whole cart)
-    const removable = wantedFromBox(boxItemsEver(messages), storeRegistry, carriedStores).wanted
-    const plan = planCart(cart.items, wanted, { retryUrl, removable })
+    const plan = planCart(cart.items, wanted, { retryUrl })
     if (keepOthers) plan.remove = []
     for (const w of plan.add) sent.add(w.product_url)
     for (const u of plan.update) { const l = cart.items.find((x: any) => x.id === u.id); if (l) sent.add(l.product_url) }
@@ -1646,25 +1644,21 @@ export default defineEventHandler(async (event) => {
       }),
 
       finalize_order: tool({
-        description: "Finalize the shopper's box. Takes NO input: it reads the box card itself, syncs those items into the shopper's Boxly cart and places the order for EVERYTHING in that cart (items added in earlier chats included). The Boxly agent then fills each store's real cart and checks out to our San Diego warehouse live in the chat (the card shows each store's browser and its real total), and the invoice with a Pagar button appears in that same card when every total is verified. Call it when the shopper finalizes (\"finaliza\", \"eso es todo\", \"crea mi pedido\"). ",
+        description: "Finalize the shopper's box. Takes NO input: it reads the box card itself, puts exactly those items in the shopper's Boxly cart and places the order. The Boxly agent then fills each store's real cart and checks out to our San Diego warehouse live in the chat (the card shows each store's browser and its real total), and the invoice with a Pagar button appears in that same card when every total is verified. Call it when the shopper finalizes (\"finaliza\", \"eso es todo\", \"crea mi pedido\"). ",
         inputSchema: z.object({}),
         execute: async () => {
           if (!token) return authedNote
           const stop = (error: string, why: string) => ({ ok: false, error, note: `NOT FINALIZED — ${why} Nothing was ordered and no card is on screen; do NOT say the order was placed.` })
-          // The order is EVERYTHING in the Boxly cart (Alex 2026-10-03), this chat's box synced into it first — lines added in
-          // other chats stay and are ordered too.
-          const box = boxFromMessages(messages) || []
+          const box = boxFromMessages(messages)
+          if (!box?.length) return stop('empty_box', 'the box is empty. Say ONE short line inviting them to add products first.')
           const { wanted, unsupported } = wantedFromBox(box, storeRegistry, carriedStores)
           if (unsupported.length) {
             return { ...stop('unsupported_items', `${unsupported.join(', ')} ${unsupported.length > 1 ? 'are' : 'is'} not from a store the Boxly agent can buy from (a marketplace, or no product page). Say ONE short line naming ${unsupported.length > 1 ? 'them' : 'it'} and ask the shopper to take ${unsupported.length > 1 ? 'them' : 'it'} out of the box, or to search the same product live in a store that can.`), unsupported }
           }
-          if (box.length && await syncBox(box)) return stop('cart_update_failed', 'the cart could not be updated. Say ONE short line that it failed and to tap Finalizar again in a moment.')
-          const cartNow = await callApi('/cart', { token })
-          const lines: any[] = Array.isArray(cartNow?.items) ? cartNow.items : []
-          if (!lines.length) return stop('empty_box', 'the box is empty. Say ONE short line inviting them to add products first.')
+          if (await syncBox(box)) return stop('cart_update_failed', 'the cart could not be updated. Say ONE short line that it failed and to tap Finalizar again in a moment.')
           const fin = await callApi('/cart/finalize', { method: 'POST', token, body: {} })
           if (fin?.ok === false || !fin?.purchase_request_id) return stop('finalize_failed', 'the order could not be placed. Say ONE short line that it failed and to tap Finalizar again in a moment.')
-          const stores = [...new Set(lines.map((l) => l.store_name || l.store_id))]
+          const stores = [...new Set(wanted.map((w) => w.store_name || w.store_id))]
           return {
             ok: true,
             purchase_request_id: fin.purchase_request_id,

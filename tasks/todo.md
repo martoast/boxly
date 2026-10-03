@@ -152,16 +152,3 @@ app still refuses it if some other store invents a new shape.
 
 48 web-rows · 98 box-fit · 43 variant-chrome. All 16 app suites green, build clean.
 149 variant_widget · 27 catalog suites green.
-
-## Finalizar = the whole cart (Alex 2026-10-03: "finalizing the order should be everything in the cart")
-Bug: finalize_order (and every box-card sync) planned the Boxly cart from THIS chat's box only, so a line added in an
-earlier chat was deleted at Finalizar (lab PR-26-NWTYO: cart showed hoodie + leggings, the quote had only the leggings).
-- [x] boxCheckout.ts: `boxItemsEver(messages)` — every item any box card of this chat showed
-- [x] planCart `removable`: a line is removed only when this chat's box once held it (dropped since); other chats' lines stay
-- [x] syncBox passes removable; finalize_order: an empty box no longer stops when the cart holds lines; the stores
-      named come from the cart
-- [x] tests in server/utils/boxCheckout.test.mjs
-### Review
-- Box-card syncs and Finalizar now remove only cart lines this chat's box once held and dropped; lines from other chats are
-  kept and ordered. Finalizar works from the cart (an empty box with older cart lines still finalizes), and the stores it
-  names come from the cart. 4 new tests; cart/box/tools/context suites pass.

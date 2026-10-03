@@ -1,5 +1,5 @@
 // Pure tests for server/utils/boxCheckout.ts — the chat box → the Boxly cart, for cart sync and Finalizar.
-import { boxFromMessages, boxItemsEver, wantedFromBox, planCart, carriedStoreForTitle, storeOptionFixes, withStoreOptions } from './boxCheckout.ts'
+import { boxFromMessages, wantedFromBox, planCart, carriedStoreForTitle, storeOptionFixes, withStoreOptions } from './boxCheckout.ts'
 
 let passed = 0, failed = 0
 const check = (name, ok, detail = '') => { if (ok) { passed++; console.log(`  ✓ ${name}`) } else { failed++; console.log(`  ✗ ${name} ${detail}`) } }
@@ -127,22 +127,6 @@ console.log('a line the store is taking')
   check('mid-add: no update, no remove, no add', !p.update.length && !p.remove.length && !p.add.length, JSON.stringify(p))
   const done = planCart([{ ...line, sync_status: 'in_store_cart' }], wantedFromBox([{ ...A, quantity: 2, size: 'L' }], registry).wanted)
   check('after the add: the change goes through', done.update.length === 1, JSON.stringify(done))
-}
-
-// Finalizar = the whole cart (Alex 2026-10-03): a line from ANOTHER chat stays; a line this chat's box held and dropped goes.
-{
-  const msgs = [ship([A, B]), ship([A])]   // this chat: Gap Tee + Joggers, then the joggers taken out
-  const ever = boxItemsEver(msgs)
-  check('boxItemsEver: every box card of the chat', eq(ever.map((i) => i.saved_id), ['a', 'b', 'a']))
-  const removable = wantedFromBox(ever, registry).wanted
-  const wanted = wantedFromBox(boxFromMessages(msgs), registry).wanted
-  const gapLine = { id: 1, product_url: wanted[0].product_url, quantity: 1, variants: wanted[0].variants, saved_id: 'a', store_id: 'gap', title: 'Gap Tee' }
-  const joggers = { id: 2, product_url: 'https://www.youngla.com/p/j', quantity: 2, variants: {}, saved_id: 'b', store_id: 'youngla', title: 'YoungLA Joggers' }
-  const hoodie = { id: 3, product_url: 'https://www.aloyoga.com/products/u3041rg-accolade-full-zip-hoodie-black', quantity: 1, variants: { size: 'S' }, saved_id: null, store_id: 'alo', title: 'Accolade Full Zip Hoodie - Black' }
-  const plan = planCart([gapLine, joggers, hoodie], wanted, { removable })
-  check('a line this chat dropped is removed', plan.remove.includes(2), JSON.stringify(plan))
-  check('a line from another chat stays (no remove)', !plan.remove.includes(3), JSON.stringify(plan))
-  check('no removable list: old behaviour, every leftover goes', planCart([gapLine, hoodie], wanted).remove.includes(3))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)
