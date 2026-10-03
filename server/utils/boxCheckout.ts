@@ -66,6 +66,9 @@ export function boxFromMessages(messages: any[]): BoxItem[] | null {
     const parts = messages[i]?.role === 'assistant' ? (messages[i].parts || []) : []
     for (let j = parts.length - 1; j >= 0; j--) {
       const p = parts[j]
+      // A CLEAN SLATE after Finalizar (Alex 2026-10-03): the box cards before a successful finalize_order belong to an order
+      // already placed — the box after it starts empty, and anything added later is a new cart and a new purchase request.
+      if (p?.type === 'tool-finalize_order' && p.state === 'output-available' && p.output?.ok === true) return null
       if (p?.type !== 'tool-show_shipment' || p.state !== 'output-available') continue
       const items: BoxItem[] = (Array.isArray(p.input?.items) ? p.input.items : []).map(fixed)
       return p.output?.hold ? items.slice(0, -1) : items

@@ -129,5 +129,15 @@ console.log('a line the store is taking')
   check('after the add: the change goes through', done.update.length === 1, JSON.stringify(done))
 }
 
+// A clean slate after Finalizar (Alex 2026-10-03): box cards before a successful finalize_order are an order already placed.
+{
+  const fin = (ok) => ({ role: 'assistant', parts: [{ type: 'tool-finalize_order', state: 'output-available', input: {}, output: { ok } }] })
+  check('after a finalize the box is empty', boxFromMessages([ship([A, B]), fin(true)]) === null)
+  check('a box after the finalize is the new order only', eq(boxFromMessages([ship([A, B]), fin(true), ship([W])]).map((i) => i.saved_id), ['w']))
+  check('a FAILED finalize keeps the box', eq(boxFromMessages([ship([A, B]), fin(false)]).map((i) => i.saved_id), ['a', 'b']))
+  const sameMsg = { role: 'assistant', parts: [...ship([A]).parts, ...fin(true).parts] }
+  check('box then finalize in one message → empty', boxFromMessages([sameMsg]) === null)
+}
+
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed) process.exit(1)

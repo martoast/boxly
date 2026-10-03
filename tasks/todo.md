@@ -152,3 +152,17 @@ app still refuses it if some other store invents a new shape.
 
 48 web-rows · 98 box-fit · 43 variant-chrome. All 16 app suites green, build clean.
 149 variant_widget · 27 catalog suites green.
+
+## One cart per chat thread (app side; API plan in boxly-api tasks/todo.md)
+- [x] useBoxlyCart: every call carries the chat's conversation_id; openChat/newChat reload the cart (new chat = empty)
+- [x] ShoppingAssistant: the mount load waits for the chat id; preopen sends conversation_id
+- [x] assistant.post.ts: syncBox's GET /cart and finalize_order's POST /cart/finalize send conversationId
+- [x] Clean slate after Finalizar in the same chat: boxFromMessages ignores box cards from before the last successful
+      finalize_order, and the prompt says the box starts EMPTY after a finalize (no re-sending the ordered items)
+- [x] Tests: boxCheckout (box after finalize is empty), boxlyCart payloads carry conversation_id
+### Review
+- useBoxlyCart is per chat: `setChat(id)` (number = that chat's cart, null = new chat → empty, undefined = /app/cart's latest);
+  every load/add/finalize sends conversation_id; a stale answer from a chat the shopper left is dropped.
+- ShoppingAssistant follows activeId (new chat = empty cart); preopen sends the chat. assistant.post.ts syncs and finalizes
+  the chat's own cart. After a successful finalize_order the box starts empty (boxFromMessages) + a prompt rule.
+- Tests: boxCheckout 51 (4 new), cart/tools/box-fit/context/picker/live suites pass; typecheck clean on touched files.

@@ -1,7 +1,9 @@
-// The Boxly cart — ONE shared, server-persisted cart for the whole app (chat,
-// live stores, /app/cart, the navbar count). State lives in useState so every
-// component sees the same instance; the API is the source of truth and each
-// call's answer replaces the local copy. Pure rules: utils/boxlyCart.ts.
+// The Boxly cart — server-persisted, ONE PER CHAT (Alex 2026-10-03: a new chat is a
+// new order). State lives in useState so every component sees the same instance;
+// the API is the source of truth and each call's answer replaces the local copy.
+// `chat`: the open chat's id (its own cart), null for a new chat with no id yet (an
+// empty cart, nothing fetched), undefined outside the chat (/app/cart, store pages:
+// the API's most recently updated open cart). Pure rules: utils/boxlyCart.ts.
 import { computed } from 'vue'
 import { cartNeedsSyncPoll, emptyCart, normalizeCart, withQuantity, withoutItem, type Cart, type CartAddPayload, type CartItem } from '../utils/boxlyCart'
 
@@ -15,17 +17,30 @@ export function useBoxlyCart() {
   const error = useState<string>('boxly-cart-error', () => '')
   // Units added but not yet confirmed by the server: the navbar count moves the moment the shopper taps.
   const pendingAdds = useState<number>('boxly-cart-pending', () => 0)
+  const chat = useState<number | null | undefined>('boxly-cart-chat', () => undefined)
+  const chatQuery = () => (typeof chat.value === 'number' ? { conversation_id: chat.value } : {})
+
+  /** The chat whose cart this is (see above). A different chat replaces the cart at once and reloads it. */
+  async function setChat(id: number | null | undefined) {
+    const next = id == null ? id : Number(id)
+    if (next === chat.value && loaded.value) return cart.value
+    chat.value = next
+    cart.value = emptyCart(); loaded.value = false
+    return load({ force: true })
+  }
 
   const count = computed(() => (cart.value?.item_count || 0) + pendingAdds.value)
 
   function apply(raw: any) { cart.value = normalizeCart(raw); loaded.value = true }
 
   async function load(opts: { force?: boolean } = {}) {
-    if (loading.value || (loaded.value && !opts.force)) return cart.value
+    if (!opts.force && (loading.value || loaded.value)) return cart.value   // forced: a chat switch must not wait on another chat's read
+    if (chat.value === null) { apply(emptyCart()); return cart.value }   // a new chat: a clean slate, nothing to fetch
+    const asked = chat.value
     loading.value = true; error.value = ''
     try {
-      const r = await $customFetch('/cart')
-      apply(r?.data)
+      const r = await $customFetch('/cart', { query: chatQuery() })
+      if (asked === chat.value) apply(r?.data)   // the shopper switched chats meanwhile: that answer is not this chat's
     } catch (e: any) {
       error.value = errorMessage(e, 'No pudimos cargar tu carrito.')
     } finally { loading.value = false }
@@ -38,7 +53,7 @@ export function useBoxlyCart() {
     pendingAdds.value += qty
     error.value = ''
     try {
-      const r = await $customFetch('/cart/items', { method: 'POST', body: payload })
+      const r = await $customFetch('/cart/items', { method: 'POST', body: { ...chatQuery(), ...payload } })
       if (r?.data?.cart) apply(r.data.cart)
       if (cartNeedsSyncPoll(cart.value)) pollWhileSyncing()
       return r?.data?.item || null
@@ -80,7 +95,7 @@ export function useBoxlyCart() {
   async function finalize(notes?: string): Promise<{ purchase_request_id: number | string; request_number: string }> {
     error.value = ''
     try {
-      const r = await $customFetch('/cart/finalize', { method: 'POST', body: notes ? { notes } : {} })
+      const r = await $customFetch('/cart/finalize', { method: 'POST', body: { ...chatQuery(), ...(notes ? { notes } : {}) } })
       const d = r?.data || {}
       apply(d.cart || emptyCart())
       return { purchase_request_id: d.purchase_request_id, request_number: d.request_number }
@@ -103,5 +118,5 @@ export function useBoxlyCart() {
   }
   function stopPolling() { if (pollTimer.value) { clearInterval(pollTimer.value); pollTimer.value = null } }
 
-  return { cart, count, loaded, loading, error, load, add, update, remove, finalize, pollWhileSyncing, stopPolling }
+  return { cart, count, loaded, loading, error, chat, setChat, load, add, update, remove, finalize, pollWhileSyncing, stopPolling }
 }

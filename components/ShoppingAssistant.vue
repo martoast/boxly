@@ -795,7 +795,7 @@ onMounted(async () => {
   onDesktopChange()
   desktopQuery.addEventListener?.('change', onDesktopChange)
   // Signed in: the chat keeps the cart fresh itself (on mobile there is no navbar to do it).
-  if (user.value) { await boxlyCart.load(); boxlyCart.pollWhileSyncing() }
+  if (user.value) { await boxlyCart.setChat(activeId.value ?? null); boxlyCart.pollWhileSyncing() }
 })
 onBeforeUnmount(() => { desktopQuery?.removeEventListener?.('change', onDesktopChange); clearTimeout(liveEndTimer) })
 // First name for the hub welcome header (falls back gracefully for guests).
@@ -866,6 +866,9 @@ const token = ref(null)
 const shoppingProfile = ref(null)
 const conversations = ref([])
 const activeId = ref(null)
+// ONE CART PER CHAT (Alex 2026-10-03: a new chat is a new order): the cart shown, synced and finalized is this chat's own;
+// a new chat (no id yet) shows an empty cart.
+watch(activeId, (id) => { if (user.value) boxlyCart.setChat(id ?? null) })
 const savedCount = ref(0)
 const input = ref('')
 // Hub OS: which pipeline the user is in (set by tapping an action card). Drives the
@@ -2191,7 +2194,7 @@ function openProduct(p, { maxAge = 0 } = {}) {
   else { chat.messages = [...chat.messages, msg]; scrollDown(); revealCard(msg.id) }
   readIntoCard(key, product, { maxAge })
   // Pre-open this customer's cart browser for the store while they pick, so "Agregar" starts warm (best-effort).
-  if (user.value && product.store_id && product.url?.startsWith('https://')) $customFetch('/live-shopping/preopen', { method: 'POST', body: { store_id: product.store_id, product_url: preopenUrl(product.url, product.image) } }).catch(() => {})
+  if (user.value && product.store_id && product.url?.startsWith('https://')) $customFetch('/live-shopping/preopen', { method: 'POST', body: { store_id: product.store_id, product_url: preopenUrl(product.url, product.image), ...(activeId.value ? { conversation_id: activeId.value } : {}) } }).catch(() => {})
 }
 // One live read into a card: the first read, "Actualizar disponibilidad", or a colourway (its own page; the set of
 // colourways it belongs to is kept). The server saves each good read to the conversation; here the card updates in place.

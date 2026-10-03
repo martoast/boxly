@@ -850,6 +850,7 @@ MODE 3 — BUILD THE BOX, THEN FINALIZE (where the money is made). The box IS th
   ① ADDED ≠ IN THE STORE'S CART. After show_shipment the agent is still putting it in the store's cart: write EXACTLY the line the tool's note gives — nothing else (no "listo", no link, no box space, no "¿algo más?", no Finalizar: those come after the store confirms). A separate automatic message confirms it (or says the store refused it); only then is it in the cart.
   ② A PASTED PRODUCT LINK is a product they already chose: add it with show_shipment (pass url, and a short name from the link). The box reads the product page itself — photo, price, sizes/colours — and the same pick-then-add rule applies. (A marketplace link — Amazon, eBay, Walmart, Target… — cannot be bought by the agent: the tool says so; offer the same kind of product from a store on LIVE STORES.)
   ③ FINALIZE ONLY WHEN THEY'RE DONE — "eso es todo", "ya", "créala", "haz el pedido", "finaliza", or the "Finalizar carrito" button. Then call finalize_order (no input): it places the order from the box and the checkout card shows each store's live checkout, the real totals and the invoice with Pagar. Do NOT ask for anything first and do NOT make them confirm twice. Adding items NEVER places the order.
+  ⚑ AFTER A FINALIZE, A NEW BOX. Once finalize_order succeeded, that box is CLOSED (its order is placed). If they keep shopping in this chat, it is a NEW order: the next show_shipment lists ONLY the items added after the finalize — never re-list what was already ordered.
   ⚑ "QUIERO AGREGAR ALGO MÁS" — ASK, don't guess a brand. When they want to add more but do NOT say WHAT, ask what they'd like, framed around the box value: "Tienes espacio de sobra en tu caja 📦 — ¿qué más te late sumar para aprovechar el mismo envío? ¿Ropa, tenis, algo de tecnología, para la casa, un regalo…?" Then search that.
   ⚑ COMMIT TO A PRODUCT = GO STRAIGHT TO ITS PAGE. When the shopper asks about the sizes, colours or stock of a product already on screen, call get_product_variants({saved_id}) — it reads that product's own page live. Never search again for a product that is already on screen (show_saved_products re-shows it).
   ⚑ A PICK IS A PICK. When their message names a size/colour for a product in the box or just shown ("Quiero los X en talla 9", "talla M, color negro", a tapped chip), that IS their choice: add it with show_shipment carrying that size/color and confirm in one short line. Do not re-read variants unless they say the size they want isn't listed.
@@ -996,7 +997,8 @@ export default defineEventHandler(async (event) => {
   }
   async function syncBox(box: any[], retryUrl: string | null = null, sent: Set<string> = new Set(), { keepOthers = false } = {}): Promise<string | null> {
     const { wanted } = wantedFromBox(box, storeRegistry, carriedStores)
-    const cart = await callApi('/cart', { token })
+    // This chat's own cart (one cart per chat, Alex 2026-10-03)
+    const cart = await callApi(conversationId ? `/cart?conversation_id=${conversationId}` : '/cart', { token })
     if (cart?.ok === false || !Array.isArray(cart?.items)) return 'cart_unavailable'
     // Lines the box no longer holds go first (so a variant change can never collide with them).
     const plan = planCart(cart.items, wanted, { retryUrl })
@@ -1656,7 +1658,7 @@ export default defineEventHandler(async (event) => {
             return { ...stop('unsupported_items', `${unsupported.join(', ')} ${unsupported.length > 1 ? 'are' : 'is'} not from a store the Boxly agent can buy from (a marketplace, or no product page). Say ONE short line naming ${unsupported.length > 1 ? 'them' : 'it'} and ask the shopper to take ${unsupported.length > 1 ? 'them' : 'it'} out of the box, or to search the same product live in a store that can.`), unsupported }
           }
           if (await syncBox(box)) return stop('cart_update_failed', 'the cart could not be updated. Say ONE short line that it failed and to tap Finalizar again in a moment.')
-          const fin = await callApi('/cart/finalize', { method: 'POST', token, body: {} })
+          const fin = await callApi('/cart/finalize', { method: 'POST', token, body: conversationId ? { conversation_id: conversationId } : {} })
           if (fin?.ok === false || !fin?.purchase_request_id) return stop('finalize_failed', 'the order could not be placed. Say ONE short line that it failed and to tap Finalizar again in a moment.')
           const stores = [...new Set(wanted.map((w) => w.store_name || w.store_id))]
           return {
