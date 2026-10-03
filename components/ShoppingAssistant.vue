@@ -375,7 +375,7 @@
                   <template v-for="(part, i) in m.parts" :key="'w' + i">
                     <!-- An item held for a size/colour pick returns hold:true; with nothing else in the box there is no box to
                          draw yet, so show the picker alone rather than an empty "Tu caja Boxly 0" card. -->
-                    <LazyShipmentCard v-if="part.type === 'tool-show_shipment' && part.state === 'output-available' && !(part.output?.hold && !part.output?.items?.length) && i === lastShipmentPart(m)" :store-status="user ? itemStatus : null" :shipment="enrichShipment(part.output)" :requested="ordered" @order="onFinalizeShipment" @add="onAddMore" />
+                    <LazyShipmentCard v-if="part.type === 'tool-show_shipment' && part.state === 'output-available' && !(part.output?.hold && !part.output?.items?.length) && i === lastShipmentPart(m)" :store-status="user ? itemStatus : null" :shipment="enrichShipment(part.output)" :requested="orderedBox(m, i)" @order="onFinalizeShipment" @add="onAddMore" />
                     <!-- Sizes/colours with LIVE availability for the item just added (read from its stored URL by show_shipment). -->
                     <!-- The pick happens on the product's PICKER CARD in the chat (Alex, 2026-09-29, replacing the modal of
                          2026-09-11). When the box holds an item for a pick, the chat points at that card (creating it if missing). -->
@@ -2115,9 +2115,20 @@ function trackOrder(ord) {
 }
 
 // Finalizar placed an order from this chat's box (finalize_order — or finalize_lab_order in a Boxly Lab chat
-// from before 2026-09-28): the box's own Finalizar button closes.
+// from before 2026-09-28): THAT box's Finalizar button closes. A box card after the last finalize is a NEW order (one cart
+// per chat, a clean slate after Finalizar — Alex 2026-10-03) and keeps its button.
 const FINALIZE_PARTS = new Set(['tool-finalize_order', 'tool-finalize_lab_order'])
-const ordered = computed(() => chat.messages.some((m) => (m.parts || []).some((p) => FINALIZE_PARTS.has(p.type) && p.output?.purchase_request_id)))
+const lastFinalizeAt = computed(() => {
+  let at = null
+  chat.messages.forEach((m, mi) => (m.parts || []).forEach((p, pi) => { if (FINALIZE_PARTS.has(p.type) && p.output?.purchase_request_id) at = [mi, pi] }))
+  return at
+})
+function orderedBox(m, partIndex) {
+  const at = lastFinalizeAt.value
+  if (!at) return false
+  const mi = chat.messages.indexOf(m)
+  return mi < at[0] || (mi === at[0] && partIndex < at[1])
+}
 
 // THE PICKER CARD IN THE CHAT (Alex, 2026-09-29: "instead of making the variant picker a pop-up modal, make it directly
 // in the chat itself … if I close the modal I have to wait again to open it"). A gallery tap appends the product's card
