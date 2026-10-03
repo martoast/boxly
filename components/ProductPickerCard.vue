@@ -179,7 +179,9 @@ function assisted(pick) {
 }
 // The colourway the shopper is on is part of the choice (the picker only knows this page's own axes).
 function onVariantPick(text, variants = {}) {
-  const c = activeColorway.value?.name
+  // The store's OWN name for this page's colour first (reader own_color, a page with no colour choice — live Gymshark
+  // 2026-10-03: the link's "black" vs the store's "Black/Asphalt Grey" failed the whole store's checkout), else the colourway's
+  const c = read.value?.own_color || activeColorway.value?.name
   const withColour = c && !new RegExp(`color\\s+${c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i').test(text)
     ? text.replace(/ — agrégalos a mi caja$/, `, color ${c} — agrégalos a mi caja`)
     : text
