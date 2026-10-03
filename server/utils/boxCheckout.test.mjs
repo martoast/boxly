@@ -1,5 +1,5 @@
 // Pure tests for server/utils/boxCheckout.ts — the chat box → the Boxly cart, for cart sync and Finalizar.
-import { boxFromMessages, wantedFromBox, planCart, carriedStoreForTitle, storeOptionFixes, withStoreOptions } from './boxCheckout.ts'
+import { boxFromMessages, withEarlierItems, wantedFromBox, planCart, carriedStoreForTitle, storeOptionFixes, withStoreOptions } from './boxCheckout.ts'
 
 let passed = 0, failed = 0
 const check = (name, ok, detail = '') => { if (ok) { passed++; console.log(`  ✓ ${name}`) } else { failed++; console.log(`  ✗ ${name} ${detail}`) } }
@@ -137,6 +137,15 @@ console.log('a line the store is taking')
   check('a FAILED finalize keeps the box', eq(boxFromMessages([ship([A, B]), fin(false)]).map((i) => i.saved_id), ['a', 'b']))
   const sameMsg = { role: 'assistant', parts: [...ship([A]).parts, ...fin(true).parts] }
   check('box then finalize in one message → empty', boxFromMessages([sameMsg]) === null)
+}
+
+// A card that adds keeps what the box held (live 2026-10-03: the Alo items fell out when Gymshark was added)
+{
+  const alo1 = { saved_id: 'a1', name: 'Airlift' }, alo2 = { saved_id: 'a2', name: 'Muse Hoodie' }, gs = { saved_id: 'g1', name: 'Crest Joggers' }
+  check('an add keeps the dropped earlier items, the new one last', eq(withEarlierItems([alo1, alo2], [gs]).map((i) => i.saved_id), ['a1', 'a2', 'g1']))
+  check('a card that adds nothing (a removal) is left as drawn', eq(withEarlierItems([alo1, alo2], [alo1]).map((i) => i.saved_id), ['a1']))
+  check('nothing earlier: unchanged', eq(withEarlierItems(null, [gs]).map((i) => i.saved_id), ['g1']))
+  check('a full card: unchanged', eq(withEarlierItems([alo1], [alo1, gs]).map((i) => i.saved_id), ['a1', 'g1']))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

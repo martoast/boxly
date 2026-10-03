@@ -10,7 +10,7 @@ import { chatModel, isAnthropic, providerOptions, hasModelKey } from '../utils/a
 import { ageGalleries, windowMessages, withContextOnLastUser, dropToolParts, legacyToolsAsText, contextStats, WINDOW_DEFAULTS } from '../utils/chatContext'
 import { generateFollowups, followupPart, followupsWithin, attachFollowupChips } from '../utils/followups'
 import { readSummary, summaryBlock, summarize, shouldSummarize } from '../utils/chatSummary'
-import { boxFromMessages, wantedFromBox, planCart, storeOptionFixes, withStoreOptions, type CarriedStore } from '../utils/boxCheckout'
+import { boxFromMessages, withEarlierItems, wantedFromBox, planCart, storeOptionFixes, withStoreOptions, type CarriedStore } from '../utils/boxCheckout'
 import { pickedColourImage } from '../../utils/pickerLogic'
 import { checkStoreLock } from '../utils/storeLock'
 import { storeHostsFromLiveStores, tagCarriedStores } from '../utils/storeHosts'
@@ -1303,7 +1303,9 @@ export default defineEventHandler(async (event) => {
             color: z.string().describe('The colour/finish the shopper CHOSE, e.g. "Black", "Blue Oasis". Same rule as size.').optional(),
           })).min(1),
         }),
-        execute: async ({ items: input }) => {
+        execute: async ({ items: drawn }) => {
+          // a card that adds never drops what the box already held (the model sometimes lists only the new store's items)
+          const input = withEarlierItems(boxFromMessages(messages), drawn)
           const out: any = await (async (items: any[]) => {
           // The registry is the truth for anything the model would otherwise retype: the box card must show the
           // REAL thumbnail / price / name for a saved_id (the model invented "https://example.com/nike_ultrafly.jpg"
@@ -1670,10 +1672,14 @@ export default defineEventHandler(async (event) => {
           if (unsupported.length) {
             return { ...stop('unsupported_items', `${unsupported.join(', ')} ${unsupported.length > 1 ? 'are' : 'is'} not from a store the Boxly agent can buy from (a marketplace, or no product page). Say ONE short line naming ${unsupported.length > 1 ? 'them' : 'it'} and ask the shopper to take ${unsupported.length > 1 ? 'them' : 'it'} out of the box, or to search the same product live in a store that can.`), unsupported }
           }
-          if (await syncBox(box)) return stop('cart_update_failed', 'the cart could not be updated. Say ONE short line that it failed and to tap Finalizar again in a moment.')
+          // FINALIZAR NEVER REMOVES (live 2026-10-03: the last card listed only the Gymshark items and the sync deleted the two Alo
+          // lines from the order): the chat's cart is the order; this sync only adds or updates what the box card shows.
+          if (await syncBox(box, null, new Set(), { keepOthers: true })) return stop('cart_update_failed', 'the cart could not be updated. Say ONE short line that it failed and to tap Finalizar again in a moment.')
+          const cartNow = await callApi(conversationId ? `/cart?conversation_id=${conversationId}` : '/cart', { token })
           const fin = await callApi('/cart/finalize', { method: 'POST', token, body: conversationId ? { conversation_id: conversationId } : {} })
           if (fin?.ok === false || !fin?.purchase_request_id) return stop('finalize_failed', 'the order could not be placed. Say ONE short line that it failed and to tap Finalizar again in a moment.')
-          const stores = [...new Set(wanted.map((w) => w.store_name || w.store_id))]
+          // every store the order holds (the cart), not only the stores on the last card
+          const stores = [...new Set([...(Array.isArray(cartNow?.items) ? cartNow.items : []), ...wanted].map((w: any) => w.store_name || w.store_id))]
           return {
             ok: true,
             purchase_request_id: fin.purchase_request_id,

@@ -225,3 +225,14 @@ export function planCart(cart: CartLine[], wanted: WantedItem[], opts: { retryUr
   plan.remove.push(...free.map((l) => l.id))
   return plan
 }
+
+/** PURE. A card that ADDS an item keeps every item the previous box card held (live 2026-10-03: moving on to Gymshark, the model
+ *  drew a card with only the Gymshark items and the two Alo items fell out of the order). Items the model left out are put back
+ *  before the new one, which stays last. A card that adds nothing (a removal, a quantity change) is left as the model drew it. */
+export function withEarlierItems(prev: BoxItem[] | null, box: BoxItem[]): BoxItem[] {
+  const key = (it: any) => String(it?.saved_id || it?.url || it?.name || '')
+  const last = box[box.length - 1]
+  if (!prev?.length || !last || prev.some((p) => key(p) === key(last))) return box
+  const missing = prev.filter((p) => !box.some((b) => key(b) === key(p)))
+  return missing.length ? [...box.slice(0, -1), ...missing, last] : box
+}
