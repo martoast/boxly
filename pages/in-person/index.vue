@@ -35,12 +35,13 @@
         <!-- 1) day -->
         <div>
           <h2 class="text-sm font-bold text-gray-700 mb-2">{{ t.step1 }}</h2>
-          <div class="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
-            <button v-for="d in days" :key="d.date" @click="pickDate(d.date)"
-              :class="['shrink-0 w-16 py-2.5 rounded-xl border-2 text-center transition', date === d.date ? 'border-primary-600 bg-primary-50 text-primary-700' : 'border-gray-200 bg-white text-gray-700 hover:border-primary-300']">
-              <span class="block text-[11px] uppercase font-semibold">{{ fmt(d.date, { weekday: 'short' }) }}</span>
-              <span class="block text-xl font-bold leading-tight">{{ fmt(d.date, { day: 'numeric' }) }}</span>
-              <span class="block text-[11px]">{{ fmt(d.date, { month: 'short' }) }}</span>
+          <!-- The next 4 weeks (Alex 2026-10-02: book several weeks ahead): days with no open hours stay visible, greyed. -->
+          <div class="grid grid-cols-7 gap-1.5">
+            <button v-for="d in calendar" :key="d.date" :disabled="!d.open" @click="pickDate(d.date)"
+              :class="['py-2 rounded-xl border-2 text-center transition', !d.open ? 'border-transparent bg-gray-50 text-gray-300 cursor-not-allowed' : date === d.date ? 'border-primary-600 bg-primary-50 text-primary-700' : 'border-gray-200 bg-white text-gray-700 hover:border-primary-300']">
+              <span class="block text-[10px] uppercase font-semibold">{{ fmt(d.date, { weekday: 'short' }) }}</span>
+              <span class="block text-lg font-bold leading-tight">{{ fmt(d.date, { day: 'numeric' }) }}</span>
+              <span class="block text-[10px]">{{ fmt(d.date, { month: 'short' }) }}</span>
             </button>
           </div>
         </div>
@@ -86,7 +87,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { hourOptions, endTime, formatTime, parseDate, readLimits } from '~/utils/inPersonSlots'
+import { hourOptions, endTime, formatTime, parseDate, readLimits, addDays, pacificNow } from '~/utils/inPersonSlots'
 import { showCancelledBanner, isLegacyCancel } from '~/utils/inPersonSuccess'
 
 definePageMeta({
@@ -136,6 +137,12 @@ const loading = ref(true)
 const submitting = ref(false)
 const error = ref('')
 
+// Customers book up to 4 weeks ahead (Alex 2026-10-02); the API answers the same window.
+const BOOKING_DAYS = 28
+const calendar = computed(() => {
+  const today = pacificNow().date
+  return Array.from({ length: BOOKING_DAYS }, (_, i) => addDays(today, i)).map((date) => ({ date, open: days.value.some((d) => d.date === date && d.slots?.length) }))
+})
 const day = computed(() => days.value.find((d) => d.date === date.value) ?? null)
 const slot = computed(() => day.value?.slots.find((s) => s.start_time.substring(0, 5) === start.value) ?? null)
 const maxHours = computed(() => hourOptions(slot.value?.max_consecutive_hours, capHours.value).length)
