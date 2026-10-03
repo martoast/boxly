@@ -25,7 +25,7 @@
       </div>
 
       <!-- Personal shopping at Las Américas (Alex 2026-10-01): a shopper buys for you in person — book your day. -->
-      <NuxtLink to="/in-person" class="group relative block overflow-hidden rounded-[1.6rem] bg-gradient-to-br from-amber-400 via-orange-400 to-rose-500 text-white p-5 md:p-6 mb-3 shadow-lg shadow-orange-500/25 active:scale-[.99] transition">
+      <NuxtLink to="/in-person" class="group relative block overflow-hidden rounded-[1.6rem] bg-gradient-to-br from-primary-500 via-primary-600 to-indigo-700 text-white p-5 md:p-6 mb-3 shadow-lg shadow-primary-600/25 active:scale-[.99] transition">
         <span class="absolute -top-12 -right-10 w-44 h-44 rounded-full bg-white/15 blur-3xl pointer-events-none"></span>
         <div class="relative flex items-center gap-4">
           <span class="grid place-items-center w-12 h-12 rounded-2xl bg-white/20 border border-white/25 text-2xl shrink-0" aria-hidden="true">🛍️</span>
@@ -35,7 +35,7 @@
             <p class="mt-1 text-[13px] text-white/90">Elige tu día y tu horario, y te lo traemos a México.</p>
           </div>
         </div>
-        <span class="relative mt-4 inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-white text-orange-600 text-[14px] font-bold shadow-md group-hover:bg-white/95 transition">
+        <span class="relative mt-4 inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-white text-primary-700 text-[14px] font-bold shadow-md group-hover:bg-white/95 transition">
           Agendar mi día de compras
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
         </span>
