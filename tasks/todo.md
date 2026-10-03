@@ -172,3 +172,11 @@ app still refuses it if some other store invents a new shape.
 - [x] Box card: the item name follows the picked colour (utils/boxlyCart titleForColour, same rule as the API)
 ### Review
 - The cart line, the purchase request and the invoice get the right name from the API; the chat's box card uses the same rule. Tests pass.
+
+## Build the store carts at Finalizar (Alex 2026-10-03: adds are instant; keep shopping; Finalizar builds every cart, 2 stores at once)
+- [x] normalizeCart: the add-time sync UI is on only when the API's sync_on_add is not false
+- [x] assistant: an add's reply confirms it's in the box and pushes for more from that store, then the next store; MODE 3 prompt updated
+- [x] no store pre-open while picking when adds don't sync
+- [x] the picked colour's photo (pickedColourImage from the chat's picker reads) for the cart line and the box card
+- [x] tests: sync gate (boxlyCart), pickedColourImage
+- [ ] API aa7a547 (sync_on_add off, quotes 2 at once) pushed only after the engine proof (multi-item add+checkout from an empty bag, 2 stores at once)

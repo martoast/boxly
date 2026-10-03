@@ -161,7 +161,8 @@ export function normalizeCart(raw: any): Cart {
     item_count: Number.isFinite(Number(c.item_count)) ? Number(c.item_count) : items.reduce((n, i) => n + i.quantity, 0),
     subtotal: num(c.subtotal) ?? 0,
     has_unpriced: typeof c.has_unpriced === 'boolean' ? c.has_unpriced : items.some((i) => i.price === null),
-    sync_enabled: c.sync_enabled === true,
+    // the add-time store sync (live add + status chips): off when the API builds the store carts at Finalizar (sync_on_add false)
+    sync_enabled: c.sync_enabled === true && c.sync_on_add !== false,
     live_sessions: normalizeLiveSessions(c.live_sessions),
   }
 }

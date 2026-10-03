@@ -612,6 +612,7 @@ import { Chat } from '@ai-sdk/vue'
 import { DefaultChatTransport } from 'ai'
 import { useBoxlyCart } from '../composables/useBoxlyCart'
 import { cartPayloadFromChatProduct, variantsText, titleForColour } from '../utils/boxlyCart'
+import { pickedColourImage } from '../utils/pickerLogic'
 import { withLiveRows, newLiveResultMessages } from '../utils/liveGallery'
 import { nextHelpState, preopenUrl } from '../utils/liveShopping'
 import { PICKER_PART } from '../utils/typedPick'
@@ -1406,7 +1407,10 @@ function enrichShipment(shipment) {
   const items = shipment.items.map((raw) => {
     // the name follows the picked colour (Alex 2026-10-03: "… Jacket - Black" shown with White picked)
     const reg = raw.saved_id ? prods.find((p) => p.id === raw.saved_id) : null
-    const it = reg?.url && raw.color ? { ...raw, name: titleForColour(raw.name, reg.url, raw.color) } : raw
+    const named = reg?.url && raw.color ? { ...raw, name: titleForColour(raw.name, reg.url, raw.color) } : raw
+    // …and its photo follows the picked colour too (the picker's own read of that page)
+    const photo = raw.color ? pickedColourImage(chat.messages, raw.url || reg?.url, raw.color) : null
+    const it = photo ? { ...named, image: photo } : named
     if (it.image) return it
     // Prefer the exact registry row by saved_id (catalog + web products carry a stable id),
     // then fall back to a fuzzy title match — so a dropped/long image URL still resolves.
@@ -2208,7 +2212,8 @@ function openProduct(p, { maxAge = 0 } = {}) {
   else { chat.messages = [...chat.messages, msg]; scrollDown(); revealCard(msg.id) }
   readIntoCard(key, product, { maxAge })
   // Pre-open this customer's cart browser for the store while they pick, so "Agregar" starts warm (best-effort).
-  if (user.value && product.store_id && product.url?.startsWith('https://')) $customFetch('/live-shopping/preopen', { method: 'POST', body: { store_id: product.store_id, product_url: preopenUrl(product.url, product.image), ...(activeId.value ? { conversation_id: activeId.value } : {}) } }).catch(() => {})
+  // only when an add fills the store's cart at once (with the carts built at Finalizar there is nothing to warm)
+  if (user.value && boxlyCart.cart.value?.sync_enabled === true && product.store_id && product.url?.startsWith('https://')) $customFetch('/live-shopping/preopen', { method: 'POST', body: { store_id: product.store_id, product_url: preopenUrl(product.url, product.image), ...(activeId.value ? { conversation_id: activeId.value } : {}) } }).catch(() => {})
 }
 // One live read into a card: the first read, "Actualizar disponibilidad", or a colourway (its own page; the set of
 // colourways it belongs to is kept). The server saves each good read to the conversation; here the card updates in place.

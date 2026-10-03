@@ -122,3 +122,34 @@ export function simulatePick(data: any, want: Record<string, string> = {}): { co
   }
   return { complete: isComplete(ctx()), sel, stuckOn: isComplete(ctx()) ? null : (axes.find((a) => !sel[a.name])?.name || 'combination') }
 }
+
+/** PURE. The photo of the colour the shopper PICKED, from the chat's own picker reads (Alex 2026-10-03: "make the image match the
+ *  color"). The newest tool-product_picker read of that page (read_url or the card's url, query ignored) gives the picked colour's
+ *  variant photo, else its swatch, else — when that page IS the picked colourway — the read's own product photo. Null when unknown. */
+export function pickedColourImage(messages: any[], url: string | null | undefined, colour: string | null | undefined): string | null {
+  const page = (u: any) => String(u || '').split(/[?#]/)[0].replace(/\/+$/, '').toLowerCase()
+  const want = page(url)
+  const c = String(colour || '').trim().toLowerCase()
+  if (!want || !c) return null
+  const https = (u: any) => (typeof u === 'string' && /^https:\/\//.test(u) ? u : null)
+  for (let i = (messages || []).length - 1; i >= 0; i--) {
+    const parts = messages[i]?.parts || []
+    for (let j = parts.length - 1; j >= 0; j--) {
+      const p = parts[j]
+      if (p?.type !== 'tool-product_picker' || p.state !== 'output-available') continue
+      const read = p.output?.read
+      if (!read || (page(p.output?.read_url) !== want && page(p.output?.product?.url) !== want)) continue
+      const variants = normalizeVariants(read)
+      const v = variants.find((x) => String(x.color || '').trim().toLowerCase() === c && https(x.image))
+      if (v) return https(v.image)
+      for (const ax of deriveAxes(read, variants)) {
+        const hit = Object.entries(ax.swatches || {}).find(([k]) => k.trim().toLowerCase() === c)
+        if (hit && https(hit[1])) return https(hit[1])
+      }
+      // the read of the picked colourway's own page: its product photo is that colour
+      const own = String(read?.product?.color || read?.product?.colour || '').trim().toLowerCase()
+      if (own === c) return https(read?.product?.image) || https(read?.product?.images?.[0])
+    }
+  }
+  return null
+}

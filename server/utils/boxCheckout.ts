@@ -124,7 +124,7 @@ export function webStoreId(url: any): string | null {
   return id.length >= 3 && id.length <= 40 ? id : null
 }
 
-export function wantedFromBox(box: BoxItem[], savedProducts: any[], carried: CarriedStore[] = []): { wanted: WantedItem[], unsupported: string[] } {
+export function wantedFromBox(box: BoxItem[], savedProducts: any[], carried: CarriedStore[] = [], photoFor: ((url: string, colour: string) => string | null) | null = null): { wanted: WantedItem[], unsupported: string[] } {
   const wanted: WantedItem[] = []
   const unsupported: string[] = []
   const reg = Array.isArray(savedProducts) ? savedProducts : []
@@ -176,7 +176,8 @@ export function wantedFromBox(box: BoxItem[], savedProducts: any[], carried: Car
     else if (saved?.store) w.store_name = String(saved.store).slice(0, 120)
     else if (carriedHit?.name) w.store_name = carriedHit.name.slice(0, 120)
     else if (webHost) w.store_name = webHost.slice(0, 120)
-    const image = https(saved?.image || it.image)
+    // the picked colour's own photo first (Alex 2026-10-03: "make the image match the color"), then the card's
+    const image = https((it.color && photoFor ? photoFor(productUrl, String(it.color)) : null) || saved?.image || it.image)
     if (image) w.image_url = image
     const price = Number(saved?.price ?? it.price)
     if (Number.isFinite(price) && price > 0) w.price = price

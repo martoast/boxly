@@ -9,6 +9,9 @@ const check = (name, ok, detail = '') => { if (ok) { passed++; console.log(`  �
 const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b)
 
 // variants
+// Adds that wait in the Boxly cart (Alex 2026-10-03): the add-time sync UI is off when the API says sync_on_add false
+check('sync_on_add false → no add-time sync', normalizeCart({ items: [], sync_enabled: true, sync_on_add: false }).sync_enabled === false)
+check('sync_on_add true / absent → sync as before', normalizeCart({ items: [], sync_enabled: true, sync_on_add: true }).sync_enabled === true && normalizeCart({ items: [], sync_enabled: true }).sync_enabled === true)
 // The name follows the picked colour (Alex 2026-10-03)
 {
   const url = 'https://www.aloyoga.com/products/w4675r-cropped-micro-plisse-jacket-black'

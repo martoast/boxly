@@ -11,6 +11,7 @@ import { ageGalleries, windowMessages, withContextOnLastUser, dropToolParts, leg
 import { generateFollowups, followupPart, followupsWithin, attachFollowupChips } from '../utils/followups'
 import { readSummary, summaryBlock, summarize, shouldSummarize } from '../utils/chatSummary'
 import { boxFromMessages, wantedFromBox, planCart, storeOptionFixes, withStoreOptions, type CarriedStore } from '../utils/boxCheckout'
+import { pickedColourImage } from '../../utils/pickerLogic'
 import { checkStoreLock } from '../utils/storeLock'
 import { storeHostsFromLiveStores, tagCarriedStores } from '../utils/storeHosts'
 import { resolveLiveStores, liveGalleryQuery, liveResultsAsText, type LiveStore } from '../../utils/liveGallery'
@@ -845,9 +846,9 @@ MODE 2 — PRODUCT DISCOVERY, LIVE IN THE STORES (find things). Every product re
 
 ONE QUESTION BEFORE A VAGUE SEARCH, NEVER MORE. The live browser has to go somewhere SPECIFIC. When the ask is too broad to search a store with — who it is for is missing ("un disfraz de Batman": hombre, mujer o niño are three different products), no product type ("un regalo", "algo para el gym", "ropa"), or only a store name ("Gymshark") — call ask_to_narrow with ONE question and 2-4 tappable answers, in a turn of its own, and say nothing else. The card asks it; do not repeat the question in your text and do not call live_gallery in the same turn. Then search with what they tapped. NEVER ask about size or colour (the picker handles those), never twice in a row, and never for an ask that is already specific — "tenis Nike Pegasus 41" goes straight to live_gallery.
 
-MODE 3 — BUILD THE BOX, THEN FINALIZE (where the money is made). The box IS their real cart: every item the box card shows goes into their Boxly cart, and the Boxly agent puts it in THAT STORE'S REAL CART in a live browser while they keep shopping. Finalizar then runs the real checkouts in each store (live in the chat), creates their purchase request and sends the invoice with its Stripe payment link.
+MODE 3 — BUILD THE BOX, THEN FINALIZE (where the money is made). The box IS their real cart: every item the box card shows goes into their Boxly cart at once, and they keep shopping. The point is to CONSOLIDATE several stores into one box: after each add, push for more from that store, then for the next store. When they tap Finalizar, the Boxly agent fills each store's REAL cart and checks out (live in the chat), creates their purchase request and sends the invoice with its Stripe payment link.
   ⓪ PICK, THEN ADD. When the shopper picks a product from the gallery ("quiero ese", "el segundo", a tap on "Agregar"), call show_shipment with EVERY item in the box — each with its saved_id (the registry id of the product), quantity and packing type. A product with real sizes/colours comes back "NOT IN THE BOX" and its picker card in the chat shows the options: say one line asking for the pick, never claim it was added, and add it on the NEXT turn with size/color set. When the shopper TYPES their choice for a product whose picker card is in the chat ("la negra en talla 9"), call show_shipment adding that product (its saved_id) with what they said — the box checks their words against the card and adds it only on an exact, in-stock match; otherwise it tells you what to ask. A product with nothing to choose is added immediately.
-  ① ADDED ≠ IN THE STORE'S CART. After show_shipment the agent is still putting it in the store's cart: write EXACTLY the line the tool's note gives — nothing else (no "listo", no link, no box space, no "¿algo más?", no Finalizar: those come after the store confirms). A separate automatic message confirms it (or says the store refused it); only then is it in the cart.
+  ① AFTER show_shipment, FOLLOW THE TOOL'S NOTE EXACTLY. Its note says whether the item is now in their box (the store cart is built at Finalizar: confirm it and push for more from that store, then other stores) or being put in the store's cart live (then write EXACTLY the line it gives, nothing else). Never claim an item is in a STORE's cart unless a message says the store confirmed it.
   ② A PASTED PRODUCT LINK is a product they already chose: add it with show_shipment (pass url, and a short name from the link). The box reads the product page itself — photo, price, sizes/colours — and the same pick-then-add rule applies. (A marketplace link — Amazon, eBay, Walmart, Target… — cannot be bought by the agent: the tool says so; offer the same kind of product from a store on LIVE STORES.)
   ③ FINALIZE ONLY WHEN THEY'RE DONE — "eso es todo", "ya", "créala", "haz el pedido", "finaliza", or the "Finalizar carrito" button. Then call finalize_order (no input): it places the order from the box and the checkout card shows each store's live checkout, the real totals and the invoice with Pagar. Do NOT ask for anything first and do NOT make them confirm twice. Adding items NEVER places the order.
   ⚑ AFTER A FINALIZE, A NEW BOX. Once finalize_order succeeded, that box is CLOSED (its order is placed). If they keep shopping in this chat, it is a NEW order: the next show_shipment lists ONLY the items added after the finalize — never re-list what was already ordered.
@@ -995,11 +996,14 @@ export default defineEventHandler(async (event) => {
     const last = box[box.length - 1]
     return !!last && !prev.some((p: any) => key(p) === key(last))
   }
+  let syncOnAdd = true   // set by syncBox from the API's cart (sync_on_add)
   async function syncBox(box: any[], retryUrl: string | null = null, sent: Set<string> = new Set(), { keepOthers = false } = {}): Promise<string | null> {
-    const { wanted } = wantedFromBox(box, storeRegistry, carriedStores)
+    const { wanted } = wantedFromBox(box, storeRegistry, carriedStores, (u, c) => pickedColourImage(messages, u, c))
     // This chat's own cart (one cart per chat, Alex 2026-10-03)
     const cart = await callApi(conversationId ? `/cart?conversation_id=${conversationId}` : '/cart', { token })
     if (cart?.ok === false || !Array.isArray(cart?.items)) return 'cart_unavailable'
+    // false: an add waits in the Boxly cart and the store carts are built at Finalizar (Alex 2026-10-03)
+    syncOnAdd = cart?.sync_on_add !== false
     // Lines the box no longer holds go first (so a variant change can never collide with them).
     const plan = planCart(cart.items, wanted, { retryUrl })
     if (keepOthers) plan.remove = []
@@ -1536,7 +1540,16 @@ export default defineEventHandler(async (event) => {
               const n = `STORE CART: "${unsupportedAdd}" is not from a store the Boxly agent can buy from (a marketplace like Amazon/eBay/Walmart/Target, or no product page), so it will NOT go into a real store cart and Finalizar will refuse it. Tell the shopper in ONE short line (Spanish) that you can't add this one automatically, and offer to search the same kind of product live in a store that can. Do NOT say it was added to a cart.`
               out.note = out.note ? `${out.note}\n\n${n}` : n
             }
-            if (added && !lock && sent.has(added.product_url)) {
+            if (added && !lock && sent.has(added.product_url) && !syncOnAdd) {
+              // AN ADD IS INSTANT (Alex 2026-10-03: "boom, add it to cart and then just keep browsing … once they're done,
+              // they click to finalize, and now they have all the carts built from multiple stores"). Nothing goes to the
+              // store yet: the item is in their box, and the push is to keep consolidating — this store first, then others.
+              const store = added.store_name || added.store_id
+              out.store_cart = 'in_box'
+              const boxNote = `IN THE BOX: "${added.title}" is in their Boxly box now (their options are saved). The store's real cart is built later, when they tap Finalizar, together with every other store, so do NOT say it is in ${store}'s cart and do NOT mention any live browser or video. Reply in Spanish with at most TWO short lines: (1) confirm it is in their box ✅, (2) push to consolidate: ask whether they want anything else from ${store}, and if not, which other store they want to shop next (everything ships together in one box, so more stores = better use of the same shipment). Mention Finalizar only as the step for when they are done shopping. No list, no link.`
+              out.note = out.note ? `${out.note}\n\n${boxNote}` : boxNote
+            }
+            if (added && !lock && sent.has(added.product_url) && syncOnAdd) {
               const store = added.store_name || added.store_id
               out.store_cart = 'adding'
               // EXACT text, like the store-cart result's (Alex 2026-10-01: "¿…o pasamos a finalizar?" came while the agent was
@@ -1666,7 +1679,7 @@ export default defineEventHandler(async (event) => {
             purchase_request_id: fin.purchase_request_id,
             request_number: fin.request_number ?? null,
             stores,
-            note: `DONE — the order is placed and the checkout card is on screen. The Boxly agent is now checking out the real cart at ${stores.join(', ')} to our warehouse (the items went into those carts while they shopped); the card shows it live, then each store's real total, then the invoice with its Pagar button. Say ONE short line in Spanish, like: "¡Listo! Estoy haciendo el checkout en ${stores.join(' y ')} para sacar el total real — míralo en vivo aquí 👇". Do NOT state prices, totals or the request number, and call no other tool.`,
+            note: `DONE — the order is placed and the checkout card is on screen. The Boxly agent is now filling the real cart at ${stores.join(', ')} and checking out to our warehouse; the card shows it live, then each store's real total, then the invoice with its Pagar button. Say ONE short line in Spanish, like: "¡Listo! Estoy haciendo el checkout en ${stores.join(' y ')} para sacar el total real — míralo en vivo aquí 👇". Do NOT state prices, totals or the request number, and call no other tool.`,
           }
         },
       }),
