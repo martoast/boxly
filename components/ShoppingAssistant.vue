@@ -388,7 +388,7 @@
                          is the same card in chats from the Boxly Lab days, before 2026-09-28.) -->
                     <LazyCheckoutCard v-else-if="FINALIZE_PARTS.has(part.type) && part.state === 'output-available' && part.output?.purchase_request_id" :purchase-request-id="part.output.purchase_request_id" :request-number="part.output.request_number" @watch="watchLive" :part="hasInvoiceMessage(part.output.purchase_request_id) ? 'progress' : 'all'" @store-done="(d) => onStoreDone(part.output.purchase_request_id, d)" @invoice-ready="(r) => onInvoiceReady(part.output.purchase_request_id, part.output.request_number, r)" />
                     <!-- The invoice, posted after the store lines (Alex 2026-10-05) -->
-                    <LazyCheckoutCard v-else-if="part.type === 'data-invoice' && part.data?.purchase_request_id" :purchase-request-id="part.data.purchase_request_id" :request-number="part.data.request_number" part="invoice" />
+                    <LazyCheckoutCard v-else-if="part.type === 'data-invoice' && part.data?.purchase_request_id && part.data.kind !== 'manual'" :purchase-request-id="part.data.purchase_request_id" :request-number="part.data.request_number" part="invoice" />
                     <div v-else-if="FINALIZE_PARTS.has(part.type) && (part.state === 'input-streaming' || part.state === 'input-available')" class="flex items-center gap-2 text-xs text-gray-400 pl-1">
                       <svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
                       Preparando tu pedido…
@@ -691,24 +691,34 @@ function onStoreDone(requestId, { store_id, text }) {
   // Mid-stream an append would split the reply being streamed: wait (in order) until the chat is ready.
   if (isBusy.value) { storeDoneQueue.push(msg); return }
   chat.messages = [...chat.messages, msg]
+  persistLocalLines([msg])
   syncLocalThread()
   scrollDown()
 }
 const storeDoneQueue = []
+// The order's own lines (a store finished, the invoice, what's next) are saved to the chat like any other message, so a
+// reload or another device shows them in the same place. Best effort: a failed save only loses them on reload.
+function persistLocalLines(msgs) {
+  const cid = activeId.value
+  if (!cid || !msgs.length) return
+  $customFetch(`/conversations/${cid}/messages`, { method: 'POST', body: { messages: msgs.map((m) => ({ role: 'assistant', content: { parts: m.parts } })) } })
+    .catch((e) => console.warn('order lines not saved', e?.data?.message || e))
+}
 // THE INVOICE AFTER THE STORE LINES, THEN WHAT HAPPENS NEXT (Alex 2026-10-05: "the message telling me each store was
 // ready should have come before the invoice, and after the invoice … what you need to do and what the process is").
 // Two local assistant lines (no model), once per order: the invoice (a text line + the invoice card), then the next steps.
-const hasInvoiceMessage = (requestId) => chat.messages.some((m) => m.id === `invoice-${requestId}`)
+const hasInvoiceMessage = (requestId) => chat.messages.some((m) => m.id === `invoice-${requestId}` || (m.parts || []).some((p) => p?.type === 'data-invoice' && Number(p.data?.purchase_request_id) === Number(requestId)))
 function onInvoiceReady(requestId, requestNumber, { kind }) {
   if (hasInvoiceMessage(requestId)) return
   const invoice = { id: `invoice-${requestId}`, role: 'assistant', parts: kind === 'invoice'
     ? [{ type: 'text', text: 'Aquí está tu factura final 👇' }, { type: 'data-invoice', data: { purchase_request_id: requestId, request_number: requestNumber || null } }]
-    : [{ type: 'text', text: 'Ya tengo los totales de tus tiendas. Nuestro equipo revisa tu pedido y te manda la factura por WhatsApp 📲' }] }
+    : [{ type: 'text', text: 'Ya tengo los totales de tus tiendas. Nuestro equipo revisa tu pedido y te manda la factura por WhatsApp 📲' }, { type: 'data-invoice', data: { purchase_request_id: requestId, kind: 'manual' } }] }
   const next = { id: `invoice-next-${requestId}`, role: 'assistant', parts: [{ type: 'text', text: kind === 'invoice'
     ? '¿Y ahora qué sigue? 🙌\n\n1️⃣ Paga tu factura con el botón Pagar (también te llegó a tu correo).\n\n2️⃣ En cuanto se confirme tu pago, nuestro equipo compra tus productos en cada tienda y los envía a nuestra bodega en San Diego.\n\n3️⃣ Te avisamos cuando lleguen y preparamos tu caja para mandarla a México (el envío de la caja se cotiza aparte).\n\nSi tienes cualquier duda, escríbeme aquí.'
     : '¿Y ahora qué sigue? 🙌\n\n1️⃣ Te mandamos la factura por WhatsApp; págala con el enlace.\n\n2️⃣ En cuanto se confirme tu pago, nuestro equipo compra tus productos en cada tienda y los envía a nuestra bodega en San Diego.\n\n3️⃣ Te avisamos cuando lleguen y preparamos tu caja para mandarla a México (el envío de la caja se cotiza aparte).' }] }
   if (isBusy.value) { storeDoneQueue.push(invoice, next); return }
   chat.messages = [...chat.messages, invoice, next]
+  persistLocalLines([invoice, next])
   syncLocalThread()
   scrollDown()
 }
@@ -2192,7 +2202,9 @@ const cardQueue = []
 const queuedCard = (key) => cardQueue.find((m) => cardKey(cardProduct(m.parts[0])?.url) === key)
 function flushCardQueue() {
   if (!cardQueue.length && !storeDoneQueue.length) return
-  chat.messages = [...chat.messages, ...cardQueue.splice(0), ...storeDoneQueue.splice(0)]
+  const lines = storeDoneQueue.splice(0)
+  chat.messages = [...chat.messages, ...cardQueue.splice(0), ...lines]
+  if (lines.length) persistLocalLines(lines)
   syncLocalThread()
   scrollDown()
 }
