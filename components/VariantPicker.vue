@@ -33,7 +33,7 @@
       </div>
       <!-- MANY COLOURS SWIPE SIDEWAYS (Alex 2026-10-05: New Balance's 9060 lists one long colour name per line and the
            phone could not slide through them): one row that scrolls horizontally, the picked one scrolled into view. -->
-      <div v-else :class="swipes(ax) ? 'flex flex-nowrap gap-1.5 overflow-x-auto overscroll-x-contain snap-x pb-1.5 -mx-1 px-1 [scrollbar-width:thin]' : 'flex flex-wrap gap-1.5'" :data-swipe-row="swipes(ax) ? ax.name : null">
+      <div v-else :class="swipes(ax) ? 'flex flex-nowrap md:flex-wrap gap-1.5 overflow-x-auto md:overflow-visible overscroll-x-contain snap-x pb-1.5 md:pb-0 -mx-1 px-1 [scrollbar-width:thin]' : 'flex flex-wrap gap-1.5'" :data-swipe-row="swipes(ax) ? ax.name : null">
         <button
           v-for="val in ax.values" :key="val" type="button" :data-picked="sel[ax.name] === val ? '1' : null"
           @click="canPick(ax, val) && pick(ax.name, val)" :disabled="busy || !canPick(ax, val)"

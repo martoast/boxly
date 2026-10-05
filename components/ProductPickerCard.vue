@@ -5,8 +5,9 @@
   <!-- ON DESKTOP A PRODUCT PAGE (Alex 2026-10-05: "on desktop you have a lot more space … make it like a full product
        details thing, the way they're used to it in the store"): a big photo with its gallery on the left, the details and
        options on the right. The phone keeps the compact card. -->
-  <div class="rounded-2xl border border-gray-200 bg-white shadow-sm max-w-md md:max-w-none md:w-full overflow-hidden md:flex">
-    <div class="hidden md:flex md:flex-col md:w-[44%] shrink-0 bg-gray-50 border-r border-gray-100 p-3 gap-2">
+  <div class="rounded-2xl border border-gray-200 bg-white shadow-sm max-w-md md:max-w-none md:w-full overflow-hidden md:overflow-visible md:flex">
+    <div class="hidden md:block md:w-[44%] shrink-0 bg-gray-50 border-r border-gray-100 p-3 md:rounded-l-2xl">
+     <div class="md:sticky md:top-3 flex flex-col gap-2">
       <div class="aspect-square rounded-xl bg-white overflow-hidden grid place-items-center">
         <img v-if="image" :src="image" :alt="product.title || ''" referrerpolicy="no-referrer" class="w-full h-full object-contain" @error="broken = image" />
         <span v-else class="text-sm font-bold text-gray-300 uppercase">{{ product.store_name || '' }}</span>
@@ -17,6 +18,7 @@
           <img :src="u" alt="" referrerpolicy="no-referrer" loading="lazy" class="w-full h-full object-cover" />
         </button>
       </div>
+     </div>
     </div>
     <div class="min-w-0 flex-1">
     <div class="flex gap-3 p-3 md:pt-4">
