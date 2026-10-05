@@ -21,6 +21,14 @@ check('the newest card wins', eq(boxFromMessages([ship([A]), { role: 'user', par
 check('a held last item is not in the box', eq(boxFromMessages([ship([A, B], { hold: true })]), [A]))
 check('a card still streaming is ignored', eq(boxFromMessages([ship([A]), { role: 'assistant', parts: [{ type: 'tool-show_shipment', state: 'input-available', input: { items: [B] } }] }]), [A]))
 {
+  // Live 2026-10-05: YoungLA tee, then Gymshark leggings (the model's input held ONLY the leggings; the card merged the tee in),
+  // then New Balance: the third card must keep the tee. The box is the card's merged list (output.box_items), not its input.
+  const T = { saved_id: 't', name: 'Tee' }, L = { saved_id: 'l', name: 'Leggings' }, N = { saved_id: 'n', name: '9060' }
+  const card2 = { role: 'assistant', parts: [{ type: 'tool-show_shipment', state: 'output-available', input: { items: [L] }, output: { box_items: [T, L] } }] }
+  check('the box is the card\'s merged list, not the model\'s partial input', eq(boxFromMessages([ship([T]), card2]), [T, L]))
+  check('…so a third add keeps the first store', eq(withEarlierItems(boxFromMessages([ship([T]), card2]), [N]), [T, L, N]))
+}
+{
   // Live Gymshark 2026-09-28: the model said "negro" for a page that IS the black colourway (sizes only).
   const G = { saved_id: 'g', name: 'Everyday Seamless Leggings', size: 'S', color: 'negro' }
   const fixedBox = boxFromMessages([ship([G], { store_options: [{ key: 'g', size: 'S (4-6)', color: null }] }), { role: 'user', parts: [] }, ship([A, G])])

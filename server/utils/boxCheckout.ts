@@ -70,7 +70,8 @@ export function boxFromMessages(messages: any[]): BoxItem[] | null {
       // already placed — the box after it starts empty, and anything added later is a new cart and a new purchase request.
       if (p?.type === 'tool-finalize_order' && p.state === 'output-available' && p.output?.ok === true) return null
       if (p?.type !== 'tool-show_shipment' || p.state !== 'output-available') continue
-      const items: BoxItem[] = (Array.isArray(p.input?.items) ? p.input.items : []).map(fixed)
+      // The box as the card drew it (output.box_items: earlier items merged in); the model's own input only on older cards.
+      const items: BoxItem[] = (Array.isArray(p.output?.box_items) ? p.output.box_items : Array.isArray(p.input?.items) ? p.input.items : []).map(fixed)
       return p.output?.hold ? items.slice(0, -1) : items
     }
   }

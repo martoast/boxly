@@ -1510,6 +1510,10 @@ export default defineEventHandler(async (event) => {
           }
           return ship
           })(input)
+          // THE WHOLE BOX, as drawn (live 2026-10-05: the model sent only the new item, so this card's INPUT held one item;
+          // the next add rebuilt the box from that input and the first store's product disappeared). The next card merges
+          // onto this list, never onto the model's partial input (boxFromMessages).
+          if (out && typeof out === 'object') out.box_items = input
           // What the card shows goes into the Boxly cart now (a held last item is not in the box yet), and
           // the item just added is checked for a store that closed its whole site (drop / waiting room) — the
           // agent's live browser will show that page, so the chat says it in words.
