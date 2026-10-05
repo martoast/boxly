@@ -3,6 +3,7 @@
        and checks out to the warehouse; this card follows it — which store it is on (watch it live), each
        store's real total, then the automatic invoice with Pagar. Everything stays in the thread. -->
   <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-4 max-w-sm w-full">
+    <template v-if="part !== 'invoice'">
     <div class="flex items-center justify-between gap-2">
       <p class="text-sm font-bold text-gray-900">Tu pedido<span v-if="requestNumber" class="font-medium text-gray-500"> · {{ requestNumber }}</span></p>
       <span v-if="working" class="inline-flex items-center gap-1.5 text-[11px] font-semibold text-primary-700 bg-primary-50 px-2 py-0.5 rounded-full">
@@ -40,10 +41,14 @@
       <li v-if="!quotes.length" class="py-2.5 text-[12px] text-gray-500">{{ loadError ? 'No pudimos cargar tu pedido.' : 'Preparando…' }}</li>
     </ul>
 
+    </template>
+    <!-- THE INVOICE COMES AFTER THE STORE LINES (Alex 2026-10-05): in a chat that has its own invoice message, this card
+         ('progress') shows the stores only and the invoice message ('invoice') shows the invoice only. -->
+    <template v-if="part !== 'progress'">
     <!-- THE FINAL INVOICE (Alex 2026-09-28: "here is your final invoice payment link for all the products they added
          to the box … with the Stripe logo, so it looks very official"): every product, each store's verified
          shipping and tax to the warehouse, the Boxly commission, the total, and Stripe's secure payment. -->
-    <div v-if="summary || invoiceReady" class="mt-3 rounded-2xl border border-gray-200 overflow-hidden">
+    <div v-if="summary || invoiceReady" :class="part === 'invoice' ? '' : 'mt-3'" class="rounded-2xl border border-gray-200 overflow-hidden">
       <div class="px-3.5 pt-3 pb-2.5 bg-gray-50 border-b border-gray-100">
         <div class="flex items-center justify-between gap-2">
           <p class="text-[15px] font-bold text-gray-900">Tu factura final</p>
@@ -147,6 +152,7 @@
     <p v-else-if="paid" class="mt-3 text-sm font-semibold text-green-700">Pagado ✓ — compramos tus productos y te avisamos.</p>
     <p v-else-if="settledWithoutInvoice && waitingInvoice" class="mt-3 text-xs text-gray-600">Preparando tu factura…</p>
     <p v-else-if="settledWithoutInvoice" class="mt-3 text-xs text-gray-600">Nuestro equipo revisa tu pedido y te envía la factura por WhatsApp.</p>
+    </template>
   </div>
 </template>
 
@@ -155,8 +161,8 @@ import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { formatCents, quoteStepLabel, quoteInFlight, quoteTerminal, storeStateLabel, nextStoreName, storeDoneMessage, dropReason, summaryRows, summaryLineDetail, summaryTotal, lineUnavailable, type StoreQuote, type CheckoutSummary } from '~/utils/storeQuotes'
 
 // No "Ver en vivo" (Alex 2026-10-04): the shopper does not watch the checkout; the invoice is emailed.
-const props = withDefaults(defineProps<{ purchaseRequestId: number, requestNumber?: string | null, liveVideo?: boolean }>(), { liveVideo: true })
-const emit = defineEmits<{ (e: 'watch', session: any): void, (e: 'live', session: any): void, (e: 'store-done', done: { store_id: string, text: string }): void }>()
+const props = withDefaults(defineProps<{ purchaseRequestId: number, requestNumber?: string | null, liveVideo?: boolean, part?: 'all' | 'progress' | 'invoice' }>(), { liveVideo: true, part: 'all' })
+const emit = defineEmits<{ (e: 'watch', session: any): void, (e: 'live', session: any): void, (e: 'store-done', done: { store_id: string, text: string }): void, (e: 'invoice-ready', ready: { kind: 'invoice' | 'manual' }): void }>()
 
 const { $customFetch } = useNuxtApp() as any
 const request = ref<any>(null)
@@ -218,6 +224,15 @@ function announceDone() {
   })
   firstLoad = false
 }
+// The outcome (an invoice, or the team will send it) reached WHILE the card was open → the chat posts the invoice and
+// what happens next after the store lines (Alex 2026-10-05). Already final on the first load (a reopened chat): nothing.
+let invoiceSeenFinal: boolean | null = null
+function announceInvoice() {
+  if (props.part !== 'all') return
+  const kind = invoiceReady.value || paid.value ? 'invoice' : settledWithoutInvoice.value && !waitingInvoice.value ? 'manual' : null
+  if (invoiceSeenFinal === null) { invoiceSeenFinal = !!kind; return }
+  if (kind && !invoiceSeenFinal) { invoiceSeenFinal = true; emit('invoice-ready', { kind }) }
+}
 watch(() => running.value?.live_session_id ?? null, () => emit('live', running.value ? sessionOf(running.value) : null))
 
 async function load() {
@@ -230,6 +245,7 @@ async function load() {
   } catch { errors++; loadError.value = !request.value }
   if (stopped || errors >= 5) return
   if (settledWithoutInvoice.value) settledPolls.value++
+  announceInvoice()
   // Poll while the agent works, then a little longer for the invoice (it goes out right after the last store settles).
   const more = !request.value || working.value || (settledWithoutInvoice.value && waitingInvoice.value)
   if (more) timer = setTimeout(load, working.value ? 4000 : 8000)
