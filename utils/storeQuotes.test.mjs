@@ -1,5 +1,5 @@
 // Pure tests for utils/storeQuotes.ts — automatic checkout quotes per store (C5).
-import { quoteInFlight, storeQuotesNeedPoll, formatCents, storeQuoteLabel, storeQuoteRows, currentQuote, storeStateLabel, nextStoreName, storeDoneMessage, summaryRows, summaryLineDetail, summaryTotal, lineUnavailable } from './storeQuotes.ts'
+import { quoteInFlight, storeQuotesNeedPoll, formatCents, storeQuoteLabel, storeQuoteRows, currentQuote, storeStateLabel, nextStoreName, storeDoneMessage, summaryRows, summaryLineDetail, summaryTotal, lineUnavailable, quoteStepLabel } from './storeQuotes.ts'
 
 let passed = 0, failed = 0
 const check = (name, ok, detail = '') => { if (ok) { passed++; console.log(`  ✓ ${name}`) } else { failed++; console.log(`  ✗ ${name} ${detail}`) } }
@@ -50,6 +50,20 @@ check('summary: manual default reason', summaryTotal(sum({ invoice_mode: 'manual
 check('summary: manual but invoiced pays', summaryTotal(sum({ invoice_mode: 'manual', invoiced: true, invoice_total_cents: 4100 })).canPay)
 check('summary: every store failed hides the total', summaryTotal(sum({ stores: [{ ...sumStore, included: false }], total_cents: 0 })).kind === 'hidden' && !summaryTotal(sum({ stores: [{ ...sumStore, included: false }], invoice_mode: 'manual' })).canPay)
 check('unavailable lines', lineUnavailable({ state: 'unavailable' }) && !lineUnavailable({ state: 'ok' }) && !lineUnavailable({}))
+
+// What the agent is doing at each store (Alex 2026-10-05)
+{
+  const t0 = Date.parse('2026-10-05T12:00:00Z')
+  const run = (secs) => quoteStepLabel({ status: 'running', store_id: 'gymshark', store_name: 'Gymshark', total_cents: null, running_since: '2026-10-05T12:00:00Z' }, t0 + secs * 1000)
+  check('step: just started → opening the store', run(5) === 'Abriendo Gymshark…')
+  check('step: adding the products', /Agregando tus productos/.test(run(30)))
+  check('step: the warehouse address', /dirección de nuestra bodega/.test(run(70)))
+  check('step: shipping and tax', /envío e impuestos/.test(run(110)))
+  check('step: stays on the last step', /total real/.test(run(600)))
+  check('step: waiting store', /En fila/.test(quoteStepLabel({ status: 'pending', store_id: 'x', store_name: null, total_cents: null }, t0)))
+  check('step: done', /total verificado/.test(quoteStepLabel({ status: 'verified', store_id: 'x', store_name: 'X', total_cents: 100 }, t0)))
+  check('step: failed shows its reason', quoteStepLabel({ status: 'failed', store_id: 'x', store_name: 'X', total_cents: null, reason: 'Sin stock' }, t0) === 'Sin stock')
+}
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed) process.exit(1)

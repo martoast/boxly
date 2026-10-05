@@ -18,6 +18,12 @@ export interface StoreQuote {
   total_cents: number | null
   /** The store browser taking this quote while it runs (watchable in the chat). */
   live_session_id?: number | null
+  /** What goes into this store's cart (Alex 2026-10-05: the order card shows it, with photos). */
+  lines?: { title: string | null, image_url: string | null, quantity: number, variants: Record<string, string> }[]
+  /** When this store's run began (running only), for the step-by-step status. */
+  running_since?: string | null
+  /** A short Spanish reason the store is not in the invoice (failed only). */
+  reason?: string | null
   // team only
   evidence?: string[]
   error_code?: string | null
@@ -94,6 +100,31 @@ export function quoteDone(q: Pick<StoreQuote, 'status' | 'total_cents'>): boolea
 }
 
 /** The row label: En curso / En espera / Listo / No cotizada. */
+/** The steps a store's run goes through, with the second (since it began) each one usually starts. */
+const QUOTE_STEPS: [number, (store: string) => string][] = [
+  [0, (s) => `Abriendo ${s}…`],
+  [20, () => 'Agregando tus productos al carrito de la tienda…'],
+  [60, () => 'Poniendo la dirección de nuestra bodega en San Diego…'],
+  [100, () => 'Calculando envío e impuestos…'],
+  [140, () => 'Revisando el total real…'],
+]
+/** PURE. What the agent is doing at this store, in words (Alex 2026-10-05: "a status that tells you what the agent is
+ *  doing"): waiting, the step of a running store (by how long it has run), or how it ended. */
+export function quoteStepLabel(q: Pick<StoreQuote, 'status' | 'total_cents' | 'store_name' | 'store_id' | 'running_since' | 'reason'>, nowMs: number): string {
+  const s = q.store_name || q.store_id
+  if (q.status === 'pending') return 'En fila · empieza al terminar la tienda anterior'
+  if (q.status === 'running') {
+    const since = q.running_since ? Date.parse(q.running_since) : NaN
+    const secs = Number.isFinite(since) ? Math.max(0, (nowMs - since) / 1000) : 0
+    let label = QUOTE_STEPS[0][1](s)
+    for (const [at, text] of QUOTE_STEPS) if (secs >= at) label = text(s)
+    return label
+  }
+  if (q.status === 'verified') return 'Listo · total verificado en la tienda'
+  if (q.status === 'partial') return 'Listo · algunos productos no estaban disponibles'
+  return q.reason || 'Lo revisa nuestro equipo'
+}
+
 export function storeStateLabel(q: Pick<StoreQuote, 'status' | 'total_cents'>): string {
   if (q.status === 'running') return 'En curso'
   if (q.status === 'pending') return 'En espera'

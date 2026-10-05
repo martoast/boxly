@@ -17,10 +17,25 @@
         <div class="flex items-start justify-between gap-3">
           <div class="min-w-0">
             <div class="text-[13px] font-semibold text-gray-900 truncate">{{ q.store_name || q.store_id }}</div>
-            <div class="text-[11px] mt-0.5" :class="statusClass(q)">{{ storeStateLabel(q) }}</div>
+            <!-- What the agent is doing at this store (Alex 2026-10-05) -->
+            <div class="text-[11.5px] mt-0.5 flex items-center gap-1.5" :class="statusClass(q)">
+              <span v-if="q.status === 'running'" class="relative flex h-2 w-2 shrink-0"><span class="absolute inline-flex h-full w-full rounded-full bg-primary-400 opacity-75 animate-ping"></span><span class="relative inline-flex h-2 w-2 rounded-full bg-primary-500"></span></span>
+              <span>{{ quoteStepLabel(q, now) }}</span>
+            </div>
           </div>
           <div v-if="billable(q)" class="text-right shrink-0 text-[13px] font-bold text-gray-900 tabular-nums">{{ formatCents(q.total_cents, q.currency) }}</div>
         </div>
+        <!-- The products going into this store's cart, with their photos -->
+        <ul v-if="q.lines?.length" class="mt-2 space-y-1.5">
+          <li v-for="(l, i) in q.lines" :key="i" class="flex items-center gap-2.5 min-w-0">
+            <img v-if="l.image_url" :src="l.image_url" alt="" referrerpolicy="no-referrer" loading="lazy" class="w-10 h-10 rounded-lg object-cover bg-gray-100 shrink-0" />
+            <div v-else class="w-10 h-10 rounded-lg bg-gray-100 shrink-0" />
+            <div class="min-w-0 flex-1">
+              <p class="text-[12px] text-gray-800 leading-snug truncate">{{ l.title }}</p>
+              <p class="text-[11px] text-gray-500 truncate">{{ [Object.values(l.variants || {}).filter(Boolean).join(' · '), l.quantity > 1 ? `×${l.quantity}` : ''].filter(Boolean).join(' · ') }}</p>
+            </div>
+          </li>
+        </ul>
       </li>
       <li v-if="!quotes.length" class="py-2.5 text-[12px] text-gray-500">{{ loadError ? 'No pudimos cargar tu pedido.' : 'Preparando…' }}</li>
     </ul>
@@ -137,7 +152,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
-import { formatCents, quoteInFlight, quoteTerminal, storeStateLabel, nextStoreName, storeDoneMessage, dropReason, summaryRows, summaryLineDetail, summaryTotal, lineUnavailable, type StoreQuote, type CheckoutSummary } from '~/utils/storeQuotes'
+import { formatCents, quoteStepLabel, quoteInFlight, quoteTerminal, storeStateLabel, nextStoreName, storeDoneMessage, dropReason, summaryRows, summaryLineDetail, summaryTotal, lineUnavailable, type StoreQuote, type CheckoutSummary } from '~/utils/storeQuotes'
 
 // No "Ver en vivo" (Alex 2026-10-04): the shopper does not watch the checkout; the invoice is emailed.
 const props = withDefaults(defineProps<{ purchaseRequestId: number, requestNumber?: string | null, liveVideo?: boolean }>(), { liveVideo: true })
@@ -219,6 +234,10 @@ async function load() {
   const more = !request.value || working.value || (settledWithoutInvoice.value && waitingInvoice.value)
   if (more) timer = setTimeout(load, working.value ? 4000 : 8000)
 }
+// The steps move with the clock while a store runs.
+const now = ref(Date.now())
+const clock = setInterval(() => { if (working.value) now.value = Date.now() }, 4000)
+onBeforeUnmount(() => clearInterval(clock))
 onMounted(load)
 onBeforeUnmount(() => { stopped = true; clearTimeout(timer); if (running.value) emit('live', null) })
 </script>
