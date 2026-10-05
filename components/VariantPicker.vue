@@ -1,5 +1,5 @@
 <template>
-  <div class="rounded-2xl border border-gray-200 bg-white p-4 max-w-md shadow-sm">
+  <div ref="pickerRoot" class="rounded-2xl border border-gray-200 bg-white p-4 max-w-md shadow-sm min-w-0">
     <!-- freshness. ONE statement, never two that disagree: the card used to say "Disponibilidad verificada ·
          hace un momento" and "disponibilidad por confirmar" side by side on the same read (Alex, 2026-09-11:
          "why does it say disponibilidad por confirmar when we already did the pull"). The per-size counts only
@@ -31,12 +31,14 @@
           <span v-if="canPick(ax, val) && isLow(ax, val)" class="absolute -top-1 -right-1 text-[9px] font-bold text-amber-700 bg-amber-100 rounded-full px-1 leading-4">¡pocas!</span>
         </button>
       </div>
-      <div v-else class="flex flex-wrap gap-1.5">
+      <!-- MANY COLOURS SWIPE SIDEWAYS (Alex 2026-10-05: New Balance's 9060 lists one long colour name per line and the
+           phone could not slide through them): one row that scrolls horizontally, the picked one scrolled into view. -->
+      <div v-else :class="swipes(ax) ? 'flex flex-nowrap gap-1.5 overflow-x-auto overscroll-x-contain snap-x pb-1.5 -mx-1 px-1 [scrollbar-width:thin]' : 'flex flex-wrap gap-1.5'" :data-swipe-row="swipes(ax) ? ax.name : null">
         <button
-          v-for="val in ax.values" :key="val" type="button"
+          v-for="val in ax.values" :key="val" type="button" :data-picked="sel[ax.name] === val ? '1' : null"
           @click="canPick(ax, val) && pick(ax.name, val)" :disabled="busy || !canPick(ax, val)"
           :class="[sel[ax.name] === val ? 'border-primary-500 ring-2 ring-primary-200 text-primary-800 bg-primary-50' : canPick(ax, val) ? (isUnknown(ax, val) ? 'border-dashed border-gray-300 text-gray-700 hover:border-primary-300' : 'border-gray-200 text-gray-700 hover:border-primary-300') : 'border-gray-100 text-gray-300 line-through']"
-          class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[12px] font-medium transition"
+          class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[12px] font-medium transition shrink-0 snap-start" :style="swipes(ax) ? { whiteSpace: 'nowrap' } : null"
           :title="canPick(ax, val) ? (isUnknown(ax, val) ? val + ' — disponibilidad por confirmar' : val) : val + ' — agotado'"
         >
           <!-- The STORE'S OWN swatch photo when the page had one (Alex, 2026-09-12: "it's not clear which of the
@@ -74,7 +76,7 @@
 
 <script setup>
 import { normalizeVariants, deriveAxes, isIndependent, matches as pickerMatches, canPick as pickerCanPick, chosenVariant, isComplete } from '~/utils/pickerLogic'
-import { computed, reactive, ref, watchEffect } from 'vue'
+import { computed, reactive, ref, watchEffect, onMounted, nextTick } from 'vue'
 
 // Generic N-axis variant picker. Input (from the catalog's product-page read):
 //   axes:     [{ name: 'Waist', kind: 'size'|'color'|'length'|'width'|'capacity'|'scent'|'pack'|'material'|'other', values: [...] }]  (page order)
@@ -108,6 +110,15 @@ for (const a of axes.value) {
 }
 // The dense grid only when every value fits a grid cell; longer ones ("Extra Wide/4E", "32W x 30L") wrap as chips so
 // no option is ever cut off (live Dick's 2026-09-29: "Extra Wide…" / "Mediu…").
+// A colour row with many values swipes sideways (one row) instead of wrapping into a tall list.
+const swipes = (ax) => ax.kind === 'color' && ax.values.length > 4
+const pickerRoot = ref(null)
+onMounted(() => nextTick(() => {
+  for (const row of pickerRoot.value?.querySelectorAll('[data-swipe-row]') || []) {
+    const b = row.querySelector('[data-picked]')
+    if (b) row.scrollLeft = Math.max(0, b.offsetLeft - row.offsetLeft - 8)
+  }
+}))
 const isGrid = (ax) => ['size', 'length', 'width'].includes(ax.kind) && ax.values.every((v) => String(v).length <= 7)
 const LABELS = { size: 'Talla', color: 'Color', length: 'Largo', width: 'Ancho', capacity: 'Capacidad', scent: 'Aroma', pack: 'Paquete', material: 'Material', other: null }
 function axisLabel(ax) { const l = LABELS[ax.kind]; return l && /^(size|color|colour|length|width|capacity|scent|pack|material)$/i.test(ax.name) ? l : ax.name }
