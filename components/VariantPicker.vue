@@ -99,6 +99,13 @@ watchEffect(() => { if (variants.value.length) emit('price', priceForSelection()
 // "Elige color" once pre-selection was removed).
 const sel = reactive({})
 watchEffect(() => { for (const a of axes.value) if (a.values.length === 1 && !sel[a.name]) sel[a.name] = a.values[0] })
+// THE COLOUR THEY TAPPED COMES PICKED (Alex 2026-10-05: "I selected the RAIN CLOUD color in the gallery yet it is not
+// selected here"). The card opened is that colourway's own page, and the read says which colour it shows (selected): only
+// the colour is filled in, once, on open; size and the rest stay for the shopper (Alex 2026-09-28).
+for (const a of axes.value) {
+  const want = a.kind === 'color' ? props.data?.selected?.[a.name] : null
+  if (want && !sel[a.name] && a.values.includes(want)) sel[a.name] = want
+}
 // The dense grid only when every value fits a grid cell; longer ones ("Extra Wide/4E", "32W x 30L") wrap as chips so
 // no option is ever cut off (live Dick's 2026-09-29: "Extra Wide…" / "Mediu…").
 const isGrid = (ax) => ['size', 'length', 'width'].includes(ax.kind) && ax.values.every((v) => String(v).length <= 7)
@@ -112,6 +119,7 @@ const independent = computed(() => isIndependent(props.data, axes.value, variant
 // Pre-select what the page had selected (e.g. the colourway from the URL) so the shopper only picks what's missing.
 // NOTHING IS PRE-SELECTED (Alex, 2026-09-28: "let the user do that — they see all the available options and pick them
 // themselves, so it feels like a real shopping experience"); only an axis with a single value is filled in above.
+// The one exception: the colour of the card they tapped (above).
 const availableCount = computed(() => variants.value.filter((v) => v.available === true).length)
 const unknownCount = computed(() => variants.value.filter((v) => v.available == null).length)
 // The source told us nothing about stock (a feed without the field, an unreadable page): every chip stays
