@@ -103,7 +103,7 @@
           <div class="flex justify-between text-gray-700"><span class="font-semibold">{{ q.store_name || q.store_id }}</span><span class="tabular-nums">{{ formatCents(q.merchandise_cents, q.currency) }}</span></div>
           <div v-if="q.discounts_cents" class="flex justify-between text-gray-500 pl-2"><span>Descuentos</span><span class="tabular-nums">−{{ formatCents(Math.abs(q.discounts_cents), q.currency) }}</span></div>
           <div class="flex justify-between text-gray-500 pl-2"><span>Envío a San Diego</span><span class="tabular-nums">{{ q.shipping_cents ? formatCents(q.shipping_cents, q.currency) : 'Gratis' }}</span></div>
-          <div class="flex justify-between text-gray-500 pl-2"><span>Impuestos{{ q.estimated ? ' (estimados por la tienda)' : '' }}</span><span class="tabular-nums">{{ formatCents(q.tax_cents ?? 0, q.currency) }}</span></div>
+          <div class="flex justify-between text-gray-500 pl-2"><span>Impuestos{{ q.estimated ? ' (estimados)' : '' }}</span><span class="tabular-nums">{{ formatCents(q.tax_cents ?? 0, q.currency) }}</span></div>
           <div v-if="q.fees_cents" class="flex justify-between text-gray-500 pl-2"><span>Cargos de la tienda</span><span class="tabular-nums">{{ formatCents(q.fees_cents, q.currency) }}</span></div>
         </template>
         <div v-if="commissionUsd" class="flex justify-between text-gray-700 pt-1"><span class="font-semibold">Comisión Boxly</span><span class="tabular-nums">{{ commissionUsd }}</span></div>

@@ -74,7 +74,7 @@ export function storeQuoteRows(q: StoreQuote, lang: 'es' | 'en' = 'es'): Array<{
     if (typeof cents !== 'number') continue
     if ((key === 'discounts' || key === 'fees') && cents === 0) continue
     const value = key === 'discounts' ? `-${formatCents(Math.abs(cents), q.currency)}` : key === 'shipping' && cents === 0 ? (lang === 'en' ? 'Free' : 'Gratis') : formatCents(cents, q.currency)
-    rows.push({ label: names[key] + (key === 'tax' && q.estimated ? (lang === 'en' ? ' (estimated by the store)' : ' (estimado por la tienda)') : ''), value })
+    rows.push({ label: names[key] + (key === 'tax' && q.estimated ? (lang === 'en' ? ' (estimated)' : ' (estimado)') : ''), value })
   }
   return rows
 }
