@@ -62,7 +62,8 @@
       <!-- COLOURWAYS: each colour is its own product page; picking one re-reads that page into this same card. -->
       <div v-if="colorways.length > 1" class="mb-3">
         <p class="text-[12px] font-semibold text-gray-700 mb-1.5">Color<span v-if="activeColorway" class="font-normal text-gray-500"> · {{ activeColorway.name }}</span></p>
-        <div class="flex gap-2 overflow-x-auto pb-1 -mx-0.5 px-0.5">
+        <!-- Many colourways: one swipeable row on the phone, wrapped so all show on desktop (Alex 2026-10-05). -->
+        <div class="flex gap-2 overflow-x-auto md:overflow-visible md:flex-wrap pb-1 -mx-0.5 px-0.5">
           <button v-for="c in colorways" :key="c.url" type="button" :title="c.name" :disabled="busy" @click="c.url !== activeColorway?.url && $emit('colorway', c)"
             :class="[activeColorway?.url === c.url ? 'border-primary-500 ring-2 ring-primary-200' : 'border-gray-200 hover:border-gray-300', 'shrink-0 w-[4.25rem] md:w-20 rounded-xl border overflow-hidden bg-white text-left disabled:opacity-50 transition']">
             <span class="block aspect-square bg-gray-50"><img v-if="c.image" :src="c.image" :alt="c.name" referrerpolicy="no-referrer" loading="lazy" class="w-full h-full object-cover" /></span>
@@ -220,7 +221,13 @@ function onViewerKey(e) {
 }
 onMounted(() => window.addEventListener('keydown', onViewerKey))
 onBeforeUnmount(() => window.removeEventListener('keydown', onViewerKey))
-const image = computed(() => [leadImage.value, product.value.image, read.value?.product?.image, read.value?.product?.images?.[0]].find((u) => typeof u === 'string' && u && u !== broken.value) || null)
+// A COLOUR PICKED ON THE TILES re-reads that colour's own page: its photo is the one to show, not the photo of the card
+// the shopper first tapped (Alex 2026-10-05: picked Espresso Brown, still saw the purple leggings).
+const switchedColour = computed(() => !!output.value.read_url && !!product.value.url && output.value.read_url.split('?')[0] !== String(product.value.url).split('?')[0])
+const image = computed(() => (switchedColour.value
+  ? [leadImage.value, read.value?.product?.image, read.value?.product?.images?.[0], activeColorway.value?.image, product.value.image]
+  : [leadImage.value, product.value.image, read.value?.product?.image, read.value?.product?.images?.[0]]
+).find((u) => typeof u === 'string' && u && u !== broken.value) || null)
 // A selection the page never priced (another size than the one its pack prices were stated for) shows no price, not a guess.
 const price = computed(() => (pickedPrice.value?.unknown ? null : pickedPrice.value?.price ?? read.value?.product?.price ?? product.value.price ?? null))
 const was = computed(() => product.value.was ?? read.value?.product?.list_price ?? null)
