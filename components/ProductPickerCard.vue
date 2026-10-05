@@ -2,16 +2,32 @@
   <!-- THE PICKER IS A CARD IN THE CHAT (Alex, 2026-09-29: "instead of making the variant picker a pop-up modal, make it
        directly in the chat itself … so it stays there, even if the client refreshes"). One card per product: it reads
        the store once, then stays with what it read — chips and "Agregar al carrito" exactly as the modal had them. -->
-  <div class="rounded-2xl border border-gray-200 bg-white shadow-sm max-w-md overflow-hidden">
-    <div class="flex gap-3 p-3">
-      <div class="shrink-0 w-20 h-20 rounded-xl bg-gray-50 overflow-hidden grid place-items-center">
+  <!-- ON DESKTOP A PRODUCT PAGE (Alex 2026-10-05: "on desktop you have a lot more space … make it like a full product
+       details thing, the way they're used to it in the store"): a big photo with its gallery on the left, the details and
+       options on the right. The phone keeps the compact card. -->
+  <div class="rounded-2xl border border-gray-200 bg-white shadow-sm max-w-md md:max-w-none md:w-full overflow-hidden md:flex">
+    <div class="hidden md:flex md:flex-col md:w-[44%] shrink-0 bg-gray-50 border-r border-gray-100 p-3 gap-2">
+      <div class="aspect-square rounded-xl bg-white overflow-hidden grid place-items-center">
+        <img v-if="image" :src="image" :alt="product.title || ''" referrerpolicy="no-referrer" class="w-full h-full object-contain" @error="broken = image" />
+        <span v-else class="text-sm font-bold text-gray-300 uppercase">{{ product.store_name || '' }}</span>
+      </div>
+      <div v-if="gallery.length > 1" class="grid grid-cols-5 gap-1.5">
+        <button v-for="u in gallery" :key="u" type="button" @click="leadImage = u"
+          :class="[image === u ? 'ring-2 ring-primary-400 border-primary-400' : 'border-gray-200 hover:border-gray-300', 'aspect-square rounded-lg border bg-white overflow-hidden']">
+          <img :src="u" alt="" referrerpolicy="no-referrer" loading="lazy" class="w-full h-full object-cover" />
+        </button>
+      </div>
+    </div>
+    <div class="min-w-0 flex-1">
+    <div class="flex gap-3 p-3 md:pt-4">
+      <div class="shrink-0 w-20 h-20 rounded-xl bg-gray-50 overflow-hidden grid place-items-center md:hidden">
         <img v-if="image" :src="image" :alt="product.title || ''" referrerpolicy="no-referrer" class="w-full h-full object-cover" @error="broken = image" />
         <span v-else class="text-[10px] font-bold text-gray-300 uppercase text-center px-1">{{ product.store_name || '' }}</span>
       </div>
       <div class="min-w-0 flex-1">
         <p v-if="product.store_name" class="text-[10.5px] uppercase tracking-wider text-primary-500 font-bold">{{ product.store_name }}</p>
-        <p class="text-[14px] font-bold text-gray-900 leading-snug line-clamp-2">{{ product.title || 'Producto' }}</p>
-        <p v-if="price != null" class="mt-0.5 text-[15px] font-extrabold" :class="onSale ? 'text-red-600' : 'text-gray-900'">
+        <p class="text-[14px] md:text-[18px] font-bold text-gray-900 leading-snug line-clamp-2 md:line-clamp-3">{{ product.title || 'Producto' }}</p>
+        <p v-if="price != null" class="mt-0.5 text-[15px] md:text-[20px] font-extrabold" :class="onSale ? 'text-red-600' : 'text-gray-900'">
           <span v-if="pickedPrice?.from" class="text-[11px] font-semibold text-gray-400 mr-0.5">desde</span>${{ usd(price) }}
           <span class="text-[11px] font-semibold text-gray-400">USD</span>
           <span v-if="onSale" class="ml-1 text-[12px] font-medium text-gray-400 line-through">${{ usd(was) }}</span>
@@ -46,7 +62,7 @@
         <p class="text-[12px] font-semibold text-gray-700 mb-1.5">Color<span v-if="activeColorway" class="font-normal text-gray-500"> · {{ activeColorway.name }}</span></p>
         <div class="flex gap-2 overflow-x-auto pb-1 -mx-0.5 px-0.5">
           <button v-for="c in colorways" :key="c.url" type="button" :title="c.name" :disabled="busy" @click="c.url !== activeColorway?.url && $emit('colorway', c)"
-            :class="[activeColorway?.url === c.url ? 'border-primary-500 ring-2 ring-primary-200' : 'border-gray-200 hover:border-gray-300', 'shrink-0 w-[4.25rem] rounded-xl border overflow-hidden bg-white text-left disabled:opacity-50 transition']">
+            :class="[activeColorway?.url === c.url ? 'border-primary-500 ring-2 ring-primary-200' : 'border-gray-200 hover:border-gray-300', 'shrink-0 w-[4.25rem] md:w-20 rounded-xl border overflow-hidden bg-white text-left disabled:opacity-50 transition']">
             <span class="block aspect-square bg-gray-50"><img v-if="c.image" :src="c.image" :alt="c.name" referrerpolicy="no-referrer" loading="lazy" class="w-full h-full object-cover" /></span>
             <span class="block px-1 py-1 text-[10px] font-medium text-gray-600 truncate">{{ c.name }}</span>
           </button>
@@ -70,6 +86,7 @@
         <span v-if="output.refresh_failed" class="text-amber-700">· no se pudo actualizar</span>
         <button type="button" :disabled="busy" @click="$emit('refresh')" class="font-semibold text-primary-600 hover:text-primary-700 disabled:opacity-50">Actualizar disponibilidad</button>
       </p>
+    </div>
     </div>
   </div>
 </template>
@@ -143,6 +160,12 @@ function onPrice(p) {
     .catch(() => {})
 }
 watch(readKey, () => { leadImage.value = null; pickedPrice.value = null })
+// The desktop gallery: the page's own photos (up to 5), the one on screen first.
+const gallery = computed(() => {
+  const own = (read.value?.product?.images || []).filter((u) => typeof u === 'string' && u && u !== broken.value)
+  const list = image.value && !own.includes(image.value) ? [image.value, ...own] : own // a stable order: a tap never reshuffles it
+  return [...new Set(list)].slice(0, 5)
+})
 const image = computed(() => [leadImage.value, product.value.image, read.value?.product?.image, read.value?.product?.images?.[0]].find((u) => typeof u === 'string' && u && u !== broken.value) || null)
 // A selection the page never priced (another size than the one its pack prices were stated for) shows no price, not a guess.
 const price = computed(() => (pickedPrice.value?.unknown ? null : pickedPrice.value?.price ?? read.value?.product?.price ?? product.value.price ?? null))
