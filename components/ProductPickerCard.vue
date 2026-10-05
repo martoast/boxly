@@ -74,6 +74,15 @@
         <svg class="w-3.5 h-3.5 animate-spin text-primary-500" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"/><path class="opacity-80" fill="currentColor" d="M4 12a8 8 0 018-8v3a5 5 0 00-5 5H4z"/></svg>
         Leyendo opciones en vivo…
       </div>
+      <!-- QUANTITY ON THE CARD (Alex 2026-10-05: "I should be able to select the quantity … five of these leggings"). -->
+      <div v-if="!marketplace" class="mb-2.5 flex items-center gap-3">
+        <span class="text-[12px] font-semibold text-gray-700">Cantidad</span>
+        <div class="inline-flex items-center rounded-full border border-gray-200 bg-white">
+          <button type="button" aria-label="Menos" :disabled="busy || qty <= 1" class="w-8 h-8 grid place-items-center text-lg text-gray-600 disabled:text-gray-300" @click="qty = Math.max(1, qty - 1)">−</button>
+          <span class="w-7 text-center text-[14px] font-bold tabular-nums text-gray-900">{{ qty }}</span>
+          <button type="button" aria-label="Más" :disabled="busy || qty >= 20" class="w-8 h-8 grid place-items-center text-lg text-gray-600 disabled:text-gray-300" @click="qty = Math.min(20, qty + 1)">+</button>
+        </div>
+      </div>
       <!-- Boxly only buys what the store sells itself; a third-party marketplace seller cannot be added (Alex). -->
       <div v-if="marketplace" class="rounded-2xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-[12.5px] text-amber-800 leading-snug">
         Este artículo lo vende <b>{{ seller.name }}</b>, un vendedor externo en {{ product.store_name || 'la tienda' }}. Boxly solo compra lo que vende la tienda directamente — pídeme uno parecido vendido por {{ product.store_name || 'la tienda' }}.
@@ -174,6 +183,7 @@ const hasChoices = computed(() => colorways.value.length > 1 || (read.value?.axe
   || (!(read.value?.axes || []).length && (read.value?.variants || []).length > 1))
 
 const leadImage = ref(null)
+const qty = ref(1)
 const broken = ref(null)
 const pickedPrice = ref(null)
 // PRICE ON PICK (2026-10-05): an option the page left unpriced (Ulta sizes) is asked of the store once, by its sku; until the
@@ -250,7 +260,7 @@ function assisted(pick) {
   const p = product.value
   emit('assisted', {
     title: p.title, url: pickedUrl(pick?.variants) || output.value.read_url || activeColorway.value?.url || p.url, card_url: p.url || null, image: image.value, store: p.store_name, store_id: p.store_id,
-    price: price.value, was: was.value, onSale: onSale.value,
+    price: price.value, was: was.value, onSale: onSale.value, quantity: qty.value,
     ...(pick ? { pick } : {}),
   })
 }
@@ -262,8 +272,9 @@ function onVariantPick(text, variants = {}) {
   const withColour = c && !new RegExp(`color\\s+${c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i').test(text)
     ? text.replace(/ — agrégalos a mi caja$/, `, color ${c} — agrégalos a mi caja`)
     : text
+  const withQty = qty.value > 1 ? withColour.replace(/ — agrégalos a mi caja$/, ` — cantidad ${qty.value} — agrégalos a mi caja`) : withColour
   const picked = { ...variants }
   if (c && !picked.color) picked.color = c
-  assisted({ text: withColour, variants: picked })
+  assisted({ text: withQty, variants: picked })
 }
 </script>

@@ -1306,6 +1306,12 @@ export default defineEventHandler(async (event) => {
         execute: async ({ items: drawn }) => {
           // a card that adds never drops what the box already held (the model sometimes lists only the new store's items)
           const input = withEarlierItems(boxFromMessages(messages), drawn)
+          // THE QUANTITY PICKED ON THE CARD (Alex 2026-10-05: five leggings): the newest user message carries it as
+          // metadata.quantity; the item just added takes it, whatever the model typed.
+          {
+            const said = Number([...(messages || [])].reverse().find((m: any) => m?.role === 'user')?.metadata?.quantity)
+            if (Number.isInteger(said) && said >= 1 && said <= 20 && input.length) input[input.length - 1] = { ...input[input.length - 1], quantity: said }
+          }
           const out: any = await (async (items: any[]) => {
           // The registry is the truth for anything the model would otherwise retype: the box card must show the
           // REAL thumbnail / price / name for a saved_id (the model invented "https://example.com/nike_ultrafly.jpg"

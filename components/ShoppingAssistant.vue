@@ -2058,12 +2058,15 @@ function sendAssisted(p) {
   // says everything, so send THAT and the item lands in the box in one turn instead of being held for a pick.
   const text = p?.pick?.text
     ? `${p.pick.text}${urlPart}`
-    : `Agrégalo a mi carrito Boxly: ${p.title}${store}${price}${urlPart}`
+    : `Agrégalo a mi carrito Boxly: ${p.title}${store}${price}${Number(p?.quantity) > 1 ? ` — cantidad ${p.quantity}` : ''}${urlPart}`
   ensureConversation(text)
   // The picker's exact choice rides with the message: only a pick made on the chips adds a product with options
   // (a size typed in the chat never skips the picker — Alex, 2026-09-28).
   const pick = p?.pick?.variants && typeof p.pick.variants === 'object' && Object.keys(p.pick.variants).length ? p.pick.variants : null
-  chat.sendMessage(pick ? { text, metadata: { pick } } : { text })
+  // The quantity picked on the card rides along too: the box takes it as the item's quantity, whatever the model types.
+  const quantity = Number.isInteger(Number(p?.quantity)) && Number(p.quantity) > 1 ? Number(p.quantity) : null
+  const metadata = { ...(pick ? { pick } : {}), ...(quantity ? { quantity } : {}) }
+  chat.sendMessage(Object.keys(metadata).length ? { text, metadata } : { text })
   scrollDown()
 }
 // Gallery "Pedir" — add to the consolidated shipment/order (self-import flow).

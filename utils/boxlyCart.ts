@@ -103,7 +103,8 @@ export function cartPayloadFromChatProduct(p: any, opts: { conversationId?: numb
   const url = httpUrl(p.product_url) || httpUrl(p.url)
   const title = str(p.title, 300) || str(p.name, 300)
   if (!url || !title) return null
-  const payload: CartAddPayload = { store_id: storeId, product_url: url, title, source: 'chat', quantity: 1 }
+  const qty = Number(p.quantity)
+  const payload: CartAddPayload = { store_id: storeId, product_url: url, title, source: 'chat', quantity: Number.isInteger(qty) && qty >= 1 && qty <= 20 ? qty : 1 }
   const storeName = str(p.store, 120)
   if (storeName) payload.store_name = storeName
   const image = httpUrl(p.image) || httpUrl(p.image_url)

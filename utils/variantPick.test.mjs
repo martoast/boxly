@@ -18,7 +18,8 @@ const api = readFileSync(new URL('../server/api/assistant.post.ts', import.meta.
 ok('the chat gate reads the picker choice from the message metadata', /lastUser\?\.metadata\?\.pick/.test(api) && /pickedOptions\(axes, pickRaw, prior\)/.test(api))
 ok('nothing typed is matched or pre-selected any more', !/variants_for\.selected =/.test(api) && !/const fromWords/.test(api))
 const picker = readFileSync(new URL('../components/VariantPicker.vue', import.meta.url), 'utf8')
-ok('the picker pre-selects nothing', !/props\.data\?\.selected/.test(picker))
+// Alex 2026-10-05: the colour of the card they tapped comes picked; nothing else does (size stays theirs).
+ok('the picker pre-selects only the tapped card\'s colour', (picker.match(/props\.data\?\.selected/g) || []).length === 1 && /a\.kind === 'color' \? props\.data\?\.selected/.test(picker))
 const chat = readFileSync(new URL('../components/ShoppingAssistant.vue', import.meta.url), 'utf8')
-ok('the chat sends the picker choice as metadata', /metadata: \{ pick \}/.test(chat) && !/preselect/.test(chat))
+ok('the chat sends the picker choice as metadata', /\.\.\.\(pick \? \{ pick \} : \{\}\)/.test(chat) && /chat\.sendMessage\(Object\.keys\(metadata\)\.length \? \{ text, metadata \}/.test(chat) && !/preselect/.test(chat))
 console.log(`\n${pass} checks passed`)
