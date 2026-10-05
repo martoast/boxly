@@ -20,9 +20,6 @@
             <div class="text-[11px] mt-0.5" :class="statusClass(q)">{{ storeStateLabel(q) }}</div>
           </div>
           <div v-if="billable(q)" class="text-right shrink-0 text-[13px] font-bold text-gray-900 tabular-nums">{{ formatCents(q.total_cents, q.currency) }}</div>
-          <button v-else-if="q.live_session_id && liveVideo" type="button" class="shrink-0 inline-flex items-center gap-1.5 text-[12px] font-semibold text-primary-700 active:scale-95 transition-transform" @click="$emit('watch', sessionOf(q))">
-            <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse" aria-hidden="true" />Ver en vivo
-          </button>
         </div>
       </li>
       <li v-if="!quotes.length" class="py-2.5 text-[12px] text-gray-500">{{ loadError ? 'No pudimos cargar tu pedido.' : 'Preparando…' }}</li>
@@ -142,7 +139,7 @@
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { formatCents, quoteInFlight, quoteTerminal, storeStateLabel, nextStoreName, storeDoneMessage, dropReason, summaryRows, summaryLineDetail, summaryTotal, lineUnavailable, type StoreQuote, type CheckoutSummary } from '~/utils/storeQuotes'
 
-// liveVideo false (the chat's default since 2026-09-30): no "Ver en vivo" — the chat's progress card shows the checkout.
+// No "Ver en vivo" (Alex 2026-10-04): the shopper does not watch the checkout; the invoice is emailed.
 const props = withDefaults(defineProps<{ purchaseRequestId: number, requestNumber?: string | null, liveVideo?: boolean }>(), { liveVideo: true })
 const emit = defineEmits<{ (e: 'watch', session: any): void, (e: 'live', session: any): void, (e: 'store-done', done: { store_id: string, text: string }): void }>()
 
