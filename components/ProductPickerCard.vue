@@ -9,7 +9,7 @@
     <div class="hidden md:block md:w-[44%] shrink-0 bg-gray-50 border-r border-gray-100 p-3 md:rounded-l-2xl">
      <div class="md:sticky md:top-3 flex flex-col gap-2">
       <div class="aspect-square rounded-xl bg-white overflow-hidden grid place-items-center">
-        <img v-if="image" :src="image" :alt="product.title || ''" referrerpolicy="no-referrer" class="w-full h-full object-contain" @error="broken = image" />
+        <button v-if="image" type="button" class="w-full h-full cursor-zoom-in" title="Ver fotos" @click="openViewer(image)"><img :src="image" :alt="product.title || ''" referrerpolicy="no-referrer" class="w-full h-full object-contain" @error="broken = image" /></button>
         <span v-else class="text-sm font-bold text-gray-300 uppercase">{{ product.store_name || '' }}</span>
       </div>
       <div v-if="gallery.length > 1" class="grid grid-cols-5 gap-1.5">
@@ -23,7 +23,7 @@
     <div class="min-w-0 flex-1">
     <div class="flex gap-3 p-3 md:pt-4">
       <div class="shrink-0 w-20 h-20 rounded-xl bg-gray-50 overflow-hidden grid place-items-center md:hidden">
-        <img v-if="image" :src="image" :alt="product.title || ''" referrerpolicy="no-referrer" class="w-full h-full object-cover" @error="broken = image" />
+        <button v-if="image" type="button" class="w-full h-full" title="Ver fotos" @click="openViewer(image)"><img :src="image" :alt="product.title || ''" referrerpolicy="no-referrer" class="w-full h-full object-cover" @error="broken = image" /></button>
         <span v-else class="text-[10px] font-bold text-gray-300 uppercase text-center px-1">{{ product.store_name || '' }}</span>
       </div>
       <div class="min-w-0 flex-1">
@@ -90,6 +90,31 @@
       </p>
     </div>
     </div>
+    <!-- THE PHOTO VIEWER (Alex 2026-10-05: "when you click on the image it makes it big so you can see all the images, like
+         a slideshow"): every photo of the product full screen; arrows, swipe, ← → and Esc. -->
+    <Teleport to="body">
+      <div v-if="viewer.open" class="fixed inset-0 z-[100] bg-black/90 flex flex-col" @click.self="viewer.open = false"
+        @touchstart.passive="(e) => (viewer.x = e.touches[0].clientX)" @touchend="(e) => swipe(e.changedTouches[0].clientX - viewer.x)">
+        <div class="flex items-center justify-between px-4 py-3 text-white">
+          <p class="text-[13px] font-semibold truncate pr-3">{{ product.title || '' }}</p>
+          <div class="flex items-center gap-3 shrink-0">
+            <span class="text-[12px] text-white/70 tabular-nums">{{ viewer.i + 1 }} / {{ allPhotos.length }}</span>
+            <button type="button" aria-label="Cerrar" class="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 grid place-items-center text-xl leading-none" @click="viewer.open = false">×</button>
+          </div>
+        </div>
+        <div class="relative flex-1 min-h-0 flex items-center justify-center px-2 md:px-16" @click.self="viewer.open = false">
+          <img :src="allPhotos[viewer.i]" :alt="product.title || ''" referrerpolicy="no-referrer" class="max-w-full max-h-full object-contain rounded-lg bg-white" />
+          <button v-if="allPhotos.length > 1" type="button" aria-label="Anterior" class="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/15 hover:bg-white/25 text-white text-2xl grid place-items-center" @click="step(-1)">‹</button>
+          <button v-if="allPhotos.length > 1" type="button" aria-label="Siguiente" class="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/15 hover:bg-white/25 text-white text-2xl grid place-items-center" @click="step(1)">›</button>
+        </div>
+        <div v-if="allPhotos.length > 1" class="flex gap-2 overflow-x-auto px-4 py-3 justify-start md:justify-center">
+          <button v-for="(u, i) in allPhotos" :key="u" type="button" @click="viewer.i = i"
+            :class="[viewer.i === i ? 'ring-2 ring-white' : 'opacity-60 hover:opacity-100', 'shrink-0 w-14 h-14 rounded-lg overflow-hidden bg-white']">
+            <img :src="u" alt="" referrerpolicy="no-referrer" loading="lazy" class="w-full h-full object-cover" />
+          </button>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -168,6 +193,23 @@ const gallery = computed(() => {
   const list = image.value && !own.includes(image.value) ? [image.value, ...own] : own // a stable order: a tap never reshuffles it
   return [...new Set(list)].slice(0, 5)
 })
+// Every photo the page had (the one on screen first if it is not among them), for the full-screen viewer.
+const allPhotos = computed(() => {
+  const own = (read.value?.product?.images || []).filter((u) => typeof u === 'string' && u && u !== broken.value)
+  return [...new Set(image.value && !own.includes(image.value) ? [image.value, ...own] : own)]
+})
+const viewer = ref({ open: false, i: 0, x: 0 })
+function openViewer(u) { viewer.value = { open: true, i: Math.max(0, allPhotos.value.indexOf(u)), x: 0 } }
+function step(d) { const n = allPhotos.value.length; if (n) viewer.value.i = (viewer.value.i + d + n) % n }
+function swipe(dx) { if (Math.abs(dx) > 40) step(dx < 0 ? 1 : -1) }
+function onViewerKey(e) {
+  if (!viewer.value.open) return
+  if (e.key === 'Escape') viewer.value.open = false
+  else if (e.key === 'ArrowRight') step(1)
+  else if (e.key === 'ArrowLeft') step(-1)
+}
+onMounted(() => window.addEventListener('keydown', onViewerKey))
+onBeforeUnmount(() => window.removeEventListener('keydown', onViewerKey))
 const image = computed(() => [leadImage.value, product.value.image, read.value?.product?.image, read.value?.product?.images?.[0]].find((u) => typeof u === 'string' && u && u !== broken.value) || null)
 // A selection the page never priced (another size than the one its pack prices were stated for) shows no price, not a guess.
 const price = computed(() => (pickedPrice.value?.unknown ? null : pickedPrice.value?.price ?? read.value?.product?.price ?? product.value.price ?? null))
