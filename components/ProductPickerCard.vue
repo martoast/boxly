@@ -60,7 +60,7 @@
       <div v-if="marketplace" class="rounded-2xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-[12.5px] text-amber-800 leading-snug">
         Este artículo lo vende <b>{{ seller.name }}</b>, un vendedor externo en {{ product.store_name || 'la tienda' }}. Boxly solo compra lo que vende la tienda directamente — pídeme uno parecido vendido por {{ product.store_name || 'la tienda' }}.
       </div>
-      <LazyVariantPicker v-else-if="hasChoices" :key="readKey" :data="pickerData" :busy="busy" @pick="onVariantPick" @show-image="(u) => (leadImage = u)" @price="(p) => (pickedPrice = p && (typeof p.price === 'number' || p.unknown) ? p : null)" />
+      <LazyVariantPicker v-else-if="hasChoices" :key="readKey" :data="pickerData" :busy="busy" @pick="onVariantPick" @show-image="(u) => (leadImage = u)" @price="onPrice" />
       <button v-else type="button" :disabled="busy" @click="assisted()"
         class="w-full flex items-center justify-center gap-2 rounded-2xl bg-primary-500 hover:bg-primary-600 active:scale-[.98] transition text-white font-bold py-3 text-[14px] disabled:opacity-50">
         {{ missingSize ? 'Elegir talla' : 'Agregar al carrito' }}
@@ -132,6 +132,16 @@ const hasChoices = computed(() => colorways.value.length > 1 || (read.value?.axe
 const leadImage = ref(null)
 const broken = ref(null)
 const pickedPrice = ref(null)
+// PRICE ON PICK (2026-10-05): an option the page left unpriced (Ulta sizes) is asked of the store once, by its sku; until the
+// answer comes — or when the store gives none — the price stays unknown, never another option's.
+function onPrice(p) {
+  pickedPrice.value = p && (typeof p.price === 'number' || p.unknown) ? p : null
+  if (!p?.unknown || !p.sku) return
+  const sku = p.sku
+  $fetch('/api/variant-price', { method: 'POST', body: { url: pickerData.value.product.url, sku } })
+    .then((r) => { if (pickedPrice.value?.sku === sku && typeof r?.price === 'number') pickedPrice.value = { price: r.price, sku } })
+    .catch(() => {})
+}
 watch(readKey, () => { leadImage.value = null; pickedPrice.value = null })
 const image = computed(() => [leadImage.value, product.value.image, read.value?.product?.image, read.value?.product?.images?.[0]].find((u) => typeof u === 'string' && u && u !== broken.value) || null)
 // A selection the page never priced (another size than the one its pack prices were stated for) shows no price, not a guess.

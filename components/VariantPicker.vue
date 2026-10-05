@@ -166,7 +166,13 @@ function priceForSelection() {
   // "96, $24.97" is Size 1's) does not hold once the shopper picked another value there: unknown, never shown.
   const holds = (v) => !v.price_with || Object.entries(v.price_with).every(([k, want]) => !sel[k] || sel[k] === want)
   const spans = pool.filter(holds).map(span).filter(Boolean)
-  if (!spans.length) return pool.some((v) => typeof v.price === 'number' && !holds(v)) ? { price: null, unknown: true } : null
+  // A chosen option the page left UNPRICED while another option IS priced (Ulta prices only its selected size: Miss Dior
+  // 3.4 oz $185, 0.67 oz none): unknown, never the product's price; its sku lets the card ask the store for its own price.
+  if (!spans.length) {
+    const sku = pool.length === 1 && pool[0].sku ? String(pool[0].sku) : null
+    if (pool.some((v) => typeof v.price === 'number' && !holds(v)) || variants.value.some(span)) return { price: null, unknown: true, ...(sku ? { sku } : {}) }
+    return null
+  }
   const lo = Math.min(...spans.map((x) => x[0])), hi = Math.max(...spans.map((x) => x[1]))
   return { price: lo, from: lo !== hi }
 }
