@@ -2,7 +2,7 @@
   <!-- The order placed from the chat box (finalize_order). The agent fills each store's real cart
        and checks out to the warehouse; this card follows it — which store it is on (watch it live), each
        store's real total, then the automatic invoice with Pagar. Everything stays in the thread. -->
-  <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-4 max-w-sm w-full">
+  <div :class="part === 'invoice' ? 'bg-white rounded-2xl shadow-sm' : 'bg-white border border-gray-200 rounded-2xl shadow-sm p-4'" class="max-w-sm w-full">
     <template v-if="part !== 'invoice'">
     <div class="flex items-center justify-between gap-2">
       <p class="text-sm font-bold text-gray-900">Tu pedido<span v-if="requestNumber" class="font-medium text-gray-500"> · {{ requestNumber }}</span></p>
