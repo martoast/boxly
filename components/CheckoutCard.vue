@@ -9,7 +9,8 @@
         <span class="w-1.5 h-1.5 rounded-full bg-primary-500 animate-pulse" aria-hidden="true" />Trabajando
       </span>
     </div>
-    <p v-if="working" class="text-xs text-gray-500 mt-1">El agente llena tu carrito en cada tienda y hace el checkout a nuestra bodega en San Diego para sacar el total real. Tarda unos minutos por tienda.</p>
+    <!-- NO NEED TO WAIT (Alex 2026-10-04): the shopper doesn't watch the checkout; the invoice is emailed when it's ready. -->
+    <p v-if="working" class="text-[13px] text-gray-700 mt-2 leading-snug">Ya estamos armando tu carrito en cada tienda. En unos minutos te llega la factura a tu correo; <strong>puedes cerrar la app</strong>, no necesitas esperar aquí.</p>
 
     <ul class="mt-3 divide-y divide-gray-100">
       <li v-for="q in quotes" :key="q.store_id" class="py-2.5">

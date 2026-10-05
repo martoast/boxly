@@ -386,7 +386,7 @@
 
                     <!-- The order placed from the box — live store checkouts, real totals, then Pagar. (tool-finalize_lab_order
                          is the same card in chats from the Boxly Lab days, before 2026-09-28.) -->
-                    <LazyCheckoutCard v-else-if="FINALIZE_PARTS.has(part.type) && part.state === 'output-available' && part.output?.purchase_request_id" :purchase-request-id="part.output.purchase_request_id" :request-number="part.output.request_number" @watch="watchLive" @live="onCheckoutLive" @store-done="(d) => onStoreDone(part.output.purchase_request_id, d)" />
+                    <LazyCheckoutCard v-else-if="FINALIZE_PARTS.has(part.type) && part.state === 'output-available' && part.output?.purchase_request_id" :purchase-request-id="part.output.purchase_request_id" :request-number="part.output.request_number" @watch="watchLive" @store-done="(d) => onStoreDone(part.output.purchase_request_id, d)" />
                     <div v-else-if="FINALIZE_PARTS.has(part.type) && (part.state === 'input-streaming' || part.state === 'input-available')" class="flex items-center gap-2 text-xs text-gray-400 pl-1">
                       <svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
                       Preparando tu pedido…
@@ -677,12 +677,8 @@ watch(() => boxlyCart.cart.value?.live_sessions?.[0] || null, (s) => {
   if (s && s.id !== liveShown.value?.id) liveShown.value = s
 })
 let liveEndTimer = null
-// An order's checkout card reports the store browser the agent is on (one store after another).
+// Finalizar no longer shows the checkout browser (Alex 2026-10-04: the shopper needn't wait; the invoice is emailed).
 const checkoutLive = ref(null)
-function onCheckoutLive(s) {
-  checkoutLive.value = s
-  if (s && s.id !== liveShown.value?.id) { clearTimeout(liveEndTimer); liveShown.value = s }
-}
 // A store finished its checkout: one local assistant line (no model), never twice for the same order + store.
 const storeDoneSeen = new Set()
 function onStoreDone(requestId, { store_id, text }) {
