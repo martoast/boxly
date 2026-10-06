@@ -132,6 +132,7 @@
 // "$14.5" read as fourteen dollars five (live VS 2026-10-01): cents always show two digits; whole dollars stay whole.
 const usd = (n) => { const v = Number(n); return Number.isFinite(v) ? (Number.isInteger(v) ? String(v) : v.toFixed(2)) : n }
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { sellerRefused } from '~/utils/pickerLogic'
 
 // `part`: a tool-product_picker part — reading (input-available, the product only), ready (output-available:
 // { product, read, read_at, read_url }) or failed (output-error). The chat does the reads; this card only shows them.
@@ -176,9 +177,10 @@ watch(familyMismatch, (m) => {
   repinned = true
   emit('colorway', { name: m.tapped, url: m.pinned })
 }, { immediate: true })
-// Who sells it (the reader's product.seller): a marketplace seller (is_store false) is shown and never added.
+// Who sells it (the reader's product.seller): an outside seller (is_store false) is shown, and never added on a store that is not a marketplace.
 const seller = computed(() => (read.value?.product?.seller?.name ? read.value.product.seller : null))
-const marketplace = computed(() => seller.value?.is_store === false)
+// …except on a marketplace store (Walmart, Amazon), where outside sellers are fine (Alex 2026-10-06).
+const marketplace = computed(() => sellerRefused(seller.value, output.value.read_url || product.value.url))
 const hasChoices = computed(() => colorways.value.length > 1 || (read.value?.axes || []).some((a) => (a?.values?.length || 0) > 1)
   // Older reads carry no axes list; the picker derives them from the variants.
   || (!(read.value?.axes || []).length && (read.value?.variants || []).length > 1))

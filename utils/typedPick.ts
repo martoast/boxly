@@ -6,7 +6,7 @@
 // choice left out, a sold-out combination — is not a pick: the assistant asks, pointing at the card. Before any card
 // exists nothing typed ever counts (the first search message never preselects — Alex, 2026-09-28). Pure; tested in
 // typedPick.test.mjs.
-import { normalizeVariants, deriveAxes, isIndependent, isComplete, initialSelection } from './pickerLogic'
+import { sellerRefused, normalizeVariants, deriveAxes, isIndependent, isComplete, initialSelection } from './pickerLogic'
 
 export const PICKER_PART = 'tool-product_picker'
 
@@ -97,8 +97,8 @@ export function resolveTypedPick(text: string, cards: PickerCard[]): TypedPick {
   if (named.length > 1) return { ok: false, reason: 'ambiguous' }
   const f = named[0]
   const where = { url: f.card.url, urls: f.card.urls }
-  // A third-party marketplace seller is never added, typed or tapped (the card says so).
-  if (f.card.read?.product?.seller?.is_store === false) return { ok: false, reason: 'marketplace', ...where }
+  // A third-party seller is never added, typed or tapped (the card says so) — except on a marketplace store (Walmart, Amazon).
+  if (sellerRefused(f.card.read?.product?.seller, f.card.read?.product?.url || f.card.url)) return { ok: false, reason: 'marketplace', ...where }
   if (f.colorway) return { ok: false, reason: 'colorway', ...where }
   if (Object.values(f.chosen).some((v) => v.length > 1)) return { ok: false, reason: 'ambiguous', ...where }
   if (f.missing.length) return { ok: false, reason: 'incomplete', ...where, missing: f.missing }

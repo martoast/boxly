@@ -6,6 +6,17 @@
 export interface PickerVariant { options: Record<string, string>, available?: boolean | null, sold_out_with?: Record<string, string> | null, price?: number | null, image?: string | null, color?: string | null, size?: string | null, low_stock?: any }
 export interface PickerAxis { name: string, kind: string, values: string[], swatches?: Record<string, string>, chips?: Record<string, string> }
 export type Selection = Record<string, string | null | undefined>
+/** Stores whose outside (marketplace) sellers Boxly buys from (Alex 2026-10-06: "Walmart does have the third-party sellers that
+ *  sell through Walmart, so those are fine. Both Amazon and Walmart are dominated by third-party sellers"). Anywhere else only
+ *  what the store sells itself is added. */
+export const MARKETPLACE_STORE_HOSTS = ['walmart.com', 'amazon.com']
+/** PURE. Is this product's seller one Boxly does not buy from? An outside seller (is_store false) on a store that is not a marketplace. */
+export function sellerRefused(seller: { is_store?: boolean } | null | undefined, url: string | null | undefined): boolean {
+  if (seller?.is_store !== false) return false
+  let host = ''
+  try { host = new URL(String(url || '')).hostname.replace(/^www\./, '').toLowerCase() } catch {}
+  return !MARKETPLACE_STORE_HOSTS.some((h) => host === h || host.endsWith(`.${h}`))
+}
 
 export function guessKind(name: string): string {
   const n = String(name).toLowerCase()
