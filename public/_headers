@@ -26,3 +26,7 @@
 # Fonts (when we add custom fonts later, this is ready)
 /fonts/*
   Cache-Control: public, max-age=31536000, immutable
+
+# PWA manifest: Netlify doesn't know .webmanifest and serves it as octet-stream
+/manifest.webmanifest
+  Content-Type: application/manifest+json
