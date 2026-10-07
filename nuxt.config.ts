@@ -92,7 +92,11 @@ export default defineNuxtConfig({
       // calls that follow hydration (conversations, starter-prompts,
       // chat token) — those still hit the API separately from SSR.
       link: [
-        { rel: 'preconnect', href: 'https://api.boxly.mx', crossorigin: 'use-credentials' }
+        { rel: 'preconnect', href: 'https://api.boxly.mx', crossorigin: 'use-credentials' },
+        // Add to Home Screen (PWA): iPhone takes apple-touch-icon (180 px, no transparency —
+        // iOS rounds the corners itself); Android/Chrome take the manifest icons.
+        { rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon.png' },
+        { rel: 'manifest', href: '/manifest.webmanifest' }
       ],
       // <html lang="es"> — primary audience is Mexican Spanish, and
       // setting it satisfies the WCAG 3.1.1 a11y rule. Frontend has
@@ -127,6 +131,11 @@ export default defineNuxtConfig({
       ],
       title: 'Boxly - Compra en cualquier parte del mundo y recibe en México',
       meta: [
+        // Home-screen app: opens full screen (no Safari bars), named "Boxly" under the icon
+        { name: 'apple-mobile-web-app-capable', content: 'yes' },
+        { name: 'mobile-web-app-capable', content: 'yes' },
+        { name: 'apple-mobile-web-app-title', content: 'Boxly' },
+        { name: 'apple-mobile-web-app-status-bar-style', content: 'default' },
         // Essential SEO tags
         {
           name: 'viewport',
