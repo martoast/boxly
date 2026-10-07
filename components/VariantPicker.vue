@@ -120,8 +120,8 @@ onMounted(() => nextTick(() => {
   }
 }))
 const isGrid = (ax) => ['size', 'length', 'width'].includes(ax.kind) && ax.values.every((v) => String(v).length <= 7)
-const LABELS = { size: 'Talla', color: 'Color', length: 'Largo', width: 'Ancho', capacity: 'Capacidad', scent: 'Aroma', pack: 'Paquete', material: 'Material', other: null }
-function axisLabel(ax) { const l = LABELS[ax.kind]; return l && /^(size|color|colour|length|width|capacity|scent|pack|material)$/i.test(ax.name) ? l : ax.name }
+const LABELS = { size: 'Talla', color: 'Color', length: 'Largo', width: 'Ancho', capacity: 'Capacidad', scent: 'Aroma', flavor: 'Sabor', style: 'Estilo', pack: 'Paquete', material: 'Material', other: null }
+function axisLabel(ax) { const l = LABELS[ax.kind]; return l && /^(size|color|colour|length|width|capacity|scent|flavor|flavour|style|pack|count|material)$/i.test(ax.name) ? l : ax.name }
 
 // Some stores (SFCC: New Balance, Gap/Old Navy) expose one row PER AXIS VALUE (a colour row, a size row), not a
 // colour×size matrix. Then each axis validates on its own: the read says so (`axes_independent`), or we infer it
