@@ -267,6 +267,7 @@ import {
   ShoppingCartIcon,
   ArchiveBoxIcon,
   ArchiveBoxArrowDownIcon,
+  QrCodeIcon,
   BuildingStorefrontIcon,
   TagIcon,
   IdentificationIcon,
@@ -311,6 +312,7 @@ const translations = {
   pastTrips: { es: 'Viajes anteriores', en: 'Past trips' }, // legacy shopping-trip bookings; remove when none remain
   packages: { es: 'Paquetes', en: 'Packages' },
   dropOffReceipts: { es: 'Recibos de Entrega', en: 'Drop-off Receipts' },
+  labelScans: { es: 'Escaneo de etiquetas', en: 'Label scans' },
   customers: { es: 'Clientes', en: 'Customers' },
   search: { es: 'Buscar', en: 'Search' },
   expenses: { es: 'Gastos', en: 'Expenses' },
@@ -343,6 +345,7 @@ const navItems = computed(() => [
   { route: '/app/admin/shopping-trips', icon: CalendarDaysIcon, label: t.value.pastTrips },
   { route: '/app/admin/packages', icon: ArchiveBoxIcon, label: t.value.packages },
   { route: '/app/admin/drop-off-receipts', icon: ArchiveBoxArrowDownIcon, label: t.value.dropOffReceipts },
+  { route: '/app/admin/label-scans', icon: QrCodeIcon, label: t.value.labelScans },
   { route: '/app/admin/customers', icon: UsersIcon, label: t.value.customers },
   { route: '/app/admin/stores', icon: BuildingStorefrontIcon, label: t.value.storeBrands },
   { route: '/app/admin/categories', icon: TagIcon, label: t.value.storeCategories },

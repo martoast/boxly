@@ -54,6 +54,7 @@ const route = useRoute()
 const tabs = [
   { route: '/app/employee/packages', label: 'Packages' },
   { route: '/app/employee/drop-off-receipts', label: 'Drop-offs' },
+  { route: '/app/employee/label-scans', label: 'Label scans' },
 ]
 
 const isActive = (path) => route.path.startsWith(path)

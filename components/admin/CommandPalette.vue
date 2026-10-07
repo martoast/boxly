@@ -90,6 +90,7 @@ const destinations = [
   { route: '/app/admin/purchased-products', es: 'Productos Comprados', en: 'Purchased Products', kw: 'purchased productos comprados' },
   { route: '/app/admin/packages', es: 'Paquetes', en: 'Packages', kw: 'packages paquetes tracking' },
   { route: '/app/admin/drop-off-receipts', es: 'Recibos de Entrega', en: 'Drop-off Receipts', kw: 'drop off dropoff receipts recibos entrega comprobante' },
+  { route: '/app/admin/label-scans', es: 'Escaneo de etiquetas', en: 'Label scans', kw: 'label scans etiquetas escaneo llegadas bodega tracking guias fotos' },
   { route: '/app/admin/boxes', es: 'Cajas', en: 'Boxes', kw: 'boxes cajas' },
   { route: '/app/admin/customers', es: 'Clientes', en: 'Customers', kw: 'customers clientes users usuarios' },
   { route: '/app/admin/availability', es: 'Visitas en Persona', en: 'In-Person Trips', kw: 'shopping trips visitas presencial las americas' },

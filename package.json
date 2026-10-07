@@ -30,7 +30,8 @@
     "test:typed-pick": "node --experimental-strip-types utils/typedPick.test.mjs",
     "test:picker-card": "node --experimental-strip-types server/api/picker-card.test.mjs",
     "test:variant-sane": "node server/api/variant-sane.test.mjs",
-    "test:variant-chrome":"node --experimental-strip-types server/api/variant-chrome.test.mjs"
+    "test:variant-chrome": "node --experimental-strip-types server/api/variant-chrome.test.mjs",
+    "test:label-tracking": "node --experimental-strip-types utils/labelTracking.test.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.84",
@@ -61,7 +62,8 @@
     "vue-router": "^4.5.1",
     "vue3-apexcharts": "^1.11.1",
     "vuedraggable": "^4.1.0",
-    "zod": "^4.4.3"
+    "zod": "^4.4.3",
+    "zxing-wasm": "^3.1.5"
   },
   "packageManager": "yarn@1.22.19+sha1.4ba7fc5c6e704fce2066ecbfb0b0d8976fe62447"
 }
