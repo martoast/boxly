@@ -6,14 +6,25 @@
           <h1 class="text-2xl sm:text-3xl font-extrabold text-gray-900">{{ t.title }}</h1>
           <p class="text-sm text-gray-500 mt-1">{{ t.subtitle }}</p>
         </div>
-        <button
-          type="button"
-          class="inline-flex items-center gap-2 px-4 py-2.5 bg-primary-500 hover:bg-primary-600 text-white font-semibold rounded-xl shadow-lg shadow-primary-500/20 transition-colors shrink-0"
-          @click="picker?.click()"
-        >
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
-          <span>{{ t.upload }}</span>
-        </button>
+        <div class="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            class="inline-flex items-center gap-2 px-3 py-2.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 font-semibold rounded-xl transition-colors"
+            :aria-label="t.upload"
+            @click="picker?.click()"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+            <span class="hidden sm:inline">{{ t.upload }}</span>
+          </button>
+          <button
+            type="button"
+            class="inline-flex items-center gap-2 px-4 py-2.5 bg-primary-500 hover:bg-primary-600 text-white font-semibold rounded-xl shadow-lg shadow-primary-500/20 transition-colors"
+            @click="openScanner"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.66-.9l.82-1.2A2 2 0 0110.07 4h3.86a2 2 0 011.66.9l.82 1.2a2 2 0 001.66.9H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            <span>{{ t.scan }}</span>
+          </button>
+        </div>
         <input ref="picker" type="file" accept="image/*" multiple class="hidden" @change="onPick">
       </div>
 
@@ -108,11 +119,13 @@
         </div>
       </div>
     </div>
+    <LabelCameraScanner v-if="scannerOpen" :items="queue" :known="knownTracking" :english="isEmployee" @capture="onCapture" @close="scannerOpen = false" />
   </section>
 </template>
 
 <script setup>
 import { prepareLabelPhoto, blobToDataUrl } from '~/utils/labelPhoto'
+import LabelCameraScanner from '~/components/admin/LabelCameraScanner.vue'
 import { trackingsFrom } from '~/utils/labelTracking'
 
 const { $customFetch } = useNuxtApp()
@@ -127,6 +140,7 @@ const t = computed(() => (isEmployee.value
       title: 'Label scans',
       subtitle: 'Photos of arrived packages → name + tracking number',
       upload: 'Upload photos',
+      scan: 'Scan with camera',
       processing: 'Reading labels…',
       finished: 'Done',
       failedCount: 'failed',
@@ -156,6 +170,7 @@ const t = computed(() => (isEmployee.value
       title: 'Escaneo de etiquetas',
       subtitle: 'Fotos de los paquetes que llegaron → nombre + número de guía',
       upload: 'Subir fotos',
+      scan: 'Escanear con cámara',
       processing: 'Leyendo etiquetas…',
       finished: 'Listo',
       failedCount: 'con error',
@@ -307,7 +322,7 @@ const fromBarcodesOnly = (barcodes) => {
 const processOne = async (item) => {
   item.status = 'working'
   try {
-    const { barcodes, image } = await prepareLabelPhoto(item.file)
+    const { barcodes, image } = item.prepared || await prepareLabelPhoto(item.file)
     let packages
     try {
       const r = await $fetch('/api/label-read', { method: 'POST', body: { image: await blobToDataUrl(image), barcodes } })
@@ -321,9 +336,12 @@ const processOne = async (item) => {
     form.append('batch', batch)
     form.append('packages', JSON.stringify(packages))
     const res = await $customFetch(`${apiNs.value}/label-scans`, { method: 'POST', body: form })
-    scans.value = [...(res.data || []).slice().reverse(), ...scans.value]
+    const rows = res.data || []
+    scans.value = [...rows.slice().reverse(), ...scans.value]
+    item.result = { name: rows[0]?.recipient_name || '—', tracking: rows[0]?.tracking_number || '', needs_check: rows.some((r) => r.needs_check) }
     item.status = 'done'
     item.file = null
+    item.prepared = null
   } catch (e) {
     item.status = 'failed'
     item.error = e?.data?.message || e?.message || String(e)
@@ -355,7 +373,24 @@ const onPick = (event) => {
     queue.value = queue.value.filter((i) => i.status === 'failed')
     batch = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
   }
-  queue.value.push(...files.map((file) => reactive({ id: nextId++, name: file.name, file, status: 'waiting', error: '' })))
+  queue.value.push(...files.map((file) => reactive({ id: nextId++, name: file.name, file, prepared: null, status: 'waiting', error: '', result: null })))
+  run()
+}
+
+// ---- live camera: each capture joins the same queue and is sent right away ----
+const scannerOpen = ref(false)
+const knownTracking = computed(() => new Set(scans.value.map((s) => s.tracking_number).filter(Boolean)))
+
+const openScanner = () => { // one batch per scanning session; finished rows from before are cleared off the list
+  if (!busy.value) {
+    queue.value = queue.value.filter((i) => i.status === 'failed')
+    batch = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+  }
+  scannerOpen.value = true
+}
+
+const onCapture = ({ barcodes, image, label }) => {
+  queue.value.push(reactive({ id: nextId++, name: label || '…', file: null, prepared: { barcodes, image }, status: 'waiting', error: '', result: null }))
   run()
 }
 

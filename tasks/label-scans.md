@@ -37,3 +37,12 @@ decoded exactly 11/11 (at the photo's own size, 1.5× retry). Names from the mod
 | gpt-6-sol / gpt-5.6-luna | 20/22 each | 2.0–2.2 s |
 Tracking (barcode pick) 100% in every setting. Fast mode ≈ $0.0004/photo. Env: OPENAI_LABEL_MODEL, OPENAI_LABEL_TIER.
 Suite / sender / store order # are no longer asked for (unused, and they cost accuracy + time). Page runs 6 photos at a time.
+
+## Live camera scanner (Alex 2026-10-07: "point the camera, green confirmation, haptic, next one; send as they scan")
+components/admin/LabelCameraScanner.vue, opened by "Escanear con cámara" (upload stays as backup):
+rear camera full screen; zxing-wasm decodes a 1280 px frame every ~80 ms + decode time; the same tracking number
+on 2 consecutive frames (4 when only USPS is seen — SurePost's UPS number) → full-res frame captured, green flash,
+haptic (navigator.vibrate on Android; iOS 18 hidden `<input switch>` toggle), beep. Each capture joins the same
+queue as uploads and is read + saved right away, 6 at a time. Already-scanned (this session or the table) → "Ya
+escaneada", never captured twice. Manual shutter for labels without a readable barcode; torch where supported;
+screen wake lock. Not testable here (no camera / no working headless browser): first phone run is the test.

@@ -48,6 +48,24 @@ async function decode(bmp: ImageBitmap): Promise<string[]> {
   return raw
 }
 
+/** Live camera: decode one video frame (already drawn to a canvas). Fast settings: this runs several times a second. */
+export async function decodeFrame(data: ImageData): Promise<string[]> {
+  prepare()
+  const found = await readBarcodes(data, { tryHarder: true, textMode: 'Plain', maxNumberOfSymbols: 8 })
+  return found.map((r) => r.text)
+}
+
+/** Live camera capture: the full-resolution frame → its barcodes (one more careful pass) + the 1600 px JPEG. */
+export async function captureFrame(video: HTMLVideoElement): Promise<{ barcodes: string[]; image: Blob }> {
+  const bmp = await createImageBitmap(video)
+  try {
+    const barcodes = await decode(bmp).catch(() => [] as string[])
+    return { barcodes, image: await jpeg(bmp) }
+  } finally {
+    bmp.close()
+  }
+}
+
 function jpeg(bmp: ImageBitmap, longSide = 1600): Promise<Blob> {
   const s = Math.min(1, longSide / Math.max(bmp.width, bmp.height))
   const canvas = document.createElement('canvas')
