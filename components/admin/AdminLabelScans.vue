@@ -150,7 +150,7 @@ const t = computed(() => (isEmployee.value
       confirmDelete: 'Delete this package?',
       loadMore: 'Load more',
       leaveWarning: 'Photos are still uploading. Leave anyway?',
-      d: { other: 'Other tracking', suite: 'Suite', from: 'From', orders: 'Store order #', barcodes: 'Barcodes', modelRead: 'Model read', confidence: 'Confidence', by: 'Uploaded by' },
+      d: { other: 'Other tracking', barcodes: 'Barcodes', modelRead: 'Model read', confidence: 'Confidence', by: 'Uploaded by' },
     }
   : {
       title: 'Escaneo de etiquetas',
@@ -179,7 +179,7 @@ const t = computed(() => (isEmployee.value
       confirmDelete: '¿Eliminar este paquete?',
       loadMore: 'Cargar más',
       leaveWarning: 'Todavía se están subiendo fotos. ¿Salir de todos modos?',
-      d: { other: 'Otras guías', suite: 'Suite', from: 'Remitente', orders: 'Orden de tienda', barcodes: 'Códigos leídos', modelRead: 'Lectura del modelo', confidence: 'Confianza', by: 'Subida por' },
+      d: { other: 'Otras guías', barcodes: 'Códigos leídos', modelRead: 'Lectura del modelo', confidence: 'Confianza', by: 'Subida por' },
     }))
 
 // ---- table ----------------------------------------------------------------------------
@@ -229,9 +229,6 @@ const toggle = (s) => {
 
 const details = (s) => [
   [t.value.d.other, (s.other_tracking || []).join(', ') || '—'],
-  [t.value.d.suite, s.suite || '—'],
-  [t.value.d.from, s.ship_from || '—'],
-  [t.value.d.orders, (s.store_order_numbers || []).join(', ') || '—'],
   [t.value.d.barcodes, (s.barcodes || []).map((b) => b.replace(/\u001d/g, ' ')).join(' · ') || '—'],
   [t.value.d.modelRead, s.model_tracking_read || '—'],
   [t.value.d.confidence, s.confidence || '—'],
@@ -285,7 +282,7 @@ const copyMessage = async (s) => {
 // ---- upload: every picked photo is read and saved on its own; rows appear as they finish ----
 const picker = ref(null)
 const queue = ref([])
-const PARALLEL = 4
+const PARALLEL = 6
 let nextId = 0
 let batch = ''
 
