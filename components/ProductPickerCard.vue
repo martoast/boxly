@@ -266,6 +266,11 @@ function pickedUrl(variants = {}) {
     const pair = rows.find((v) => typeof v?.url === 'string' && v.url && !v.sold_out_with && picked.every((x) => Object.values(v.options || {}).map(String).includes(x)))
     if (pair) return pair.url
   }
+  // …and a one-option pick's own page (Amazon "1 Count (Pack of 300)" is its own /dp/: the cart opened the card's 100-count page)
+  if (picked.length === 1) {
+    const one = rows.find((v) => typeof v?.url === 'string' && v.url && !v.sold_out_with && Object.keys(v.options || {}).length === 1 && String(Object.values(v.options)[0]) === picked[0])
+    if (one) return one.url
+  }
   const colour = variants.color
   if (!colour) return null
   const row = rows.find((v) => typeof v?.url === 'string' && v.url && (v.color === colour || Object.values(v.options || {}).includes(colour)))
