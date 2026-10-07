@@ -258,9 +258,16 @@ function askForSize(chosenText) {
 // family's, so "Black" could reach the cart as another style's Black). The picked colour's own row link (the reader pins
 // each colour to its style), else the page the card read (its pinned style), else the colourway, else the card's link.
 function pickedUrl(variants = {}) {
+  const rows = Array.isArray(read.value?.variants) ? read.value.variants : []
+  // THE PAIR'S OWN PAGE (Amazon 2026-10-07: each colour + size is its own /dp/ product; the cart opened the card's colour and could
+  // not reach the picked one): a row carrying every picked value and its own link wins
+  const picked = Object.values(variants || {}).filter((x) => x != null && x !== '').map(String)
+  if (picked.length >= 2) {
+    const pair = rows.find((v) => typeof v?.url === 'string' && v.url && !v.sold_out_with && picked.every((x) => Object.values(v.options || {}).map(String).includes(x)))
+    if (pair) return pair.url
+  }
   const colour = variants.color
   if (!colour) return null
-  const rows = Array.isArray(read.value?.variants) ? read.value.variants : []
   const row = rows.find((v) => typeof v?.url === 'string' && v.url && (v.color === colour || Object.values(v.options || {}).includes(colour)))
   return row?.url || null
 }
