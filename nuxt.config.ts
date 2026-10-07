@@ -94,8 +94,9 @@ export default defineNuxtConfig({
       link: [
         { rel: 'preconnect', href: 'https://api.boxly.mx', crossorigin: 'use-credentials' },
         // Add to Home Screen (PWA): iPhone takes apple-touch-icon (180 px, no transparency —
-        // iOS rounds the corners itself); Android/Chrome take the manifest icons.
-        { rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon.png' },
+        // iOS rounds the corners itself); Android/Chrome take the manifest icons. PNGs are cached a
+        // year (public/_headers): change the icon → new file name (-v2, -v3…).
+        { rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon-v2.png' },
         { rel: 'manifest', href: '/manifest.webmanifest' }
       ],
       // <html lang="es"> — primary audience is Mexican Spanish, and
