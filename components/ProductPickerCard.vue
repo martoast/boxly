@@ -263,7 +263,15 @@ function pickedUrl(variants = {}) {
   // not reach the picked one): a row carrying every picked value and its own link wins
   const picked = Object.values(variants || {}).filter((x) => x != null && x !== '').map(String)
   if (picked.length >= 2) {
-    const pair = rows.find((v) => typeof v?.url === 'string' && v.url && !v.sold_out_with && picked.every((x) => Object.values(v.options || {}).map(String).includes(x)))
+    // matched BY OPTION NAME where the row names it: on Gap "Regular" is both a Fit and an inseam (Length), so a value-only
+    // match sent Fit Regular + Length Regular to a Regular/Long row (2026-10-07)
+    // (the pick is keyed by kind — color, fit, size, length — the row by name — Color, Fit…: compared case-insensitively)
+    const fits = (v) => Object.entries(variants || {}).every(([k, x]) => {
+      if (x == null || x === '') return true
+      const key = Object.keys(v.options || {}).find((o) => o.toLowerCase() === String(k).toLowerCase())
+      return key ? String(v.options[key]) === String(x) : Object.values(v.options || {}).map(String).includes(String(x))
+    })
+    const pair = rows.find((v) => typeof v?.url === 'string' && v.url && !v.sold_out_with && fits(v))
     if (pair) return pair.url
   }
   // …and a one-option pick's own page (Amazon "1 Count (Pack of 300)" is its own /dp/: the cart opened the card's 100-count page)
