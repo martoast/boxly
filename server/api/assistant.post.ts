@@ -11,7 +11,7 @@ import { ageGalleries, windowMessages, withContextOnLastUser, dropToolParts, leg
 import { generateFollowups, followupPart, followupsWithin, attachFollowupChips } from '../utils/followups'
 import { readSummary, summaryBlock, summarize, shouldSummarize } from '../utils/chatSummary'
 import { boxFromMessages, withEarlierItems, wantedFromBox, planCart, storeOptionFixes, withStoreOptions, type CarriedStore } from '../utils/boxCheckout'
-import { pickedColourImage } from '../../utils/pickerLogic'
+import { pickedColourImage, pickedVariantPrice } from '../../utils/pickerLogic'
 import { checkStoreLock } from '../utils/storeLock'
 import { storeHostsFromLiveStores, tagCarriedStores } from '../utils/storeHosts'
 import { resolveLiveStores, liveGalleryQuery, liveResultsAsText, type LiveStore } from '../../utils/liveGallery'
@@ -1344,8 +1344,14 @@ export default defineEventHandler(async (event) => {
             // A gallery tile without a photo (Dick's, 2026-09-30) leaves the registry with none; the product's picker
             // card read the page itself, so its photo stands in (utils/typedPick.ts).
             const photo = (u: any) => (u ? pickerCardPhoto(messages, u) : null)
-            if (!saved) return it.image ? it : { ...it, image: photo(it.url) }
-            return { ...it, name: saved.title || it.name, image: saved.image || it.image || photo(saved.url || it.url), price: saved.price ?? it.price }
+            // THE PICKED VARIANT'S PHOTO AND PRICE (Alex, Owala 2026-10-07: dark colour picked, the box card showed the
+            // gallery's photo — "it creates confusion with the client thinking they selected the wrong one" — and its
+            // "desde $23.99" for a $34.99 colour). The picker's read of that page knows both.
+            const page = it.url || saved?.url
+            const pickedPhoto = it.color ? pickedColourImage(messages, page, it.color) : null
+            const pickedPrice = it.color ? pickedVariantPrice(messages, page, it.color, it.size) : null
+            if (!saved) return { ...it, image: pickedPhoto || it.image || photo(it.url), price: pickedPrice ?? it.price }
+            return { ...it, name: saved.title || it.name, image: pickedPhoto || saved.image || it.image || photo(saved.url || it.url), price: pickedPrice ?? saved.price ?? it.price }
           })
           const ship: any = await buildShipment(items)
           // ENFORCED IN CODE (Alex): the moment a sized/coloured product lands in the box is THE moment to read

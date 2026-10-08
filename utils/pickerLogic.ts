@@ -134,35 +134,61 @@ export function simulatePick(data: any, want: Record<string, string> = {}): { co
   return { complete: isComplete(ctx()), sel, stuckOn: isComplete(ctx()) ? null : (axes.find((a) => !sel[a.name])?.name || 'combination') }
 }
 
-/** PURE. The photo of the colour the shopper PICKED, from the chat's own picker reads (Alex 2026-10-03: "make the image match the
- *  color"). The newest tool-product_picker read of that page (read_url or the card's url, query ignored) gives the picked colour's
- *  variant photo, else its swatch, else — when that page IS the picked colourway — the read's own product photo. Null when unknown. */
-export function pickedColourImage(messages: any[], url: string | null | undefined, colour: string | null | undefined): string | null {
-  // the same page with or without www. (Owala 2026-10-07: the card is owalalife.com, its variant rows www.owalalife.com —
-  // the box card fell back to the gallery photo instead of the picked colour's)
+// The chat's picker reads of one page, newest first (read_url or the card's url; query, case and www. ignored).
+function pickerReadsOf(messages: any[], url: string | null | undefined): any[] {
+  // the same page with or without www. (Owala 2026-10-07: the card is owalalife.com, its variant rows www.owalalife.com)
   const page = (u: any) => String(u || '').split(/[?#]/)[0].replace(/\/+$/, '').toLowerCase().replace(/^https?:\/\/www\./, 'https://')
   const want = page(url)
-  const c = String(colour || '').trim().toLowerCase()
-  if (!want || !c) return null
-  const https = (u: any) => (typeof u === 'string' && /^https:\/\//.test(u) ? u : null)
+  const reads: any[] = []
+  if (!want) return reads
   for (let i = (messages || []).length - 1; i >= 0; i--) {
     const parts = messages[i]?.parts || []
     for (let j = parts.length - 1; j >= 0; j--) {
       const p = parts[j]
       if (p?.type !== 'tool-product_picker' || p.state !== 'output-available') continue
       const read = p.output?.read
-      if (!read || (page(p.output?.read_url) !== want && page(p.output?.product?.url) !== want)) continue
-      const variants = normalizeVariants(read)
-      const v = variants.find((x) => String(x.color || '').trim().toLowerCase() === c && https(x.image))
-      if (v) return https(v.image)
-      for (const ax of deriveAxes(read, variants)) {
-        const hit = Object.entries(ax.swatches || {}).find(([k]) => k.trim().toLowerCase() === c)
-        if (hit && https(hit[1])) return https(hit[1])
-      }
-      // the read of the picked colourway's own page: its product photo is that colour
-      const own = String(read?.product?.color || read?.product?.colour || '').trim().toLowerCase()
-      if (own === c) return https(read?.product?.image) || https(read?.product?.images?.[0])
+      if (read && (page(p.output?.read_url) === want || page(p.output?.product?.url) === want)) reads.push(read)
     }
+  }
+  return reads
+}
+
+/** PURE. The photo of the colour the shopper PICKED, from the chat's own picker reads (Alex 2026-10-03: "make the image match the
+ *  color"). The newest tool-product_picker read of that page (read_url or the card's url, query ignored) gives the picked colour's
+ *  variant photo, else its swatch, else — when that page IS the picked colourway — the read's own product photo. Null when unknown. */
+export function pickedColourImage(messages: any[], url: string | null | undefined, colour: string | null | undefined): string | null {
+  const c = String(colour || '').trim().toLowerCase()
+  if (!c) return null
+  const https = (u: any) => (typeof u === 'string' && /^https:\/\//.test(u) ? u : null)
+  for (const read of pickerReadsOf(messages, url)) {
+    const variants = normalizeVariants(read)
+    const v = variants.find((x) => String(x.color || '').trim().toLowerCase() === c && https(x.image))
+    if (v) return https(v.image)
+    for (const ax of deriveAxes(read, variants)) {
+      const hit = Object.entries(ax.swatches || {}).find(([k]) => k.trim().toLowerCase() === c)
+      if (hit && https(hit[1])) return https(hit[1])
+    }
+    // the read of the picked colourway's own page: its product photo is that colour
+    const own = String(read?.product?.color || read?.product?.colour || '').trim().toLowerCase()
+    if (own === c) return https(read?.product?.image) || https(read?.product?.images?.[0])
+  }
+  return null
+}
+
+/** PURE. The price of the variant the shopper PICKED (colour, and size when the rows have one), from the chat's picker
+ *  reads — the box card showed the gallery's "desde $23.99" for a $34.99 Owala colour (2026-10-07). Null when unknown. */
+export function pickedVariantPrice(messages: any[], url: string | null | undefined, colour: string | null | undefined, size?: string | null): number | null {
+  const n = (x: any) => String(x ?? '').trim().toLowerCase()
+  const c = n(colour), z = n(size)
+  if (!c) return null
+  for (const read of pickerReadsOf(messages, url)) {
+    const opt = (v: any, re: RegExp) => Object.entries(v.options || {}).find(([k]) => re.test(k))?.[1]
+    const rows = normalizeVariants(read).filter((v: any) => {
+      const vc = n(v.color ?? opt(v, /^colou?r$/i)), vz = n(v.size ?? opt(v, /^size$/i))
+      return vc === c && (!z || !vz || vz === z)
+    })
+    const priced = rows.map((v) => Number(v.price)).filter((x) => Number.isFinite(x) && x > 0)
+    if (priced.length) return Math.min(...priced)
   }
   return null
 }
