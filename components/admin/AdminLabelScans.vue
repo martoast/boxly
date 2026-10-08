@@ -119,7 +119,7 @@
         </div>
       </div>
     </div>
-    <LabelCameraScanner v-if="scannerOpen" :items="queue" :known="knownTracking" :english="isEmployee" @capture="onCapture" @close="scannerOpen = false" />
+    <LabelCameraScanner v-if="scannerOpen" :items="queue" :english="isEmployee" @capture="onCapture" @close="scannerOpen = false" />
   </section>
 </template>
 
@@ -302,7 +302,7 @@ let nextId = 0
 let batch = ''
 
 const busy = computed(() => queue.value.some((i) => i.status === 'waiting' || i.status === 'working'))
-const doneCount = computed(() => queue.value.filter((i) => i.status === 'done').length)
+const doneCount = computed(() => queue.value.filter((i) => ['done', 'retake', 'duplicate'].includes(i.status)).length)
 const failed = computed(() => queue.value.filter((i) => i.status === 'failed'))
 
 /** The name read failed (network, model): keep what the barcodes alone give, flagged for a person. */
@@ -330,6 +330,24 @@ const processOne = async (item) => {
     } catch (e) {
       console.error('[label-read]', e)
       packages = fromBarcodesOnly(barcodes)
+    }
+    // A camera shot the AI judged bad (tilted / blurry / far…) whose read came back incomplete is
+    // NOT saved: the scanner asks Mau to take it again while the box is still in his hands.
+    // An upload has no second chance, so it is saved anyway (flagged for a person).
+    const issue = packages[0]?.issue
+    if (item.fromCamera && issue && issue !== 'ok' && packages.some((p) => p.needs_check)) {
+      item.issue = issue
+      item.status = 'retake'
+      item.prepared = null
+      return
+    }
+    // The same package shot twice: every tracking number on it is already saved.
+    const tracks = packages.map((p) => p.tracking_number).filter(Boolean)
+    if (tracks.length === packages.length && tracks.every((tr) => knownTracking.value.has(tr))) {
+      item.result = { name: packages[0]?.recipient_name || '—', tracking: tracks[0], needs_check: false }
+      item.status = 'duplicate'
+      item.prepared = null
+      return
     }
     const form = new FormData()
     form.append('image', image, 'label.jpg')
@@ -390,7 +408,7 @@ const openScanner = () => { // one batch per scanning session; finished rows fro
 }
 
 const onCapture = ({ barcodes, image, label }) => {
-  queue.value.push(reactive({ id: nextId++, name: label || '…', file: null, prepared: { barcodes, image }, status: 'waiting', error: '', result: null }))
+  queue.value.push(reactive({ id: nextId++, name: label || '…', file: null, prepared: { barcodes, image }, fromCamera: true, issue: '', status: 'waiting', error: '', result: null }))
   run()
 }
 
