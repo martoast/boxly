@@ -808,7 +808,8 @@ const handleRegister = async () => {
 const handleGoogleSignUp = () => { 
   const state = btoa(JSON.stringify({
     tracking: form.value.registration_source || null,
-    redirect: redirectTo || null
+    redirect: redirectTo || null,
+    ref: getAffiliateCode() || null, // affiliate link → recorded when Google creates the account
   }))
   
   window.location.href = `${runtimeConfig.public.apiUrl}/auth/google/redirect?state=${encodeURIComponent(state)}`

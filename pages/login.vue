@@ -448,7 +448,8 @@ const handleSocialLogin = async (provider) => {
   const redirectTo = typeof route.query.redirect === 'string' && route.query.redirect.startsWith('/')
     ? route.query.redirect
     : null
-  const state = btoa(JSON.stringify({ redirect: redirectTo }))
+  // A new account can be created from here too: carry the affiliate link's code along
+  const state = btoa(JSON.stringify({ redirect: redirectTo, ref: useAffiliateRef().getAffiliateCode() || null }))
   window.location.href = `${runtimeConfig.public.apiUrl}/auth/${provider}/redirect?state=${encodeURIComponent(state)}`
 }
 
