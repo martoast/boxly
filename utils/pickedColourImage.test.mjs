@@ -12,6 +12,7 @@ const read = { variants: [
 const msgs = [picker(url, read)]
 check('the picked colour gives its own photo', pickedColourImage(msgs, url, 'White') === 'https://cdn.alo/white.jpg')
 check('case and the query string do not matter', pickedColourImage(msgs, url + '?variant=1', 'white') === 'https://cdn.alo/white.jpg')
+check('www. or not is the same page (Owala variant rows)', pickedColourImage(msgs, url.replace('https://www.', 'https://'), 'White') === 'https://cdn.alo/white.jpg')
 check('another page: no photo', pickedColourImage(msgs, 'https://www.aloyoga.com/products/other', 'White') === null)
 check('an unknown colour: no photo', pickedColourImage(msgs, url, 'Espresso') === null)
 check('no colour: no photo', pickedColourImage(msgs, url, null) === null)

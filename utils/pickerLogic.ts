@@ -138,7 +138,9 @@ export function simulatePick(data: any, want: Record<string, string> = {}): { co
  *  color"). The newest tool-product_picker read of that page (read_url or the card's url, query ignored) gives the picked colour's
  *  variant photo, else its swatch, else — when that page IS the picked colourway — the read's own product photo. Null when unknown. */
 export function pickedColourImage(messages: any[], url: string | null | undefined, colour: string | null | undefined): string | null {
-  const page = (u: any) => String(u || '').split(/[?#]/)[0].replace(/\/+$/, '').toLowerCase()
+  // the same page with or without www. (Owala 2026-10-07: the card is owalalife.com, its variant rows www.owalalife.com —
+  // the box card fell back to the gallery photo instead of the picked colour's)
+  const page = (u: any) => String(u || '').split(/[?#]/)[0].replace(/\/+$/, '').toLowerCase().replace(/^https?:\/\/www\./, 'https://')
   const want = page(url)
   const c = String(colour || '').trim().toLowerCase()
   if (!want || !c) return null
