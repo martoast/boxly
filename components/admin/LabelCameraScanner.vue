@@ -21,7 +21,7 @@
       <div class="absolute top-4 inset-x-0 flex justify-center px-6 pointer-events-none">
         <span class="px-4 py-2 rounded-2xl text-sm font-semibold text-center backdrop-blur-sm" :class="pillClass">{{ statusText }}</span>
       </div>
-      <p v-if="error" class="absolute inset-x-6 top-1/3 text-center text-base bg-black/70 rounded-2xl p-4">{{ error }}</p>
+      <button v-if="error" type="button" class="absolute inset-x-6 top-1/3 text-center text-base bg-black/70 rounded-2xl p-4" @click="resumeCamera">{{ error }}<span class="block mt-2 text-sm text-white/70">{{ t.retryCamera }}</span></button>
     </div>
 
     <!-- recent results + manual shutter -->
@@ -98,6 +98,7 @@ const t = computed(() => (props.english
       },
       hint: 'Get close until the label fills the screen — it takes the photo by itself when the text is sharp. Or use the button.',
       noCamera: 'Camera not available. Allow camera access for this site and try again.',
+      retryCamera: 'Tap to turn the camera back on',
     }
   : {
       close: 'Cerrar', scanned: 'escaneadas', sending: 'enviando', torch: 'Linterna', shutter: 'Tomar foto',
@@ -119,6 +120,7 @@ const t = computed(() => (props.english
       },
       hint: 'Acércate hasta que la etiqueta llene la pantalla — se toma sola cuando el texto se ve nítido. O usa el botón.',
       noCamera: 'No hay acceso a la cámara. Permite la cámara para este sitio e intenta de nuevo.',
+      retryCamera: 'Toca aquí para volver a encender la cámara',
     }))
 
 // The checks (tuned on 54 real warehouse photos, 480 px analysis frames — see utils/labelQuad)
@@ -153,6 +155,8 @@ const pillClass = computed(() => (status.value === 'retake' ? 'bg-red-600' : sta
 
 let stream = null
 let running = false
+let loop = 0 // bumped on every (re)start: an old analysis loop sees a newer number and exits
+let closed = false // the scanner was closed: never reopen the camera
 let wakeLock = null
 let audio = null // AudioContext; resumed on any tap inside (iOS starts it suspended)
 let cv = null
@@ -295,12 +299,12 @@ function analyse() {
   if (steady >= STEADY_FRAMES) capture()
 }
 
-async function tick() {
-  if (!running) return
+async function tick(id = loop) {
+  if (!running || id !== loop) return
   if (cv && !capturing) {
     try { analyse() } catch (e) { console.warn('[scanner]', e) }
   }
-  setTimeout(tick, 110)
+  setTimeout(() => tick(id), 110)
 }
 
 /** Tap to focus. Where the browser exposes it (Chrome/Android), focus on the tapped point; iPhone
@@ -325,24 +329,68 @@ async function focusAt(e) {
   }
 }
 
-async function start() {
+/** Open the camera and start checking frames. Safe to call again after a pause. */
+async function startCamera() {
   try {
     stream = await navigator.mediaDevices.getUserMedia({
       audio: false,
       video: { facingMode: { ideal: 'environment' }, width: { ideal: 3840 }, height: { ideal: 2160 } },
     })
+    if (closed || document.hidden) { stopCamera(); return false } // left again while it opened
+    const track = stream.getVideoTracks()[0]
+    // iOS also ends the track on its own (a call, Control Center, another app taking the
+    // camera): restart rather than sit on a dead stream
+    track.addEventListener('ended', () => { if (!closed && !document.hidden && stream?.getVideoTracks()[0] === track) resumeCamera() })
     video.value.srcObject = stream
     await video.value.play()
-    const track = stream.getVideoTracks()[0]
     torchSupported.value = !!track.getCapabilities?.().torch
+    torchOn.value = false
     try { wakeLock = await navigator.wakeLock?.request('screen') } catch {}
+    error.value = ''
     running = true
-    tick()
+    tick(++loop)
+    return true
   } catch (e) {
     console.error('[scanner]', e)
     error.value = t.value.noCamera
-    return
+    return false
   }
+}
+
+/** Stop the camera and the checks (leaving the app, or closing the scanner). */
+function stopCamera() {
+  running = false
+  loop++
+  stream?.getTracks().forEach((tr) => tr.stop())
+  stream = null
+  if (video.value) video.value.srcObject = null
+  try { wakeLock?.release() } catch {}
+  wakeLock = null
+}
+
+/** Back from another app / the lock screen: a fresh camera and a clean finder. iOS stops
+ * the camera whenever Safari is in the background, so the old stream is dead or frozen —
+ * keeping it (as before 2026-10-08) left a black or stuck picture and a loop checking it. */
+async function resumeCamera() {
+  if (closed) return
+  stopCamera()
+  prevThumb = null
+  shotThumb = null
+  steady = 0
+  peak = 0
+  lost = 0
+  armed = true
+  try { await audio?.resume?.() } catch {}
+  if (await startCamera()) say(cv ? 'find' : status.value)
+}
+
+function onVisibility() {
+  if (document.hidden) stopCamera()
+  else resumeCamera()
+}
+
+async function start() {
+  startCamera() // its failure shows a tap-to-retry; the label checks load either way
   try {
     cv = await loadCv()
     if (status.value === 'loading') status.value = 'find'
@@ -362,11 +410,9 @@ async function toggleTorch() {
 }
 
 function stop() {
-  running = false
-  stream?.getTracks().forEach((tr) => tr.stop())
-  stream = null
-  try { wakeLock?.release() } catch {}
-  wakeLock = null
+  closed = true
+  document.removeEventListener('visibilitychange', onVisibility)
+  stopCamera()
   try { audio?.close() } catch {}
   audio = null
 }
@@ -380,6 +426,7 @@ onMounted(() => {
   // opened by a tap, so sound may start now (iOS only allows audio after a user gesture)
   try { audio = new (window.AudioContext || window.webkitAudioContext)() } catch {}
   loadCv().catch(() => {}) // start the download while the camera permission prompt is up
+  document.addEventListener('visibilitychange', onVisibility)
   start()
 })
 onBeforeUnmount(stop)
