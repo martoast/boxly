@@ -395,7 +395,7 @@
 
                     <!-- The order placed from the box — live store checkouts, real totals, then Pagar. (tool-finalize_lab_order
                          is the same card in chats from the Boxly Lab days, before 2026-09-28.) -->
-                    <LazyCheckoutCard v-else-if="FINALIZE_PARTS.has(part.type) && part.state === 'output-available' && part.output?.purchase_request_id" :purchase-request-id="part.output.purchase_request_id" :request-number="part.output.request_number" @watch="watchLive" :part="hasInvoiceMessage(part.output.purchase_request_id) ? 'progress' : 'all'" @store-done="(d) => onStoreDone(part.output.purchase_request_id, d)" @invoice-ready="(r) => onInvoiceReady(part.output.purchase_request_id, part.output.request_number, r)" />
+                    <LazyCheckoutCard v-else-if="FINALIZE_PARTS.has(part.type) && part.state === 'output-available' && part.output?.purchase_request_id" :purchase-request-id="part.output.purchase_request_id" :request-number="part.output.request_number" @watch="watchLive" @live="onCheckoutLive" :part="hasInvoiceMessage(part.output.purchase_request_id) ? 'progress' : 'all'" @store-done="(d) => onStoreDone(part.output.purchase_request_id, d)" @invoice-ready="(r) => onInvoiceReady(part.output.purchase_request_id, part.output.request_number, r)" />
                     <!-- The invoice, posted after the store lines (Alex 2026-10-05) -->
                     <LazyCheckoutCard v-else-if="part.type === 'data-invoice' && part.data?.purchase_request_id && part.data.kind !== 'manual'" :purchase-request-id="part.data.purchase_request_id" :request-number="part.data.request_number" part="invoice" />
                     <div v-else-if="FINALIZE_PARTS.has(part.type) && (part.state === 'input-streaming' || part.state === 'input-available')" class="flex items-center gap-2 text-xs text-gray-400 pl-1">
@@ -688,8 +688,14 @@ watch(() => boxlyCart.cart.value?.live_sessions?.[0] || null, (s) => {
   if (s && s.id !== liveShown.value?.id) liveShown.value = s
 })
 let liveEndTimer = null
-// Finalizar no longer shows the checkout browser (Alex 2026-10-04: the shopper needn't wait; the invoice is emailed).
+// THE CHECKOUT IS SHOWN LIVE AGAIN (Alex 2026-10-07: "super important wow factor — customers want to be watching it as their cart is
+// being built"; reverses 2026-10-04). The order card reports the store browser the agent is on (one store after another) and the
+// chat opens its video; the invoice still arrives by email, so watching stays optional.
 const checkoutLive = ref(null)
+function onCheckoutLive(s) {
+  checkoutLive.value = s
+  if (s && s.id !== liveShown.value?.id) { clearTimeout(liveEndTimer); liveShown.value = s }
+}
 // A store finished its checkout: one local assistant line (no model), never twice for the same order + store.
 const storeDoneSeen = new Set()
 function onStoreDone(requestId, { store_id, text }) {
