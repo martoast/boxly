@@ -172,7 +172,7 @@
                           <span v-else class="w-9 h-9 rounded bg-gray-200 grid place-items-center text-gray-400 shrink-0 text-xs">🛍</span>
                           <span class="min-w-0 leading-tight">
                             <span class="block text-[11px] font-semibold text-gray-800 truncate">{{ pr.title || pr.name || 'Producto' }}</span>
-                            <span class="block text-[10px] text-gray-400 truncate">{{ [pr.store, pr.price != null ? ('$' + pr.price) : null].filter(Boolean).join(' · ') }}</span>
+                            <span class="block text-[10px] text-gray-400 truncate">{{ [pr.store, priceOf(pr) != null ? ('$' + priceOf(pr)) : null].filter(Boolean).join(' · ') }}</span>
                           </span>
                         </a>
                       </div>
@@ -205,7 +205,7 @@
                       </div>
                     </div>
 
-                    <span v-else :class="['inline-block mt-1 mr-1 text-[11px] font-semibold px-2 py-0.5 rounded-full', m.role === 'user' ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600']">{{ b.label }}</span>
+                    <span v-else :class="['inline-block mt-1 mr-1 text-[11px] font-semibold px-2 py-0.5 rounded-full', m.role === 'user' ? 'bg-white/20 text-white' : b.warn ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-600']">{{ b.label }}</span>
                   </template>
                 </div>
               </div>
@@ -374,22 +374,31 @@ function messageBits(m) {
       const products = Array.isArray(p.output?.products) ? p.output.products : null
       const suggestions = Array.isArray(p.output?.suggestions) ? p.output.suggestions : null
       const boxes = Array.isArray(p.output?.boxes) ? p.output.boxes : null
-      if (GALLERY_TOOLS.has(name) && products && products.length) {
+      // A live gallery that came back EMPTY says so (Alex 2026-10-08: a shopper's second "Ver más" showed only "⚙️ live_results")
+      if (name === 'live_results' && products && !products.length) {
+        bits.push({ t: 'tool', name, label: '⚠️ Galería en vivo: 0 resultados', warn: true })
+      } else if (name === 'product_picker' && p.output?.product) {
+        // the product the shopper opened (its picker card), as a one-product row
+        const pr = p.output.product
+        bits.push({ t: 'products', label: '🧩 Abrió el producto', products: [{ ...pr, store: pr.store || pr.store_name }] })
+      } else if (GALLERY_TOOLS.has(name) && products && products.length) {
         bits.push({ t: 'products', label: toolLabel(name, q, products.length), products })
       } else if (name === 'show_box_guide' && boxes && boxes.length) {
         bits.push({ t: 'boxes', label: toolLabel(name), boxes })
       } else if (name === 'suggest_followups' && suggestions && suggestions.length) {
         bits.push({ t: 'suggestions', label: toolLabel(name), items: suggestions.map((s) => (typeof s === 'string' ? s : s?.text)).filter(Boolean) })
       } else {
-        bits.push({ t: 'tool', name, label: toolLabel(name, q, products ? products.length : null) })
+        bits.push({ t: 'tool', name, label: toolLabel(name, q, products ? products.length : null, Array.isArray(p.input?.stores) ? p.input.stores.join(', ') : '') })
       }
     }
   }
   return bits
 }
-function toolLabel(name, q, n) {
+function toolLabel(name, q, n, stores = '') {
   const map = {
     search_products: `🔍 Buscó${q ? ` “${q}”` : ''}${n != null ? ` · ${n} result.` : ''}`,
+    live_gallery: `🔴 Búsqueda en vivo${q ? ` “${q}”` : ''}${stores ? ` · ${stores}` : ''}`,
+    live_results: `🖼 Galería en vivo${n != null ? ` · ${n} resultados` : ''}`,
     browse_store: `🛍 Exploró tienda${q ? ` (${q})` : ''}`,
     browse_stores: `🛍 Exploró varias tiendas`,
     show_products: `🖼 Mostró productos`,
@@ -413,6 +422,11 @@ function toolLabel(name, q, n) {
   return map[name] || `⚙️ ${name}`
 }
 
+// a gallery row's price: the registry's `price`, or a live result's `current_price.amount`
+function priceOf(pr) {
+  const v = pr?.price ?? pr?.current_price?.amount
+  return v == null || v === '' ? null : v
+}
 function fmtMx(n) {
   return new Intl.NumberFormat('es-MX').format(Number(n) || 0)
 }
