@@ -14,6 +14,13 @@
  * shots 51–65%) with sharpness 2,100–13,000; the blurry warehouse shots score < ~1,400. Whether the photo is actually
  * readable is still judged by the AI after capture (and a retake is asked for if not).
  *
+ * A LABEL, not just text: "printed and sharp" alone also fired on cardboard art, bags and
+ * anything with writing whenever Mau paused (2026-10-08). Every shipping label carries big
+ * barcodes — blocks of parallel high-contrast bars, which almost nothing else in the
+ * warehouse has — so a barcode-shaped block must be in view too (`barcode`). Measured on
+ * the same photos: every close-up ≥ 2.5% of the frame; 43 of 56 label-free warehouse
+ * patches ~0%, and the few that scored were pieces of real labels.
+ *
  * OpenCV.js does the image work (loaded once from jsDelivr, ~3.5 MB, cached a year).
  */
 
@@ -24,6 +31,7 @@ export type LabelFind = {
   span: number // how much of the screen the printing spans (its larger side / the screen's) — how close
   center: Pt // centre of the printed block (frame pixels) — for "is the hand still"
   sharp: number // variance of the Laplacian over the printed block
+  barcode: number // biggest barcode-shaped block / frame area — 0 when there is none
 }
 
 let loading: Promise<any> | null = null
@@ -60,6 +68,44 @@ function sharpness(cv: any, gray: any, box: { x: number; y: number; w: number; h
   const v = sd.data64F[0] ** 2
   roi.delete(); lap.delete(); mean.delete(); sd.delete()
   return v
+}
+
+/** Biggest block of parallel high-contrast bars (a barcode — readable or not), as a share
+ * of the frame. Gradient strong ACROSS one axis and weak along the other, in both
+ * orientations (labels are often sideways); merged into blocks; must be well filled. */
+function barcodeShare(cv: any, gray: any) {
+  const W = gray.cols, H = gray.rows
+  const gx = new cv.Mat(), gy = new cv.Mat(), ax = new cv.Mat(), ay = new cv.Mat(), d = new cv.Mat(), b = new cv.Mat(), m = new cv.Mat()
+  const contours = new cv.MatVector(), hier = new cv.Mat()
+  const k3 = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(5, 5))
+  let best = 0
+  try {
+    cv.Sobel(gray, gx, cv.CV_32F, 1, 0, 3)
+    cv.Sobel(gray, gy, cv.CV_32F, 0, 1, 3)
+    cv.convertScaleAbs(gx, ax)
+    cv.convertScaleAbs(gy, ay)
+    for (const [p, q, kw, kh] of [[ax, ay, 15, 5], [ay, ax, 5, 15]]) {
+      cv.subtract(p, q, d) // saturates at 0: keeps only gradient mostly across one axis
+      cv.blur(d, b, new cv.Size(7, 7))
+      cv.threshold(b, m, 90, 255, cv.THRESH_BINARY)
+      const k = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(kw, kh))
+      cv.morphologyEx(m, m, cv.MORPH_CLOSE, k)
+      k.delete()
+      cv.erode(m, m, k3, new cv.Point(-1, -1), 2)
+      cv.dilate(m, m, k3, new cv.Point(-1, -1), 2)
+      cv.findContours(m, contours, hier, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+      for (let i = 0; i < contours.size(); i++) {
+        const c = contours.get(i)
+        const r = cv.minAreaRect(c)
+        const area = r.size.width * r.size.height
+        if (area > 0 && cv.contourArea(c) / area > 0.6) best = Math.max(best, area / (W * H))
+        c.delete()
+      }
+    }
+  } finally {
+    ;[gx, gy, ax, ay, d, b, m, contours, hier, k3].forEach((x) => x.delete())
+  }
+  return best
 }
 
 /**
@@ -107,7 +153,12 @@ export function findLabel(cv: any, frame: ImageData, view = { x: 0, y: 0, w: fra
       c.delete()
     }
     if (!best) return null
-    return { span: Math.max(best.box.w / view.w, best.box.h / view.h), center: best.c, sharp: sharpness(cv, gray, best.box) }
+    return {
+      span: Math.max(best.box.w / view.w, best.box.h / view.h),
+      center: best.c,
+      sharp: sharpness(cv, gray, best.box),
+      barcode: barcodeShare(cv, gray),
+    }
   } finally {
     src.delete(); gray.delete(); bh.delete(); ink.delete(); dens.delete(); blob.delete()
     contours.delete(); hier.delete(); k5.delete(); kClose.delete()

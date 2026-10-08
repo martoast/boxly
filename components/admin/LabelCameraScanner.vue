@@ -59,7 +59,7 @@ import { loadCv, findLabel } from '~/utils/labelQuad'
  * Label camera that takes the photo BY ITSELF (Alex, 2026-10-07: "it needs to fast check
  * and when it passes the check then it takes the image"). ~9 times a second it finds the
  * label by its printing (utils/labelQuad) and checks, in order:
- *   a label in view → close (the printing spans most of the screen — Alex wants it up
+ *   a LABEL in view (a barcode-shaped block, not just any printing) → close (the printing spans most of the screen — Alex wants it up
  *   close so the text is big) → sharp. That's all: the name has to be legible, nothing
  *   more (no stillness check — a hand-held phone shakes, and real blur fails "sharp").
  * Both passing for STEADY_FRAMES frames in a row = capture; the frame turns green.
@@ -131,6 +131,8 @@ const FRAME = 480 // analysis frame, long side
 // that actually blurs the text already fails MIN_SHARP.
 const MIN_SPAN = 0.6 // printing spans ≥ 60% of the screen (Alex's close-ups: ≥ 66%; farther shots 51–65%)
 const MIN_SHARP = 1400 // blurry photos scored < 1,400, sharp ones 2,000–13,000
+const MIN_BARCODE = 0.02 // a barcode-shaped block ≥ 2% of the frame = a shipping label, close (close-ups ≥ 2.5%)
+const SEEN_BARCODE = 0.006 // smaller than that = no label in view; in between = a label, but far
 const NEW_VIEW = 45 // change vs the captured frame that means "a different label now" (hand shake stays below)
 const STEADY_FRAMES = 2 // two passing frames in a row (~0.2 s) — not one lucky frame
 
@@ -292,7 +294,8 @@ function analyse() {
 
   let verdict = 'hold'
   if (!armed) verdict = 'next'
-  else if (r.span < MIN_SPAN) verdict = 'closer'
+  else if (r.barcode < SEEN_BARCODE) verdict = 'find' // printing, but no label (cardboard art, a bag…)
+  else if (r.barcode < MIN_BARCODE || r.span < MIN_SPAN) verdict = 'closer'
   else if (r.sharp < MIN_SHARP) verdict = 'focus'
   steady = verdict === 'hold' ? steady + 1 : 0
   say(verdict)
