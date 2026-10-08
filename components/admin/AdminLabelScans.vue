@@ -1,12 +1,12 @@
 <template>
   <section :class="isEmployee ? '' : 'min-h-screen bg-gray-50'">
     <div :class="isEmployee ? '' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6'">
-      <div class="flex items-center justify-between gap-4 mb-6">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 class="text-2xl sm:text-3xl font-extrabold text-gray-900">{{ t.title }}</h1>
           <p class="text-sm text-gray-500 mt-1">{{ t.subtitle }}</p>
         </div>
-        <div class="flex items-center gap-2 shrink-0">
+        <div class="flex items-center gap-2 sm:shrink-0">
           <button
             type="button"
             class="inline-flex items-center gap-2 px-3 py-2.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 font-semibold rounded-xl transition-colors"
@@ -18,7 +18,7 @@
           </button>
           <button
             type="button"
-            class="inline-flex items-center gap-2 px-4 py-2.5 bg-primary-500 hover:bg-primary-600 text-white font-semibold rounded-xl shadow-lg shadow-primary-500/20 transition-colors"
+            class="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-primary-500 hover:bg-primary-600 text-white font-semibold rounded-xl shadow-lg shadow-primary-500/20 transition-colors"
             @click="openScanner"
           >
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.66-.9l.82-1.2A2 2 0 0110.07 4h3.86a2 2 0 011.66.9l.82 1.2a2 2 0 001.66.9H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
@@ -46,6 +46,65 @@
         <ul v-if="failed.length" class="mt-3 space-y-1 text-xs text-red-600">
           <li v-for="item in failed" :key="item.id" class="truncate">{{ item.name }} — {{ item.error }}</li>
         </ul>
+      </div>
+
+      <!-- Period: today / this week / this month — the table and the count follow it -->
+      <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-5">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div class="inline-flex rounded-xl bg-gray-100 p-1">
+            <button
+              v-for="k in periodKinds"
+              :key="k"
+              type="button"
+              class="px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors"
+              :class="periodKind === k ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
+              @click="setKind(k)"
+            >{{ t.period[k] }}</button>
+          </div>
+          <div v-if="period" class="flex items-center gap-1">
+            <button type="button" class="p-2 rounded-lg text-gray-500 hover:bg-gray-100" :aria-label="t.prev" @click="step(-1)">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+            </button>
+            <span class="text-sm font-medium text-gray-700 min-w-[9rem] text-center">{{ periodLabel }}</span>
+            <button type="button" class="p-2 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent" :disabled="isCurrent" :aria-label="t.next" @click="step(1)">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div v-if="period" class="mt-4 flex flex-wrap items-end gap-x-8 gap-y-4">
+          <div>
+            <p class="text-4xl font-extrabold text-gray-900 tabular-nums leading-none">{{ stats ? stats.total : '—' }}</p>
+            <p class="text-sm text-gray-500 mt-1">{{ t.packagesScanned }}</p>
+            <p v-if="stats?.needs_check" class="text-xs text-amber-700 mt-1">{{ stats.needs_check }} {{ t.toCheck }}</p>
+          </div>
+          <!-- packages per day (week / month): tap a day to see just that day -->
+          <div v-if="period.kind !== 'day'" class="flex-1 min-w-[14rem]">
+            <p class="text-xs text-gray-500 h-4 mb-1 tabular-nums">{{ hoverDay ? `${formatDay(hoverDay.day, locale, { weekday: 'short', day: 'numeric', month: 'short' })} · ${hoverDay.count} ${t.packagesShort}` : '' }}</p>
+            <div class="flex items-end gap-[2px] h-16 border-b border-gray-200" @mouseleave="hoverDay = null">
+              <button
+                v-for="d in dayBars"
+                :key="d.day"
+                type="button"
+                class="flex-1 h-full flex items-end group"
+                :aria-label="`${d.day}: ${d.count}`"
+                :disabled="d.day > today"
+                @mouseenter="hoverDay = d"
+                @focus="hoverDay = d"
+                @click="openDay(d.day)"
+              >
+                <span
+                  class="w-full rounded-t-[4px] transition-colors"
+                  :class="d.day === today ? 'bg-primary-600' : 'bg-primary-400 group-hover:bg-primary-500'"
+                  :style="{ height: d.count ? `${Math.max(6, (100 * d.count) / maxDay)}%` : '0' }"
+                />
+              </button>
+            </div>
+            <div class="flex gap-[2px] mt-1">
+              <span v-for="(d, i) in dayBars" :key="d.day" class="flex-1 text-center text-[10px] text-gray-400 tabular-nums">{{ dayTick(d.day, i) }}</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-5 flex flex-col sm:flex-row gap-3 sm:items-center">
@@ -127,6 +186,7 @@
 import { prepareLabelPhoto, blobToDataUrl } from '~/utils/labelPhoto'
 import LabelCameraScanner from '~/components/admin/LabelCameraScanner.vue'
 import { trackingsFrom } from '~/utils/labelTracking'
+import { warehouseDay, periodOf, shiftPeriod, formatDay } from '~/utils/warehouseTime'
 
 const { $customFetch } = useNuxtApp()
 const route = useRoute()
@@ -165,6 +225,9 @@ const t = computed(() => (isEmployee.value
       loadMore: 'Load more',
       leaveWarning: 'Photos are still uploading. Leave anyway?',
       d: { other: 'Other tracking', barcodes: 'Barcodes', modelRead: 'Model read', confidence: 'Confidence', by: 'Uploaded by' },
+      period: { day: 'Today', week: 'Week', month: 'Month', all: 'All' },
+      prev: 'Previous', next: 'Next',
+      packagesScanned: 'packages scanned', packagesShort: 'packages', toCheck: 'to check',
     }
   : {
       title: 'Escaneo de etiquetas',
@@ -195,7 +258,57 @@ const t = computed(() => (isEmployee.value
       loadMore: 'Cargar más',
       leaveWarning: 'Todavía se están subiendo fotos. ¿Salir de todos modos?',
       d: { other: 'Otras guías', barcodes: 'Códigos leídos', modelRead: 'Lectura del modelo', confidence: 'Confianza', by: 'Subida por' },
+      period: { day: 'Hoy', week: 'Semana', month: 'Mes', all: 'Todo' },
+      prev: 'Anterior', next: 'Siguiente',
+      packagesScanned: 'paquetes escaneados', packagesShort: 'paquetes', toCheck: 'por revisar',
     }))
+
+// ---- period: today / week / month (warehouse days, San Diego time) -----------------------
+// The employee page is only this (Alex, 2026-10-08): what got scanned today, this week, this
+// month, and how many. Admin keeps "All" as its default.
+const locale = computed(() => (isEmployee.value ? 'en-US' : 'es-MX'))
+const periodKinds = computed(() => (isEmployee.value ? ['day', 'week', 'month'] : ['all', 'day', 'week', 'month']))
+const periodKind = ref(isEmployee.value ? 'day' : 'all')
+const today = ref(warehouseDay())
+const period = ref(periodKind.value === 'all' ? null : periodOf(periodKind.value, today.value))
+const stats = ref(null)
+const hoverDay = ref(null)
+
+const isCurrent = computed(() => !!period.value && period.value.to >= today.value)
+const periodLabel = computed(() => {
+  const p = period.value
+  if (!p) return ''
+  const L = locale.value
+  if (p.kind === 'day') return p.from === today.value ? t.value.period.day : formatDay(p.from, L, { weekday: 'short', day: 'numeric', month: 'short' })
+  if (p.kind === 'week') return `${formatDay(p.from, L, { day: 'numeric', month: 'short' })} – ${formatDay(p.to, L, { day: 'numeric', month: 'short' })}`
+  return formatDay(p.from, L, { month: 'long', year: 'numeric' })
+})
+const dayBars = computed(() => {
+  const counts = Object.fromEntries((stats.value?.per_day || []).map((r) => [r.day, r.count]))
+  return (period.value?.days || []).map((day) => ({ day, count: counts[day] || 0 }))
+})
+const maxDay = computed(() => Math.max(1, ...dayBars.value.map((d) => d.count)))
+const dayTick = (day, i) => (period.value?.kind === 'week'
+  ? formatDay(day, locale.value, { weekday: 'narrow' })
+  : (i % 7 === 0 || i === dayBars.value.length - 1 ? String(Number(day.slice(8))) : ''))
+
+const fetchStats = async () => {
+  const p = period.value
+  if (!p) { stats.value = null; return }
+  try {
+    const res = await $customFetch(`${apiNs.value}/label-scans/stats`, { query: { since: p.since.toISOString(), until: p.until.toISOString() } })
+    if (period.value === p) stats.value = res.data
+  } catch (e) {
+    console.error(e)
+  }
+}
+const setKind = (k) => {
+  periodKind.value = k
+  today.value = warehouseDay()
+  period.value = k === 'all' ? null : periodOf(k, today.value)
+}
+const step = (n) => { if (period.value) period.value = shiftPeriod(period.value, n) }
+const openDay = (day) => { periodKind.value = 'day'; period.value = periodOf('day', day) }
 
 // ---- table ----------------------------------------------------------------------------
 const scans = ref([])
@@ -212,7 +325,14 @@ const fetchScans = async (p = 1) => {
   if (p === 1) loading.value = true
   try {
     const res = await $customFetch(`${apiNs.value}/label-scans`, {
-      query: { search: search.value || undefined, needs_check: onlyCheck.value ? 1 : undefined, per_page: 100, page: p },
+      query: {
+        search: search.value || undefined,
+        needs_check: onlyCheck.value ? 1 : undefined,
+        since: period.value?.since.toISOString(),
+        until: period.value?.until.toISOString(),
+        per_page: 100,
+        page: p,
+      },
     })
     const rows = res.data?.data ?? []
     scans.value = p === 1 ? rows : [...scans.value, ...rows]
@@ -230,7 +350,11 @@ watch(search, () => {
   searchTimer = setTimeout(() => fetchScans(1), 300)
 })
 watch(onlyCheck, () => fetchScans(1))
-onMounted(() => fetchScans(1))
+watch(period, () => { hoverDay.value = null; stats.value = null; fetchScans(1); fetchStats() })
+onMounted(() => { fetchScans(1); fetchStats() })
+
+let statsTimer = null
+const refreshStatsSoon = () => { clearTimeout(statsTimer); statsTimer = setTimeout(fetchStats, 1500) }
 
 // ---- expand / edit ----------------------------------------------------------------------
 const openId = ref(null)
@@ -355,7 +479,8 @@ const processOne = async (item) => {
     form.append('packages', JSON.stringify(packages))
     const res = await $customFetch(`${apiNs.value}/label-scans`, { method: 'POST', body: form })
     const rows = res.data || []
-    scans.value = [...rows.slice().reverse(), ...scans.value]
+    if (!period.value || period.value.to >= today.value) scans.value = [...rows.slice().reverse(), ...scans.value]
+    refreshStatsSoon()
     item.result = { name: rows[0]?.recipient_name || '—', tracking: rows[0]?.tracking_number || '', needs_check: rows.some((r) => r.needs_check) }
     item.status = 'done'
     item.file = null
