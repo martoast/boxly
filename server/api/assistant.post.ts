@@ -511,10 +511,10 @@ function userPartsFromMessages(messages: any[]): any[] | null {
 
 // Save this turn (new user message + assistant reply) to the conversation. No-op
 // for guests / threads without an id or token.
-async function persistTurn(conversationId: number | undefined, token: string | undefined, messages: any[], steps: any[], finalText: string, followups: string[] = []) {
+async function persistTurn(conversationId: number | undefined, token: string | undefined, messages: any[], steps: any[], finalText: string, followups: string[] = [], { withUser = true } = {}) {
   if (!conversationId || !token) return
   const toSave: any[] = []
-  const uParts = userPartsFromMessages(messages)
+  const uParts = withUser ? userPartsFromMessages(messages) : null
   if (uParts) toSave.push({ role: 'user', content: { parts: uParts } })
   const aParts = assistantPartsFromSteps(steps, finalText)
   // Off-loop follow-up chips → the same tool part shape the UI renders on resume.
@@ -1139,6 +1139,9 @@ export default defineEventHandler(async (event) => {
   const t0 = Date.now()
   let firstChunkAt = 0
   let firstTextAt = 0
+  // what onStepFinish has already saved of this turn (see there)
+  const stepsSeen: any[] = []
+  let stepsSaved = 0, userSaved = false, stepSaves: Promise<void> = Promise.resolve()
   console.log(`[assistant] stream ${turnId} setup=${Date.now() - turnStartedAt}ms`)
   const result = streamText({
     model: chatModel(),
@@ -1213,6 +1216,16 @@ export default defineEventHandler(async (event) => {
     // client can react to beats an open-ended one it cannot.
     abortSignal: AbortSignal.timeout(45000),
     onError: ({ error }) => console.error('[assistant] error:', error instanceof Error ? error.message : error),
+    // A STEP THAT DREW A CARD IS SAVED WHEN IT FINISHES (live 2026-10-07, lab chat 1166: the add turn took 30 s — the box
+    // card showed, then the host cut the request before onFinish, nothing was saved, and on reload the box and its
+    // Finalizar button were gone). The closing line and chips are saved at the end as before.
+    onStepFinish: (step: any) => {
+      stepsSeen.push(step)
+      if (!(step?.toolCalls || []).length) return
+      const fresh = stepsSeen.slice(stepsSaved), withUser = !userSaved
+      stepsSaved = stepsSeen.length; userSaved = true
+      stepSaves = stepSaves.then(() => persistTurn(conversationId, token, messages, fresh, '', [], { withUser }))
+    },
     onFinish: async ({ text, steps, totalUsage }) => {
       // Prompt-size + cache telemetry (one line per turn) so the effect of the
       // context window and the prefix cache can be measured in prod.
@@ -1240,7 +1253,8 @@ export default defineEventHandler(async (event) => {
       else logQuestion(question, text || '', auth, conversationId)
       // Durably save the turn server-side (awaited so it completes within the
       // stream lifecycle — see persistTurn). Authoritative writer of chat history.
-      await persistTurn(conversationId, token, messages, steps, text || '', chips)
+      await stepSaves
+      await persistTurn(conversationId, token, messages, (steps || []).slice(stepsSaved), stepsSaved ? '' : text || '', chips, { withUser: !userSaved })
       // Fold the turns the window no longer shows into the per-chat summary. After
       // the reply and the persist, fire-and-forget, cheap aux model; every failure
       // keeps the previous summary (see server/utils/chatSummary.ts).
