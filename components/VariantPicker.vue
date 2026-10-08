@@ -97,7 +97,6 @@ const variants = computed(() => normalizeVariants(props.data))
 const axes = computed(() => deriveAxes(props.data, variants.value))
 // A single-value axis (Width: "Standard") is information, not a choice: auto-select it and don't render a row.
 const shownAxes = computed(() => axes.value.filter((a) => a.values.length > 1))
-watchEffect(() => { if (variants.value.length) emit('price', priceForSelection()) })
 // The selection lives ABOVE the single-value fill below: declared after it, the fill ran into an uninitialised `sel`
 // and silently did nothing — hidden while the page's own selection pre-filled the colour (live Alo 2026-09-28: stuck on
 // "Elige color" once pre-selection was removed).
@@ -110,6 +109,9 @@ for (const a of axes.value) {
   const want = a.kind === 'color' ? props.data?.selected?.[a.name] : null
   if (want && !sel[a.name] && a.values.includes(want)) sel[a.name] = want
 }
+// The opening price: AFTER `sel` and the colour they tapped (above it, the effect hit an uninitialised `sel`, threw, and the
+// card showed the product's lowest price for the pre-picked colour: Ulta Blackest Black $13.99 shown as $12.99, 2026-10-08).
+watchEffect(() => { if (variants.value.length) emit('price', priceForSelection()) })
 // The dense grid only when every value fits a grid cell; longer ones ("Extra Wide/4E", "32W x 30L") wrap as chips so
 // no option is ever cut off (live Dick's 2026-09-29: "Extra Wide…" / "Mediu…").
 // A colour row with many values swipes sideways (one row) instead of wrapping into a tall list.
