@@ -60,8 +60,9 @@ import { loadCv, findLabel } from '~/utils/labelQuad'
  * and when it passes the check then it takes the image"). ~9 times a second it finds the
  * label by its printing (utils/labelQuad) and checks, in order:
  *   a label in view → close (the printing spans most of the screen — Alex wants it up
- *   close so the text is big) → sharp (and focus has settled) → the phone is still.
- * All passing for STEADY_FRAMES frames in a row = capture; the frame turns green.
+ *   close so the text is big) → sharp. That's all: the name has to be legible, nothing
+ *   more (no stillness check — a hand-held phone shakes, and real blur fails "sharp").
+ * Both passing for STEADY_FRAMES frames in a row = capture; the frame turns green.
  * No traced outline and no "back up / straighten": tracing label edges failed on white
  * bags and stickers (2026-10-08) and told Mau false things. After a capture it waits for
  * the next label (this one leaves the view, or the view changes a lot) before arming.
@@ -84,7 +85,7 @@ const t = computed(() => (props.english
       find: 'Point at the label',
       closer: 'Get closer — fill the screen with the label',
       focus: 'Focusing… tap the label if it stays blurry',
-      hold: 'Hold still…',
+      hold: 'Got it…',
       captured: 'Got it ✓', next: 'Got it ✓ — next label', duplicate: 'Already scanned',
       retakeShort: 'Take it again',
       retake: {
@@ -106,7 +107,7 @@ const t = computed(() => (props.english
       find: 'Apunta a la etiqueta',
       closer: 'Acércate — que la etiqueta llene la pantalla',
       focus: 'Enfocando… toca la etiqueta si no se aclara',
-      hold: 'No te muevas…',
+      hold: '¡Ahí está!',
       captured: '¡Listo! ✓', next: 'Listo ✓ — siguiente etiqueta', duplicate: 'Ya escaneada',
       retakeShort: 'Toma otra foto',
       retake: {
@@ -125,12 +126,13 @@ const t = computed(() => (props.english
 
 // The checks (tuned on 54 real warehouse photos, 480 px analysis frames — see utils/labelQuad)
 const FRAME = 480 // analysis frame, long side
-const MIN_SPAN = 0.62 // printing spans ≥ 62% of the screen (Alex's close-ups: ≥ 66%; farther shots 51–65%)
+// Only what makes the name readable (Alex, 2026-10-08: "I'm not a tripod" — a stillness
+// check and a focus-settled check made a hand-held phone wait forever). A shaking hand
+// that actually blurs the text already fails MIN_SHARP.
+const MIN_SPAN = 0.6 // printing spans ≥ 60% of the screen (Alex's close-ups: ≥ 66%; farther shots 51–65%)
 const MIN_SHARP = 1400 // blurry photos scored < 1,400, sharp ones 2,000–13,000
-const PEAK_SHARE = 0.75 // and within 75% of the sharpest frame of this label (focus settled)
-const MAX_SHAKE = 8 // mean brightness change between frames (0–255) — above = the hand is moving
-const NEW_VIEW = 28 // change vs the captured frame that means "a different label now"
-const STEADY_FRAMES = 3
+const NEW_VIEW = 45 // change vs the captured frame that means "a different label now" (hand shake stays below)
+const STEADY_FRAMES = 2 // two passing frames in a row (~0.2 s) — not one lucky frame
 
 const video = ref(null)
 const stage = ref(null)
@@ -150,7 +152,8 @@ const statusText = computed(() => (status.value === 'retake'
   ? t.value.retake[retakeIssue.value] || t.value.retake.other
   : t.value[status.value]))
 const GOOD = ['hold', 'captured', 'next']
-const frameClass = computed(() => (status.value === 'retake' ? 'border-red-500' : status.value === 'duplicate' ? 'border-sky-400' : GOOD.includes(status.value) ? 'border-green-400' : 'border-white/70'))
+// yellow = still looking / not sure yet, green = good shot (Alex, 2026-10-08)
+const frameClass = computed(() => (status.value === 'retake' ? 'border-red-500' : status.value === 'duplicate' ? 'border-sky-400' : GOOD.includes(status.value) ? 'border-green-400' : 'border-yellow-400'))
 const pillClass = computed(() => (status.value === 'retake' ? 'bg-red-600' : status.value === 'duplicate' ? 'bg-sky-500' : GOOD.includes(status.value) ? 'bg-green-500' : 'bg-black/60'))
 
 let stream = null
@@ -168,7 +171,6 @@ const work = document.createElement('canvas')
 let prevThumb = null // last frame, as a tiny grey thumbnail — for "is the hand still"
 let shotThumb = null // the captured frame's thumbnail — for "is this a new label"
 let steady = 0
-let peak = 0 // sharpest score seen for the label in view
 let lost = 0 // frames in a row with no label
 let armed = true // false right after a capture, until the next label shows up
 
@@ -276,25 +278,23 @@ function analyse() {
   const view = { x: ((vw - box.width / s) / 2) * k, y: ((vh - box.height / s) / 2) * k, w: (box.width / s) * k, h: (box.height / s) * k }
   const img = ctx.getImageData(0, 0, work.width, work.height)
   const t = thumb(img)
-  const shake = diff(t, prevThumb)
   prevThumb = t
-  if (!armed && diff(t, shotThumb) > NEW_VIEW) { armed = true; peak = 0 } // moved on to another label
+  if (!armed && diff(t, shotThumb) > NEW_VIEW) { armed = true } // moved on to another label
   const r = findLabel(cv, img, view)
 
   if (!r) {
     steady = 0
-    if (++lost >= 3) { armed = true; peak = 0 } // the captured label has left: ready for the next
+    if (++lost >= 3) { armed = true } // the captured label has left: ready for the next
     say(armed ? 'find' : 'next')
     return
   }
   lost = 0
-  peak = Math.max(peak * 0.995, r.sharp)
 
   let verdict = 'hold'
   if (!armed) verdict = 'next'
   else if (r.span < MIN_SPAN) verdict = 'closer'
-  else if (r.sharp < MIN_SHARP || r.sharp < PEAK_SHARE * peak) verdict = 'focus'
-  steady = verdict === 'hold' && shake <= MAX_SHAKE ? steady + 1 : 0
+  else if (r.sharp < MIN_SHARP) verdict = 'focus'
+  steady = verdict === 'hold' ? steady + 1 : 0
   say(verdict)
   if (steady >= STEADY_FRAMES) capture()
 }
@@ -377,7 +377,6 @@ async function resumeCamera() {
   prevThumb = null
   shotThumb = null
   steady = 0
-  peak = 0
   lost = 0
   armed = true
   try { await audio?.resume?.() } catch {}
