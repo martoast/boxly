@@ -16,10 +16,7 @@
     <div ref="stage" class="relative flex-1 overflow-hidden">
       <video ref="video" class="absolute inset-0 w-full h-full object-cover" playsinline muted autoplay @click="focusAt" />
       <div v-if="ring" class="absolute w-20 h-20 -ml-10 -mt-10 rounded-xl border-2 border-yellow-300 pointer-events-none animate-ping" :style="{ left: `${ring.x}px`, top: `${ring.y}px` }" />
-      <div v-if="!quad" class="absolute inset-6 rounded-3xl border-4 transition-colors duration-150 pointer-events-none" :class="frameClass" />
-      <svg v-if="quad" class="absolute inset-0 w-full h-full pointer-events-none">
-        <polygon :points="quad.map((p) => `${p.x},${p.y}`).join(' ')" :fill="quadOk ? 'rgba(34,197,94,0.25)' : 'rgba(249,115,22,0.25)'" :stroke="quadOk ? '#22c55e' : '#f97316'" stroke-width="4" stroke-linejoin="round" />
-      </svg>
+      <div class="absolute inset-4 rounded-3xl border-4 transition-colors duration-150 pointer-events-none" :class="frameClass" />
       <div v-if="flash" class="absolute inset-0 bg-green-400/40 pointer-events-none" />
       <div class="absolute top-4 inset-x-0 flex justify-center px-6 pointer-events-none">
         <span class="px-4 py-2 rounded-2xl text-sm font-semibold text-center backdrop-blur-sm" :class="pillClass">{{ statusText }}</span>
@@ -59,14 +56,15 @@ import { trackingsFrom } from '~/utils/labelTracking'
 import { loadCv, findLabel } from '~/utils/labelQuad'
 
 /**
- * Label camera that takes the photo BY ITSELF, like the iPhone Notes document scan
- * (Alex, 2026-10-07: "it needs to fast check and when it passes the check then it takes
- * the image"). ~9 times a second it finds the label's outline (utils/labelQuad), draws it
- * over the video, and checks, in order:
- *   whole label on screen → close enough → phone square to the label (corners ~90°,
- *   opposite sides ~equal) → in focus (sharp, and focus has settled) → held still.
- * All passing for STEADY_FRAMES frames in a row = capture. After a capture it waits for
- * the next label (this one leaves the frame, or the view moves to another) before arming.
+ * Label camera that takes the photo BY ITSELF (Alex, 2026-10-07: "it needs to fast check
+ * and when it passes the check then it takes the image"). ~9 times a second it finds the
+ * label by its printing (utils/labelQuad) and checks, in order:
+ *   a label in view → close (the printing spans most of the screen — Alex wants it up
+ *   close so the text is big) → sharp (and focus has settled) → the phone is still.
+ * All passing for STEADY_FRAMES frames in a row = capture; the frame turns green.
+ * No traced outline and no "back up / straighten": tracing label edges failed on white
+ * bags and stickers (2026-10-08) and told Mau false things. After a capture it waits for
+ * the next label (this one leaves the view, or the view changes a lot) before arming.
  *
  * The shutter button always works (a label the finder can't see, or OpenCV failed to load).
  * The AI still judges every photo; a bad one whose read came back incomplete is marked
@@ -83,10 +81,8 @@ const t = computed(() => (props.english
   ? {
       close: 'Close', scanned: 'scanned', sending: 'sending', torch: 'Flashlight', shutter: 'Take photo',
       loading: 'Starting scanner…', manual: 'Take the photo with the button',
-      find: 'Point at the label — the whole label on screen',
-      backup: 'Back up a little — the label runs off the screen',
-      closer: 'Get closer to the label',
-      straighten: 'Straighten the phone — face the label head-on',
+      find: 'Point at the label',
+      closer: 'Get closer — fill the screen with the label',
       focus: 'Focusing… tap the label if it stays blurry',
       hold: 'Hold still…',
       captured: 'Got it ✓', next: 'Got it ✓ — next label', duplicate: 'Already scanned',
@@ -100,16 +96,14 @@ const t = computed(() => (props.english
         no_label: 'No label seen — take another',
         other: 'Couldn’t read it — take another',
       },
-      hint: 'Takes the photo by itself when the label is straight and sharp. Or use the button.',
+      hint: 'Get close until the label fills the screen — it takes the photo by itself when the text is sharp. Or use the button.',
       noCamera: 'Camera not available. Allow camera access for this site and try again.',
     }
   : {
       close: 'Cerrar', scanned: 'escaneadas', sending: 'enviando', torch: 'Linterna', shutter: 'Tomar foto',
       loading: 'Preparando escáner…', manual: 'Toma la foto con el botón',
-      find: 'Apunta a la etiqueta — que se vea completa',
-      backup: 'Aléjate un poco — la etiqueta se sale de la pantalla',
-      closer: 'Acércate a la etiqueta',
-      straighten: 'Endereza el teléfono — de frente a la etiqueta',
+      find: 'Apunta a la etiqueta',
+      closer: 'Acércate — que la etiqueta llene la pantalla',
       focus: 'Enfocando… toca la etiqueta si no se aclara',
       hold: 'No te muevas…',
       captured: '¡Listo! ✓', next: 'Listo ✓ — siguiente etiqueta', duplicate: 'Ya escaneada',
@@ -123,27 +117,24 @@ const t = computed(() => (props.english
         no_label: 'No se ve la etiqueta — toma otra',
         other: 'No se pudo leer — toma otra',
       },
-      hint: 'Se toma sola cuando la etiqueta está derecha y enfocada. O usa el botón.',
+      hint: 'Acércate hasta que la etiqueta llene la pantalla — se toma sola cuando el texto se ve nítido. O usa el botón.',
       noCamera: 'No hay acceso a la cámara. Permite la cámara para este sitio e intenta de nuevo.',
     }))
 
 // The checks (tuned on 54 real warehouse photos, 480 px analysis frames — see utils/labelQuad)
 const FRAME = 480 // analysis frame, long side
-const MAX_ANGLE_ERR = 12 // degrees off square, worst corner
-const MIN_SIDE_RATIO = 0.85 // opposite sides: shorter / longer (a trapezoid = phone tilted)
-const MIN_COVERAGE = 0.2 // label area / frame
-const MIN_SHARP = 1400 // blurry photos scored < 1,400, sharp ones 2,000–7,000
+const MIN_SPAN = 0.62 // printing spans ≥ 62% of the screen (Alex's close-ups: ≥ 66%; farther shots 51–65%)
+const MIN_SHARP = 1400 // blurry photos scored < 1,400, sharp ones 2,000–13,000
 const PEAK_SHARE = 0.75 // and within 75% of the sharpest frame of this label (focus settled)
-const MAX_MOTION = 0.03 // corner movement between frames / label diagonal
+const MAX_SHAKE = 8 // mean brightness change between frames (0–255) — above = the hand is moving
+const NEW_VIEW = 28 // change vs the captured frame that means "a different label now"
 const STEADY_FRAMES = 3
 
 const video = ref(null)
 const stage = ref(null)
 const haptic = ref(null)
-const status = ref('loading') // loading | manual | find | backup | closer | straighten | focus | hold | captured | next | retake | duplicate
+const status = ref('loading') // loading | manual | find | closer | focus | hold | captured | next | retake | duplicate
 const retakeIssue = ref('')
-const quad = ref(null) // label outline in screen px
-const quadOk = ref(false)
 const flash = ref(false)
 const ring = ref(null)
 const error = ref('')
@@ -170,12 +161,12 @@ let holdUntil = 0 // a message (captured / retake / duplicate) stays up until th
 const work = document.createElement('canvas')
 
 // finder state
-let prev = null // last frame's quad (analysis px)
+let prevThumb = null // last frame, as a tiny grey thumbnail — for "is the hand still"
+let shotThumb = null // the captured frame's thumbnail — for "is this a new label"
 let steady = 0
 let peak = 0 // sharpest score seen for the label in view
 let lost = 0 // frames in a row with no label
 let armed = true // false right after a capture, until the next label shows up
-let shotCenter = null // where the captured label was (analysis px)
 
 function show(s, ms = 0) {
   status.value = s
@@ -242,7 +233,7 @@ async function capture() {
     const main = codes.find((c) => c.carrier === 'ups') || codes[0]
     capturedCount.value++
     armed = false
-    shotCenter = prev ? center(prev) : null
+    shotThumb = prevThumb
     steady = 0
     show('captured', 1200)
     feedback()
@@ -252,10 +243,20 @@ async function capture() {
   }
 }
 
-const center = (q) => ({ x: (q[0].x + q[1].x + q[2].x + q[3].x) / 4, y: (q[0].y + q[1].y + q[2].y + q[3].y) / 4 })
-const diag = (q) => Math.hypot(q[0].x - q[2].x, q[0].y - q[2].y)
+/** Every 8th pixel's brightness — enough to tell a still hand from a moving one. */
+function thumb(img) {
+  const d = img.data, out = new Uint8Array(Math.ceil(d.length / 32))
+  for (let i = 0, j = 0; i < d.length; i += 32, j++) out[j] = (d[i] * 3 + d[i + 1] * 6 + d[i + 2]) / 10
+  return out
+}
+function diff(a, b) {
+  if (!a || !b || a.length !== b.length) return 255
+  let s = 0
+  for (let i = 0; i < a.length; i++) s += Math.abs(a[i] - b[i])
+  return s / a.length
+}
 
-/** One analysis pass: find the label, draw it, run the checks, capture when they all pass. */
+/** One analysis pass: find the label, run the checks, capture when they all pass. */
 function analyse() {
   const v = video.value
   const box = stage.value?.getBoundingClientRect()
@@ -269,35 +270,27 @@ function analyse() {
   // the video is object-cover: Mau sees only the middle of the frame
   const s = Math.max(box.width / vw, box.height / vh)
   const view = { x: ((vw - box.width / s) / 2) * k, y: ((vh - box.height / s) / 2) * k, w: (box.width / s) * k, h: (box.height / s) * k }
-  const r = findLabel(cv, ctx.getImageData(0, 0, work.width, work.height), view)
+  const img = ctx.getImageData(0, 0, work.width, work.height)
+  const t = thumb(img)
+  const shake = diff(t, prevThumb)
+  prevThumb = t
+  if (!armed && diff(t, shotThumb) > NEW_VIEW) { armed = true; peak = 0 } // moved on to another label
+  const r = findLabel(cv, img, view)
 
   if (!r) {
-    quad.value = null
-    prev = null
     steady = 0
     if (++lost >= 3) { armed = true; peak = 0 } // the captured label has left: ready for the next
     say(armed ? 'find' : 'next')
     return
   }
   lost = 0
-  quad.value = r.quad.map((p) => ({ x: (p.x - view.x) / k * s, y: (p.y - view.y) / k * s }))
-  const motion = prev ? Math.max(...r.quad.map((p, i) => Math.hypot(p.x - prev[i].x, p.y - prev[i].y))) / diag(r.quad) : 1
-  prev = r.quad
-  if (!armed && shotCenter && Math.hypot(center(r.quad).x - shotCenter.x, center(r.quad).y - shotCenter.y) > 0.35 * diag(r.quad)) {
-    armed = true // the view moved on to another label
-    peak = 0
-  }
   peak = Math.max(peak * 0.995, r.sharp)
 
   let verdict = 'hold'
   if (!armed) verdict = 'next'
-  else if (r.touchesEdge) verdict = 'backup'
-  else if (r.coverage < MIN_COVERAGE) verdict = 'closer'
-  else if (r.maxAngleErr > MAX_ANGLE_ERR || r.sideRatio < MIN_SIDE_RATIO) verdict = 'straighten'
+  else if (r.span < MIN_SPAN) verdict = 'closer'
   else if (r.sharp < MIN_SHARP || r.sharp < PEAK_SHARE * peak) verdict = 'focus'
-  else if (motion > MAX_MOTION) verdict = 'hold'
-  quadOk.value = verdict === 'hold' || verdict === 'next'
-  steady = verdict === 'hold' && motion <= MAX_MOTION ? steady + 1 : 0
+  steady = verdict === 'hold' && shake <= MAX_SHAKE ? steady + 1 : 0
   say(verdict)
   if (steady >= STEADY_FRAMES) capture()
 }
