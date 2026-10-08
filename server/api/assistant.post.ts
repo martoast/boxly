@@ -216,6 +216,9 @@ const RE_AUDIENCE = /\b(?:hombres?|caballeros?|masculin[oa]s?|men|mens|man|male|
  */
 const RE_GENDERED_CATEGORY = /\b(?:camisas?|camisetas?|playeras?|polos?|shirts?|tees?|t-shirts?|pantalon(?:es)?|jeans|mezclilla|shorts?|bermudas?|sudaderas?|hoodies?|sweat(?:er|shirt)s?|sueter(?:es)?|chamarras?|jackets?|abrigos?|coats?|chalecos?|trajes? de bano|swimsuits?|banador(?:es)?|ropa interior|underwear|calcetin(?:es)?|socks?|tenis|sneakers?|zapatos?|shoes?|botas?|boots?|sandalias?|sandals?|pijamas?|pajamas|disfra(?:z|ces)|costumes?|reloj(?:es)?|watch(?:es)?|lentes|gafas|sunglasses|perfumes?|colonias?|fragancias?|fragrances?|colognes?|ropa deportiva|activewear|ropa)\b/i
 
+/** Stores that sell only women's clothing: naming one answers "for whom". */
+const RE_WOMENS_STORE = /\bvictoria'?s\s+secret\b|\baerie\b/i
+
 /** Gendered by the word itself — asking "¿hombre o mujer?" about a vestido is silly. */
 const RE_SELF_GENDERED = /\b(?:vestidos?|faldas?|blusas?|brasier(?:es)?|bras?|bikinis?|tacon(?:es)?|heels?|corbatas?|tuxedos?|esmoquin|calzoncillos?|boxers?|lenceria|lingerie|maternidad|maternity)\b/i
 
@@ -249,6 +252,8 @@ function audienceGap(messages: any[]): boolean {
   if (/\b(?:talla|size|medida)\b/i.test(t)) return false
   if (RE_SELF_GENDERED.test(t)) return false
   if (RE_AUDIENCE.test(t)) return false
+  // A women's-only store already says who it is for (lab 2026-10-08: "pijama de Victoria's Secret" was asked "¿para mujer o para niña?")
+  if (RE_WOMENS_STORE.test(t)) return false
   if (!RE_GENDERED_CATEGORY.test(t)) return false
   return !askedToNarrowLast(messages)
 }

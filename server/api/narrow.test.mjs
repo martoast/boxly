@@ -40,7 +40,7 @@ const tmp = new URL('./__narrow.tmp.ts', import.meta.url);
 wf(tmp, [
   'const plainText = (s) => s.normalize("NFD").replace(/[̀-ͯ]/g, "")',
   cut(/function lastUserText\(messages: any\[\]\): string \{[\s\S]*?\n\}/),
-  ...['RE_AUDIENCE', 'RE_GENDERED_CATEGORY', 'RE_SELF_GENDERED'].map((n) => cut(new RegExp(`const ${n} = [^\\n]*`))),
+  ...['RE_AUDIENCE', 'RE_GENDERED_CATEGORY', 'RE_SELF_GENDERED', 'RE_WOMENS_STORE'].map((n) => cut(new RegExp(`const ${n} = [^\\n]*`))),
   cut(/function askedToNarrowLast\(messages: any\[\]\): boolean \{[\s\S]*?\n\}/),
   cut(/function audienceGap\(messages: any\[\]\): boolean \{[\s\S]*?\n\}/),
   'export { audienceGap }',
@@ -91,4 +91,13 @@ ok('memory no longer claims the saved gender', !/use their saved gender/.test(me
 ok('and says a saved gender is the shopper\'s, not the recipient\'s', /never answers .{0,4}¿para qui[eé]n es\?/i.test(mem));
 ok('it may still order the options', /only to ORDER the options/.test(mem));
 
+
+// A women's-only store already says who it is for (lab 2026-10-08: "pijama de Victoria's Secret" → "¿para mujer o para niña?")
+{
+  const re = new RegExp(api.match(/const RE_WOMENS_STORE = \/(.*)\/i/)[1], 'i');
+  ok("Victoria's Secret answers for whom", re.test("busco una pijama de victoria's secret") && re.test('pijama victorias secret'));
+  ok('and the gap check uses it before asking', /if \(RE_WOMENS_STORE\.test\(t\)\) return false/.test(api));
+  ok('neg: an ordinary store does not', !re.test('busco una pijama de gap'));
+  ok("so \"pijama de Victoria's Secret\" is not asked about", !asks("busco una pijama de Victoria's Secret"));
+}
 console.log(`\n${pass} checks passed`);
