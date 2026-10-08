@@ -117,6 +117,10 @@ const logos = [
     alt: 'Bath & Body Works'
   },
   {
+    src: '/images/stores/ulta-beauty.png',
+    alt: 'Ulta Beauty'
+  },
+  {
     src: 'https://static.nc-myus.com/images/pub/www/uploads/image/3e5ad2a7062640a1a4fee03f0004ebbe/gap.png',
     alt: 'Gap'
   },
