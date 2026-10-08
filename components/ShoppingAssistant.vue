@@ -330,6 +330,15 @@
                          tools in one step must not draw two carousels. -->
                     <template v-if="isGalleryTool(part) && part.state === 'output-available' && part.output?.products?.length && i === primaryGalleryIndex(m) && !galleryPending(m)">
                       <LazyProductGallery :products="orderedGallery(m, part.output.products)" @open="openProduct" />
+                      <!-- VER MÁS (Alex 2026-10-07: shoppers want to keep browsing): the same live search again — the engine answers it with the
+                           NEXT products of that search in this chat (it skips what it already showed) -->
+                      <div v-if="part.type === 'tool-live_results' && liveSearchOf(m)" class="mt-2 flex justify-center">
+                        <button type="button" :disabled="isBusy" @click="seeMore(m)"
+                          class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full border border-primary-200 bg-white text-[13px] font-semibold text-primary-700 hover:bg-primary-50 disabled:opacity-50 transition">
+                          Ver más
+                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                        </button>
+                      </div>
                     </template>
                     <!-- Search/browse finished but found nothing — clean message, not an empty
                          carousel. Suppress it if ANOTHER search in this turn did find options. -->
@@ -2031,6 +2040,25 @@ async function pickSuggestion(text) {
   chat.sendMessage({ text })
   clearPipeline()
   scrollDown()
+}
+// The live search a live gallery answered: the nearest live_gallery call at or before its message (the API appends the results as a
+// later message). Its EXACT query and stores, so "Ver más" repeats that very search (the engine matches it to skip what it showed).
+function liveSearchOf(m) {
+  const list = chat.messages
+  const at = list.indexOf(m)
+  for (let k = at; k >= 0 && k >= at - 6; k--) {
+    const parts = list[k]?.parts || []
+    for (let j = parts.length - 1; j >= 0; j--) {
+      const part = parts[j]
+      if (part?.type === 'tool-live_gallery' && part.state === 'output-available' && part.output?.ok && part.output?.query) return { query: String(part.output.query), stores: Array.isArray(part.output.stores) ? part.output.stores : [] }
+    }
+  }
+  return null
+}
+function seeMore(m) {
+  const s = liveSearchOf(m)
+  if (!s) return
+  sendFollowup(`Ver más: "${s.query}" en ${s.stores.join(', ')}`)
 }
 // Tapping a follow-up chip (cross-sell) sends it as the next shopper message.
 function sendFollowup(text) {

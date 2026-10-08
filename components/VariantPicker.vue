@@ -38,7 +38,7 @@
           v-for="val in ax.values" :key="val" type="button" :data-picked="sel[ax.name] === val ? '1' : null"
           @click="canPick(ax, val) && pick(ax.name, val)" :disabled="busy || !canPick(ax, val)"
           :class="[sel[ax.name] === val ? 'border-primary-500 ring-2 ring-primary-200 text-primary-800 bg-primary-50' : canPick(ax, val) ? (isUnknown(ax, val) ? 'border-dashed border-gray-300 text-gray-700 hover:border-primary-300' : 'border-gray-200 text-gray-700 hover:border-primary-300') : 'border-gray-100 text-gray-300 line-through']"
-          class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[12px] font-medium transition shrink-0 snap-start" :style="swipes(ax) ? { whiteSpace: 'nowrap' } : null"
+          class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[12px] font-medium transition shrink-0 snap-start max-w-full min-w-0 text-left" :style="swipes(ax) ? { maxWidth: '13rem' } : null"
           :title="canPick(ax, val) ? (isUnknown(ax, val) ? val + ' — disponibilidad por confirmar' : val) : val + ' — agotado'"
         >
           <!-- The STORE'S OWN swatch photo when the page had one (Alex, 2026-09-12: "it's not clear which of the
@@ -47,9 +47,11 @@
           <!-- A colour photo the reader derived from the store's naming can fail to load: the store's own chip stands in. -->
           <img v-if="ax.swatches && ax.swatches[val]" :src="ax.swatches[val]" :alt="val" loading="lazy" referrerpolicy="no-referrer"
             @error="(e) => { const c = ax.chips?.[val]; if (c && e.target.src !== c) e.target.src = c; else e.target.style.visibility = 'hidden' }"
-            class="w-7 h-7 -ml-1 rounded-full object-cover border border-black/10 bg-gray-50" />
-          <span v-else-if="ax.kind === 'color'" class="inline-block w-3 h-3 rounded-full border border-black/10" :style="{ background: swatch(val) }"></span>
-          {{ val }}
+            class="w-7 h-7 -ml-1 rounded-full object-cover border border-black/10 bg-gray-50 shrink-0" />
+          <span v-else-if="ax.kind === 'color'" class="inline-block w-3 h-3 rounded-full border border-black/10 shrink-0" :style="{ background: swatch(val) }"></span>
+          <!-- LONG NAMES WRAP INSIDE THE CHIP (Alex 2026-10-07: some stores' colour names are long and spilled out of the picker): never
+               wider than the card; in a swipe row at most two lines (the full name is in the title) -->
+          <span class="min-w-0 break-words leading-tight" :class="swipes(ax) ? 'line-clamp-2 whitespace-normal' : 'whitespace-normal'">{{ val }}</span>
         </button>
       </div>
     </div>
