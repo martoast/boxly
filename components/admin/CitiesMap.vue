@@ -18,6 +18,7 @@ const props = defineProps({
   // count-based scatter. Each row: { id, name, city, estado, lat, lng, orders, revenue }.
   points: { type: Array, default: () => [] },
   metric: { type: String, default: "customers" }, // customers | orders | revenue
+  showRevenue: { type: Boolean, default: true }, // false on the warehouse operator's map: no money anywhere
   metricLabel: { type: String, default: "" },
   format: { type: String, default: "number" },
   token: { type: String, default: "" },
@@ -298,7 +299,7 @@ onMounted(async () => {
       const p = e.features[0].properties;
       // Client mode: name + order history + total spent. Scatter mode: city + metric value.
       const html = p.name !== undefined
-        ? `<div style="font-family:inherit"><div style="font-weight:600;color:#111">${p.name}</div><div style="font-size:12px;color:#6b7280">${p.city}${p.estado ? " · " + p.estado : ""}</div><div style="font-size:12px;color:#374151;margin-top:2px"><b>${p.orders}</b> ${Number(p.orders) === 1 ? "pedido" : "pedidos"} · ${p.revenue}</div></div>`
+        ? `<div style="font-family:inherit"><div style="font-weight:600;color:#111">${p.name}</div><div style="font-size:12px;color:#6b7280">${p.city}${p.estado ? " · " + p.estado : ""}</div><div style="font-size:12px;color:#374151;margin-top:2px"><b>${p.orders}</b> ${Number(p.orders) === 1 ? "pedido" : "pedidos"}${props.showRevenue ? " · " + p.revenue : ""}</div></div>`
         : `<div style="font-family:inherit"><div style="font-weight:600;color:#111">${p.city}</div><div style="font-size:12px;color:#6b7280">${p.estado}</div><div style="font-size:12px;color:#374151;margin-top:2px">${props.metricLabel}: <b>${p.val}</b></div></div>`;
       popup.setLngLat(e.lngLat).setHTML(html).addTo(map);
     });

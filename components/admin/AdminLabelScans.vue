@@ -1,12 +1,20 @@
 <template>
   <section :class="isEmployee ? '' : 'min-h-screen bg-gray-50'">
     <div :class="isEmployee ? '' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6'">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-        <div>
+      <div class="flex flex-col sm:flex-row sm:flex-wrap sm:items-center justify-between gap-4 mb-6">
+        <div class="sm:shrink-0">
           <h1 class="text-2xl sm:text-3xl font-extrabold text-gray-900">{{ t.title }}</h1>
           <p class="text-sm text-gray-500 mt-1">{{ t.subtitle }}</p>
         </div>
         <div class="flex items-center gap-2 sm:shrink-0">
+          <NuxtLink
+            :to="isEmployee ? '/app/employee/map' : '/app/admin/wall'"
+            class="inline-flex items-center gap-2 px-3 py-2.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 font-semibold rounded-xl transition-colors"
+            :aria-label="t.map"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
+            <span class="hidden sm:inline">{{ t.map }}</span>
+          </NuxtLink>
           <button
             type="button"
             class="inline-flex items-center gap-2 px-3 py-2.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 font-semibold rounded-xl transition-colors"
@@ -48,7 +56,22 @@
         </ul>
       </div>
 
-      <!-- Period: today / this week / this month — the table and the count follow it -->
+      <!-- At a glance: today / this week / this month / this year — tap one to open it below -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+        <button
+          v-for="q in quickStats"
+          :key="q.kind"
+          type="button"
+          class="text-left bg-white rounded-2xl border shadow-sm p-4 transition-colors hover:border-primary-200"
+          :class="period?.kind === q.kind && isCurrent ? 'border-primary-500 ring-1 ring-primary-500' : 'border-gray-100'"
+          @click="setKind(q.kind)"
+        >
+          <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">{{ t.quick[q.kind] }}</p>
+          <p class="text-3xl font-extrabold text-gray-900 tabular-nums mt-1 leading-none">{{ q.count ?? '—' }}</p>
+        </button>
+      </div>
+
+      <!-- Period: today / week / month / year — the table and the count follow it -->
       <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-5">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div class="inline-flex rounded-xl bg-gray-100 p-1">
@@ -80,7 +103,7 @@
           </div>
           <!-- packages per day (week / month): tap a day to see just that day -->
           <div v-if="period.kind !== 'day'" class="flex-1 min-w-[14rem]">
-            <p class="text-xs text-gray-500 h-4 mb-1 tabular-nums">{{ hoverDay ? `${formatDay(hoverDay.day, locale, { weekday: 'short', day: 'numeric', month: 'short' })} · ${hoverDay.count} ${t.packagesShort}` : '' }}</p>
+            <p class="text-xs text-gray-500 h-4 mb-1 tabular-nums">{{ hoverDay ? `${formatDay(hoverDay.day, locale, hoverDay.month ? { month: 'long' } : { weekday: 'short', day: 'numeric', month: 'short' })} · ${hoverDay.count} ${t.packagesShort}` : '' }}</p>
             <div class="flex items-end gap-[2px] h-16 border-b border-gray-200" @mouseleave="hoverDay = null">
               <button
                 v-for="d in dayBars"
@@ -95,7 +118,7 @@
               >
                 <span
                   class="w-full rounded-t-[4px] transition-colors"
-                  :class="d.day === today ? 'bg-primary-600' : 'bg-primary-400 group-hover:bg-primary-500'"
+                  :class="(d.month ? d.day.slice(0, 7) === today.slice(0, 7) : d.day === today) ? 'bg-primary-600' : 'bg-primary-400 group-hover:bg-primary-500'"
                   :style="{ height: d.count ? `${Math.max(6, (100 * d.count) / maxDay)}%` : '0' }"
                 />
               </button>
@@ -225,7 +248,8 @@ const t = computed(() => (isEmployee.value
       loadMore: 'Load more',
       leaveWarning: 'Photos are still uploading. Leave anyway?',
       d: { other: 'Other tracking', barcodes: 'Barcodes', modelRead: 'Model read', confidence: 'Confidence', by: 'Uploaded by' },
-      period: { day: 'Today', week: 'Week', month: 'Month', all: 'All' },
+      period: { day: 'Today', week: 'Week', month: 'Month', year: 'Year', all: 'All' },
+      quick: { day: 'Today', week: 'This week', month: 'This month', year: 'This year' }, map: 'Customer map',
       prev: 'Previous', next: 'Next',
       packagesScanned: 'packages scanned', packagesShort: 'packages', toCheck: 'to check',
     }
@@ -258,7 +282,8 @@ const t = computed(() => (isEmployee.value
       loadMore: 'Cargar más',
       leaveWarning: 'Todavía se están subiendo fotos. ¿Salir de todos modos?',
       d: { other: 'Otras guías', barcodes: 'Códigos leídos', modelRead: 'Lectura del modelo', confidence: 'Confianza', by: 'Subida por' },
-      period: { day: 'Hoy', week: 'Semana', month: 'Mes', all: 'Todo' },
+      period: { day: 'Hoy', week: 'Semana', month: 'Mes', year: 'Año', all: 'Todo' },
+      quick: { day: 'Hoy', week: 'Esta semana', month: 'Este mes', year: 'Este año' }, map: 'Mapa de clientes',
       prev: 'Anterior', next: 'Siguiente',
       packagesScanned: 'paquetes escaneados', packagesShort: 'paquetes', toCheck: 'por revisar',
     }))
@@ -267,7 +292,7 @@ const t = computed(() => (isEmployee.value
 // The employee page is only this (Alex, 2026-10-08): what got scanned today, this week, this
 // month, and how many. Admin keeps "All" as its default.
 const locale = computed(() => (isEmployee.value ? 'en-US' : 'es-MX'))
-const periodKinds = computed(() => (isEmployee.value ? ['day', 'week', 'month'] : ['all', 'day', 'week', 'month']))
+const periodKinds = computed(() => (isEmployee.value ? ['day', 'week', 'month', 'year'] : ['all', 'day', 'week', 'month', 'year']))
 const periodKind = ref(isEmployee.value ? 'day' : 'all')
 const today = ref(warehouseDay())
 const period = ref(periodKind.value === 'all' ? null : periodOf(periodKind.value, today.value))
@@ -281,14 +306,25 @@ const periodLabel = computed(() => {
   const L = locale.value
   if (p.kind === 'day') return p.from === today.value ? t.value.period.day : formatDay(p.from, L, { weekday: 'short', day: 'numeric', month: 'short' })
   if (p.kind === 'week') return `${formatDay(p.from, L, { day: 'numeric', month: 'short' })} – ${formatDay(p.to, L, { day: 'numeric', month: 'short' })}`
+  if (p.kind === 'year') return p.from.slice(0, 4)
   return formatDay(p.from, L, { month: 'long', year: 'numeric' })
 })
 const dayBars = computed(() => {
   const counts = Object.fromEntries((stats.value?.per_day || []).map((r) => [r.day, r.count]))
-  return (period.value?.days || []).map((day) => ({ day, count: counts[day] || 0 }))
+  const p = period.value
+  if (p?.kind === 'year') { // one bar per month
+    return Array.from({ length: 12 }, (_, m) => {
+      const prefix = `${p.from.slice(0, 4)}-${String(m + 1).padStart(2, '0')}`
+      const count = (stats.value?.per_day || []).filter((r) => r.day.startsWith(prefix)).reduce((a, r) => a + r.count, 0)
+      return { day: `${prefix}-01`, count, month: true }
+    })
+  }
+  return (p?.days || []).map((day) => ({ day, count: counts[day] || 0 }))
 })
 const maxDay = computed(() => Math.max(1, ...dayBars.value.map((d) => d.count)))
-const dayTick = (day, i) => (period.value?.kind === 'week'
+const dayTick = (day, i) => (period.value?.kind === 'year'
+  ? formatDay(day, locale.value, { month: 'narrow' })
+  : period.value?.kind === 'week'
   ? formatDay(day, locale.value, { weekday: 'narrow' })
   : (i % 7 === 0 || i === dayBars.value.length - 1 ? String(Number(day.slice(8))) : ''))
 
@@ -302,13 +338,35 @@ const fetchStats = async () => {
     console.error(e)
   }
 }
+// Today / this week / this month / this year, from ONE request (the per-day counts summed per window)
+const quick = ref(null)
+const fetchQuick = async () => {
+  const d = warehouseDay()
+  const since = [periodOf('week', d).since, periodOf('year', d).since].sort((a, b) => a - b)[0]
+  try {
+    const res = await $customFetch(`${apiNs.value}/label-scans/stats`, { query: { since: since.toISOString(), until: periodOf('day', d).until.toISOString() } })
+    quick.value = { d, per_day: res.data?.per_day || [] }
+  } catch (e) {
+    console.error(e)
+  }
+}
+const quickStats = computed(() => ['day', 'week', 'month', 'year'].map((kind) => {
+  if (!quick.value) return { kind, count: null }
+  const p = periodOf(kind, quick.value.d)
+  return { kind, count: quick.value.per_day.filter((r) => r.day >= p.from && r.day <= p.to).reduce((a, r) => a + r.count, 0) }
+}))
+
 const setKind = (k) => {
   periodKind.value = k
   today.value = warehouseDay()
   period.value = k === 'all' ? null : periodOf(k, today.value)
 }
 const step = (n) => { if (period.value) period.value = shiftPeriod(period.value, n) }
-const openDay = (day) => { periodKind.value = 'day'; period.value = periodOf('day', day) }
+const openDay = (day) => {
+  const k = period.value?.kind === 'year' ? 'month' : 'day' // a month bar opens that month
+  periodKind.value = k
+  period.value = periodOf(k, day)
+}
 
 // ---- table ----------------------------------------------------------------------------
 const scans = ref([])
@@ -351,10 +409,10 @@ watch(search, () => {
 })
 watch(onlyCheck, () => fetchScans(1))
 watch(period, () => { hoverDay.value = null; stats.value = null; fetchScans(1); fetchStats() })
-onMounted(() => { fetchScans(1); fetchStats() })
+onMounted(() => { fetchScans(1); fetchStats(); fetchQuick() })
 
 let statsTimer = null
-const refreshStatsSoon = () => { clearTimeout(statsTimer); statsTimer = setTimeout(fetchStats, 1500) }
+const refreshStatsSoon = () => { clearTimeout(statsTimer); statsTimer = setTimeout(() => { fetchStats(); fetchQuick() }, 1500) }
 
 // ---- expand / edit ----------------------------------------------------------------------
 const openId = ref(null)

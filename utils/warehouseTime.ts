@@ -5,7 +5,7 @@
  */
 export const WAREHOUSE_TZ = 'America/Los_Angeles'
 
-export type PeriodKind = 'day' | 'week' | 'month'
+export type PeriodKind = 'day' | 'week' | 'month' | 'year'
 export type Period = { kind: PeriodKind; from: string; to: string; since: Date; until: Date; days: string[] }
 
 /** 'YYYY-MM-DD' of `date` in the warehouse timezone. */
@@ -33,13 +33,16 @@ export function startOfWarehouseDay(ymd: string): Date {
   return new Date(t)
 }
 
-/** The day / week (Mon–Sun) / month containing warehouse day `anchor`. */
+/** The day / week (Mon–Sun) / month / year containing warehouse day `anchor`. */
 export function periodOf(kind: PeriodKind, anchor: string): Period {
   let from = anchor, to = anchor
   if (kind === 'week') {
     const dow = (new Date(`${anchor}T12:00:00Z`).getUTCDay() + 6) % 7 // Monday = 0
     from = addDays(anchor, -dow)
     to = addDays(from, 6)
+  } else if (kind === 'year') {
+    from = `${anchor.slice(0, 4)}-01-01`
+    to = `${anchor.slice(0, 4)}-12-31`
   } else if (kind === 'month') {
     from = `${anchor.slice(0, 7)}-01`
     const [y, m] = from.split('-').map(Number)
@@ -54,6 +57,7 @@ export function periodOf(kind: PeriodKind, anchor: string): Period {
 export function shiftPeriod(p: Period, step: number): Period {
   if (p.kind === 'day') return periodOf('day', addDays(p.from, step))
   if (p.kind === 'week') return periodOf('week', addDays(p.from, 7 * step))
+  if (p.kind === 'year') return periodOf('year', `${Number(p.from.slice(0, 4)) + step}-01-01`)
   const [y, m] = p.from.split('-').map(Number)
   return periodOf('month', new Date(Date.UTC(y, m - 1 + step, 1, 12)).toISOString().slice(0, 10))
 }

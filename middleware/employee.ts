@@ -12,9 +12,9 @@ export default defineNuxtRouteMiddleware(async (to) => {
     return navigateTo('/login')
   }
 
-  // The warehouse employee's whole app is the label scans page (Alex, 2026-10-08): the old
-  // Packages / Drop-offs pages and any bookmark to them land there.
-  if (!to.path.startsWith('/app/employee/label-scans')) {
+  // The warehouse employee's app is the label scans page + the customer map (Alex, 2026-10-08):
+  // the old Packages / Drop-offs pages and any bookmark to them land on the scans.
+  if (!to.path.startsWith('/app/employee/label-scans') && !to.path.startsWith('/app/employee/map')) {
     return navigateTo('/app/employee/label-scans')
   }
 })
