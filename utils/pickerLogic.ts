@@ -8,8 +8,8 @@ export interface PickerAxis { name: string, kind: string, values: string[], swat
 export type Selection = Record<string, string | null | undefined>
 /** Stores whose outside (marketplace) sellers Boxly buys from (Alex 2026-10-06: "Walmart does have the third-party sellers that
  *  sell through Walmart, so those are fine. Both Amazon and Walmart are dominated by third-party sellers"). Anywhere else only
- *  what the store sells itself is added. */
-export const MARKETPLACE_STORE_HOSTS = ['walmart.com', 'amazon.com']
+ *  what the store sells itself is added. eBay (Alex 2026-10-09: "add ebay … get them working") is all outside sellers. */
+export const MARKETPLACE_STORE_HOSTS = ['walmart.com', 'amazon.com', 'ebay.com']
 /** PURE. Is this product's seller one Boxly does not buy from? An outside seller (is_store false) on a store that is not a marketplace. */
 export function sellerRefused(seller: { is_store?: boolean } | null | undefined, url: string | null | undefined): boolean {
   if (seller?.is_store !== false) return false
