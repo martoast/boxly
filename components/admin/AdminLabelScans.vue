@@ -3,7 +3,10 @@
     <div :class="isEmployee ? '' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6'">
       <div class="flex flex-col sm:flex-row sm:flex-wrap sm:items-center justify-between gap-4 mb-6">
         <div class="sm:shrink-0">
-          <h1 class="text-2xl sm:text-3xl font-extrabold text-gray-900">{{ t.title }}</h1>
+          <h1 class="text-2xl sm:text-3xl font-extrabold text-gray-900 flex items-center gap-2 flex-wrap">
+            {{ t.title }}
+            <span v-if="isEmployee" class="text-sm font-semibold px-2.5 py-1 rounded-full bg-primary-50 text-primary-700 border border-primary-100">{{ t.loc[myWarehouse] }}</span>
+          </h1>
           <p class="text-sm text-gray-500 mt-1">{{ t.subtitle }}</p>
         </div>
         <div class="flex items-center gap-2 sm:shrink-0">
@@ -133,6 +136,16 @@
 
       <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-5 flex flex-col sm:flex-row gap-3 sm:items-center">
         <input v-model="search" :placeholder="t.searchPlaceholder" class="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+        <div v-if="!isEmployee" class="inline-flex rounded-xl bg-gray-100 p-1 shrink-0">
+          <button
+            v-for="l in ['', 'san_diego', 'tijuana']"
+            :key="l || 'all'"
+            type="button"
+            class="px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors"
+            :class="locationFilter === l ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
+            @click="locationFilter = l"
+          >{{ l ? t.loc[l] : t.locAll }}</button>
+        </div>
         <label class="inline-flex items-center gap-2 text-sm text-gray-600 shrink-0">
           <input v-model="onlyCheck" type="checkbox" class="rounded border-gray-300 text-primary-500 focus:ring-primary-500">
           {{ t.onlyCheck }}
@@ -159,6 +172,7 @@
             <img :src="s.image_url" alt="" loading="lazy" class="w-14 h-14 object-cover rounded-lg bg-gray-100 row-span-3 sm:row-span-1">
             <span class="min-w-0">
               <span class="font-medium text-gray-900 truncate block">{{ s.recipient_name || '—' }}</span>
+              <span v-if="!isEmployee && s.location" class="inline-flex mt-0.5 mr-1 px-2 py-0.5 rounded-full text-xs font-semibold border" :class="s.location === 'tijuana' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-sky-50 text-sky-700 border-sky-100'">{{ t.locShort[s.location] }}</span>
               <span v-if="s.needs_check" class="inline-flex mt-0.5 px-2 py-0.5 rounded-full text-xs font-semibold border bg-amber-50 text-amber-700 border-amber-100">{{ t.needsCheck }}</span>
             </span>
             <span class="font-mono text-xs text-gray-600 break-all">{{ s.tracking_number || '—' }}</span>
@@ -251,6 +265,7 @@ const t = computed(() => (isEmployee.value
       d: { other: 'Other tracking', barcodes: 'Barcodes', modelRead: 'Model read', confidence: 'Confidence', by: 'Uploaded by' },
       period: { day: 'Today', week: 'Week', month: 'Month', year: 'Year', all: 'All' },
       quick: { day: 'Today', week: 'This week', month: 'This month', year: 'This year' }, map: 'Customer map',
+      loc: { san_diego: 'San Diego', tijuana: 'Tijuana' }, locShort: { san_diego: 'SD', tijuana: 'TJ' }, locAll: 'All',
       prev: 'Previous', next: 'Next',
       packagesScanned: 'packages scanned', packagesShort: 'packages', toCheck: 'to check',
     }
@@ -285,9 +300,16 @@ const t = computed(() => (isEmployee.value
       d: { other: 'Otras guías', barcodes: 'Códigos leídos', modelRead: 'Lectura del modelo', confidence: 'Confianza', by: 'Subida por' },
       period: { day: 'Hoy', week: 'Semana', month: 'Mes', year: 'Año', all: 'Todo' },
       quick: { day: 'Hoy', week: 'Esta semana', month: 'Este mes', year: 'Este año' }, map: 'Mapa de clientes',
+      loc: { san_diego: 'San Diego', tijuana: 'Tijuana' }, locShort: { san_diego: 'SD', tijuana: 'TJ' }, locAll: 'Todos',
       prev: 'Anterior', next: 'Siguiente',
       packagesScanned: 'paquetes escaneados', packagesShort: 'paquetes', toCheck: 'por revisar',
     }))
+
+// ---- warehouse: San Diego or Tijuana (2026-10-09) -------------------------------------------
+// An employee is scoped to their own warehouse by the API; the admin sees both or picks one.
+const myWarehouse = computed(() => useState('user').value?.warehouse_location || 'san_diego')
+const locationFilter = ref('')
+const locationQuery = () => (!isEmployee.value && locationFilter.value ? { location: locationFilter.value } : {})
 
 // ---- period: today / week / month (warehouse days, San Diego time) -----------------------
 // The employee page is only this (Alex, 2026-10-08): what got scanned today, this week, this
@@ -333,7 +355,7 @@ const fetchStats = async () => {
   const p = period.value
   if (!p) { stats.value = null; return }
   try {
-    const res = await $customFetch(`${apiNs.value}/label-scans/stats`, { query: { since: p.since.toISOString(), until: p.until.toISOString() } })
+    const res = await $customFetch(`${apiNs.value}/label-scans/stats`, { query: { since: p.since.toISOString(), until: p.until.toISOString(), ...locationQuery() } })
     if (period.value === p) stats.value = res.data
   } catch (e) {
     console.error(e)
@@ -345,7 +367,7 @@ const fetchQuick = async () => {
   const d = warehouseDay()
   const since = [periodOf('week', d).since, periodOf('year', d).since].sort((a, b) => a - b)[0]
   try {
-    const res = await $customFetch(`${apiNs.value}/label-scans/stats`, { query: { since: since.toISOString(), until: periodOf('day', d).until.toISOString() } })
+    const res = await $customFetch(`${apiNs.value}/label-scans/stats`, { query: { since: since.toISOString(), until: periodOf('day', d).until.toISOString(), ...locationQuery() } })
     quick.value = { d, per_day: res.data?.per_day || [] }
   } catch (e) {
     console.error(e)
@@ -389,6 +411,7 @@ const fetchScans = async (p = 1) => {
         needs_check: onlyCheck.value ? 1 : undefined,
         since: period.value?.since.toISOString(),
         until: period.value?.until.toISOString(),
+        ...locationQuery(),
         per_page: 100,
         page: p,
       },
@@ -409,6 +432,7 @@ watch(search, () => {
   searchTimer = setTimeout(() => fetchScans(1), 300)
 })
 watch(onlyCheck, () => fetchScans(1))
+watch(locationFilter, () => { fetchScans(1); fetchStats(); fetchQuick() })
 watch(period, () => { hoverDay.value = null; stats.value = null; fetchScans(1); fetchStats() })
 onMounted(() => { fetchScans(1); fetchStats(); fetchQuick() })
 
