@@ -18,6 +18,7 @@
     <!-- one row per axis, in the store's order -->
     <div v-for="ax in shownAxes" :key="ax.name" class="mt-3">
       <p class="text-[12px] font-semibold text-gray-700 mb-1.5">{{ axisLabel(ax) }}<span v-if="sel[ax.name]" class="font-normal text-gray-500"> · {{ sel[ax.name] }}</span></p>
+      <p v-if="stockNote(ax)" class="-mt-1 mb-1.5 text-[11px] text-gray-500" aria-live="polite">{{ stockNote(ax) }}</p>
       <!-- grid for sizes / lengths / widths (dense, scannable); chips for colours, scents, capacities, packs -->
       <div v-if="isGrid(ax)" class="grid gap-1.5" :class="ax.values.length > 12 ? 'grid-cols-5' : 'grid-cols-4'">
         <button
@@ -93,8 +94,50 @@ const emit = defineEmits(['pick', 'show-image', 'price'])
 const product = computed(() => ({ title: props.data?.product?.title || props.data?.product_title || '', image: props.data?.product?.image || null, url: props.data?.product?.url || null, store: props.data?.product?.store || null, price: props.data?.product?.price ?? null, list_price: props.data?.product?.list_price ?? null }))
 
 // Variants and axes: the same pure rules the variant benchmark measures (utils/pickerLogic.ts).
-const variants = computed(() => normalizeVariants(props.data))
-const axes = computed(() => deriveAxes(props.data, variants.value))
+// STOCK ON PICK (Alex 2026-10-09): on stores whose size stock depends on the colour on screen (read.per_colour_stock — American Eagle,
+// New Balance, Dick's), a picked colour's own sizes are fetched when it is picked (/api/colour-stock). While that runs every size of that
+// colour is blocked ("comprobando…"); its answer blocks exactly the sizes sold out in that colour (a sold_out_with row, the rule the
+// picker already applies). The page's own colour needs no fetch: the read shows it.
+const colourStock = reactive({})
+const baseVariants = computed(() => normalizeVariants(props.data))
+const baseAxes = computed(() => deriveAxes(props.data, baseVariants.value))
+const variants = computed(() => {
+  const base = baseVariants.value
+  if (!props.data?.per_colour_stock) return base
+  const ca = baseAxes.value.find((a) => a.kind === 'color'), sa = baseAxes.value.find((a) => a.kind === 'size')
+  if (!ca || !sa) return base
+  const extra = []
+  for (const [c, st] of Object.entries(colourStock)) {
+    const blocked = st.pending ? sa.values : (st.sizes || []).filter((x) => x.available === false).map((x) => x.value)
+    for (const v of blocked) extra.push({ key: `stock:${c}:${v}`, options: { [sa.name]: v }, available: null, sold_out_with: { [ca.name]: c }, stock_on_pick: true })
+  }
+  return extra.length ? [...base, ...extra] : base
+})
+const axes = computed(() => baseAxes.value)
+// the colour the page shows (its stock is in the read) — only compared, never pre-selected
+const pageColour = () => { const ca = baseAxes.value.find((a) => a.kind === 'color'); const shown = (props.data || {}).selected || {}; return ca ? (shown[ca.name] ?? shown.color ?? null) : null }
+function askColourStock(colour, retry = 0) {
+  if (!props.data?.per_colour_stock || !colour || colour === pageColour() || !product.value.url) return
+  if (colourStock[colour] && !colourStock[colour].reading) return
+  colourStock[colour] = { pending: true }
+  $fetch('/api/colour-stock', { method: 'POST', body: { url: product.value.url, colour } })
+    .then((r) => {
+      if (Array.isArray(r?.sizes)) colourStock[colour] = { pending: false, sizes: r.sizes }
+      else if (r?.reading && retry < 2) { colourStock[colour] = { pending: true, reading: true }; setTimeout(() => askColourStock(colour, retry + 1), 1500) }
+      else colourStock[colour] = { pending: false, error: true }
+    })
+    .catch(() => { colourStock[colour] = { pending: false, error: true } })
+}
+// a checked colour's answer clears a size chosen before it that is sold out in that colour
+watch(colourStock, () => { for (const a of axes.value) if (a.kind !== 'color' && sel[a.name] && !canPick(a, sel[a.name])) sel[a.name] = null }, { deep: true })
+function stockNote(ax) {
+  if (ax.kind !== 'color' || !sel[ax.name]) return ''
+  const st = colourStock[sel[ax.name]]
+  if (!st) return ''
+  if (st.pending) return `Comprobando disponibilidad de ${sel[ax.name]}…`
+  if (st.error) return `No pudimos confirmar las tallas de ${sel[ax.name]}; se confirman al finalizar.`
+  return ''
+}
 // A single-value axis (Width: "Standard") is information, not a choice: auto-select it and don't render a row.
 const shownAxes = computed(() => axes.value.filter((a) => a.values.length > 1))
 // The selection lives ABOVE the single-value fill below: declared after it, the fill ran into an uninitialised `sel`
@@ -109,6 +152,7 @@ for (const a of axes.value) {
   const want = a.kind === 'color' ? props.data?.selected?.[a.name] : null
   if (want && !sel[a.name] && a.values.includes(want)) sel[a.name] = want
 }
+for (const a of axes.value) if (a.kind === 'color' && sel[a.name]) askColourStock(sel[a.name])
 // The opening price: AFTER `sel` and the colour they tapped (above it, the effect hit an uninitialised `sel`, threw, and the
 // card showed the product's lowest price for the pre-picked colour: Ulta Blackest Black $13.99 shown as $12.99, 2026-10-08).
 watchEffect(() => { if (variants.value.length) emit('price', priceForSelection()) })
@@ -135,13 +179,13 @@ const independent = computed(() => isIndependent(props.data, axes.value, variant
 // NOTHING IS PRE-SELECTED (Alex, 2026-09-28: "let the user do that — they see all the available options and pick them
 // themselves, so it feels like a real shopping experience"); only an axis with a single value is filled in above.
 // The one exception: the colour of the card they tapped (above).
-const availableCount = computed(() => variants.value.filter((v) => v.available === true).length)
-const unknownCount = computed(() => variants.value.filter((v) => v.available == null).length)
+const availableCount = computed(() => baseVariants.value.filter((v) => v.available === true).length)
+const unknownCount = computed(() => baseVariants.value.filter((v) => v.available == null).length)
 // The source told us nothing about stock (a feed without the field, an unreadable page): every chip stays
 // pickable and our buyer confirms at purchase — see normalizeAllUnavailable() in the catalog service.
-const allUnknown = computed(() => variants.value.length > 0 && variants.value.every((v) => v.available == null))
+const allUnknown = computed(() => baseVariants.value.length > 0 && baseVariants.value.every((v) => v.available == null))
 // Only a chip the store actually called sold out earns the legend — unknown stock is not sold out.
-const soldOutCount = computed(() => variants.value.filter((v) => v.available === false).length)
+const soldOutCount = computed(() => baseVariants.value.filter((v) => v.available === false).length)
 const fresh = computed(() => { const t = props.data?.checked_at ? Date.now() - new Date(props.data.checked_at).getTime() : Infinity; return t < 15 * 60_000 })
 
 // Pickable / matching / complete: utils/pickerLogic.ts (a single-value axis is information — live Alo 2026-09-28).
@@ -154,10 +198,12 @@ function isLow(ax, val) { return variants.value.some((v) => v.available === true
 function pick(axisName, val) {
   sel[axisName] = sel[axisName] === val ? null : val
   // Clear later selections that are no longer compatible.
-  for (const a of axes.value) if (a.name !== axisName && a.values.length > 1 && sel[a.name] && !canPick(a, sel[a.name])) sel[a.name] = null // = applyPick
+  // (a colour's stock still being checked does not clear the size: its answer does, below, if that size is sold out in it)
+  for (const a of axes.value) if (a.name !== axisName && a.values.length > 1 && sel[a.name] && !pickerCanPick(a, sel[a.name], { ...ctx(), variants: variants.value.filter((v) => !(v.stock_on_pick && colourStock[v.sold_out_with && Object.values(v.sold_out_with)[0]]?.pending)) })) sel[a.name] = null // = applyPick
   // Picking a colour should CHANGE THE PHOTO — that is the whole point of picking it. The variant rows carry a
   // per-colour image now, so tell the modal which one to lead with.
   const ax = axes.value.find((a) => a.name === axisName)
+  if (ax && ax.kind === 'color' && sel[axisName]) askColourStock(val)
   if (ax && ax.kind === 'color' && sel[axisName]) {
     const img = ax.swatches?.[val] || variants.value.find((v) => (v.color || v.options?.[axisName]) === val)?.image
     if (img) emit('show-image', img)
