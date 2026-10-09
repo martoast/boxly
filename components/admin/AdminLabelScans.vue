@@ -8,7 +8,8 @@
         </div>
         <div class="flex items-center gap-2 sm:shrink-0">
           <NuxtLink
-            :to="isEmployee ? '/app/employee/map' : '/app/admin/wall'"
+            v-if="!isEmployee"
+            to="/app/admin/wall"
             class="inline-flex items-center gap-2 px-3 py-2.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 font-semibold rounded-xl transition-colors"
             :aria-label="t.map"
           >

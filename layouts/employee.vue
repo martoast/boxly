@@ -21,6 +21,22 @@
       </div>
     </header>
 
+    <!-- Mau's three sections (Alex, 2026-10-08): the dashboard (scans + numbers), the customer
+         map (full screen, its own page) and drop-offs -->
+    <nav class="bg-white border-b border-gray-100">
+      <div class="max-w-2xl mx-auto px-4 flex gap-1">
+        <NuxtLink
+          v-for="tab in operatorTabs"
+          :key="tab.route"
+          :to="tab.route"
+          class="px-3 py-3 text-sm font-medium border-b-2 transition-colors"
+          :class="route.path.startsWith(tab.route) ? 'border-primary-500 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+        >
+          {{ tab.label }}
+        </NuxtLink>
+      </div>
+    </nav>
+
     <main class="max-w-2xl mx-auto px-4 py-6">
       <slot />
     </main>
@@ -32,6 +48,8 @@
 <script setup>
 const { $customFetch } = useNuxtApp()
 const userState = useState('user')
+const route = useRoute()
+const operatorTabs = useOperatorTabs()
 
 const userName = computed(() => userState.value?.name?.split(' ')[0] ?? 'Mau')
 const initials = computed(() => {

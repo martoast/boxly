@@ -43,15 +43,19 @@
           <ArrowsPointingOutIcon v-if="!isFullscreen" class="h-4 w-4" />
           <ArrowsPointingInIcon v-else class="h-4 w-4" />
         </button>
-        <NuxtLink
-          to="/app/employee/label-scans"
-          class="h-9 w-9 grid place-items-center rounded-2xl bg-white/70 backdrop-blur-xl border border-white/60 shadow-lg text-gray-600 hover:text-gray-900"
-          :title="t.exit"
-        >
-          <XMarkIcon class="h-4 w-4" />
-        </NuxtLink>
       </div>
     </header>
+
+    <!-- the operator's three sections, floating over the full-screen map -->
+    <nav class="absolute top-3 sm:top-6 left-1/2 -translate-x-1/2 flex gap-1 rounded-2xl bg-white/80 backdrop-blur-xl border border-white/60 shadow-lg p-1 max-sm:top-auto max-sm:bottom-[6.5rem]">
+      <NuxtLink
+        v-for="tab in tabs"
+        :key="tab.route"
+        :to="tab.route"
+        class="px-3 py-1.5 rounded-xl text-sm font-semibold whitespace-nowrap transition-colors"
+        :class="tab.route === '/app/employee/map' ? 'bg-primary-600 text-white shadow' : 'text-gray-600 hover:text-gray-900'"
+      >{{ tab.label }}</NuxtLink>
+    </nav>
 
     <!-- counts only: customers, orders, states — the operator never sees money -->
     <footer class="absolute bottom-0 inset-x-0 p-3 sm:p-6 pointer-events-none">
@@ -67,7 +71,7 @@
 
 <script setup>
 import CitiesMap from '~/components/admin/CitiesMap.vue'
-import { ArrowsPointingOutIcon, ArrowsPointingInIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import { ArrowsPointingOutIcon, ArrowsPointingInIcon } from '@heroicons/vue/24/outline'
 
 /**
  * The warehouse operator's customer map: where Boxly's customers are across Mexico, full screen.
@@ -79,6 +83,7 @@ definePageMeta({
 })
 
 const { $customFetch } = useNuxtApp()
+const tabs = useOperatorTabs()
 const { t: createTranslations } = useLanguage()
 const mapboxToken = useRuntimeConfig().public.MAPBOX_API_TOKEN
 
