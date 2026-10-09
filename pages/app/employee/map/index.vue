@@ -96,9 +96,11 @@ const isMobile = ref(import.meta.client ? window.matchMedia('(max-width: 639px)'
 const geo = ref(null)
 const clients = computed(() => geo.value?.clients ?? [])
 const fmt = (n) => new Intl.NumberFormat('es-MX').format(n ?? 0)
+// Same numbers as the admin live map: orders + customers from the overview (every one, not only the
+// located ones — the map data alone undercounted), states from the map. Just no revenue card.
 const statCards = computed(() => [
-  { key: 'customers', label: t.value.customers, value: fmt(geo.value?.totals?.customers), color: 'text-primary-600' },
-  { key: 'orders', label: t.value.orders, value: fmt(geo.value?.totals?.orders), color: 'text-gray-900' },
+  { key: 'orders', label: t.value.orders, value: fmt(geo.value?.overview?.orders), color: 'text-primary-600' },
+  { key: 'customers', label: t.value.customers, value: fmt(geo.value?.overview?.customers), color: 'text-violet-600' },
   { key: 'states', label: t.value.states, value: fmt(geo.value?.totals?.states_active), color: 'text-amber-600' },
 ])
 
