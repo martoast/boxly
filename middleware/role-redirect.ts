@@ -12,7 +12,7 @@ export default defineNuxtRouteMiddleware(async () => {
       return navigateTo('/app/admin/dashboard')
     case 'employee':
       // Sub-route by team: warehouse → packages, shopping → purchase requests
-      if (team === 'shopping') return navigateTo('/app/shopping/purchase-requests')
+      if (team === 'shopping') return navigateTo('/app/shopping/dashboard')
       return navigateTo('/app/employee/label-scans')
     case 'customer':
       return navigateTo('/app/')

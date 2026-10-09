@@ -40,7 +40,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
       return navigateTo('/app/admin/dashboard')
     }
     if (userState.value.role === 'employee') {
-      if (userState.value.team === 'shopping') return navigateTo('/app/shopping/purchase-requests')
+      if (userState.value.team === 'shopping') return navigateTo('/app/shopping/dashboard')
       return navigateTo('/app/employee/label-scans')
     }
     return navigateTo('/login')

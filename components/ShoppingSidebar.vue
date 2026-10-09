@@ -216,8 +216,7 @@ import {
   PhotoIcon,
   MagnifyingGlassIcon,
   CalendarDaysIcon,
-  CodeBracketIcon,
-} from '@heroicons/vue/24/outline';
+  CodeBracketIcon, HomeIcon, MapIcon } from '@heroicons/vue/24/outline';
 
 const { $customFetch } = useNuxtApp();
 const user = useUser().value;
@@ -232,6 +231,8 @@ const t = createTranslations({
   storeCategories:  { es: 'Categorías (presencial)', en: 'Categories (in-person)' },
   campaigns:        { es: 'Campañas',               en: 'Campaigns' },
   aiSearch:         { es: 'Búsqueda con IA',        en: 'AI Search' },
+  dashboard:        { es: 'Mi panel',               en: 'My dashboard' },
+  customerMap:      { es: 'Mapa de clientes',       en: 'Customer map' },
   shoppingTrips:    { es: 'Mi disponibilidad',      en: 'My availability' },
   pastTrips: { es: 'Viajes anteriores', en: 'Past trips' }, // legacy shopping-trip bookings; remove when none remain
   shoppingRole:     { es: 'Compras',                en: 'Shopping' },
@@ -240,7 +241,8 @@ const t = createTranslations({
 });
 
 const navItems = computed(() => [
-  // First: the manager's own hours for in-person visits (Alex 2026-10-01: it was hard to find on the phone).
+  // Her dashboard first (Alex 2026-10-08), then her hours for in-person visits (2026-10-01: hard to find on the phone).
+  { route: '/app/shopping/dashboard',          icon: HomeIcon,                label: t.value.dashboard },
   { route: '/app/shopping/availability',       icon: CalendarDaysIcon,        label: t.value.shoppingTrips },
   { route: '/app/shopping/purchase-requests', icon: ShoppingCartIcon,        label: t.value.purchaseRequests },
   { route: '/app/shopping/purchased-products', icon: ShoppingBagIcon,        label: t.value.purchasedProducts },
@@ -249,6 +251,7 @@ const navItems = computed(() => [
   { route: '/app/shopping/shopping-trips', icon: CalendarDaysIcon, label: t.value.pastTrips },
   { route: '/app/shopping/campaigns',         icon: MegaphoneIcon,           label: t.value.campaigns },
   { route: '/app/shopping/ai-search',         icon: MagnifyingGlassIcon,     label: t.value.aiSearch },
+  { route: '/app/shopping/map',               icon: MapIcon,                 label: t.value.customerMap },
   { route: '/app/shopping/api',               icon: CodeBracketIcon,         label: t.value.apiDocs },
 ]);
 

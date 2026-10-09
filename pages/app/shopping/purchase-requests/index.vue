@@ -755,7 +755,8 @@ const t = createTranslations({
 const requests = ref([]);
 const loading = ref(true);
 const searchQuery = ref("");
-const statusFilter = ref("");
+// A dashboard card opens the list already filtered (?status=quoted etc.).
+const statusFilter = ref(typeof useRoute().query.status === "string" ? useRoute().query.status : "");
 const sourceFilter = ref("");
 const searchDebounce = ref(null);
 const pagination = ref({
