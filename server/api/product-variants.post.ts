@@ -97,6 +97,8 @@ export default defineEventHandler(async (event) => {
         // Sibling colourways: stores that sell each colour as its own page (DFYNE, Alo, YoungLA) — the modal offers
         // them all and re-reads the one the shopper picks, because availability is per colourway.
         colorways: Array.isArray(r?.colorways) ? r.colorways : [],
+        // STOCK ON PICK (2026-10-09): the store shows size stock per colour on screen — the picker asks for a picked colour's own
+        per_colour_stock: r?.per_colour_stock === true,
         // The reader read the card's own style instead of the family page's default ({from, to}), or could not
         // (style_mismatch {card_title, served_title, served_price}): the picker names the served product, never passes it off.
         repinned: r?.repinned?.to ? r.repinned : null,

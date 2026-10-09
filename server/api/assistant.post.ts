@@ -117,6 +117,8 @@ async function getProductVariantsApi(url: string, maxAgeS = 900) {
     checked_at: data?.checked_at || null,
     source: data?.source || null,
     store_id: data?.store_id || null,
+    // STOCK ON PICK (2026-10-09): size stock shown per colour on screen — the picker asks for a picked colour's own
+    per_colour_stock: data?.per_colour_stock === true,
     reason,
   }
   if (out.variants?.length || out.axes?.length) variantCache.set(url, { at: Date.now(), r: out })
