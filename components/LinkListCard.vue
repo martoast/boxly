@@ -72,7 +72,9 @@ const kindKey = (a) => (a?.kind && a.kind !== 'other' ? a.kind : a?.name)
 
 const rows = reactive(links.value.map((l) => ({
   url: l.url, supported: !!l.supported, store_id: l.store_id || null, store_name: l.store_name || host(l.url),
-  title: null, image: null, part: null, busy: false, hasChoices: false, choice: null,
+  title: null, image: null, busy: false, hasChoices: false, choice: null, started: false,
+  // every buyable row shows "reading" from the start — one store is read one link at a time, so a row can wait its turn
+  part: l.supported ? { type: PICKER_PART, toolCallId: `linklist-${l.url}`, state: 'input-available', input: { product: { title: '', url: l.url, image: null, store_name: l.store_name || host(l.url), store_id: l.store_id || null } } } : null,
 })))
 const sent = ref(false)
 
@@ -93,14 +95,15 @@ const product = (row) => ({ title: row.title || '', url: row.url, image: row.ima
 // Four pages at a time; each row's card shows its own "reading" until its read lands.
 async function queue() {
   // a link the agent cannot buy from is not read (often a walled site): its row only says so
-  const todo = rows.filter((r) => r.supported && !r.part)
+  const todo = rows.filter((r) => r.supported && !r.started)
   // ONE READ PER STORE AT A TIME (live VS 2026-10-10: the catalog reads a store in one browser, so the 2nd and 3rd VS links of a list
   // answered "busy" at once and the card gave up on them) — up to four stores in parallel
   const reading = new Set()
   const worker = async () => {
     for (;;) {
-      const r = todo.find((x) => !x.part && !x.busy && !reading.has(x.store_id || host(x.url)))
-      if (!r) { if (todo.some((x) => !x.part)) { await new Promise((res) => setTimeout(res, 500)); continue } return }
+      const r = todo.find((x) => !x.started && !reading.has(x.store_id || host(x.url)))
+      if (!r) { if (todo.some((x) => !x.started)) { await new Promise((res) => setTimeout(res, 500)); continue } return }
+      r.started = true
       const key = r.store_id || host(r.url)
       reading.add(key)
       try { await read(r) } finally { reading.delete(key) }
@@ -111,7 +114,7 @@ async function queue() {
 async function read(row, { readUrl = row.url, colorways = null, fresh = false } = {}) {
   if (row.busy) return
   row.busy = true
-  if (!row.part) row.part = { type: PICKER_PART, toolCallId: `linklist-${row.url}`, state: 'input-available', input: { product: product(row) } }
+  if (!row.part || row.part.state === 'output-error') row.part = { type: PICKER_PART, toolCallId: `linklist-${row.url}`, state: 'input-available', input: { product: product(row) } }
   let r = null
   // the same patience as a picker card: a slow read answers "reading" before Netlify's cut, and is asked again
   for (let attempt = 0, failures = 0; attempt < 12 && failures < 2 && !r; attempt++) {
