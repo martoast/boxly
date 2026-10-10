@@ -19,6 +19,16 @@
           <button type="button" :disabled="sent" class="shrink-0 rounded-full border border-primary-200 px-3 py-1.5 text-[12px] font-bold text-primary-700 hover:bg-primary-50 disabled:opacity-50" @click="$emit('similar', row)">Buscar similar</button>
         </div>
 
+        <!-- Sold out in every version at the store: shown, never added; the shopper can ask for something similar. -->
+        <div v-else-if="row.soldOut && !row.choice" class="flex items-center gap-3 rounded-xl bg-gray-50 px-3 py-2.5">
+          <img v-if="row.image" :src="row.image" alt="" referrerpolicy="no-referrer" class="w-12 h-12 rounded-lg object-cover bg-white shrink-0" />
+          <div class="min-w-0 flex-1">
+            <p class="text-[13px] font-semibold text-gray-800 line-clamp-2">{{ row.title || host(row.url) }}</p>
+            <p class="text-[11.5px] text-amber-700 font-semibold">Agotado en {{ row.store_name }}</p>
+          </div>
+          <button type="button" :disabled="sent" class="shrink-0 rounded-full border border-primary-200 px-3 py-1.5 text-[12px] font-bold text-primary-700 hover:bg-primary-50 disabled:opacity-50" @click="$emit('similar', row)">Buscar similar</button>
+        </div>
+
         <!-- Chosen (on its card, or nothing to choose): one line, changeable until the list is sent. -->
         <div v-else-if="row.choice" class="flex items-center gap-3 rounded-xl px-2 py-2">
           <img v-if="row.choice.image" :src="row.choice.image" alt="" referrerpolicy="no-referrer" class="w-12 h-12 rounded-lg object-cover bg-gray-50 shrink-0" />
@@ -72,7 +82,7 @@ const kindKey = (a) => (a?.kind && a.kind !== 'other' ? a.kind : a?.name)
 
 const rows = reactive(links.value.map((l) => ({
   url: l.url, supported: !!l.supported, store_id: l.store_id || null, store_name: l.store_name || host(l.url),
-  title: null, image: null, busy: false, hasChoices: false, choice: null, started: false,
+  title: null, image: null, busy: false, hasChoices: false, choice: null, started: false, soldOut: false,
   // every buyable row shows "reading" from the start — one store is read one link at a time, so a row can wait its turn
   part: l.supported ? { type: PICKER_PART, toolCallId: `linklist-${l.url}`, state: 'input-available', input: { product: { title: '', url: l.url, image: null, store_name: l.store_name || host(l.url), store_id: l.store_id || null } } } : null,
 })))
@@ -143,7 +153,12 @@ async function read(row, { readUrl = row.url, colorways = null, fresh = false } 
   // …but only a REAL product read (live AE 2026-10-10: a read that served the store's generic page — title "American Eagle
   // Outfitters", no price, no options — was marked ready, a jean with no size): a price, and no size the product obviously needs.
   const realProduct = r.product?.price != null && !sizeMissing(row.title, axes.map((a) => a?.name).filter(Boolean))
-  if (realProduct && (!row.hasChoices || pinned)) {
+  // …and never a product sold out in every version (live BBW 2026-10-10: a sold-out PocketBac holder was added as ready; the quote
+  // came back partial). Its row stays on its picker card, which shows it sold out.
+  const variantsRead = Array.isArray(r.variants) ? r.variants : []
+  const soldOut = variantsRead.length > 0 && variantsRead.every((v) => v?.available === false)
+  if (soldOut) row.soldOut = true
+  if (realProduct && !soldOut && (!row.hasChoices || pinned)) {
     const variants = {}
     for (const a of axes) if (selected[a.name] != null && (pinned || (a.values?.length || 0) === 1)) variants[kindKey(a)] = String(selected[a.name])
     if (r.own_color && !variants.color) variants.color = r.own_color
@@ -159,7 +174,7 @@ function choose(row, p) {
 const choiceText = (row) => Object.values(row.choice?.variants || {}).join(', ')
 const readyCount = computed(() => rows.filter((r) => r.supported && r.choice).length)
 const reading = computed(() => rows.filter((r) => r.busy).length)
-const waiting = computed(() => rows.filter((r) => r.supported && !r.choice && r.part?.state === 'output-available').length)
+const waiting = computed(() => rows.filter((r) => r.supported && !r.choice && !r.soldOut && r.part?.state === 'output-available').length)
 
 function addAll() {
   if (sent.value || !readyCount.value) return

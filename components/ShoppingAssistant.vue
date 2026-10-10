@@ -2130,7 +2130,8 @@ function sendLinkList(list) {
 // "Buscar similar" for a link from a store the agent cannot buy from.
 function askSimilar(row) {
   const what = row?.title ? `“${row.title}”` : `el producto de ${row?.store_name || 'esa tienda'}`
-  const text = `Busca algo similar a ${what} en una tienda donde sí puedan comprar`
+  // a sold-out link (its store is supported): something similar that is in stock; an unsupported store: a store we buy from
+  const text = row?.soldOut ? `${what} está agotado: busca algo similar que esté disponible` : `Busca algo similar a ${what} en una tienda donde sí puedan comprar`
   ensureConversation(text)
   chat.sendMessage({ text })
   scrollDown()
