@@ -52,6 +52,7 @@
 
 <script setup>
 import { PICKER_PART } from '~/utils/typedPick'
+import { sizeMissing } from '~/utils/sizing'
 
 const props = defineProps({
   part: { type: Object, required: true },
@@ -124,7 +125,10 @@ async function read(row, { readUrl = row.url, colorways = null, fresh = false } 
   const multi = axes.filter((a) => (a?.values?.length || 0) > 1)
   const selected = r.selected && typeof r.selected === 'object' ? r.selected : {}
   const pinned = pinsVersion(readUrl) && multi.length && multi.every((a) => selected[a.name] != null && (a.values || []).map(String).includes(String(selected[a.name])))
-  if (!row.hasChoices || pinned) {
+  // …but only a REAL product read (live AE 2026-10-10: a read that served the store's generic page — title "American Eagle
+  // Outfitters", no price, no options — was marked ready, a jean with no size): a price, and no size the product obviously needs.
+  const realProduct = r.product?.price != null && !sizeMissing(row.title, axes.map((a) => a?.name).filter(Boolean))
+  if (realProduct && (!row.hasChoices || pinned)) {
     const variants = {}
     for (const a of axes) if (selected[a.name] != null && (pinned || (a.values?.length || 0) === 1)) variants[kindKey(a)] = String(selected[a.name])
     if (r.own_color && !variants.color) variants.color = r.own_color
