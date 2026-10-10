@@ -91,5 +91,9 @@ check('body WASH is not a bodysuit', needsSize('Body Wash Vanilla'), false)
 check('a pet bowl bundle is one SKU', needsSize('Pet Bowl Bundle'), false)
 check('a water tank is not a tank top', needsSize('Water Tank 5 Gallon'), false)
 
+// eBay names its size menu "US Shoe Size" (live 2026-10-09: a chosen "7 Men's" still read "Elegir talla")
+check("ebay air force 1, US Shoe Size", sizeMissing("Nike Air Force 1 Low '07 Triple Black Mens Black Sports Sneaker", ['US Shoe Size']), false)
+check("a size type is not a size", isSizeAxis('Size Type'), false)
+
 console.log(bad ? `${bad} check(s) FAILED` : 'sizing: all checks pass')
 process.exit(bad ? 1 : 0)

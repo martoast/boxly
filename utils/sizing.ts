@@ -59,9 +59,10 @@ export function needsSize(title?: string | null, category?: string | null): bool
   return !DRINKWARE.test(text)
 }
 
-// A size axis by any of the names stores actually use for one.
+// A size axis by any of the names stores actually use for one — ending in the word, so eBay's "US Shoe Size" and "Men's Size"
+// count (2026-10-09: a chosen "7 Men's" still read "Elegir talla" and the sneaker could not be added); "Size Type" does not.
 export function isSizeAxis(name?: string | null): boolean {
-  return /^(?:size|sizes|talla|tallas|shoe size|clothing size|sock size|waist|length|inseam)$/i.test(String(name || '').trim())
+  return /^(?:[\p{L}\d'’. -]{0,24}\s)?(?:size|sizes|talla|tallas)$|^(?:waist|length|inseam)$/iu.test(String(name || '').trim())
 }
 
 // The question is owed when the product is a sized one and no axis on offer is a size.
