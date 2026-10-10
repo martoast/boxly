@@ -12,6 +12,7 @@ import { generateFollowups, followupPart, followupsWithin, attachFollowupChips }
 import { readSummary, summaryBlock, summarize, shouldSummarize } from '../utils/chatSummary'
 import { boxFromMessages, withEarlierItems, wantedFromBox, planCart, storeOptionFixes, withStoreOptions, type CarriedStore } from '../utils/boxCheckout'
 import { pickedColourImage, pickedVariantPrice } from '../../utils/pickerLogic'
+import { linkListUrls, linkListFromMetadata, linkListBox, LINK_LIST_MAX } from '../../utils/linkList'
 import { checkStoreLock } from '../utils/storeLock'
 import { storeHostsFromLiveStores, tagCarriedStores } from '../utils/storeHosts'
 import { resolveLiveStores, liveGalleryQuery, liveResultsAsText, type LiveStore } from '../../utils/liveGallery'
@@ -293,6 +294,8 @@ const NON_GALLERY_TOOLS = [
   'update_shopping_profile', 'create_self_order', 'cancel_order', 'plan_in_person', 'create_account',
   // Finalizar: the box becomes the Boxly cart's order, checked out live in each store (see finalize_order).
   'finalize_order',
+  // A pasted LIST of product links → one card that reads them all (utils/linkList.ts).
+  'show_link_list',
 ]
 // The loop toolset before a gallery has shown: everything except suggest_followups —
 // the chips are generated OFF the loop (server/utils/followups.ts), so the model never
@@ -858,6 +861,7 @@ MODE 3 — BUILD THE BOX, THEN FINALIZE (where the money is made). The box IS th
   ⓪ PICK, THEN ADD. When the shopper picks a product from the gallery ("quiero ese", "el segundo", a tap on "Agregar"), call show_shipment with EVERY item in the box — each with its saved_id (the registry id of the product), quantity and packing type. A product with real sizes/colours comes back "NOT IN THE BOX" and its picker card in the chat shows the options: say one line asking for the pick, never claim it was added, and add it on the NEXT turn with size/color set. When the shopper TYPES their choice for a product whose picker card is in the chat ("la negra en talla 9"), call show_shipment adding that product (its saved_id) with what they said — the box checks their words against the card and adds it only on an exact, in-stock match; otherwise it tells you what to ask. A product with nothing to choose is added immediately.
   ① AFTER show_shipment, FOLLOW THE TOOL'S NOTE EXACTLY. Its note says whether the item is now in their box (the store cart is built at Finalizar: confirm it and push for more from that store, then other stores) or being put in the store's cart live (then write EXACTLY the line it gives, nothing else). Never claim an item is in a STORE's cart unless a message says the store confirmed it.
   ② A PASTED PRODUCT LINK is a product they already chose: add it with show_shipment (pass url, and a short name from the link). The box reads the product page itself — photo, price, sizes/colours — and the same pick-then-add rule applies. (A link from a store that is NOT on LIVE STORES — eBay, Temu, Shein… — cannot be bought by the agent: the tool says so; offer the same kind of product from a store on LIVE STORES. A store ON LIVE STORES is bought from, outside sellers included on Walmart and Amazon.)
+  ②b A LIST OF PRODUCT LINKS (2 or more links in one message) is a whole order they already chose: call show_link_list (no input) — ONE card reads every link and lets them pick what each link still needs. When they tap "Agregar todo" (their message says so and carries the list), call show_shipment ONCE (any items; the box takes the list itself) and then confirm and invite them to Finalizar. For a link from a store not on LIVE STORES, offer to find a similar product at a store on LIVE STORES.
   ③ FINALIZE ONLY WHEN THEY'RE DONE — "eso es todo", "ya", "créala", "haz el pedido", "finaliza", or the "Finalizar carrito" button. Then call finalize_order (no input): it places the order from the box; the agent builds each store's cart in the background and the invoice is EMAILED to them in a few minutes (it also appears in the chat's order card with Pagar). After it succeeds, write ONE short line: they can watch live right here as we build their cart in each store, and the invoice arrives by email in a few minutes (so closing the app is fine too). Do NOT ask for anything first and do NOT make them confirm twice. Adding items NEVER places the order.
   ⚑ AFTER A FINALIZE, A NEW BOX. Once finalize_order succeeded, that box is CLOSED (its order is placed). If they keep shopping in this chat, it is a NEW order: the next show_shipment lists ONLY the items added after the finalize — never re-list what was already ordered.
   ⚑ "QUIERO AGREGAR ALGO MÁS" — ASK, don't guess a brand. When they want to add more but do NOT say WHAT, ask what they'd like, framed around the box value: "Tienes espacio de sobra en tu caja 📦 — ¿qué más te late sumar para aprovechar el mismo envío? ¿Ropa, tenis, algo de tecnología, para la casa, un regalo…?" Then search that.
@@ -975,6 +979,11 @@ export default defineEventHandler(async (event) => {
   // sync) and Finalizar runs the real checkouts (finalize_order) → purchase request → invoice. `finalizeTap` = the
   // box card's "Finalizar carrito" was tapped this turn, so finalizing is the one move.
   const finalizeTap: boolean = !!token && body?.finalizeTap === true
+  // A LIST OF PRODUCT LINKS (2+ in the newest message) and its "Agregar todo" (the list in its metadata): each is ONE tool, made
+  // mandatory as the turn's first step like the Finalizar tap — the model never searches them or holds them one by one.
+  const newestUser = [...(messages || [])].reverse().find((m: any) => m?.role === 'user')
+  const linkListAdd = linkListFromMetadata(newestUser?.metadata).length > 0
+  const linkListAsk = !linkListAdd && linkListUrls((newestUser?.parts || []).filter((p: any) => p?.type === 'text').map((p: any) => p.text).join(' ')).length >= 2
   // The agent finished putting a box item in the store's real cart (or the store refused). The client sends this
   // as a hidden turn; the assistant confirms it — the ONLY moment it may say the item is in the cart.
   const ce = token && body?.cartEvent && typeof body.cartEvent === 'object' ? body.cartEvent : null
@@ -1197,6 +1206,9 @@ export default defineEventHandler(async (event) => {
       if (cartEvent) return { activeTools: [], toolChoice: 'none' }
       // A Finalizar tap: finalize, then one line of text — nothing else this turn.
       if (finalizeTap) return (steps || []).length ? { activeTools: [], toolChoice: 'none' } : { activeTools: ['finalize_order'], toolChoice: 'required' }
+      if (linkListAdd && !(steps || []).length) return { activeTools: ['show_shipment'], toolChoice: 'required' }
+      if (linkListAsk && !(steps || []).length) return { activeTools: ['show_link_list'], toolChoice: 'required' }
+      if ((linkListAdd || linkListAsk) && (steps || []).length) return { activeTools: [], toolChoice: 'none' }
       if (galleryShown) return { activeTools: NON_GALLERY_TOOLS }
       // THE QUESTION IS NOT OPTIONAL when the ask has an audience-shaped hole in it
       // (see audienceGap). Offering ask_to_narrow alongside the search tools is what
@@ -1334,7 +1346,20 @@ export default defineEventHandler(async (event) => {
             const said = Number([...(messages || [])].reverse().find((m: any) => m?.role === 'user')?.metadata?.quantity)
             if (Number.isInteger(said) && said >= 1 && said <= 20 && input.length) input[input.length - 1] = { ...input[input.length - 1], quantity: said }
           }
+          // A LINK LIST ADDED AT ONCE ("Agregar todo" on the link-list card — utils/linkList.ts): every link with the choice the
+          // card already made, in one go. The box takes them as they are (the store's own values); nothing is held for a pick.
+          const linkList = linkListFromMetadata([...(messages || [])].reverse().find((m: any) => m?.role === 'user')?.metadata)
+          if (linkList.length) {
+            const { items: linkItems } = linkListBox(linkList)
+            input.splice(0, input.length, ...withEarlierItems(boxFromMessages(messages), linkItems))
+          }
           const out: any = await (async (items: any[]) => {
+          if (linkList.length) {
+            const ship: any = await buildShipment(items)
+            ship.store_options = linkListBox(linkList).storeOptions
+            ship.note = `LINK LIST ADDED: ${linkList.length} product${linkList.length > 1 ? 's' : ''} from the shopper's list ${linkList.length > 1 ? 'are' : 'is'} in their Boxly box now, each with the options picked on the list card (${linkList.map((e) => `"${e.title}"${Object.keys(e.variants).length ? ` (${Object.values(e.variants).join(', ')})` : ''}`).join('; ')}). Confirm it in ONE or two short lines and invite them to tap Finalizar to get every store's real total in one order. Do NOT ask for sizes or colours.`
+            return ship
+          }
           // The registry is the truth for anything the model would otherwise retype: the box card must show the
           // REAL thumbnail / price / name for a saved_id (the model invented "https://example.com/nike_ultrafly.jpg"
           // in a live run), so resolve before building the card.
@@ -1609,6 +1634,29 @@ export default defineEventHandler(async (event) => {
             }
           }
           return out
+        },
+      }),
+
+      show_link_list: tool({
+        description: `The shopper's message holds a LIST of product links (2 or more) they already chose: call this ONCE, with no input. It reads the links straight from their message (up to ${LINK_LIST_MAX}) and shows ONE card where every product's page is read, the choices a link does not already make (size, colour) are picked, and "Agregar todo" puts the whole list in the box together. Never search for these products and never call show_shipment for them yourself.`,
+        inputSchema: z.object({}),
+        execute: async () => {
+          const lastUser = [...(messages || [])].reverse().find((m: any) => m?.role === 'user')
+          const text = (lastUser?.parts || []).filter((p: any) => p?.type === 'text').map((p: any) => p.text).join(' ')
+          const urls = linkListUrls(text)
+          if (!urls.length) return { ok: false, note: 'NO LINKS — their message has no product link. Ask them to paste the links of the products they want.' }
+          // Which links a Boxly store cart can take: the same rule Finalizar applies (wantedFromBox); the others are shown, not added.
+          const links = urls.map((url) => {
+            const { wanted } = wantedFromBox([{ name: url, url, quantity: 1 } as any], storeRegistry, carriedStores)
+            const w = wanted[0]
+            return { url, supported: !!w, ...(w ? { store_id: w.store_id, store_name: w.store_name || w.store_id } : {}) }
+          })
+          const off = links.filter((l) => !l.supported)
+          const host = (u: string) => { try { return new URL(u).hostname.replace(/^www\./, '') } catch { return u } }
+          return {
+            ok: true, links,
+            note: `LINK LIST CARD — it is on screen now and reads all ${links.length} product page${links.length > 1 ? 's' : ''} by itself. Write ONE short line in Spanish: you are reading their ${links.length} links; they pick size/colour where the card asks, then tap "Agregar todo".${off.length ? ` ${off.length} link${off.length > 1 ? 's are' : ' is'} from a store the Boxly agent cannot buy from (${[...new Set(off.map((l) => host(l.url)))].join(', ')}): say so in the same reply and OFFER to find a similar product at a store from LIVE STORES (ask which, or propose the closest store) — do NOT search before they say yes.` : ''} Do NOT list the products, do NOT search, do NOT call show_shipment now.`,
+          }
         },
       }),
 

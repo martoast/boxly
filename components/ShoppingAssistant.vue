@@ -393,6 +393,9 @@
                     <LazyProductPickerCard v-else-if="cardAt(m, part)" :data-picker-msg="m.id" :part="cardAt(m, part).part" :busy="cardsReading.has(cardAt(m, part).key)"
                       @assisted="onAssistedProduct" @refresh="refreshCard(cardAt(m, part))" @colorway="(c) => pickCardColorway(cardAt(m, part), c)" />
 
+                    <!-- A pasted LIST of product links: one card reads them all and adds them together (utils/linkList.ts). -->
+                    <LazyLinkListCard v-else-if="part.type === 'tool-show_link_list' && part.state === 'output-available' && part.output?.links?.length" :part="part"
+                      @add-all="sendLinkList" @similar="askSimilar" />
                     <!-- The order placed from the box — live store checkouts, real totals, then Pagar. (tool-finalize_lab_order
                          is the same card in chats from the Boxly Lab days, before 2026-09-28.) -->
                     <LazyCheckoutCard v-else-if="FINALIZE_PARTS.has(part.type) && part.state === 'output-available' && part.output?.purchase_request_id" :purchase-request-id="part.output.purchase_request_id" :request-number="part.output.request_number" @watch="watchLive" @live="onCheckoutLive" :part="hasInvoiceMessage(part.output.purchase_request_id) ? 'progress' : 'all'" @store-done="(d) => onStoreDone(part.output.purchase_request_id, d)" @invoice-ready="(r) => onInvoiceReady(part.output.purchase_request_id, part.output.request_number, r)" />
@@ -2112,6 +2115,25 @@ function addToBoxlyCart(p) {
   ensureConversation(`Agrégalo a mi carrito Boxly: ${p.title || ''}`)
     .then((cid) => boxlyCart.add(cartPayloadFromChatProduct(item, { conversationId: cid ?? activeId.value })))
     .catch((e) => console.warn('boxly cart add failed', e?.data?.message || e))
+}
+// "Agregar todo" on the link-list card: the whole list in one message; the box takes it as it is (show_shipment, utils/linkList.ts).
+function sendLinkList(list) {
+  if (!Array.isArray(list) || !list.length) return
+  // the assistant is still answering: send when it is done (the card already shows the list as sent)
+  if (isBusy.value) { setTimeout(() => sendLinkList(list), 800); return }
+  ensureChatToken()
+  const text = `Agrega todos estos productos a mi caja (${list.length})`
+  ensureConversation(text)
+  chat.sendMessage({ text, metadata: { link_list: list } })
+  scrollDown()
+}
+// "Buscar similar" for a link from a store the agent cannot buy from.
+function askSimilar(row) {
+  const what = row?.title ? `“${row.title}”` : `el producto de ${row?.store_name || 'esa tienda'}`
+  const text = `Busca algo similar a ${what} en una tienda donde sí puedan comprar`
+  ensureConversation(text)
+  chat.sendMessage({ text })
+  scrollDown()
 }
 function sendAssisted(p) {
   ensureChatToken()
