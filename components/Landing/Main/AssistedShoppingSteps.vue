@@ -164,7 +164,7 @@ const t = createTranslations({
   step2BadgeDesc:    { es: 'Confirmación por WhatsApp', en: 'WhatsApp confirmation' },
 
   step3Title:        { es: 'Lo enviamos hasta tu casa en México', en: 'We ship it to your door in Mexico' },
-  step3Desc:         { es: 'Te enviamos por Estafeta a tu dirección en México, con guía de seguimiento y entrega en 3–5 días hábiles. Tú pagas en pesos a cuenta mexicana, sin comisiones internacionales.', en: 'We ship via Estafeta to your address in Mexico, with tracking and 3–5 business day delivery. You pay in pesos to a Mexican account, no international fees.' },
+  step3Desc:         { es: 'Te enviamos por Paquetexpress (terrestre) a tu dirección en México, con guía de seguimiento y entrega estimada de 4–5 días hábiles desde que la paquetería recibe tu caja. Tú pagas en pesos a cuenta mexicana, sin comisiones internacionales.', en: 'We ship via Paquetexpress (ground) to your address in Mexico, with tracking and an estimated 4–5 business days from when the carrier receives your box. You pay in pesos to a Mexican account, no international fees.' },
   step3Tip:          { es: 'Seguimiento en tiempo real desde tu cuenta y por WhatsApp.', en: 'Real-time tracking from your account and on WhatsApp.' },
   step3Alt:          { es: 'Entrega del paquete a tu casa en México', en: 'Package delivered to your door in Mexico' },
 

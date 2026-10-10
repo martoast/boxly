@@ -58,8 +58,8 @@ const t = createTranslations(translations)
 const trustItems = computed(() => {
   return language.value === 'es' ? [
     {
-      title: 'Envíos Asegurados',
-      description: 'Todos nuestros envíos incluyen seguro contra pérdida o daño durante el trayecto.'
+      title: 'Reclamos con evidencia',
+      description: 'Revisamos cada caso con la evidencia de recepción, consolidación y transporte.'
     },
     {
       title: '12+ Años de Experiencia',
@@ -83,8 +83,8 @@ const trustItems = computed(() => {
     }
   ] : [
     {
-      title: 'Insured Shipments',
-      description: 'All our shipments include insurance against loss or damage during transit.'
+      title: 'Evidence-based claims',
+      description: 'We review every case with the receiving, consolidation and transport evidence.'
     },
     {
       title: '12+ Years of Experience',

@@ -63,11 +63,11 @@ const faqs = computed(() => {
   return language.value === 'es' ? [
     {
       question: '¿Qué pasa si mi paquete se pierde o se daña?',
-      answer: 'Tu tranquilidad es nuestra prioridad. Te mantendremos informado de la ruta de tu paquete en todo momento para tu tranquilidad. Con 12 años de experiencia, estamos siempre al pendiente de todo el proceso de envío hasta que el producto llega a su destino, ofreciéndote un seguimiento personalizado y sin problemas. Todos nuestros envíos incluyen seguro contra pérdida o daño. Importante: Es responsabilidad del cliente proporcionar la dirección de envío completa y correcta con todas las especificaciones requeridas.'
+      answer: 'Avísanos lo antes posible y conserva caja, etiquetas, sellos y empaque. Comparte tu orden, comprobantes de compra y fotos de cómo recibiste el envío. Revisaremos la evidencia de recepción, consolidación y transporte para atender el caso. El servicio no incluye una póliza de seguro por defecto; si existe protección opcional para tu modalidad, su precio y condiciones se muestran antes de contratar.'
     },
     {
       question: '¿Cuánto tiempo tarda en llegar mi envío?',
-      answer: 'Una vez que recibimos tu paquete en nuestra bodega de San Diego, el proceso de cruce y envío a tu domicilio en México toma de 3 a 5 días hábiles. Te proporcionamos un número de guía para que puedas rastrear tu paquete en tiempo real. Nuestro equipo está siempre al pendiente del proceso para asegurar que todo marche correctamente.'
+      answer: 'El proceso incluye recepción y preparación, traslado y revisión aduanera, y transporte nacional. La estimación de paquetería comienza cuando recibe físicamente tu caja, no al crear la guía. Te confirmaremos el tiempo estimado para tu modalidad y destino; inspecciones o saturación pueden modificarlo.'
     },
     {
       question: '¿Cómo sé que su servicio es confiable?',
@@ -76,11 +76,11 @@ const faqs = computed(() => {
   ] : [
     {
       question: 'What happens if my package is lost or damaged?',
-      answer: 'Your peace of mind is our priority. We will keep you informed of your package\'s route at all times for your tranquility. With 12 years of experience, we are always monitoring the entire shipping process until the product reaches its destination, offering personalized tracking without issues. All our shipments include insurance against loss or damage. Important: It is the customer\'s responsibility to provide a complete and correct shipping address with all required specifications.'
+      answer: 'Let us know as soon as possible and keep the box, labels, seals and packaging. Share your order, proof of purchase and photos of how you received the shipment. We\'ll review the receiving, consolidation and transport evidence to handle the case. The service does not include an insurance policy by default; if optional protection exists for your shipping method, its price and conditions are shown before you book.'
     },
     {
       question: 'How long will my shipment take to arrive?',
-      answer: 'Once we receive your package at our San Diego warehouse, the process of crossing and shipping to your address in Mexico takes 3 to 5 business days. We provide you with a tracking number so you can monitor your package in real time. Our team is always overseeing the process to ensure everything goes smoothly.'
+      answer: 'The process includes receiving and preparation, transfer and customs review, and domestic transport. The carrier\'s estimate starts when it physically receives your box, not when the label is created. We\'ll confirm the estimated time for your shipping method and destination; inspections or congestion can change it.'
     },
     {
       question: 'How do I know your service is reliable?',

@@ -963,8 +963,8 @@ const translations = {
   howStep5: { es: "Vuela el mismo día", en: "It flies the same day" },
   howTrustStrong: { es: "Pagas hasta que tu caja ya cruzó y está lista para volar.", en: "You pay only once your box has crossed and is ready to fly." },
   howTrustRest: {
-    es: "Sin pagos por adelantado — nosotros nos encargamos de la recepción, la consolidación y el cruce. El mismo día que pagas recibes tu guía y tu caja vuela por avión. ✈️",
-    en: "No upfront payments — we handle receiving, consolidation and the border crossing. The same day you pay you get your guía and your box flies by air. ✈️",
+    es: "Sin pagos por adelantado — nosotros nos encargamos de la recepción, la consolidación y el cruce. Cuando pagas, generamos tu guía y entregamos tu caja a Paquetexpress para su envío terrestre. 🚚",
+    en: "No upfront payments — we handle receiving, consolidation and the border crossing. Once you pay, we create your guía and hand your box to Paquetexpress for ground shipping. 🚚",
   },
   howPricingLink: { es: "Ver catálogo de precios", en: "See pricing catalog" },
   howPricingBody: { es: "Tamaños de caja, tarifas y cómo funciona.", en: "Box sizes, rates and how it works." },

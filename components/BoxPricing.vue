@@ -7,7 +7,7 @@
         <p class="mt-3 text-lg sm:text-xl text-gray-500">{{ t.pricingSubtitle }}</p>
         <div class="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-1.5 text-[13px] text-gray-500">
           <span v-for="tr in TRUST" :key="tr.key" class="inline-flex items-center gap-1.5">
-            <svg class="w-3.5 h-3.5 shrink-0 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :stroke-width="tr.key === 'plane' ? 1.8 : 2.5" :d="tr.key === 'plane' ? ICON_PLANE : ICON_CHECK" /></svg>
+            <svg class="w-3.5 h-3.5 shrink-0 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" :d="ICON_CHECK" /></svg>
             {{ t[tr.key] }}
           </span>
         </div>
@@ -90,7 +90,6 @@ const props = defineProps({
 const { t: createTranslations, language } = useLanguage();
 
 const ICON_CHECK = "M5 13l4 4L19 7";
-const ICON_PLANE = "M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z";
 
 const TRUST = [
   { key: "trustNoVpn" },
@@ -135,7 +134,7 @@ const translations = {
   trustNoVpn: { es: "Sin VPN", en: "No VPN" },
   trustNoCard: { es: "Sin tarjeta americana", en: "No US card" },
   trustPayWhenReady: { es: "Pagas cuando tu caja está lista", en: "Pay when your box is ready" },
-  plane: { es: "Envíos rápidos por avión", en: "Fast air shipping" },
+  plane: { es: "Envío terrestre con Paquetexpress", en: "Ground shipping with Paquetexpress" },
   boxLabel: { es: "Caja", en: "Box" },
   boxPrice: { es: "Precio de la caja", en: "Box price" },
   perItem: { es: "por artículo", en: "per item" },
@@ -148,7 +147,7 @@ const translations = {
   popularBadge: { es: "Más popular", en: "Most popular" },
   bestValueBadge: { es: "Mejor valor", en: "Best value" },
   factPrice: { es: "Precio fijo, sin costos ocultos", en: "Flat price, no hidden fees" },
-  factShipping: { es: "Envío aéreo a todo México incluido", en: "Air shipping across Mexico included" },
+  factShipping: { es: "Envío terrestre a todo México incluido", en: "Ground shipping across Mexico included" },
   factConsolidate: { es: "Consolida hasta 60 días", en: "Consolidate for up to 60 days" },
   approxNote: {
     es: "Las cantidades son aproximadas — el límite de cada caja es por volumen o peso, lo que se alcance primero.",

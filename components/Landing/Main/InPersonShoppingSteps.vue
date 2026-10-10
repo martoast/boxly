@@ -159,7 +159,7 @@ const t = createTranslations({
   step2BadgeDesc:    { es: 'En outlets de USA', en: 'At US outlets' },
 
   step3Title:        { es: 'Te enviamos a tu casa en México', en: 'We ship to your door in Mexico' },
-  step3Desc:         { es: 'Consolidamos todas tus compras en una sola caja y las enviamos mediante nuestro servicio aéreo premium a tu domicilio en México, con entrega nacional por Estafeta.\n\nPagas la cuenta final en pesos a una cuenta mexicana, sin comisiones internacionales, conversiones de moneda ni complicaciones.', en: 'We consolidate all your purchases into a single box and ship them via our premium air service to your home in Mexico, with domestic delivery by Estafeta.\n\nYou pay the final bill in pesos to a Mexican account — no international fees, currency conversions, or hassles.' },
+  step3Desc:         { es: 'Consolidamos todas tus compras en una sola caja y las enviamos por tierra a tu domicilio en México, con entrega nacional por Paquetexpress.\n\nPagas la cuenta final en pesos a una cuenta mexicana, sin comisiones internacionales, conversiones de moneda ni complicaciones.', en: 'We consolidate all your purchases into a single box and ship them by ground to your home in Mexico, with domestic delivery by Paquetexpress.\n\nYou pay the final bill in pesos to a Mexican account — no international fees, currency conversions, or hassles.' },
   step3Tip:          { es: 'Seguimiento en tiempo real desde tu cuenta y por WhatsApp.', en: 'Real-time tracking from your account and on WhatsApp.' },
   step3Alt:          { es: 'Recibe tu compra en México', en: 'Receive your shopping in Mexico' },
 

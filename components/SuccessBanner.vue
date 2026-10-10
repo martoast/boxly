@@ -188,8 +188,8 @@ const translations = {
     en: 'When do I pay?'
   },
   awaitingNextMessage: {
-    es: 'Solo pagas cuando todo llegó y tu caja está lista para volar por avión a tu dirección en México.',
-    en: 'You only pay once everything has arrived and your box is ready to fly to your address in Mexico.',
+    es: 'Solo pagas cuando todo llegó y tu caja está lista para enviarse a tu dirección en México.',
+    en: 'You only pay once everything has arrived and your box is ready to ship to your address in Mexico.',
   },
 
   // Packages complete status

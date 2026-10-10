@@ -101,6 +101,17 @@
             @validation-change="handlePhoneValidation"
           />
 
+          <!-- New Google/Facebook accounts accept the Terms here (unchecked box, like the signup form).
+               Existing accounts are never asked (2026-10-10 legal update: no forced acceptance). -->
+          <label v-if="needsTerms" class="flex items-start gap-3 text-sm text-gray-700 cursor-pointer">
+            <input v-model="agreeToTerms" type="checkbox" class="mt-0.5 h-5 w-5 rounded border-gray-300 text-primary-500 focus:ring-primary-500">
+            <span>
+              {{ t.agreeToTermsPrefix }}
+              <NuxtLink to="/terms-of-service" target="_blank" class="text-primary-500 hover:text-primary-600 underline" @click.stop>{{ t.termsOfService }}</NuxtLink>
+              <span class="text-red-500 ml-0.5">*</span>
+            </span>
+          </label>
+
           <!-- Submit Button -->
           <button
             type="submit"
@@ -204,6 +215,8 @@ const registrationSource = computed(() => {
 
 // Define translations
 const translations = {
+  agreeToTermsPrefix: { es: "Acepto los", en: "I agree to the" },
+  termsOfService: { es: "Términos de Servicio", en: "Terms of Service" },
   completeProfileTitle: {
     es: "Completa tu Perfil",
     en: "Complete Your Profile",
@@ -251,8 +264,16 @@ const handlePhoneValidation = (validation) => {
 };
 
 // Form validation
+// Only accounts created on/after the Terms update that haven't accepted yet (new social signups).
+const TERMS_UPDATED = "2026-10-10";
+const needsTerms = computed(() => {
+  const u = userState.value || {};
+  return !u.terms_version && String(u.created_at || "") >= TERMS_UPDATED;
+});
+const agreeToTerms = ref(false);
+
 const canProceed = computed(() => {
-  return phoneValidation.value.isValid;
+  return phoneValidation.value.isValid && (!needsTerms.value || agreeToTerms.value);
 });
 
 // Methods
@@ -278,6 +299,7 @@ const handleSubmit = async () => {
     // Build update payload
     const updateData = {
       phone: phoneValidation.value.e164Phone, // Use E.164 format from component
+      ...(needsTerms.value ? { agree_to_terms: agreeToTerms.value } : {}),
     };
 
     // Add registration source if available and user doesn't already have it

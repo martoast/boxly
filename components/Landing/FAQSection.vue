@@ -86,6 +86,11 @@
               </div>
             </transition>
           </div>
+          <p class="pt-6 text-gray-600">
+            {{ t.termsPrefix }}
+            <NuxtLink to="/terms-of-service" class="text-primary-600 hover:underline">{{ t.termsLink }}</NuxtLink>
+            {{ t.termsSuffix }}
+          </p>
         </div>
       </div>
     </section>
@@ -94,18 +99,15 @@
   <script setup>
   import { ref, computed } from "vue";
   import {
-    ArchiveBoxIcon,
-    ShoppingCartIcon,
     TruckIcon,
-    CreditCardIcon,
-    UsersIcon,
+    ShieldCheckIcon,
     ChevronDownIcon,
   } from "@heroicons/vue/24/outline";
   
   const { t: createTranslations, language } = useLanguage();
   
   // State
-  const selectedCategory = ref("locker");
+  const selectedCategory = ref("service");
   const openFaqs = ref([]);
   
   // Translations
@@ -122,338 +124,158 @@
       es: "Encuentra respuestas a las preguntas más comunes sobre nuestro servicio de envíos entre San Diego y Tijuana.",
       en: "Find answers to the most common questions about our shipping service between San Diego and Tijuana.",
     },
+    termsPrefix: { es: "Consulta los", en: "See the" },
+    termsLink: { es: "Términos de Servicio", en: "Terms of Service" },
+    termsSuffix: { es: "para conocer las condiciones completas.", en: "for the full conditions." },
   };
   
   const t = createTranslations(translations);
   
-  // Categories
+  // Categories — the two groups of the 2026-10-10 legal update (pages 7–8). The full conditions
+  // live on /terms-of-service; these answers must never promise more than the terms do.
   const categories = [
     {
-      id: "locker",
-      name: { es: "Casillero Virtual", en: "Virtual Locker" },
-      icon: ArchiveBoxIcon,
-    },
-    {
-      id: "shopping",
-      name: { es: "Compras por Internet", en: "Internet Shopping" },
-      icon: ShoppingCartIcon,
-    },
-    {
-      id: "shipping",
-      name: { es: "Envíos", en: "Shipping" },
+      id: "service",
+      name: { es: "Servicio", en: "Service" },
       icon: TruckIcon,
     },
     {
-      id: "payment",
-      name: { es: "Pagos", en: "Payment" },
-      icon: CreditCardIcon,
-    },
-    {
-      id: "liability",
-      name: { es: "Responsabilidad", en: "Liability" },
-      icon: UsersIcon,
+      id: "protection",
+      name: { es: "Protección y documentos", en: "Protection and documents" },
+      icon: ShieldCheckIcon,
     },
   ];
-  
-  // FAQ Data
+
+  // FAQ Data — Spanish is the published text, verbatim; English is a faithful translation.
   const faqs = [
-    // Virtual Locker FAQs
     {
       id: 1,
-      category: "locker",
-      question: {
-        es: "¿Cómo funciona?",
-        en: "How does it work?",
-      },
+      category: "service",
+      question: { es: "¿Cómo funciona?", en: "How does it work?" },
       answer: {
-        es: [
-          "Cuando te registras, recibes una dirección única en Estados Unidos en San Diego con la cual puedes comenzar a comprar en línea--esta dirección es donde enviarás tus paquetes. Cuando estos paquetes llegan a tu dirección de envío en EE.UU., se procesan para ser enviados internacionalmente. Tan pronto como llegan a Tijuana, nuestros agentes de Boxly se encargan del despacho aduanal y envían los paquetes a tu hogar u oficina.",
-        ],
-        en: [
-          "When you sign up, you receive a unique U.S. address in San Diego with which you can start shopping online--this address is where you'll receive your packages. When these packages arrive at your U.S. shipping address, they are then processed to be shipped internationally. As soon as they arrive in Tijuana, our Boxly agents clear customs and send the packages to your home or office.",
-        ],
+        es: ["Recibe tus compras en tu dirección Boxly de San Diego. Registramos los paquetes y los consolidamos según tus instrucciones para coordinar su traslado a México y envío a tu destino. La modalidad y el precio se confirman al preparar tu caja."],
+        en: ["Receive your purchases at your Boxly address in San Diego. We register the packages and consolidate them according to your instructions to coordinate their transfer to Mexico and shipping to your destination. The shipping method and price are confirmed when your box is prepared."],
       },
     },
     {
       id: 2,
-      category: "locker",
-      question: {
-        es: "¿Qué obtengo cuando me registro?",
-        en: "What do I get when I register?",
-      },
+      category: "service",
+      question: { es: "¿Mi paquete se revisa cuando llega?", en: "Is my package inspected when it arrives?" },
       answer: {
-        es: [
-          "Una dirección de envío internacional acompañada de una serie de herramientas únicas de Boxly que garantizan el manejo y entrega de tus paquetes comprados en línea. Recibirás servicios de envío internacional a un costo muy favorable y con altos estándares de calidad, cumplimiento y seguridad. Además de estos beneficios, tu dirección física en San Diego recibe, clasifica y envía diariamente los documentos o paquetes recibidos a tu cuenta. Tu dirección física en San Diego también te permite hacer seguimiento de tus órdenes.",
-        ],
-        en: [
-          "An international shipping address accompanied by a series of unique Boxly tools that guarantee the handling and delivery of your packages purchased online. You will receive international shipping services at a very favorable cost and with high quality, compliant, and secure margins. In addition to these benefits, your physical address in San Diego receives, classifies, and ships the documents or packages received to your account daily. Your physical address in San Diego also allows you to follow the tracking of your orders.",
-        ],
+        es: ["Registramos su recepción y condiciones visibles. El servicio ordinario no incluye revisión pieza por pieza ni pruebas de funcionamiento. Si necesitas verificar un artículo o conservar su empaque original, solicítalo antes de consolidar para confirmar si es posible y su costo."],
+        en: ["We record its arrival and visible condition. The standard service does not include a piece-by-piece check or functional testing. If you need an item verified or its original packaging kept, ask before consolidation so we can confirm whether it's possible and its cost."],
       },
     },
     {
       id: 3,
-      category: "locker",
-      question: {
-        es: "¿Qué garantías incluye el servicio?",
-        en: "What guarantees does the service include?",
-      },
+      category: "service",
+      question: { es: "¿Cuánto tarda?", en: "How long does it take?" },
       answer: {
-        es: [
-          "BOXLY ofrece un servicio de recepción, consolidación y coordinación logística de envíos internacionales.",
-          "BOXLY se compromete a manejar los paquetes con cuidado razonable durante su recepción y proceso de consolidación en sus instalaciones. Sin embargo, BOXLY no garantiza la integridad absoluta del contenido, ni asume responsabilidad por daños, faltantes o incidencias derivadas de empaques deficientes por parte del proveedor o condiciones previas a la recepción.",
-          "Una vez que los envíos son entregados a terceros para su cruce, transporte o entrega (incluyendo paqueterías y proveedores logísticos), la responsabilidad recae exclusivamente en dichos terceros.",
-          "BOXLY no ofrece garantías de entrega, tiempos de tránsito ni resultados del servicio, ya que estos pueden verse afectados por factores externos como procesos aduanales, inspecciones, retrasos logísticos o causas fuera de su control.",
-          "El servicio no incluye cobertura por defecto. El cliente puede contratar Boxly Protection por caja, y/o cobertura adicional directamente con la paquetería correspondiente (como FedEx), bajo sus propios términos y condiciones.",
-        ],
-        en: [
-          "BOXLY offers a reception, consolidation, and international shipping logistics coordination service.",
-          "BOXLY commits to handling packages with reasonable care during their reception and consolidation process at its facilities. However, BOXLY does not guarantee the absolute integrity of contents, nor assumes responsibility for damage, shortages, or incidents resulting from inadequate packaging by the supplier or conditions prior to reception.",
-          "Once shipments are handed to third parties for crossing, transport, or delivery (including carriers and logistics providers), responsibility falls exclusively on those third parties.",
-          "BOXLY does not offer delivery guarantees, transit times, or service outcome guarantees, as these may be affected by external factors such as customs processes, inspections, logistics delays, or causes beyond its control.",
-          "The service does not include coverage by default. The customer may purchase Boxly Protection per box, and/or additional coverage directly with the corresponding carrier (such as FedEx), under their own terms and conditions.",
-        ],
+        es: ["El proceso incluye recepción y preparación, traslado y revisión aduanera, y transporte nacional. La estimación de paquetería comienza cuando recibe físicamente tu caja, no al crear la guía. Te confirmaremos el tiempo estimado para tu modalidad y destino; inspecciones o saturación pueden modificarlo."],
+        en: ["The process includes receiving and preparation, transfer and customs review, and domestic transport. The carrier's estimate starts when it physically receives your box, not when the shipping label is created. We'll confirm the estimated time for your shipping method and destination; inspections or congestion can change it."],
       },
     },
     {
       id: 4,
-      category: "locker",
-      question: {
-        es: "¿Hay una fecha de vencimiento para mi dirección de envío en EE.UU. o para mis paquetes?",
-        en: "Is there an expiration date for my U.S. shipping address or my packages?",
-      },
+      category: "service",
+      question: { es: "¿Por qué mi guía todavía no tiene movimiento?", en: "Why doesn't my tracking number show any movement yet?" },
       answer: {
-        es: [
-          "El servicio de dirección en EE.UU. es de uso indefinido; sin embargo, los paquetes recibidos deberán ser procesados y enviados dentro de un plazo máximo de 60 días naturales a partir de su recepción.",
-          "En caso de que un paquete permanezca sin movimiento o sin instrucciones por parte del cliente durante este periodo, BOXLY se reserva el derecho de disponer de la mercancía, incluyendo su desecho, donación o liquidación, sin responsabilidad alguna. BOXLY no será responsable por paquetes no reclamados o sin instrucciones después de este plazo.",
-          "Adicionalmente, la cuenta podrá ser suspendida o desactivada en caso de inactividad prolongada o incumplimiento en los términos del servicio.",
-        ],
-        en: [
-          "The U.S. address service is for indefinite use; however, received packages must be processed and shipped within a maximum period of 60 calendar days from their reception.",
-          "If a package remains without movement or instructions from the customer during this period, BOXLY reserves the right to dispose of the merchandise, including disposal, donation, or liquidation, without any liability. BOXLY will not be responsible for unclaimed packages or packages without instructions after this period.",
-          "Additionally, the account may be suspended or deactivated in case of prolonged inactivity or non-compliance with the terms of service.",
-        ],
+        es: ["Una guía creada identifica tu envío, pero no confirma por sí sola su recepción por la paquetería. El primer registro puede aparecer después de la entrega física. Si no hay actualización o los datos no coinciden, contáctanos para verificarlo."],
+        en: ["A created label identifies your shipment, but on its own it doesn't confirm the carrier has received it. The first scan can appear after the physical handover. If there's no update or the details don't match, contact us so we can check."],
       },
     },
     {
       id: 5,
-      category: "locker",
-      question: {
-        es: "¿Cómo me registro?",
-        en: "How do I register?",
-      },
+      category: "service",
+      question: { es: "¿Con qué paquetería envían?", en: "Which carriers do you ship with?" },
       answer: {
-        es: [
-          "Llena el formulario que aparece en la página de registro. Para abrir una cuenta, debes proporcionar una dirección de correo electrónico válida y una dirección de entrega. Puedes configurar tu método de pago después.",
-        ],
-        en: [
-          "Fill out the form that appears on the Registration page. To open an account, you must provide a valid email address and delivery address. You can set up your payment afterwards.",
-        ],
+        es: ["Para terrestre utilizamos Paquetexpress. Para aéreo trabajamos con FedEx, Estafeta y DHL, según disponibilidad, destino y servicio contratado. La opción disponible para tu envío se confirma antes de contratar y te compartimos su guía de seguimiento."],
+        en: ["For ground we use Paquetexpress. For air we work with FedEx, Estafeta and DHL, depending on availability, destination and the service booked. The option available for your shipment is confirmed before you book, and we share its tracking number with you."],
       },
     },
-    // Shopping FAQs
     {
       id: 6,
-      category: "shopping",
-      question: {
-        es: "¿Puedo comprar en cualquier tienda en línea?",
-        en: "Can I shop at any online store?",
-      },
+      category: "service",
+      question: { es: "¿Cuándo pago?", en: "When do I pay?" },
       answer: {
-        es: [
-          "Sí, puedes comprar en cualquier tienda en línea de Estados Unidos que acepte tu dirección de San Diego. Esto incluye Amazon, eBay, Walmart, Best Buy y miles de otras tiendas. Solo asegúrate de usar tu dirección de Boxly como dirección de envío.",
-        ],
-        en: [
-          "Yes, you can shop at any U.S. online store that accepts your San Diego address. This includes Amazon, eBay, Walmart, Best Buy, and thousands of other stores. Just make sure to use your Boxly address as your shipping address.",
-        ],
+        es: ["Pagas el envío cuando tu caja está lista y el importe está confirmado, antes de su entrega para transporte nacional. El precio y los conceptos incluidos se informan antes de cobrar. En compras asistidas, el producto y la comisión se pagan conforme a la cotización aceptada."],
+        en: ["You pay for shipping when your box is ready and the amount is confirmed, before it's handed over for domestic transport. The price and what it includes are shown before you're charged. For assisted purchases, the product and the fee are paid according to the accepted quote."],
       },
     },
     {
       id: 7,
-      category: "shopping",
-      question: {
-        es: "¿Cómo consolidan mis compras?",
-        en: "How do you consolidate my purchases?",
-      },
+      category: "service",
+      question: { es: "¿Cuánto tiempo puedo almacenar?", en: "How long can I store my packages?" },
       answer: {
-        es: [
-          "Cuando realizas múltiples compras, todas llegan a tu casillero en San Diego. Nosotros las agrupamos en un solo envío para reducir los costos de envío internacional. Esto te permite ahorrar significativamente en comparación con enviar cada paquete por separado.",
-        ],
-        en: [
-          "When you make multiple purchases, they all arrive at your locker in San Diego. We group them into a single shipment to reduce international shipping costs. This allows you to save significantly compared to shipping each package separately.",
-        ],
+        es: ["El plazo ordinario es de 60 días naturales desde el registro de recepción de cada paquete. Solicita una extensión antes del vencimiento si necesitas más tiempo; te confirmaremos disponibilidad y condiciones. No tratamos como abandono los retrasos atribuibles a Boxly."],
+        en: ["The standard period is 60 calendar days from when each package is registered as received. Ask for an extension before it expires if you need more time; we'll confirm availability and conditions. Delays caused by Boxly are never treated as abandonment."],
       },
     },
-    // Shipping FAQs
     {
       id: 8,
-      category: "shipping",
-      question: {
-        es: "¿Hay restricciones sobre lo que puedo enviar?",
-        en: "Are there any restrictions on what I can ship?",
-      },
+      category: "protection",
+      question: { es: "¿El servicio incluye seguro?", en: "Does the service include insurance?" },
       answer: {
-        es: [
-          "Los siguientes envíos se consideran restringidos por las aerolíneas (hazmat) y pueden requerir manejo especial para enviar: Perfumes, latas de aerosol, tinta, hielo seco, productos químicos y productos perecederos. Otros artículos prohibidos incluyen dinero en efectivo, joyas, bebidas alcohólicas, armas de fuego y municiones, productos perecederos, animales, medicamentos y tabaco (a menos que cumplan con las leyes específicas de entrada del país específico).",
-          "Para estos, consulta con nosotros primero antes de comprarlos.",
-          "Los siguientes envíos están prohibidos por las aerolíneas y de ninguna manera pueden ser enviados: Productos inflamables, corrosivos, explosivos, armas y municiones de cualquier tipo. El material pornográfico está estrictamente prohibido.",
-        ],
-        en: [
-          "The following shipments are considered restricted by the airlines (hazmat) and may require special handling to ship: Perfumes, aerosol cans, ink, dry ice, chemical products, and perishable goods. Other prohibited items include cash, jewelry, alcoholic beverages, fire arms and munitions, perishable goods, animals, medicines, and tobacco (unless they comply with the specific laws of entry of the specific country).",
-          "For these, please consult with us first before purchasing them.",
-          "The following shipments are prohibited by the airlines and by no means can they be shipped: Inflammable goods, corrosives, explosives, weapons and munitions of any kind. Pornographic material is strictly prohibited.",
-        ],
+        es: ["No incluye una póliza de seguro por defecto. Si existe protección opcional para tu modalidad, su precio y condiciones se muestran antes de contratar. Debe quedar confirmada para cada caja. No contratarla no elimina tus derechos legales ni las obligaciones propias de Boxly."],
+        en: ["It does not include an insurance policy by default. If optional protection exists for your shipping method, its price and conditions are shown before you book. It must be confirmed for each box. Not buying it doesn't remove your legal rights or Boxly's own obligations."],
       },
     },
     {
       id: 9,
-      category: "shipping",
-      question: {
-        es: "¿Qué documentación se necesita para enviar mis paquetes?",
-        en: "What documentation is needed for my packages to ship?",
-      },
+      category: "protection",
+      question: { es: "¿Qué hago si falta un artículo o llega dañado?", en: "What do I do if an item is missing or arrives damaged?" },
       answer: {
-        es: [
-          "Tu compra requiere una Factura Comercial para ser enviada. La factura comercial es necesaria para declarar tus artículos en la Aduana de México. Puedes enviarnos tu factura comercial a través de tu cuenta.",
-        ],
-        en: [
-          "Your purchase requires a Commercial Invoice to ship out. The commercial invoice is needed to declare your items at Mexican Customs. You can send us your commercial invoice through your account.",
-        ],
+        es: ["Avísanos lo antes posible y conserva caja, etiquetas, sellos y empaque. Comparte tu orden, comprobantes de compra y fotos de cómo recibiste el envío. Si tienes video de apertura, también puede ayudar. Revisaremos la evidencia de recepción, consolidación y transporte para atender el caso."],
+        en: ["Let us know as soon as possible and keep the box, labels, seals and packaging. Share your order, proof of purchase and photos of how you received the shipment. An unboxing video can also help, if you have one. We'll review the receiving, consolidation and transport evidence to handle the case."],
       },
     },
     {
       id: 10,
-      category: "shipping",
-      question: {
-        es: "¿Puedo rastrear mi paquete?",
-        en: "Can I track my package?",
-      },
+      category: "protection",
+      question: { es: "¿Qué comprobante me entrega Boxly?", en: "What receipt does Boxly give me?" },
       answer: {
-        es: [
-          "Sí. Puedes rastrear el movimiento de tus paquetes en línea en tu cuenta. También contamos con un sistema de notificación por correo electrónico que te notificará el estado de tus paquetes desde San Diego hasta tu puerta en México.",
-        ],
-        en: [
-          "Yes. You can track the movement of your packages online in your account. We also have an email notification system that will notify you of the status of your packages from San Diego to your door in Mexico.",
-        ],
+        es: ["Para servicios contratados con nuestra LLC estadounidense, proporcionamos el comprobante comercial del servicio. No equivale a un CFDI mexicano ni a la factura de los productos comprados en la tienda. Si necesitas documentación fiscal específica, consúltanos antes de contratar."],
+        en: ["For services booked with our U.S. LLC, we provide the commercial receipt for the service. It is not a Mexican CFDI, nor the invoice for the products you bought from the store. If you need specific tax documentation, ask us before booking."],
       },
     },
     {
       id: 11,
-      category: "shipping",
-      question: {
-        es: "¿Cuánto tiempo tarda el envío?",
-        en: "How long does shipping take?",
-      },
+      category: "protection",
+      question: { es: "¿Qué pasa si dice “entregado” y no recibí?", en: "What if it says “delivered” and I didn't receive it?" },
       answer: {
-        es: [
-          "El tiempo de entrega típico es de 5-7 días hábiles desde que tu paquete llega a nuestras instalaciones en San Diego hasta que lo recibes en México. Los tiempos pueden variar dependiendo del despacho aduanal y tu ubicación específica.",
-        ],
-        en: [
-          "Typical delivery time is 5-7 business days from when your package arrives at our San Diego facility until you receive it in Mexico. Times may vary depending on customs clearance and your specific location.",
-        ],
+        es: ["Contáctanos para revisar la prueba de entrega, los datos del destinatario y la dirección. Te ayudaremos con la aclaración correspondiente ante la paquetería."],
+        en: ["Contact us so we can review the proof of delivery, the recipient's details and the address. We'll help you raise it with the carrier."],
       },
     },
-    // Payment FAQs
     {
       id: 12,
-      category: "payment",
-      question: {
-        es: "¿Qué métodos de pago aceptan?",
-        en: "What payment methods do you accept?",
-      },
+      category: "protection",
+      question: { es: "¿Puedo cancelar?", en: "Can I cancel?" },
       answer: {
-        es: [
-          "Aceptamos tarjetas de crédito y débito (Visa, MasterCard, American Express), transferencias bancarias, y pagos en efectivo en nuestras oficinas en Tijuana. También puedes configurar pagos automáticos para mayor comodidad.",
-        ],
-        en: [
-          "We accept credit and debit cards (Visa, MasterCard, American Express), bank transfers, and cash payments at our Tijuana offices. You can also set up automatic payments for convenience.",
-        ],
+        es: ["Solicítalo cuanto antes. Revisaremos qué servicios ya se realizaron y qué cargos pueden recuperarse. Generar una guía no vuelve automáticamente no reembolsable todo el servicio. Te informaremos el desglose y el importe que corresponda devolver."],
+        en: ["Ask as soon as possible. We'll review which services were already performed and which charges can be recovered. Creating a shipping label doesn't automatically make the whole service non-refundable. We'll give you the breakdown and the amount to be refunded."],
       },
     },
     {
       id: 13,
-      category: "payment",
-      question: {
-        es: "¿Cuáles son los costos del servicio?",
-        en: "What are the service costs?",
-      },
+      category: "protection",
+      question: { es: "¿Qué productos requieren consulta previa?", en: "Which products need checking with you first?" },
       answer: {
-        es: [
-          "Nuestros precios son muy competitivos. El costo depende del peso y dimensiones de tu paquete. Ofrecemos tarifas preferenciales para envíos consolidados y clientes frecuentes. Puedes calcular el costo exacto usando nuestra calculadora en línea.",
-        ],
-        en: [
-          "Our prices are very competitive. The cost depends on the weight and dimensions of your package. We offer preferential rates for consolidated shipments and frequent customers. You can calculate the exact cost using our online calculator.",
-        ],
-      },
-    },
-    // Liability FAQs
-    {
-      id: 16,
-      category: "liability",
-      question: {
-        es: "¿Qué es Boxly Protection y qué cubre?",
-        en: "What is Boxly Protection and what does it cover?",
-      },
-      answer: {
-        es: [
-          "Boxly Protection es una protección opcional que se agrega por caja al momento de armar tu envío. Si la caja sufre robo, pérdida o daño verificados, te reembolsamos el valor de compra documentado de los artículos afectados, hasta $10,000 MXN por caja protegida.",
-          "Se contrata caja por caja, así que puedes proteger solo el envío que lo necesita. El costo aparece como una línea aparte en la factura de tu orden y en el correo de confirmación.",
-          "No es un seguro ni está respaldado por una aseguradora: es un compromiso comercial directo de Boxly. Para reclamar necesitas avisarnos dentro de los 5 días naturales posteriores a la entrega, tu comprobante de compra y evidencia fotográfica de la caja y su contenido. Conserva el empaque hasta que se resuelva.",
-          "No cubre artículos prohibidos o restringidos, mercancía declarada por debajo de su valor real, daños por empaque deficiente del vendedor original, ni daños indirectos como lucro cesante. Los detalles completos están en la sección 7.1 de los Términos de Servicio.",
-        ],
-        en: [
-          "Boxly Protection is optional protection added per box when your shipment is put together. If the box suffers verified theft, loss, or damage, we reimburse the documented purchase value of the affected items, up to $10,000 MXN per protected box.",
-          "It is contracted box by box, so you can protect only the shipment that needs it. The cost appears as a separate line on your order invoice and in the confirmation email.",
-          "It is not insurance and is not underwritten by an insurer: it is a direct commercial commitment from Boxly. To claim, you must notify us within 5 calendar days of delivery, and provide your proof of purchase and photographic evidence of the box and its contents. Keep the packaging until the claim is resolved.",
-          "It does not cover prohibited or restricted items, goods declared below their actual value, damage from inadequate packaging by the original seller, or indirect damages such as lost profit. Full details are in section 7.1 of the Terms of Service.",
-        ],
+        es: ["Consulta antes de comprar perfumes, líquidos, aerosoles, baterías, alimentos, suplementos u otros productos sujetos a restricciones. No aceptamos mercancía ilegal, armas, explosivos, dinero en efectivo ni productos cuyo manejo esté prohibido."],
+        en: ["Ask before buying perfumes, liquids, aerosols, batteries, food, supplements or other restricted products. We don't accept illegal goods, weapons, explosives, cash or products whose handling is prohibited."],
       },
     },
     {
       id: 14,
-      category: "liability",
-      question: {
-        es: "¿Qué pasa si mi paquete se daña o pierde?",
-        en: "What happens if my package is damaged or lost?",
-      },
+      category: "protection",
+      question: { es: "¿Puedo solicitar documentación a mi nombre para reventa?", en: "Can I request documentation in my name for resale?" },
       answer: {
-        es: [
-          "BOXLY actúa exclusivamente como intermediario logístico y no como transportista ni aseguradora.",
-          "BOXLY no ofrece seguro. Ofrecemos Boxly Protection, una protección opcional que se contrata por caja y reembolsa el valor documentado de la mercancía en caso de robo, pérdida o daño verificados. El cliente también puede contratar un seguro adicional directamente con la paquetería correspondiente (como FedEx), sujeto a los términos de dicha paquetería.",
-          "Una vez que el paquete es entregado a la paquetería para su envío, la responsabilidad sobre el transporte, manejo y entrega recae exclusivamente en la paquetería seleccionada.",
-          "En caso de daño, pérdida o retraso, BOXLY podrá brindar apoyo administrativo en el proceso de seguimiento o reclamación; sin embargo, la resolución, tiempos de respuesta y cualquier compensación dependerán exclusivamente de la paquetería o aseguradora.",
-          "Sin Boxly Protection ni seguro de la paquetería, el cliente asume el riesgo total del envío. BOXLY no será responsable por pérdidas, daños o incidencias ocurridas durante el transporte.",
-        ],
-        en: [
-          "BOXLY acts exclusively as a logistics intermediary and not as a carrier or insurer.",
-          "BOXLY does not offer insurance. We offer Boxly Protection, an optional protection contracted per box that reimburses the documented value of goods in the event of verified theft, loss, or damage. The customer may also purchase additional insurance directly with the corresponding carrier (such as FedEx), subject to that carrier's terms.",
-          "Once the package is handed to the carrier for shipment, responsibility for transport, handling, and delivery falls exclusively on the selected carrier.",
-          "In case of damage, loss, or delay, BOXLY may provide administrative support in the tracking or claims process; however, resolution, response times, and any compensation will depend exclusively on the carrier or insurer.",
-          "Without Boxly Protection or carrier insurance, the customer assumes the full risk of the shipment. BOXLY will not be responsible for losses, damages, or incidents occurring during transport.",
-        ],
-      },
-    },
-    {
-      id: 15,
-      category: "liability",
-      question: {
-        es: "¿Quién es responsable de los impuestos y aranceles?",
-        en: "Who is responsible for taxes and duties?",
-      },
-      answer: {
-        es: [
-          "El cliente, en su calidad de importador final o receptor de la mercancía, es el único responsable del pago de impuestos, aranceles y cualquier otro cargo aplicable por autoridades aduanales.",
-          "BOXLY podrá asistir en la coordinación del proceso de despacho aduanal; sin embargo, no actúa como agente aduanal ni asume responsabilidad sobre la clasificación, valoración o determinación de contribuciones.",
-          "Cualquier cargo adicional será informado al cliente antes de la entrega, cuando dicha información esté disponible.",
-        ],
-        en: [
-          "The customer, as the final importer or recipient of the goods, is solely responsible for the payment of taxes, duties, and any other charges applicable by customs authorities.",
-          "BOXLY may assist in coordinating the customs clearance process; however, it does not act as a customs agent and assumes no responsibility for the classification, valuation, or determination of contributions.",
-          "Any additional charges will be communicated to the customer before delivery, when such information is available.",
-        ],
+        es: ["Consúltanos antes de enviar tus compras. La documentación disponible depende del producto y de la operación; el servicio ordinario no promete un pedimento individual a tu nombre. Te confirmaremos qué podemos proporcionar antes de contratar."],
+        en: ["Ask us before shipping your purchases. The documentation available depends on the product and the operation; the standard service doesn't promise an individual customs entry (pedimento) in your name. We'll confirm what we can provide before you book."],
       },
     },
   ];
-  
+
   // Computed
   const filteredFaqs = computed(() => {
     return faqs.filter((faq) => faq.category === selectedCategory.value);

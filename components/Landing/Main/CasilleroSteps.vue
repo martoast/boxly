@@ -467,8 +467,8 @@ const translations = {
     en: "We ship to Mexico",
   },
   step5Desc: {
-    es: "Pagas tu envío de forma segura. Nos encargamos de la logística y el proceso aduanal, y enviamos tu paquete en México por paquetería aérea con Estafeta o DHL. Recibes tu guía cuando se envía.",
-    en: "Pay securely. We handle logistics and customs, then ship your package within Mexico by air with Estafeta or DHL. You receive tracking once it ships.",
+    es: "Pagas tu envío de forma segura. Nos encargamos de la logística y el proceso aduanal, y enviamos tu paquete en México por envío terrestre con Paquetexpress. Te compartimos tu guía de seguimiento.",
+    en: "Pay securely. We handle logistics and customs, then ship your package within Mexico by ground with Paquetexpress. We share your tracking number.",
   },
 
   step5Tip: {

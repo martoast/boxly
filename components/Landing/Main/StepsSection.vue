@@ -52,7 +52,7 @@ const t = createTranslations({
   step2Title: { es: 'Recibimos en San Diego', en: 'We receive in San Diego' },
   step2Desc:  { es: 'Llega a nuestra bodega, te mandamos foto y consolidamos con tus otros paquetes.', en: 'Arrives at our warehouse, we send you photos and consolidate with your other packages.' },
   step3Title: { es: 'Lo enviamos a tu casa', en: 'We ship to your door' },
-  step3Desc:  { es: 'Por Estafeta a tu dirección en México con guía y seguimiento.', en: 'Via Estafeta to your address in Mexico with tracking number.' },
+  step3Desc:  { es: 'Por Paquetexpress a tu dirección en México con guía y seguimiento.', en: 'Via Paquetexpress to your address in Mexico with tracking number.' },
   disclaimer: { es: 'Soporte por WhatsApp y fotos en cada etapa.', en: 'WhatsApp support and photos at every stage.' },
 })
 

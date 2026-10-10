@@ -1,6 +1,18 @@
 <template>
   <div class="flex-1 overflow-y-auto px-4 md:px-5 pt-6 pb-6">
     <div class="max-w-2xl mx-auto">
+      <!-- Terms update (2026-10-10): a discreet notice for accounts that haven't accepted the current
+           version — never a popup, never blocks the dashboard. Dismissed per browser. -->
+      <div v-if="showTermsNotice" class="mb-3 flex items-start gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-[13px] text-gray-600">
+        <p class="flex-1">
+          Actualizamos nuestros Términos de Servicio para explicar con mayor claridad los tiempos, el manejo de paquetes y el proceso de reclamación.
+          Puedes consultarlos <NuxtLink to="/terms-of-service" class="font-semibold text-primary-600 hover:underline">aquí</NuxtLink>.
+        </p>
+        <button type="button" class="shrink-0 -mr-1 p-1 text-gray-400 hover:text-gray-600" aria-label="Cerrar aviso" @click="dismissTermsNotice">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+        </button>
+      </div>
+
       <!-- WOW HERO — the promise, in one glance: all of the US, at your door in MX. -->
       <div class="relative overflow-hidden rounded-[1.8rem] bg-gradient-to-br from-primary-600 via-primary-600 to-indigo-700 text-white p-6 md:p-8 shadow-xl shadow-primary-600/25 mb-3">
         <span class="absolute -top-16 -right-12 w-56 h-56 rounded-full bg-white/10 blur-3xl pointer-events-none"></span>
@@ -127,6 +139,19 @@ const marqueeStores = [...STORE_LIST, ...STORE_LIST]
 const ICONS = {
   pin: 'M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0zM15 11a3 3 0 11-6 0 3 3 0 016 0z',
   box: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4',
+}
+
+// Terms update notice — shown when the account hasn't accepted the version the API calls current.
+const termsDismissed = ref(true) // client decides after mount; SSR renders nothing
+const termsNoticeKey = computed(() => `boxly-terms-notice-${user.value?.current_terms_version || ''}`)
+const showTermsNotice = computed(() =>
+  !termsDismissed.value && !!user.value?.current_terms_version && user.value.terms_version !== user.value.current_terms_version)
+onMounted(() => {
+  try { termsDismissed.value = localStorage.getItem(termsNoticeKey.value) === '1' } catch { termsDismissed.value = false }
+})
+function dismissTermsNotice() {
+  termsDismissed.value = true
+  try { localStorage.setItem(termsNoticeKey.value, '1') } catch { /* private mode — hides for this visit */ }
 }
 
 const addressCopied = ref(false)

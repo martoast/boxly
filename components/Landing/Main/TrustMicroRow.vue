@@ -24,7 +24,7 @@ const t = createTranslations({
   payments:     { es: 'Pagos seguros con Stripe', en: 'Secure Stripe payments' },
   photos:       { es: 'Fotos de tu paquete', en: 'Photos of your package' },
   consolidation:{ es: 'Consolidación gratis', en: 'Free consolidation' },
-  carrier:      { es: 'Entrega Estafeta', en: 'Estafeta delivery' },
+  carrier:      { es: 'Entrega Paquetexpress', en: 'Paquetexpress delivery' },
 })
 
 // Inline SVGs keep the bundle small and let each icon match the

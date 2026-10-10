@@ -767,7 +767,9 @@ const handleRegister = async () => {
       password: form.value.password,
       password_confirmation: form.value.password_confirmation,
       registration_source: form.value.registration_source || undefined,
-      referred_by: affiliateCode || undefined
+      referred_by: affiliateCode || undefined,
+      // the unchecked "Acepto los Términos de Servicio" box — the API records version + date
+      agree_to_terms: form.value.agree_to_terms
     }
 
     console.log('[Register] Sending registration payload:', payload)

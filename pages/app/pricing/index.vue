@@ -120,7 +120,7 @@ const TRUST = [
   { icon: 'check', label: 'Sin VPN' },
   { icon: 'check', label: 'Sin tarjeta americana' },
   { icon: 'check', label: 'Pagas cuando tu caja está lista' },
-  { icon: 'plane', label: 'Envíos rápidos por avión' },
+  { icon: 'truck', label: 'Envío terrestre con Paquetexpress' },
 ]
 
 // The journey — the "Realizas el pago" step is the emotional centerpiece: Boxly
@@ -130,8 +130,8 @@ const STEPS = [
   { icon: 'truck',  title: 'Cruce a Tijuana', sub: '2–3 días hábiles' },
   { icon: 'camera', title: 'Confirmamos tu envío', sub: 'Te enviamos fotos de todo lo que llegó' },
   { icon: 'card',   title: 'Realizas el pago', sub: 'Solo pagas cuando tu caja está lista', trust: true },
-  { icon: 'plane',  title: 'Envío por avión', sub: 'Viaja rápido a cualquier parte de México' },
-  { icon: 'home',   title: 'Entrega en México', sub: '2–3 días hábiles' },
+  { icon: 'truck',  title: 'Envío terrestre', sub: 'Paquetexpress a cualquier parte de México' },
+  { icon: 'home',   title: 'Entrega en México', sub: '4–5 días hábiles desde que la paquetería recibe tu caja' },
 ]
 // Clean, consistent Lucide-style icons.
 const ICONS = {
