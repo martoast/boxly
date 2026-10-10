@@ -97,6 +97,11 @@ onMounted(() => {
   } catch { /* storage may be off */ }
   queue()
 })
+// A CARD THAT LEAVES THE PAGE STOPS READING (live BBW 2026-10-10: the chat re-renders the message when its turn is saved, so a second
+// card mounts while the first one's reads go on; the two read one store at once, one gets "busy" twelve times and its rows show "No
+// pudimos leer"). The card on screen reads alone.
+let alive = true
+onBeforeUnmount(() => { alive = false })
 function persist() {
   try { localStorage.setItem(storeKey.value, JSON.stringify({ sent: sent.value, choices: Object.fromEntries(rows.filter((r) => r.choice).map((r) => [r.url, r.choice])) })) } catch { /* storage may be off */ }
 }
@@ -111,6 +116,7 @@ async function queue() {
   const reading = new Set()
   const worker = async () => {
     for (;;) {
+      if (!alive) return
       const r = todo.find((x) => !x.started && !reading.has(x.store_id || host(x.url)))
       if (!r) { if (todo.some((x) => !x.started)) { await new Promise((res) => setTimeout(res, 500)); continue } return }
       r.started = true
@@ -127,7 +133,7 @@ async function read(row, { readUrl = row.url, colorways = null, fresh = false } 
   if (!row.part || row.part.state === 'output-error') row.part = { type: PICKER_PART, toolCallId: `linklist-${row.url}`, state: 'input-available', input: { product: product(row) } }
   let r = null
   // the same patience as a picker card: a slow read answers "reading" before Netlify's cut, and is asked again
-  for (let attempt = 0, failures = 0; attempt < 12 && failures < 2 && !r; attempt++) {
+  for (let attempt = 0, failures = 0; alive && attempt < 12 && failures < 2 && !r; attempt++) {
     try {
       const x = await $fetch('/api/product-variants', { method: 'POST', timeout: 28000, body: { url: readUrl, max_age_s: fresh ? 0 : 900, skip_colorways: !!colorways?.length, ...(colorways?.length ? { colorways } : {}) } })
       if (x && (!x.reason || x.reason === 'no_variants' || x.reason === 'need_url')) r = x
