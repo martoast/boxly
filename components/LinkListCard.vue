@@ -94,8 +94,18 @@ const product = (row) => ({ title: row.title || '', url: row.url, image: row.ima
 async function queue() {
   // a link the agent cannot buy from is not read (often a walled site): its row only says so
   const todo = rows.filter((r) => r.supported && !r.part)
-  let i = 0
-  const worker = async () => { while (i < todo.length) { const r = todo[i++]; await read(r) } }
+  // ONE READ PER STORE AT A TIME (live VS 2026-10-10: the catalog reads a store in one browser, so the 2nd and 3rd VS links of a list
+  // answered "busy" at once and the card gave up on them) — up to four stores in parallel
+  const reading = new Set()
+  const worker = async () => {
+    for (;;) {
+      const r = todo.find((x) => !x.part && !x.busy && !reading.has(x.store_id || host(x.url)))
+      if (!r) { if (todo.some((x) => !x.part)) { await new Promise((res) => setTimeout(res, 500)); continue } return }
+      const key = r.store_id || host(r.url)
+      reading.add(key)
+      try { await read(r) } finally { reading.delete(key) }
+    }
+  }
   await Promise.all(Array.from({ length: Math.min(4, todo.length) }, worker))
 }
 async function read(row, { readUrl = row.url, colorways = null, fresh = false } = {}) {
@@ -104,11 +114,13 @@ async function read(row, { readUrl = row.url, colorways = null, fresh = false } 
   if (!row.part) row.part = { type: PICKER_PART, toolCallId: `linklist-${row.url}`, state: 'input-available', input: { product: product(row) } }
   let r = null
   // the same patience as a picker card: a slow read answers "reading" before Netlify's cut, and is asked again
-  for (let attempt = 0, failures = 0; attempt < 6 && failures < 2 && !r; attempt++) {
+  for (let attempt = 0, failures = 0; attempt < 12 && failures < 2 && !r; attempt++) {
     try {
       const x = await $fetch('/api/product-variants', { method: 'POST', timeout: 28000, body: { url: readUrl, max_age_s: fresh ? 0 : 900, skip_colorways: !!colorways?.length, ...(colorways?.length ? { colorways } : {}) } })
       if (x && (!x.reason || x.reason === 'no_variants' || x.reason === 'need_url')) r = x
       else if (['blocked', 'page_not_found', 'marketplace'].includes(x?.reason) || x?.error === 'page_not_found') break
+      // the store's reader is on another page right now: wait, it is not a failure
+      else if (x?.reason === 'busy') await new Promise((res) => setTimeout(res, 4000))
       else if (x?.reason !== 'reading') { failures++; await new Promise((res) => setTimeout(res, 1500)) }
     } catch { failures++ }
   }
