@@ -17,11 +17,28 @@ Alex 2026-10-10: shoppers who already have the links want to paste them all at o
 - [x] **Add all at once.** "Agregar todo" sends the picks and adds every ready item to the box with one `show_shipment` (it already takes many items).
 - [x] **Finalizar as today.** The box → each store's cart one store at a time → totals → ONE purchase request. Nothing new here.
 - [x] **Tests.** Link detection (separators, duplicates, non-product links); variant-in-URL decisions for the main stores; the card's states.
-- [ ] **Live proof.** Lab account: a list of 6 links across 3 stores (e.g. Gymshark, AE, Nordstrom Rack) with some already-chosen and some needing a size → one box → Finalizar → one PR with every item and verified totals. Delete the lab PR after.
+- [x] **Live proof.** Lab account: a list of 6 links across 3 stores (e.g. Gymshark, AE, Nordstrom Rack) with some already-chosen and some needing a size → one box → Finalizar → one PR with every item and verified totals. Delete the lab PR after.
 
 ## Answers (Alex)
 - 20 links per message.
 - A link we can't buy: offer a similar product from a store we support ("Buscar similar" on its row; the AI also offers it).
 
 ## Review
-(to fill in when done)
+**Live proof (lab, 2026-10-10):**
+- 6 links pasted: YoungLA pinned to Beige/Large, AE jean, Nordstrom Rack dress, Gymshark leggings, a YoungLA tee needing colour + size, and Shein.
+- The card read every page in ~14 s. Shein showed "no disponible" with "Buscar similar". The pinned link was ready on its own; the others were picked on their rows.
+- "Agregar todo (5)" put all 5 in the box with the store's own option values.
+- Finalizar created ONE purchase request (PR-26-CTQAM): YoungLA $89.88, AE $53.17, Nordstrom Rack $90.73, Gymshark $63.58 — all verified, $341.96 total. Lab PRs deleted.
+
+**What changed (app):**
+- `utils/linkList.ts` (+ tests): link extraction, list validation, box items.
+- `show_link_list` tool: links taken from the message; buyable or not by the Finalizar rule. The `show_shipment` link-list branch adds the whole list with no hold.
+- Both steps are mandatory in `prepareStep`. Prompt rule ②b.
+- `components/LinkListCard.vue`: each row is the product's own picker card. `ShoppingAssistant.vue`: render + "Agregar todo" + "Buscar similar".
+
+**Fixes the proof needed (engine):**
+- A ?variant= link reads with that variant selected (and live: the cache does not keep variant addresses).
+- A page still loading with no price/options is a failed read, not an "ok" product.
+- A Shopify product in the store's preview-restock / coming-soon collection is not sold yet. YoungLA's hoodie said "RESTOCKS ON OCT 13" while every API said available.
+- A quote refuses a checkout press once while a selection was never added.
+
