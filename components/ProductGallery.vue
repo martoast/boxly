@@ -71,6 +71,8 @@
             <span v-if="p.was" class="ml-1 text-[10px] font-medium text-gray-300 line-through">${{ usd(p.was) }}</span>
             <span class="text-gray-400 font-normal"> · Precio de tienda</span>
           </p>
+          <!-- A store that shows this price only once added (Nordstrom Rack's Nike: "Add to Bag … to see price"). -->
+          <p v-else-if="p.priceInBag" class="mt-1 text-[12px] text-gray-500 leading-none">Precio al agregar a la bolsa</p>
           <div v-if="p.rating" class="mt-1 flex items-center gap-1 text-[11px] text-gray-500">
             <svg class="w-3 h-3 text-amber-400" viewBox="0 0 20 20" fill="currentColor"><path d="M10 15l-5.878 3.09 1.123-6.545L.49 6.91l6.572-.955L10 0l2.938 5.955 6.572.955-4.755 4.635 1.123 6.545z"/></svg>
             <span class="font-semibold text-gray-700">{{ p.rating }}</span>
@@ -181,6 +183,7 @@ const normalized = computed(() =>
       images,
       price,
       priceFrom: p.price_from === true,
+      priceInBag: p.price_in_bag === true,
       was,
       onSale,
       discount,
