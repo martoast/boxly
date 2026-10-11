@@ -46,8 +46,11 @@
         </div>
 
         <!-- Needs a choice (or is still being read): the product's own picker card; its add button chooses this row. -->
-        <LazyProductPickerCard v-else :part="row.part" :busy="row.busy" @assisted="(p) => choose(row, p)" @refresh="read(row, { readUrl: row.part?.output?.read_url || row.url, colorways: row.part?.output?.read?.colorways || null, fresh: true })"
-          @colorway="(c) => read(row, { readUrl: c.url, colorways: row.part?.output?.read?.colorways || null, fresh: true })" />
+        <template v-else>
+          <LazyProductPickerCard :part="row.part" :busy="row.busy" @assisted="(p) => choose(row, p)" @refresh="read(row, { readUrl: row.part?.output?.read_url || row.url, colorways: row.part?.output?.read?.colorways || null, fresh: true })"
+            @colorway="(c) => read(row, { readUrl: c.url, colorways: row.part?.output?.read?.colorways || null, fresh: true })" />
+          <p v-if="row.part?.state === 'output-error'" class="px-3 pt-1 text-[10.5px] text-gray-400">Código: {{ row.part.errorText || 'read_failed' }}</p>
+        </template>
       </div>
     </div>
 
@@ -131,20 +134,22 @@ async function read(row, { readUrl = row.url, colorways = null, fresh = false } 
   if (row.busy) return
   row.busy = true
   if (!row.part || row.part.state === 'output-error') row.part = { type: PICKER_PART, toolCallId: `linklist-${row.url}`, state: 'input-available', input: { product: product(row) } }
-  let r = null
+  let r = null, why = ''
   // the same patience as a picker card: a slow read answers "reading" before Netlify's cut, and is asked again
   for (let attempt = 0, failures = 0; alive && attempt < 12 && failures < 2 && !r; attempt++) {
     try {
       const x = await $fetch('/api/product-variants', { method: 'POST', timeout: 28000, body: { url: readUrl, max_age_s: fresh ? 0 : 900, skip_colorways: !!colorways?.length, ...(colorways?.length ? { colorways } : {}) } })
+      why = x?.reason || x?.error || (x ? '' : 'empty')
       if (x && (!x.reason || x.reason === 'no_variants' || x.reason === 'need_url')) r = x
       else if (['blocked', 'page_not_found', 'marketplace'].includes(x?.reason) || x?.error === 'page_not_found') break
       // the store's reader is on another page right now: wait, it is not a failure
       else if (x?.reason === 'busy') await new Promise((res) => setTimeout(res, 4000))
       else if (x?.reason !== 'reading') { failures++; await new Promise((res) => setTimeout(res, 1500)) }
-    } catch { failures++ }
+    } catch (e) { failures++; why = String(e?.statusCode || e?.status || e?.name || 'error') + (e?.message ? ` ${String(e.message).slice(0, 60)}` : '') }
   }
   row.busy = false
-  if (!r) { row.part = { ...row.part, state: 'output-error', errorText: 'read_failed' }; return }
+  // the failure's own words, under the row (support screenshots; live BBW 2026-10-10: rows failed while every read succeeded)
+  if (!r) { row.part = { ...row.part, state: 'output-error', errorText: why || (alive ? 'read_failed' : 'left') }; return }
   row.title = r.product?.title || row.title
   row.image = r.product?.image || r.product?.images?.[0] || row.image
   const axes = Array.isArray(r.axes) ? r.axes : []
