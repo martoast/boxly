@@ -13,6 +13,7 @@ import { readSummary, summaryBlock, summarize, shouldSummarize } from '../utils/
 import { boxFromMessages, withEarlierItems, wantedFromBox, planCart, storeOptionFixes, withStoreOptions, type CarriedStore } from '../utils/boxCheckout'
 import { pickedColourImage, pickedVariantPrice } from '../../utils/pickerLogic'
 import { linkListUrls, linkListFromMetadata, linkListBox, LINK_LIST_MAX } from '../../utils/linkList'
+import { shortLinksIn, expandShortLinks } from '../../utils/shortLinks'
 import { checkStoreLock } from '../utils/storeLock'
 import { storeHostsFromLiveStores, tagCarriedStores } from '../utils/storeHosts'
 import { resolveLiveStores, liveGalleryQuery, liveResultsAsText, type LiveStore } from '../../utils/liveGallery'
@@ -860,7 +861,8 @@ ONE QUESTION BEFORE A VAGUE SEARCH, NEVER MORE. The live browser has to go somew
 MODE 3 — BUILD THE BOX, THEN FINALIZE (where the money is made). The box IS their real cart: every item the box card shows goes into their Boxly cart at once, and they keep shopping. The point is to CONSOLIDATE several stores into one box: after each add, push for more from that store, then for the next store. When they tap Finalizar, the Boxly agent fills each store's REAL cart and checks out (live in the chat), creates their purchase request and sends the invoice with its Stripe payment link.
   ⓪ PICK, THEN ADD. When the shopper picks a product from the gallery ("quiero ese", "el segundo", a tap on "Agregar"), call show_shipment with EVERY item in the box — each with its saved_id (the registry id of the product), quantity and packing type. A product with real sizes/colours comes back "NOT IN THE BOX" and its picker card in the chat shows the options: say one line asking for the pick, never claim it was added, and add it on the NEXT turn with size/color set. When the shopper TYPES their choice for a product whose picker card is in the chat ("la negra en talla 9"), call show_shipment adding that product (its saved_id) with what they said — the box checks their words against the card and adds it only on an exact, in-stock match; otherwise it tells you what to ask. A product with nothing to choose is added immediately.
   ① AFTER show_shipment, FOLLOW THE TOOL'S NOTE EXACTLY. Its note says whether the item is now in their box (the store cart is built at Finalizar: confirm it and push for more from that store, then other stores) or being put in the store's cart live (then write EXACTLY the line it gives, nothing else). Never claim an item is in a STORE's cart unless a message says the store confirmed it.
-  ② A PASTED PRODUCT LINK is a product they already chose: add it with show_shipment (pass url, and a short name from the link). The box reads the product page itself — photo, price, sizes/colours — and the same pick-then-add rule applies. (A link from a store that is NOT on LIVE STORES — eBay, Temu, Shein… — cannot be bought by the agent: the tool says so; offer the same kind of product from a store on LIVE STORES. A store ON LIVE STORES is bought from, outside sellers included on Walmart and Amazon.)
+  ② A PASTED PRODUCT LINK is a product they already chose: add it with show_shipment (pass url, and a short name from the link). The box reads the product page itself — photo, price, sizes/colours — and the same pick-then-add rule applies. (A link from a store that is NOT on LIVE STORES — Temu, Shein… — cannot be bought by the agent: the tool says so; offer the same kind of product from a store on LIVE STORES. A store ON LIVE STORES is bought from, outside sellers included on Walmart and Amazon.)
+  ②c SCREENSHOTS OR PHOTOS OF LISTINGS they want Boxly to buy (a store's product page, an app screen): find each exact listing — live_gallery on that store with the listing's exact title (and the seller's name when shown) — so they tap the real one; or ask for the link (a share link like ebay.io works). NEVER put a store product in the box without its link: the agent cannot buy it and Finalizar refuses it. Remember them: "sí", "que lo compre Boxly", "esos" right after means THOSE products — never ask what they want to buy again.
   ②b A LIST OF PRODUCT LINKS (2 or more links in one message) is a whole order they already chose: call show_link_list (no input) — ONE card reads every link and lets them pick what each link still needs. When they tap "Agregar todo" (their message says so and carries the list), call show_shipment ONCE (any items; the box takes the list itself) and then confirm and invite them to Finalizar. For a link from a store not on LIVE STORES, offer to find a similar product at a store on LIVE STORES.
   ③ FINALIZE ONLY WHEN THEY'RE DONE — "eso es todo", "ya", "créala", "haz el pedido", "finaliza", or the "Finalizar carrito" button. Then call finalize_order (no input): it places the order from the box; the agent builds each store's cart in the background and the invoice is EMAILED to them in a few minutes (it also appears in the chat's order card with Pagar). After it succeeds, write ONE short line: they can watch live right here as we build their cart in each store, and the invoice arrives by email in a few minutes (so closing the app is fine too). Do NOT ask for anything first and do NOT make them confirm twice. Adding items NEVER places the order.
   ⚑ AFTER A FINALIZE, A NEW BOX. Once finalize_order succeeded, that box is CLOSED (its order is placed). If they keep shopping in this chat, it is a NEW order: the next show_shipment lists ONLY the items added after the finalize — never re-list what was already ordered.
@@ -954,6 +956,10 @@ export default defineEventHandler(async (event) => {
 
   const body = await readBody(event)
   const messages = body?.messages ?? []
+  // A store's share link ("https://ebay.io/m/…", "https://a.co/d/…") is read as the product page it stands for (utils/shortLinks.ts)
+  await Promise.all(messages.filter((m: any) => m?.role === 'user' && Array.isArray(m.parts)).flatMap((m: any) => m.parts
+    .filter((p: any) => p?.type === 'text' && typeof p.text === 'string' && shortLinksIn(p.text).length)
+    .map(async (p: any) => { p.text = await expandShortLinks(p.text) })))
   const token: string | undefined = body?.token || undefined
   // PHASE MARKERS. A few turns per hundred hang and never reach onFinish or onError, so
   // nothing about them appears in the logs at all — and one hung the full 90s even after
@@ -1601,7 +1607,12 @@ export default defineEventHandler(async (event) => {
             // An item the agent cannot buy (a marketplace link, no product page): in the box, but no store cart will
             // hold it — say so now, not at Finalizar.
             const unsupportedAdd = out?.hold ? null : wantedFromBox(input.slice(-1), storeRegistry, carriedStores).unsupported[0]
-            if (unsupportedAdd) {
+            if (unsupportedAdd && !input[input.length - 1]?.url) {
+              // NO LINK (live 2026-10-12: two records from a shopper's screenshots went in with no link; Finalizar refused them and later
+              // adds looked doubled): the agent buys from a product page — find the exact listing or ask for its link (rule ②c)
+              const n = `NO LINK: "${unsupportedAdd}" has no product link, so the agent cannot buy it and Finalizar will refuse it. Do NOT tell the shopper it was added. If it came from a screenshot or photo, search that store live (live_gallery) for its exact title so they tap the real listing, or ask for its link (a share link works). Never offer a different store's product instead.`
+              out.note = out.note ? `${out.note}\n\n${n}` : n
+            } else if (unsupportedAdd) {
               const n = `STORE CART: "${unsupportedAdd}" is not from a store the Boxly agent can buy from (a store not on LIVE STORES, or no product page), so it will NOT go into a real store cart and Finalizar will refuse it. Tell the shopper in ONE short line (Spanish) that you can't add this one automatically, and offer to search the same kind of product live in a store that can. Do NOT say it was added to a cart.`
               out.note = out.note ? `${out.note}\n\n${n}` : n
             }

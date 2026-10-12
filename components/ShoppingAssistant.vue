@@ -701,11 +701,17 @@ function onCheckoutLive(s) {
 }
 // A store finished its checkout: one local assistant line (no model), never twice for the same order + store.
 const storeDoneSeen = new Set()
-function onStoreDone(requestId, { store_id, text }) {
+// THE ORDER'S OWN CHAT (live 2026-10-12: a shopper's "No pude cotizar eBay …" was saved into a new chat "Espera" that was active then,
+// not the chat of the order): the lines go to the order's conversation, and are shown only when that is the chat on screen.
+function otherChat(conversationId) {
+  return conversationId != null && activeId.value != null && Number(conversationId) !== Number(activeId.value)
+}
+function onStoreDone(requestId, { store_id, text, conversation_id = null }) {
   const id = `store-done-${requestId}-${store_id}`
   if (!text || storeDoneSeen.has(id) || chat.messages.some((m) => m.id === id)) return
   storeDoneSeen.add(id)
   const msg = { id, role: 'assistant', parts: [{ type: 'text', text }] }
+  if (otherChat(conversation_id)) { persistLocalLines([msg], conversation_id); return }
   // Mid-stream an append would split the reply being streamed: wait (in order) until the chat is ready.
   if (isBusy.value) { storeDoneQueue.push(msg); return }
   chat.messages = [...chat.messages, msg]
@@ -716,8 +722,8 @@ function onStoreDone(requestId, { store_id, text }) {
 const storeDoneQueue = []
 // The order's own lines (a store finished, the invoice, what's next) are saved to the chat like any other message, so a
 // reload or another device shows them in the same place. Best effort: a failed save only loses them on reload.
-function persistLocalLines(msgs) {
-  const cid = activeId.value
+function persistLocalLines(msgs, conversationId = null) {
+  const cid = conversationId ?? activeId.value
   if (!cid || !msgs.length) return
   $customFetch(`/conversations/${cid}/messages`, { method: 'POST', body: { messages: msgs.map((m) => ({ role: 'assistant', content: { parts: m.parts } })) } })
     .catch((e) => console.warn('order lines not saved', e?.data?.message || e))
@@ -726,7 +732,7 @@ function persistLocalLines(msgs) {
 // ready should have come before the invoice, and after the invoice … what you need to do and what the process is").
 // Two local assistant lines (no model), once per order: the invoice (a text line + the invoice card), then the next steps.
 const hasInvoiceMessage = (requestId) => chat.messages.some((m) => m.id === `invoice-${requestId}` || (m.parts || []).some((p) => p?.type === 'data-invoice' && Number(p.data?.purchase_request_id) === Number(requestId)))
-function onInvoiceReady(requestId, requestNumber, { kind }) {
+function onInvoiceReady(requestId, requestNumber, { kind, conversation_id = null }) {
   if (hasInvoiceMessage(requestId)) return
   const invoice = { id: `invoice-${requestId}`, role: 'assistant', parts: kind === 'invoice'
     ? [{ type: 'text', text: 'Aquí está tu factura final 👇' }, { type: 'data-invoice', data: { purchase_request_id: requestId, request_number: requestNumber || null } }]
@@ -734,6 +740,7 @@ function onInvoiceReady(requestId, requestNumber, { kind }) {
   const next = { id: `invoice-next-${requestId}`, role: 'assistant', parts: [{ type: 'text', text: kind === 'invoice'
     ? '¿Y ahora qué sigue? 🙌\n\n1️⃣ Paga tu factura con el botón Pagar (también te llegó a tu correo).\n\n2️⃣ En cuanto se confirme tu pago, nuestro equipo compra tus productos en cada tienda y los envía a nuestra bodega en San Diego.\n\n3️⃣ Te avisamos cuando lleguen y preparamos tu caja para mandarla a México (el envío de la caja se cotiza aparte).\n\nSi tienes cualquier duda, escríbeme aquí.'
     : '¿Y ahora qué sigue? 🙌\n\n1️⃣ Te mandamos la factura por WhatsApp; págala con el enlace.\n\n2️⃣ En cuanto se confirme tu pago, nuestro equipo compra tus productos en cada tienda y los envía a nuestra bodega en San Diego.\n\n3️⃣ Te avisamos cuando lleguen y preparamos tu caja para mandarla a México (el envío de la caja se cotiza aparte).' }] }
+  if (otherChat(conversation_id)) { persistLocalLines([invoice, next], conversation_id); return }
   if (isBusy.value) { storeDoneQueue.push(invoice, next); return }
   chat.messages = [...chat.messages, invoice, next]
   persistLocalLines([invoice, next])

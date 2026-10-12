@@ -223,7 +223,7 @@ function announceDone() {
   const fresh = quotes.value.filter((q) => quoteTerminal(q) && !announced.has(q.store_id))
   fresh.forEach((q, i) => {
     announced.add(q.store_id)
-    if (!firstLoad) emit('store-done', { store_id: q.store_id, text: storeDoneMessage(q, nextStoreName(quotes.value, q), i === fresh.length - 1) })
+    if (!firstLoad) emit('store-done', { store_id: q.store_id, text: storeDoneMessage(q, nextStoreName(quotes.value, q), i === fresh.length - 1), conversation_id: request.value?.conversation_id ?? null })
   })
   firstLoad = false
 }
@@ -234,7 +234,7 @@ function announceInvoice() {
   if (props.part !== 'all') return
   const kind = invoiceReady.value || paid.value ? 'invoice' : settledWithoutInvoice.value && !waitingInvoice.value ? 'manual' : null
   if (invoiceSeenFinal === null) { invoiceSeenFinal = !!kind; return }
-  if (kind && !invoiceSeenFinal) { invoiceSeenFinal = true; emit('invoice-ready', { kind }) }
+  if (kind && !invoiceSeenFinal) { invoiceSeenFinal = true; emit('invoice-ready', { kind, conversation_id: request.value?.conversation_id ?? null }) }
 }
 watch(() => running.value?.live_session_id ?? null, () => emit('live', running.value ? sessionOf(running.value) : null))
 
