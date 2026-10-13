@@ -194,7 +194,7 @@
                 </label>
               </div>
               <label class="inline-flex items-center gap-2 text-gray-600">
-                <input v-model="edit.needs_check" type="checkbox" class="rounded border-gray-300 text-primary-500 focus:ring-primary-500">
+                <input v-model="edit.needs_check" type="checkbox" class="rounded border-gray-300 text-primary-500 focus:ring-primary-500" @change="edit.checkTouched = true">
                 {{ t.needsCheck }}
               </label>
               <dl class="grid grid-cols-[9rem_1fr] gap-x-3 gap-y-1 text-xs">
@@ -441,12 +441,12 @@ const refreshStatsSoon = () => { clearTimeout(statsTimer); statsTimer = setTimeo
 
 // ---- expand / edit ----------------------------------------------------------------------
 const openId = ref(null)
-const edit = reactive({ recipient_name: '', tracking_number: '', needs_check: false })
+const edit = reactive({ recipient_name: '', tracking_number: '', needs_check: false, checkTouched: false })
 const saving = ref(false)
 
 const toggle = (s) => {
   openId.value = openId.value === s.id ? null : s.id
-  Object.assign(edit, { recipient_name: s.recipient_name || '', tracking_number: s.tracking_number || '', needs_check: !!s.needs_check })
+  Object.assign(edit, { recipient_name: s.recipient_name || '', tracking_number: s.tracking_number || '', needs_check: !!s.needs_check, checkTouched: false })
 }
 
 const details = (s) => [
@@ -467,7 +467,8 @@ const save = async (s) => {
   try {
     const res = await $customFetch(`${apiNs.value}/label-scans/${s.id}`, {
       method: 'PUT',
-      body: { recipient_name: edit.recipient_name || null, tracking_number: edit.tracking_number || null, needs_check: edit.needs_check },
+      // Saving the form IS the person's check: "Revisar" clears unless they ticked it themselves in this edit.
+      body: { recipient_name: edit.recipient_name || null, tracking_number: edit.tracking_number || null, needs_check: edit.checkTouched ? edit.needs_check : false },
     })
     replaceRow(res.data)
     toast.show({ message: t.value.saved, type: 'success' })
