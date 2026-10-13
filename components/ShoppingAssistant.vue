@@ -1480,6 +1480,8 @@ function liveSearchLine(part) {
   const stores = (part?.output?.stores || part?.input?.stores || []).filter((x) => typeof x === 'string' && x.trim())
   const names = stores.length > 1 ? `${stores.slice(0, -1).join(', ')} y ${stores[stores.length - 1]}` : stores[0] || ''
   if (!names) return liveVideo ? '¡Va! Déjame buscarlo en vivo 🔎' : '¡Va! Un momento, lo estoy buscando para ti 🔎'
+  // eBay is searched through its API (2026-10-12): no browser to show
+  if (stores.every((x) => /^ebay$/i.test(x.trim()))) return '¡Va! Déjame revisar eBay por ti 🔎 En unos segundos te muestro lo que encuentre, con precio de hoy.'
   // Without the video (Alex 2026-09-30): "one moment, I'm opening up the store and getting the results for you now".
   if (!liveVideo) return `¡Va! Un momento: estoy abriendo ${stores.length > 1 ? names : `la tienda de ${names}`} y buscando los resultados para ti 🔎`
   return `¡Va! Déjame revisar ${names} por ti 🔎 Abro ${stores.length > 1 ? 'sus tiendas' : 'su tienda'} en un navegador en vivo para buscar entre sus productos reales, con precio y disponibilidad de hoy. Puedes verlo aquí abajo 👇 y en unos segundos te muestro lo que encuentre.`
