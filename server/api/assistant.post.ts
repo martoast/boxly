@@ -1777,6 +1777,14 @@ export default defineEventHandler(async (event) => {
           if (fin?.ok === false || !fin?.purchase_request_id) return stop('finalize_failed', 'the order could not be placed. Say ONE short line that it failed and to tap Finalizar again in a moment.')
           // every store the order holds (the cart), not only the stores on the last card
           const stores = [...new Set([...(Array.isArray(cartNow?.items) ? cartNow.items : []), ...wanted].map((w: any) => w.store_name || w.store_id))]
+          // eBay is priced through its API (2026-10-12): no live browser to watch — its totals come in seconds
+          if (stores.length && stores.every((s: any) => /^ebay$/i.test(String(s)))) return {
+            ok: true,
+            purchase_request_id: fin.purchase_request_id,
+            request_number: fin.request_number ?? null,
+            stores,
+            note: `DONE — the order is placed. eBay's prices and shipping to our warehouse are being confirmed directly with eBay (no live browser to watch); the totals appear here in a few seconds and the invoice is EMAILED to the shopper. Say ONE short line in Spanish, like: "¡Listo! 🙌 Estoy confirmando precios y envío directo con eBay; en unos segundos ves los totales aquí y te llega la factura a tu correo." Do NOT state prices, totals or the request number, and call no other tool.`,
+          }
           return {
             ok: true,
             purchase_request_id: fin.purchase_request_id,
