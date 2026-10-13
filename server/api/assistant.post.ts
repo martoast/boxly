@@ -10,7 +10,7 @@ import { chatModel, isAnthropic, providerOptions, hasModelKey } from '../utils/a
 import { ageGalleries, windowMessages, withContextOnLastUser, dropToolParts, legacyToolsAsText, contextStats, WINDOW_DEFAULTS } from '../utils/chatContext'
 import { generateFollowups, followupPart, followupsWithin, attachFollowupChips } from '../utils/followups'
 import { readSummary, summaryBlock, summarize, shouldSummarize } from '../utils/chatSummary'
-import { boxFromMessages, withEarlierItems, wantedFromBox, planCart, storeOptionFixes, withStoreOptions, type CarriedStore } from '../utils/boxCheckout'
+import { boxFromMessages, withEarlierItems, wantedFromBox, planCart, storeOptionFixes, withStoreOptions, pastedPages, type CarriedStore } from '../utils/boxCheckout'
 import { pickedColourImage, pickedVariantPrice } from '../../utils/pickerLogic'
 import { linkListUrls, linkListFromMetadata, linkListBox, LINK_LIST_MAX } from '../../utils/linkList'
 import { shortLinksIn, expandShortLinks } from '../../utils/shortLinks'
@@ -1021,7 +1021,7 @@ export default defineEventHandler(async (event) => {
   }
   let syncOnAdd = true   // set by syncBox from the API's cart (sync_on_add)
   async function syncBox(box: any[], retryUrl: string | null = null, sent: Set<string> = new Set(), { keepOthers = false } = {}): Promise<string | null> {
-    const { wanted } = wantedFromBox(box, storeRegistry, carriedStores, (u, c) => pickedColourImage(messages, u, c))
+    const { wanted } = wantedFromBox(box, storeRegistry, carriedStores, (u, c) => pickedColourImage(messages, u, c), pastedPages(messages))
     // This chat's own cart (one cart per chat, Alex 2026-10-03)
     const cart = await callApi(conversationId ? `/cart?conversation_id=${conversationId}` : '/cart', { token })
     if (cart?.ok === false || !Array.isArray(cart?.items)) return 'cart_unavailable'
@@ -1592,7 +1592,7 @@ export default defineEventHandler(async (event) => {
             const samePage = (it: any) => !!pinned && (!it.url || page(it.url) === page(pinned)) && !!it.saved_id && storeRegistry.some((p: any) => p?.id === it.saved_id && p.url && page(p.url) === page(pinned))
             const pinnedInput = input.map((it: any, i: number) => i === input.length - 1 && samePage(it) ? { ...it, url: pinned } : it)
             const boxNow = (out?.hold ? pinnedInput.slice(0, -1) : pinnedInput).map((it: any) => withStoreOptions(it, fixes))
-            const added = out?.hold ? null : wantedFromBox(boxNow.slice(-1), storeRegistry, carriedStores).wanted[0]
+            const added = out?.hold ? null : wantedFromBox(boxNow.slice(-1), storeRegistry, carriedStores, null, pastedPages(messages)).wanted[0]
             const sent = new Set<string>()
             const [, lock] = await Promise.all([
               // A card that is ADDING a product (or holding one for its pick) never removes other cart lines: the model
@@ -1606,7 +1606,7 @@ export default defineEventHandler(async (event) => {
             // store's refusal) comes as its own message when the agent finishes — so this reply must not claim it.
             // An item the agent cannot buy (a marketplace link, no product page): in the box, but no store cart will
             // hold it — say so now, not at Finalizar.
-            const unsupportedAdd = out?.hold ? null : wantedFromBox(input.slice(-1), storeRegistry, carriedStores).unsupported[0]
+            const unsupportedAdd = out?.hold ? null : wantedFromBox(input.slice(-1), storeRegistry, carriedStores, null, pastedPages(messages)).unsupported[0]
             if (unsupportedAdd && !input[input.length - 1]?.url) {
               // NO LINK (live 2026-10-12: two records from a shopper's screenshots went in with no link; Finalizar refused them and later
               // adds looked doubled): the agent buys from a product page — find the exact listing or ask for its link (rule ②c)
@@ -1658,7 +1658,7 @@ export default defineEventHandler(async (event) => {
           if (!urls.length) return { ok: false, note: 'NO LINKS — their message has no product link. Ask them to paste the links of the products they want.' }
           // Which links a Boxly store cart can take: the same rule Finalizar applies (wantedFromBox); the others are shown, not added.
           const links = urls.map((url) => {
-            const { wanted } = wantedFromBox([{ name: url, url, quantity: 1 } as any], storeRegistry, carriedStores)
+            const { wanted } = wantedFromBox([{ name: url, url, quantity: 1 } as any], storeRegistry, carriedStores, null, pastedPages(messages))
             const w = wanted[0]
             return { url, supported: !!w, ...(w ? { store_id: w.store_id, store_name: w.store_name || w.store_id } : {}) }
           })
@@ -1765,7 +1765,7 @@ export default defineEventHandler(async (event) => {
           const stop = (error: string, why: string) => ({ ok: false, error, note: `NOT FINALIZED — ${why} Nothing was ordered and no card is on screen; do NOT say the order was placed.` })
           const box = boxFromMessages(messages)
           if (!box?.length) return stop('empty_box', 'the box is empty. Say ONE short line inviting them to add products first.')
-          const { wanted, unsupported } = wantedFromBox(box, storeRegistry, carriedStores)
+          const { wanted, unsupported } = wantedFromBox(box, storeRegistry, carriedStores, null, pastedPages(messages))
           if (unsupported.length) {
             return { ...stop('unsupported_items', `${unsupported.join(', ')} ${unsupported.length > 1 ? 'are' : 'is'} not from a store the Boxly agent can buy from (a marketplace, or no product page). Say ONE short line naming ${unsupported.length > 1 ? 'them' : 'it'} and ask the shopper to take ${unsupported.length > 1 ? 'them' : 'it'} out of the box, or to search the same product live in a store that can.`), unsupported }
           }

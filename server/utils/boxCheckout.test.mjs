@@ -1,5 +1,5 @@
 // Pure tests for server/utils/boxCheckout.ts — the chat box → the Boxly cart, for cart sync and Finalizar.
-import { boxFromMessages, withEarlierItems, wantedFromBox, planCart, carriedStoreForTitle, storeOptionFixes, withStoreOptions } from './boxCheckout.ts'
+import { boxFromMessages, withEarlierItems, wantedFromBox, planCart, carriedStoreForTitle, storeOptionFixes, withStoreOptions, pastedPages } from './boxCheckout.ts'
 
 let passed = 0, failed = 0
 const check = (name, ok, detail = '') => { if (ok) { passed++; console.log(`  ✓ ${name}`) } else { failed++; console.log(`  ✗ ${name} ${detail}`) } }
@@ -154,6 +154,24 @@ console.log('a line the store is taking')
   check('a card that adds nothing (a removal) is left as drawn', eq(withEarlierItems([alo1, alo2], [alo1]).map((i) => i.saved_id), ['a1']))
   check('nothing earlier: unchanged', eq(withEarlierItems(null, [gs]).map((i) => i.saved_id), ['g1']))
   check('a full card: unchanged', eq(withEarlierItems([alo1], [alo1, gs]).map((i) => i.saved_id), ['a1', 'g1']))
+}
+
+console.log('a real shopper\'s Costco cardigans (2026-10-13)')
+{
+  const carried = [{ id: 'banana-republic', name: 'Banana Republic', host: 'bananarepublic.gap.com' }]
+  const U = 'https://www.costco.com/p/-/banana-republic-womens-button-up-cardigan/4000422365?preselect=color%3Agray'
+  const msgs = [{ role: 'user', parts: [{ type: 'text', text: U }] }]
+  const it = (color) => ({ url: U, name: "Banana Republic Women's Button-Up Cardigan", size: 'Medium', color, quantity: 1 })
+  const pasted = wantedFromBox([it('Gray')], [], carried, null, pastedPages(msgs)).wanted[0]
+  check('a pasted Costco link is bought at Costco, not searched on the brand\'s site', pasted?.store_id === 'costco-com' && !pasted?.find && pasted?.product_url === U, JSON.stringify(pasted))
+  const fromSearch = wantedFromBox([it('Gray')], [], carried).wanted[0]
+  check('…while an unpasted outside seller\'s row still goes to the brand', fromSearch?.store_id === 'banana-republic' && !!fromSearch?.find)
+  // three colours of one link, each with its own picker fix: each keeps its own colour
+  const shipment = (color) => ({ role: 'assistant', parts: [{ type: 'tool-show_shipment', state: 'output-available', output: { store_options: [{ key: U, size: 'Medium', color, options: {} }] } }] })
+  const fixes = storeOptionFixes([shipment('Gray'), shipment('Navy'), shipment('Tan')])
+  const colours = ['Gray', 'Navy', 'Tan'].map((c) => withStoreOptions(it(c), fixes).color)
+  check('one link in three colours: each item keeps its colour (was: all became Tan)', eq(colours, ['Gray', 'Navy', 'Tan']), JSON.stringify(colours))
+  check('an item with no colour takes the latest fix', withStoreOptions({ url: U, name: 'x' }, fixes).color === 'Tan')
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

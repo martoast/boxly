@@ -37,20 +37,27 @@ export interface CartPlan {
  * an option the product page does not offer is dropped (live Gymshark 2026-09-28: "negro" on the black colourway's
  * page failed the store add). Pure.
  */
-export function storeOptionFixes(messages: any[], extra: any[] = []): Map<string, any> {
-  const fixes = new Map<string, any>()
+// EVERY FIX OF A PAGE IS KEPT (live 2026-10-12: one cardigan link in Gray, Navy and Tan — the fixes were keyed by the link, the last
+// one (Tan) was applied to all three, and the cart merged them into "Tan ×3"): an item takes the fix of its own colour.
+export function storeOptionFixes(messages: any[], extra: any[] = []): Map<string, any[]> {
+  const fixes = new Map<string, any[]>()
+  const keep = (o: any) => { if (!o?.key) return; const k = String(o.key); fixes.set(k, [...(fixes.get(k) || []), o]) }
   for (const m of messages || []) {
     for (const p of (m?.role === 'assistant' ? (m.parts || []) : [])) {
       if (p?.type !== 'tool-show_shipment' || p.state !== 'output-available') continue
-      for (const o of Array.isArray(p.output?.store_options) ? p.output.store_options : []) if (o?.key) fixes.set(String(o.key), o)
+      for (const o of Array.isArray(p.output?.store_options) ? p.output.store_options : []) keep(o)
     }
   }
-  for (const o of extra || []) if (o?.key) fixes.set(String(o.key), o)
+  for (const o of extra || []) keep(o)
   return fixes
 }
-/** PURE. A box item with its store option values applied (see storeOptionFixes). */
-export function withStoreOptions(it: BoxItem, fixes: Map<string, any>): BoxItem {
-  const o = fixes.get(String((it as any).saved_id || (it as any).url || (it as any).name || ''))
+const sameColour = (a: any, b: any) => { const x = String(a ?? '').toLowerCase().replace(/[^a-z0-9]+/g, ''), y = String(b ?? '').toLowerCase().replace(/[^a-z0-9]+/g, ''); return !!x && !!y && (x === y || x.includes(y) || y.includes(x)) }
+/** PURE. A box item with its store option values applied (see storeOptionFixes): the latest fix of its page that is for its colour
+ *  (an item with no colour, or a page with fixes that name none: the latest). */
+export function withStoreOptions(it: BoxItem, fixes: Map<string, any[]>): BoxItem {
+  const all = fixes.get(String((it as any).saved_id || (it as any).url || (it as any).name || '')) || []
+  const colour = (it as any).color
+  const o = colour && all.some((f) => f?.color) ? [...all].reverse().find((f) => sameColour(f?.color, colour)) : all[all.length - 1]
   if (!o) return it
   const out: any = { ...it }
   if ('size' in o) { if (o.size) out.size = o.size; else delete out.size }
@@ -125,7 +132,20 @@ export function webStoreId(url: any): string | null {
   return id.length >= 3 && id.length <= 40 ? id : null
 }
 
-export function wantedFromBox(box: BoxItem[], savedProducts: any[], carried: CarriedStore[] = [], photoFor: ((url: string, colour: string) => string | null) | null = null): { wanted: WantedItem[], unsupported: string[] } {
+/** PURE. The product pages the shopper pasted in their own messages (bare: no query or hash). */
+export function pastedPages(messages: any[]): Set<string> {
+  const out = new Set<string>()
+  for (const m of messages || []) {
+    if (m?.role !== 'user') continue
+    for (const p of Array.isArray(m.parts) ? m.parts : []) {
+      if (p?.type !== 'text' || typeof p.text !== 'string') continue
+      for (const u of p.text.match(/https?:\/\/[^\s<>"'()]+/gi) || []) out.add(bare(u.replace(/[.,;:!?]+$/, '')))
+    }
+  }
+  return out
+}
+
+export function wantedFromBox(box: BoxItem[], savedProducts: any[], carried: CarriedStore[] = [], photoFor: ((url: string, colour: string) => string | null) | null = null, pasted: Set<string> = new Set()): { wanted: WantedItem[], unsupported: string[] } {
   const wanted: WantedItem[] = []
   const unsupported: string[] = []
   const reg = Array.isArray(savedProducts) ? savedProducts : []
@@ -151,7 +171,9 @@ export function wantedFromBox(box: BoxItem[], savedProducts: any[], carried: Car
       if (carriedHit) storeId = carriedHit.id
     }
     // A web result with no carried store, whose title names one: found on that store's own site by the agent.
-    if (title && !STORE_ID_RE.test(storeId)) {
+    // …never a page the shopper pasted: they chose that shop (live 2026-10-13: a Costco link to a "Banana Republic … Cardigan", a
+    // Costco-only line, was searched on Banana Republic's site, which found another cardigan; the quote failed after 5 minutes).
+    if (title && !STORE_ID_RE.test(storeId) && !(url && pasted.has(bare(url)))) {
       const brand = carriedStoreForTitle(title, carried)
       if (brand && STORE_ID_RE.test(brand.id) && brand.host) {
         storeId = brand.id
