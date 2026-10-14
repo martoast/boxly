@@ -174,5 +174,13 @@ console.log('a real shopper\'s Costco cardigans (2026-10-13)')
   check('an item with no colour takes the latest fix', withStoreOptions({ url: U, name: 'x' }, fixes).color === 'Tan')
 }
 
+console.log('a store\'s Mexico site (2026-10-14)')
+{
+  const mx = wantedFromBox([{ url: 'https://mx.coach.com/tenis-soho-mixed-signature-negro-hombre-cde17-l77-1/p', name: 'Tenis Soho Mixed Signature Negro Hombre', quantity: 1 }], [], [])
+  check('mx.coach.com is not a store Boxly buys from', mx.wanted.length === 0 && mx.unsupported.length === 1, JSON.stringify(mx))
+  const commx = wantedFromBox([{ url: 'https://www.liverpool.com.mx/tienda/pdp/x/123', name: 'Algo', quantity: 1 }], [], [])
+  check('…nor a .com.mx shop', commx.wanted.length === 0)
+}
+
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed) process.exit(1)

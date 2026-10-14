@@ -1406,6 +1406,12 @@ export default defineEventHandler(async (event) => {
           // Take the URL the model carried on the item, and failing that the last http(s) link in the conversation,
           // so a pasted product reads its variants exactly like a gallery one.
           const url = saved?.url || saved?.product_url || (typeof last?.url === 'string' && /^https?:\/\//i.test(last.url) ? last.url : null) || lastPastedUrl(messages)
+          // A STORE'S MEXICO SITE (prod 2026-10-14: mx.coach.com, prices in pesos, went in as a "web store" with no size): never
+          // into the box — Boxly buys in the US; the shopper is offered the brand's US store.
+          if (url && /(?:^mx\.|\.mx$)/i.test((() => { try { return new URL(url).hostname } catch { return '' } })())) {
+            const held = await buildShipment(items.slice(0, -1))
+            return { ...held, hold: true, note: `MEXICO SITE — "${saved?.title || last?.name || 'este producto'}" is on the store's MEXICO website (prices in pesos, sold and shipped in Mexico), so it is NOT in the box: Boxly buys in the US. Say so in ONE short line (Spanish) and offer to find the same product on the brand's US store (live_gallery on that store if it is on LIVE STORES, e.g. Coach Outlet for Coach). Do NOT say it was added.` }
+          }
           if (url) {
             const cached = variantCache.get(url)
             let r: any = cached && Date.now() - cached.at < 15 * 60_000 ? cached.r : null
@@ -1550,7 +1556,13 @@ export default defineEventHandler(async (event) => {
               }
               // A product with nothing to choose (the reader's lone "single" variant): never offer "single" as a size — live
               // 2026-10-01 the model added a BBW candle with size "single" and the invoice showed it.
-              if (!axes.length) ship.note = `"${saved?.title || last.name}" has no size or colour to choose (one option${avail.length ? '' : ', out of stock'}): add it to the box as it is, with NO size and NO color.`
+              // SOLD OUT WITH NOTHING TO CHOOSE (prod 2026-10-14: a Coach shoe read "one option, out of stock" went into the box
+              // anyway): it stays out of the box, and the shopper is told.
+              if (!axes.length && r.variants.length && r.variants.every((v: any) => v?.available === false)) {
+                const held = await buildShipment(items.slice(0, -1))
+                return { ...held, hold: true, note: `SOLD OUT — "${saved?.title || last.name}" is sold out at the store, so it is NOT in the box. Say so in ONE short line (Spanish) and offer to find a similar product, or the same one at another store we buy from. Do NOT say it was added.` }
+              }
+              if (!axes.length) ship.note = `"${saved?.title || last.name}" has no size or colour to choose (one option${avail.length ? '' : ', stock not shown'}): add it to the box as it is, with NO size and NO color.`
               // Past the hold above, the item IS going in with what was picked (Gerardo, Nike, 2026-10-01: this note still
               // said "ask which size/colour" while the box added Black/Sail/Sail M — two instructions that disagree).
               else ship.note = `"${saved?.title || last.name}" goes into the box with ${Object.entries(chosen).map(([k, v]) => `${k}: ${v}`).join(', ') || 'its only option'} (picked on the card). Do NOT ask for size or colour again.`
@@ -1611,6 +1623,10 @@ export default defineEventHandler(async (event) => {
               // NO LINK (live 2026-10-12: two records from a shopper's screenshots went in with no link; Finalizar refused them and later
               // adds looked doubled): the agent buys from a product page — find the exact listing or ask for its link (rule ②c)
               const n = `NO LINK: "${unsupportedAdd}" has no product link, so the agent cannot buy it and Finalizar will refuse it. Do NOT tell the shopper it was added. If it came from a screenshot or photo, search that store live (live_gallery) for its exact title so they tap the real listing, or ask for its link (a share link works). Never offer a different store's product instead.`
+              out.note = out.note ? `${out.note}\n\n${n}` : n
+            } else if (unsupportedAdd && /(?:^|\.)mx\.|\.mx$/i.test((() => { try { return new URL(String(input[input.length - 1]?.url || '')).hostname } catch { return '' } })())) {
+              // A STORE'S MEXICO SITE (prod 2026-10-14: mx.coach.com, prices in pesos, went in as a "web store")
+              const n = `MEXICO SITE: "${unsupportedAdd}" is on the store's MEXICO website (prices in pesos, sold and shipped in Mexico): Boxly buys in the US, so it cannot go into a store cart and Finalizar will refuse it. Say so in ONE short line (Spanish), offer to remove it, and offer to find the same product on the brand's US store (live_gallery on that store if it is on LIVE STORES). Do NOT say it was added.`
               out.note = out.note ? `${out.note}\n\n${n}` : n
             } else if (unsupportedAdd) {
               const n = `STORE CART: "${unsupportedAdd}" is not from a store the Boxly agent can buy from (a store not on LIVE STORES, or no product page), so it will NOT go into a real store cart and Finalizar will refuse it. Tell the shopper in ONE short line (Spanish) that you can't add this one automatically, and offer to search the same kind of product live in a store that can. Do NOT say it was added to a cart.`
@@ -1732,10 +1748,17 @@ export default defineEventHandler(async (event) => {
           if (!live) return stop('live_unavailable', 'the live store browser is not available right now. Say so in ONE short line and offer to try again in a moment.')
           const { stores: picked, unknown } = resolveLiveStores(stores, live.stores, live.max)
           if (!picked.length) return stop('unknown_store', `${unknown.join(', ') || 'That store'} cannot be opened live yet. Say so in ONE short line and offer the closest store from: ${live.stores.map((st) => st.name).join(', ')}.`)
-          const r: any = await callApi('/live-shopping/sessions', {
+          const start = () => callApi('/live-shopping/sessions', {
             method: 'POST', token, timeoutMs: 15000,
             body: { conversation_id: conversationId, objective: q, store_id: picked[0].id, ...(picked.length > 1 ? { store_ids: picked.map((st) => st.id) } : {}) },
           }).catch(() => ({ ok: false, status: 0 }))
+          let r: any = await start()
+          // ONE MORE TRY (prod 2026-10-14: a shopper's first Target search failed to start while the engine was idle and the same
+          // search worked minutes later): a start that failed for any reason but "busy" or "store not supported" is asked once more.
+          if ((r?.ok === false || !Number.isInteger(r?.id)) && r?.status !== 409 && r?.code !== 'store_unsupported' && r?.code !== 'too_many_stores') {
+            await new Promise((res) => setTimeout(res, 1500))
+            r = await start()
+          }
           if (r?.ok === false || !Number.isInteger(r?.id)) {
             if (r?.status === 409) return stop('live_busy', 'a live store browser is still running for this shopper. Say ONE short line: the one on screen is finishing, and to ask again in a moment.')
             if (r?.code === 'too_many_stores') liveStoresCache = null

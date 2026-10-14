@@ -127,7 +127,8 @@ export function webStoreId(url: any): string | null {
   let host = ''
   try { const u = new URL(String(url)); if (u.protocol !== 'https:') return null; host = u.hostname.toLowerCase().replace(/^www\./, '') } catch { return null }
   if (!/^[a-z0-9-]+(?:\.[a-z0-9-]+)+$/.test(host) || !/\.[a-z]{2,}$/.test(host)) return null
-  if (/(?:^|\.)(?:localhost|local|internal|lan|home|test|example|invalid)$/.test(host) || NOT_A_STORE.test(host)) return null
+  // …nor a store's MEXICO site (mx.coach.com, *.com.mx): Boxly buys in the US (prod 2026-10-14)
+  if (/(?:^|\.)(?:localhost|local|internal|lan|home|test|example|invalid)$/.test(host) || NOT_A_STORE.test(host) || /(?:^mx\.|\.mx$)/.test(host)) return null
   const id = host.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
   return id.length >= 3 && id.length <= 40 ? id : null
 }
