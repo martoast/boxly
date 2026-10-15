@@ -329,6 +329,8 @@
                          primaryGalleryIndex(): a model that fires two gallery
                          tools in one step must not draw two carousels. -->
                     <template v-if="isGalleryTool(part) && part.state === 'output-available' && part.output?.products?.length && i === primaryGalleryIndex(m) && !galleryPending(m)">
+                      <!-- The shopper named a product none of these carries (Spiral Luxe, 2026-10-14): say so, no look-alike passes as it -->
+                      <div v-if="part.type === 'tool-live_results' && notExactLine(m, part)" class="mb-2 text-[13px] text-gray-600 bg-white border border-gray-100 rounded-2xl px-4 py-3 shadow-sm">{{ notExactLine(m, part) }}</div>
                       <LazyProductGallery :products="orderedGallery(m, part.output.products)" @open="openProduct" />
                       <!-- VER MÁS (Alex 2026-10-07: shoppers want to keep browsing): the same live search again — the engine answers it with the
                            NEXT products of that search in this chat (it skips what it already showed) -->
@@ -630,6 +632,7 @@ import { pickedColourImage } from '../utils/pickerLogic'
 import { withLiveRows, newLiveResultMessages } from '../utils/liveGallery'
 import { nextHelpState, preopenUrl } from '../utils/liveShopping'
 import { PICKER_PART } from '../utils/typedPick'
+import { notExactly } from '../utils/exactMatch'
 
 // Auto-continue ONLY for the client-side create_account tool once it has a
 // result. Server tools (live_gallery/show_shipment/…) are fully resolved
@@ -2061,6 +2064,12 @@ async function pickSuggestion(text) {
 }
 // The live search a live gallery answered: the nearest live_gallery call at or before its message (the API appends the results as a
 // later message). Its EXACT query and stores, so "Ver más" repeats that very search (the engine matches it to skip what it showed).
+function notExactLine(m, part) {
+  const q = liveSearchOf(m)?.query
+  if (!q || !notExactly(q, (part.output?.products || []).map((p) => p?.title || ''))) return ''
+  return `No encontré exactamente “${q}” en estas tiendas; esto es lo más parecido. Si tienes el link del producto, pégalo y lo cotizo.`
+}
+
 function liveSearchOf(m) {
   const list = chat.messages
   const at = list.indexOf(m)
