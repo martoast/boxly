@@ -22,4 +22,13 @@ const picker = readFileSync(new URL('../components/VariantPicker.vue', import.me
 ok('the picker pre-selects only the tapped card\'s colour', (picker.match(/props\.data\?\.selected/g) || []).length === 1 && /a\.kind === 'color' \? props\.data\?\.selected/.test(picker))
 const chat = readFileSync(new URL('../components/ShoppingAssistant.vue', import.meta.url), 'utf8')
 ok('the chat sends the picker choice as metadata', /\.\.\.\(pick \? \{ pick \} : \{\}\)/.test(chat) && /chat\.sendMessage\(Object\.keys\(metadata\)\.length \? \{ text, metadata \}/.test(chat) && !/preselect/.test(chat))
+
+// Victoria's Secret pajamas (live 2026-10-16): Color and Print are both colour-kind; the picker keys the second by its name
+{
+  const VS = [{ name: 'Color', kind: 'color', values: ['Dusk Rose & Black', 'Black'] }, { name: 'Print', kind: 'color', values: ['Los Angeles Stripes', 'Solid'] },
+    { name: 'Size', kind: 'size', values: ['XS', 'S'] }, { name: 'Length', kind: 'length', values: ['Short', 'Regular'] }]
+  const r = pickedOptions(VS, { color: 'Dusk Rose & Black', Print: 'Los Angeles Stripes', size: 'XS', length: 'Short' })
+  ok('VS: all four picked, the print by its name', r.missing.length === 0 && r.chosen.Print === 'Los Angeles Stripes' && r.chosen.Color === 'Dusk Rose & Black')
+  ok('VS: without the print it is missing (the bug)', pickedOptions(VS, { color: 'Dusk Rose & Black', size: 'XS', length: 'Short' }).missing.map((a) => a.name).join() === 'Print')
+}
 console.log(`\n${pass} checks passed`)

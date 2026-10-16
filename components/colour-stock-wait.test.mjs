@@ -13,4 +13,11 @@ run(axes, sel, { Black: { pending: false, sizes: [{ value: 'M', available: true 
 assert.equal(sel.Size, 'M', 'kept when M is in stock in Black')
 run(axes, sel, { Black: { pending: false, sizes: [{ value: 'M', available: false }] } }, () => false)
 assert.equal(sel.Size, null, 'cleared when M is sold out in Black')
+// the pick message keys a second option of one kind by its own name (VS: Color + Print, both colour-kind)
+{
+  const line = sfc.split('\n').find((l) => l.includes('variants[k in variants ? a.name : k]'))
+  const fn = new Function('axes', 'sel', `const variants = {}; ${line.trim()} return variants`)
+  const v = fn({ value: [{ name: 'Color', kind: 'color' }, { name: 'Print', kind: 'color' }, { name: 'Size', kind: 'size' }] }, { Color: 'Black', Print: 'Stripes', Size: 'XS' })
+  assert.deepEqual(v, { color: 'Black', Print: 'Stripes', size: 'XS' })
+}
 console.log('colour-stock-wait: all checks pass')
