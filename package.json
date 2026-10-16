@@ -19,7 +19,7 @@
     "test:variant-read": "node components/variant-read.test.mjs",
     "test:variant-pick": "node --experimental-strip-types utils/variantPick.test.mjs",
     "test:variant-note": "node --experimental-strip-types server/api/variant-note.test.mjs",
-    "test:picker-open": "node components/picker-open.test.mjs",
+    "test:picker-open": "node components/picker-open.test.mjs && node components/colour-stock-wait.test.mjs",
     "test:narrow": "node server/api/narrow.test.mjs",
     "test:box-fit": "node --experimental-strip-types server/api/box-fit.test.mjs",
     "test:tools-reachable": "node server/api/tools-reachable.test.mjs",

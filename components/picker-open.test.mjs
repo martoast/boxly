@@ -41,6 +41,6 @@ const picker = readFileSync(new URL('./VariantPicker.vue', import.meta.url), 'ut
 const logic = readFileSync(new URL('../utils/pickerLogic.ts', import.meta.url), 'utf8');
 ok('the picker runs the shared rules the benchmark measures', /from '~\/utils\/pickerLogic'/.test(picker));
 ok('a single-value option is information: rows without it still match', /a\.values\.length === 1 \? a\.values\[0\]/.test(logic));
-ok('…and it is never cleared by another pick', /a\.values\.length > 1 && sel\[a\.name\] && !canPick/.test(picker));
+ok('…and it is never cleared by another pick', /a\.values\.length > 1 && sel\[a\.name\] && !(?:picker)?[cC]anPick/.test(picker));
 ok('the selection exists before the single-value fill runs (no silent failure)', picker.indexOf('const sel = reactive({})') < picker.indexOf('a.values.length === 1 && !sel[a.name]'));
 console.log(`\n${pass} checks passed`);

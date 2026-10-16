@@ -128,8 +128,13 @@ function askColourStock(colour, retry = 0) {
     })
     .catch(() => { colourStock[colour] = { pending: false, error: true } })
 }
-// a checked colour's answer clears a size chosen before it that is sold out in that colour
-watch(colourStock, () => { for (const a of axes.value) if (a.kind !== 'color' && sel[a.name] && !canPick(a, sel[a.name])) sel[a.name] = null }, { deep: true })
+// a checked colour's answer clears a size chosen before it that is sold out in that colour — the ANSWER, not the wait: while the
+// check runs every size reads blocked, and the shopper's M was wiped every time (live Dick's 2026-10-15: M, then Black → no size)
+watch(colourStock, () => {
+  const ca = axes.value.find((a) => a.kind === 'color')
+  if (ca && sel[ca.name] && colourStock[sel[ca.name]]?.pending) return
+  for (const a of axes.value) if (a.kind !== 'color' && sel[a.name] && !canPick(a, sel[a.name])) sel[a.name] = null
+}, { deep: true })
 function stockNote(ax) {
   if (ax.kind !== 'color' || !sel[ax.name]) return ''
   const st = colourStock[sel[ax.name]]
