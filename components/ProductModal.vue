@@ -358,9 +358,12 @@ const hasChoices = computed(() => {
 const pickedPrice = ref(null)
 // An unknown price for the pick shows no price (as the picker card does), never the page fetch's (on a family page that can be another style's).
 function onPickPrice(p) { pickedPrice.value = p && (typeof p.price === 'number' || p.unknown) ? p : null }
-const headerPrice = computed(() => (pickedPrice.value?.unknown ? null : pickedPrice.value?.price ?? fetchedPrice.value ?? props.product?.price ?? null))
+// A READ PRICE FAR UNDER THE CARD'S is a misread, never shown (live Victoria's Secret 2026-10-16: a $49.95 pajama set read as $8 — the
+// "Alaska, Hawaii and US Territories $8.00" shipping line under its options): under 40% of the card's own price, the card's price stands
+const sane = (p) => { const card = Number(props.product?.price); return typeof p === 'number' && card >= 10 && p < card * 0.4 ? card : p }
+const headerPrice = computed(() => (pickedPrice.value?.unknown ? null : sane(pickedPrice.value?.price ?? fetchedPrice.value ?? props.product?.price ?? null)))
 const headerFrom = computed(() => !!pickedPrice.value?.from)
-const displayPrice = computed(() => (pickedPrice.value?.unknown ? null : pickedPrice.value?.price ?? fetchedPrice.value ?? props.product?.price ?? null))
+const displayPrice = computed(() => (pickedPrice.value?.unknown ? null : sane(pickedPrice.value?.price ?? fetchedPrice.value ?? props.product?.price ?? null)))
 const displayWas = computed(() => fetchedWas.value ?? props.product?.was ?? null)
 const displayOnSale = computed(() => fetchedOnSale.value ?? props.product?.onSale ?? false)
 const displayDiscount = computed(() => {

@@ -231,7 +231,10 @@ const image = computed(() => (switchedColour.value
   : [leadImage.value, product.value.image, read.value?.product?.image, read.value?.product?.images?.[0]]
 ).find((u) => typeof u === 'string' && u && u !== broken.value) || null)
 // A selection the page never priced (another size than the one its pack prices were stated for) shows no price, not a guess.
-const price = computed(() => (pickedPrice.value?.unknown ? null : pickedPrice.value?.price ?? read.value?.product?.price ?? product.value.price ?? null))
+// A READ PRICE FAR UNDER THE CARD'S is a misread, never shown nor sent to the box (live Victoria's Secret 2026-10-16: a $49.95 pajama set
+// read as $8 — the "Alaska, Hawaii and US Territories $8.00" shipping line under its options): under 40% of the card's price, the card's stands
+const sanePrice = (p) => { const card = Number(product.value.price); return typeof p === 'number' && card >= 10 && p < card * 0.4 ? card : p }
+const price = computed(() => (pickedPrice.value?.unknown ? null : sanePrice(pickedPrice.value?.price ?? read.value?.product?.price ?? product.value.price ?? null)))
 const was = computed(() => product.value.was ?? read.value?.product?.list_price ?? null)
 const onSale = computed(() => !!(was.value && price.value && was.value > price.value))
 
