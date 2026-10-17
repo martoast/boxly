@@ -12,7 +12,7 @@ import { generateFollowups, followupPart, followupsWithin, attachFollowupChips }
 import { readSummary, summaryBlock, summarize, shouldSummarize } from '../utils/chatSummary'
 import { boxFromMessages, withEarlierItems, wantedFromBox, planCart, storeOptionFixes, withStoreOptions, pastedPages, type CarriedStore } from '../utils/boxCheckout'
 import { pickedColourImage, pickedVariantPrice } from '../../utils/pickerLogic'
-import { linkListUrls, linkListFromMetadata, linkListBox, LINK_LIST_MAX } from '../../utils/linkList'
+import { linkListUrls, linkListFromMetadata, linkListBox, LINK_LIST_MAX, isLinkOnly } from '../../utils/linkList'
 import { shortLinksIn, expandShortLinks } from '../../utils/shortLinks'
 import { checkStoreLock } from '../utils/storeLock'
 import { storeHostsFromLiveStores, tagCarriedStores } from '../utils/storeHosts'
@@ -92,15 +92,22 @@ export function cleanVariants(variants: any[]): any[] {
 }
 
 const variantCache = new Map<string, { at: number; r: any }>()
-async function getProductVariantsApi(url: string, maxAgeS = 900) {
+// THE REPLY MUST LAND INSIDE boxly.mx's ~30 s cut (live 2026-10-17: a 38 s Walmart read inside the turn — no reply at all, twice).
+// The catalog keeps reading after we stop waiting, so the next ask is served from its answer.
+const VARIANT_WAIT_MS = 15_000
+async function getProductVariantsApi(url: string, maxAgeS = 900, waitMs = VARIANT_WAIT_MS) {
   // Every read populates variantCache, whichever tool asked for it: the box's hold gate and the finalize rail both
   // consult it, and when only get_product_variants had run they saw nothing and waved the item through.
   const hit = variantCache.get(url)
   if (hit && Date.now() - hit.at < 15 * 60_000) return hit.r
   let data: any = {}
   try {
-    data = await callApi('/catalog/product-variants', { method: 'POST', body: { url, max_age_s: maxAgeS }, timeoutMs: 58000 })
-  } catch (e: any) { console.warn('[assistant] product-variants unreachable:', e?.message || e); data = { error: 'unreachable' } }
+    data = await callApi('/catalog/product-variants', { method: 'POST', body: { url, max_age_s: maxAgeS }, timeoutMs: waitMs })
+  } catch (e: any) {
+    const slow = /timeout|timed out|abort/i.test(String(e?.message || e))
+    console.warn(`[assistant] product-variants ${slow ? `still reading after ${waitMs} ms` : 'unreachable'}:`, e?.message || e)
+    data = { error: slow ? 'still_reading' : 'unreachable' }
+  }
   const variants: any[] = cleanVariants(Array.isArray(data?.variants) ? data.variants : [])
   // Judged on what SURVIVED the chrome cut, not on what the reader sent: a page whose
   // only "variants" were "Sponsored" and "Return details" has no variants, and saying
@@ -989,7 +996,9 @@ export default defineEventHandler(async (event) => {
   // mandatory as the turn's first step like the Finalizar tap — the model never searches them or holds them one by one.
   const newestUser = [...(messages || [])].reverse().find((m: any) => m?.role === 'user')
   const linkListAdd = linkListFromMetadata(newestUser?.metadata).length > 0
-  const linkListAsk = !linkListAdd && linkListUrls((newestUser?.parts || []).filter((p: any) => p?.type === 'text').map((p: any) => p.text).join(' ')).length >= 2
+  const newestText = (newestUser?.parts || []).filter((p: any) => p?.type === 'text').map((p: any) => p.text).join(' ')
+  // …and ONE link pasted on its own (isLinkOnly): the same card reads it in the browser, never a server read past the ~30 s cut
+  const linkListAsk = !linkListAdd && (linkListUrls(newestText).length >= 2 || isLinkOnly(newestText))
   // The agent finished putting a box item in the store's real cart (or the store refused). The client sends this
   // as a hidden turn; the assistant confirms it — the ONLY moment it may say the item is in the cart.
   const ce = token && body?.cartEvent && typeof body.cartEvent === 'object' ? body.cartEvent : null
@@ -1307,7 +1316,9 @@ export default defineEventHandler(async (event) => {
           // while also forbidding the options in text left them staring at a screen with neither (Alex, PUMA
           // 6-Pack Crew Socks, One Size, 2026-09-15). A real choice means an axis with more than one value.
           const realChoice = (r.axes || []).some((a: any) => (a?.values?.length || 0) > 1)
-          const note = !r.variants.length
+          const note = r.reason === 'still_reading'
+            ? `THE STORE PAGE IS STILL LOADING (slow store page — the read goes on). Reply in ONE short line in Spanish that you are opening the product on the store and the options show up in a few seconds; ask them to write "listo" if they do not see them. Do NOT add it to the box yet and do NOT call show_shipment for it this turn.`
+            : !r.variants.length
             ? `NO VARIANT DATA (${r.reason}). Do not stall: add it to the box with show_shipment as it is — the agent adds it in the store's own cart, where the store's page decides.`
             : !realChoice
               ? `READ OK, NOTHING TO CHOOSE: this product comes one way only${r.axes?.[0]?.values?.[0] ? ` (${r.axes[0].name}: ${r.axes[0].values[0]})` : ''}. There are NO chips on screen, so never tell them to pick — say what it comes as in one short line and add it with show_shipment now, carrying that value.`
@@ -1418,9 +1429,10 @@ export default defineEventHandler(async (event) => {
             if (!r) {
               r = await Promise.race([
                 getProductVariantsApi(String(url)).catch(() => null),
-                new Promise((resolve) => setTimeout(() => resolve(null), 30_000)),
+                new Promise((resolve) => setTimeout(() => resolve(null), VARIANT_WAIT_MS + 1000)),
               ])
-              if (r) variantCache.set(url, { at: Date.now(), r })
+              // only a read that came back with options is remembered: a "still reading" answer must not stand for 15 min
+              if (r && (r.variants?.length || r.axes?.length)) variantCache.set(url, { at: Date.now(), r })
             }
             // A PASTED LINK HAS NO REGISTRY ROW, so the box card had no image and drew a grey placeholder next to
             // items that did have one (Alex, 2026-09-11: the DFYNE shorts). The live read knows the product's own

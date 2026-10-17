@@ -76,3 +76,12 @@ export function linkListBox(list: LinkListEntry[]): { items: any[], storeOptions
   })
   return { items, storeOptions }
 }
+
+/** A message that is a link and little else (the link pasted on its own, or with "este" / "cotízame esto"): the card reads it in the
+ * browser like a list (live 2026-10-17: a lone Walmart link read for 38 s on the server, past boxly.mx's ~30 s cut — the shopper got no
+ * reply at all, twice). A link with a real question beside it (over 40 characters of other text) is left to the assistant. */
+export function isLinkOnly(text: string | null | undefined): boolean {
+  const t = String(text || '')
+  if (linkListUrls(t).length !== 1) return false
+  return t.replace(/https?:\/\/[^\s<>"'()]+/gi, ' ').replace(/\s+/g, ' ').trim().length <= 40
+}

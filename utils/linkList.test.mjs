@@ -1,5 +1,6 @@
 // Run: node --experimental-strip-types utils/linkList.test.mjs
-import { linkListUrls, linkListFromMetadata, linkListBox, LINK_LIST_MAX } from './linkList.ts'
+import assert from 'node:assert/strict'
+import { linkListUrls, linkListFromMetadata, linkListBox, LINK_LIST_MAX, isLinkOnly } from './linkList.ts'
 let bad = 0
 const check = (name, got, want) => { const ok = JSON.stringify(got) === JSON.stringify(want); if (!ok) { bad++; console.log(`✗ ${name}\n  got  ${JSON.stringify(got)}\n  want ${JSON.stringify(want)}`) } }
 
@@ -40,5 +41,14 @@ check('box items and store options keyed by url', linkListBox(list), {
 })
 check('no list in metadata', linkListFromMetadata({ pick: { size: 'M' } }), [])
 
+// ONE link pasted on its own goes to the card too (live 2026-10-17: a lone Walmart link got no reply — the server read passed the cut)
+{
+    assert.equal(isLinkOnly('https://www.walmart.com/ip/Starbucks-Fall-Blend/999606829?classType=VARIANT'), true)
+  assert.equal(isLinkOnly('cotízame este https://www.walmart.com/ip/x/1'), true, 'a few words beside it')
+  assert.equal(isLinkOnly('¿este viene en talla M y en color negro? y cuánto tarda en llegar a Tijuana? https://www.walmart.com/ip/x/1'), false, 'a real question stays with the assistant')
+  assert.equal(isLinkOnly('https://a.com/p/1 https://b.com/p/2'), false, 'two links are the list path')
+  assert.equal(isLinkOnly('hola'), false)
+  console.log('isLinkOnly: ok')
+}
 console.log(bad ? `${bad} check(s) FAILED` : 'linkList: all checks pass')
 process.exit(bad ? 1 : 0)
