@@ -13,118 +13,95 @@
         </button>
       </div>
 
-      <!-- WOW HERO — the promise, in one glance: all of the US, at your door in MX. -->
-      <div class="relative overflow-hidden rounded-[1.8rem] bg-gradient-to-br from-primary-600 via-primary-600 to-indigo-700 text-white p-6 md:p-8 shadow-xl shadow-primary-600/25 mb-3">
-        <span class="absolute -top-16 -right-12 w-56 h-56 rounded-full bg-white/10 blur-3xl pointer-events-none"></span>
-        <span class="absolute -bottom-20 -left-12 w-60 h-60 rounded-full bg-indigo-400/25 blur-3xl pointer-events-none"></span>
-        <div class="relative">
-          <span class="inline-flex items-center gap-1.5 text-[12px] font-bold tracking-wide text-white/85 bg-white/10 border border-white/15 rounded-full px-3 py-1">🇺🇸 → 🇲🇽 De EE. UU. a tu casa en México</span>
-          <h1 class="mt-3.5 text-[27px] md:text-[38px] font-extrabold leading-[1.06] tracking-tight">Compra en EE. UU. como<br class="hidden sm:block"> si vivieras allá.</h1>
-          <NuxtLink to="/app/search" class="mt-5 inline-flex items-center gap-2 px-5 py-3 rounded-full bg-white text-primary-700 text-[14.5px] font-bold shadow-lg shadow-primary-900/20 hover:bg-white/95 active:scale-[.98] transition">
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.7 5.6L19 9l-5.3 1.4L12 16l-1.7-5.6L5 9l5.3-1.4z" /></svg>
-            Buscar y cotizar con IA
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
-          </NuxtLink>
-          <!-- store proof -->
-          <div class="relative mt-6 overflow-hidden select-none -mx-6 md:-mx-8" aria-hidden="true">
-            <div class="flex w-max gap-8 whitespace-nowrap marquee-track px-6 md:px-8">
-              <span v-for="(b, i) in marqueeStores" :key="i" class="text-[12.5px] font-bold tracking-tight text-white/60">{{ b }}</span>
-            </div>
-            <div class="pointer-events-none absolute inset-y-0 left-0 w-12 bg-gradient-to-r from-primary-600 to-transparent"></div>
-            <div class="pointer-events-none absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-indigo-700 to-transparent"></div>
-          </div>
-        </div>
-      </div>
+      <!-- Greeting -->
+      <h1 class="text-[26px] md:text-[30px] font-extrabold tracking-tight text-gray-900 leading-tight">
+        Hola<template v-if="firstName">, {{ firstName }}</template>
+      </h1>
+      <p class="mt-1 text-[14px] text-gray-500">Tu centro de envíos de Estados Unidos a México.</p>
 
-      <!-- Personal shopping at Las Américas (Alex 2026-10-01): a shopper buys for you in person — book your day. -->
-      <NuxtLink to="/in-person" class="group relative block overflow-hidden rounded-[1.6rem] bg-gradient-to-br from-primary-500 via-primary-600 to-indigo-700 text-white p-5 md:p-6 mb-3 shadow-lg shadow-primary-600/25 active:scale-[.99] transition">
-        <span class="absolute -top-12 -right-10 w-44 h-44 rounded-full bg-white/15 blur-3xl pointer-events-none"></span>
-        <div class="relative flex items-center gap-4">
-          <span class="grid place-items-center w-12 h-12 rounded-2xl bg-white/20 border border-white/25 text-2xl shrink-0" aria-hidden="true">🛍️</span>
-          <div class="min-w-0 flex-1">
-            <p class="text-[11px] font-bold uppercase tracking-widest text-white/85">Compras personales</p>
-            <p class="mt-0.5 text-[17px] md:text-[19px] font-extrabold leading-snug">Una shopper compra por ti en San Diego</p>
-            <p class="mt-1 text-[13px] text-white/90">Elige tu día y tu horario, y te lo traemos a México.</p>
-          </div>
-        </div>
-        <span class="relative mt-4 inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-white text-primary-700 text-[14px] font-bold shadow-md group-hover:bg-white/95 transition">
-          Agendar mi día de compras
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
-        </span>
-      </NuxtLink>
-
-      <!-- Card — your US address. -->
-      <div class="relative w-full rounded-[1.6rem] border border-primary-100 p-5 md:p-6 overflow-hidden bg-gradient-to-br from-white via-white to-primary-50/60">
-        <span class="absolute -top-10 -right-8 w-40 h-40 rounded-full bg-primary-200/30 blur-3xl pointer-events-none"></span>
-        <div class="relative flex items-start gap-4">
-          <span class="grid place-items-center w-12 h-12 rounded-2xl bg-gradient-to-br from-primary-500 to-primary-600 text-white shadow-md shadow-primary-500/30 shrink-0">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" :d="ICONS.pin" /></svg>
-          </span>
-          <div class="min-w-0 flex-1">
-            <p class="text-[11px] font-bold uppercase tracking-widest text-primary-700">Tu dirección en Estados Unidos</p>
-            <div class="mt-1.5 text-[15px] leading-snug">
-              <p class="font-bold text-gray-900">BOXLY {{ user?.name || '' }}</p>
-              <p class="text-gray-700">157 Virginia Ave Suite 835</p>
-              <p class="text-gray-700">San Ysidro, CA 92173</p>
-            </div>
-          </div>
-          <span class="hidden sm:inline-flex shrink-0">
-            <TutorialVideoButton loom-id="46437a61757f41aea84c37842cb3f805" />
-          </span>
-        </div>
-        <div class="relative mt-3 sm:hidden">
-          <TutorialVideoButton loom-id="46437a61757f41aea84c37842cb3f805" />
-        </div>
-        <NuxtLink to="/app/pricing" class="relative mt-3 inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-gray-600 hover:text-primary-600 transition-colors group">
-          <svg class="w-4 h-4 shrink-0 text-gray-400 group-hover:text-primary-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" :d="ICONS.box" /></svg>
-          Ver precios y cómo funciona
-          <svg class="w-3.5 h-3.5 opacity-60 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+      <!-- At a glance — real counts from the account (see loadCounts). -->
+      <div class="mt-4 grid grid-cols-2 gap-3">
+        <NuxtLink
+          v-for="s in statTiles"
+          :key="s.key"
+          to="/app/orders"
+          class="rounded-2xl border border-gray-200 bg-white p-4 hover:border-primary-200 hover:shadow-sm transition"
+        >
+          <svg class="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="s.icon" /></svg>
+          <p class="mt-2 text-[24px] font-extrabold text-gray-900 leading-none tabular-nums">
+            <span v-if="s.value === null" class="inline-block w-6 h-6 rounded-md bg-gray-100 animate-pulse align-middle" aria-label="Cargando"></span>
+            <template v-else>{{ s.value }}</template>
+          </p>
+          <p class="mt-1.5 text-[13px] text-gray-500">{{ s.label }}</p>
         </NuxtLink>
-        <div class="relative flex flex-wrap items-center gap-2 mt-3.5">
-          <button type="button" @click="copyUsAddress" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-700 text-white text-[13px] font-semibold transition active:scale-95">
-            <svg v-if="!addressCopied" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
-            <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-            {{ addressCopied ? '¡Copiado!' : 'Copiar dirección' }}
-          </button>
-          <NuxtLink to="/app/casillero?from=/app" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-gray-200 text-gray-600 text-[13px] font-semibold hover:bg-gray-50 hover:border-gray-300 transition active:scale-95">
-            <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="ICONS.pin"/></svg>
-            Entrega en San Diego
-          </NuxtLink>
-        </div>
       </div>
 
-      <!-- Card — create the shipment. -->
+      <!-- Primary action — create the shipment. -->
       <NuxtLink
         to="/app/orders/create"
-        class="group relative mt-3 flex items-center gap-4 rounded-[1.6rem] border border-gray-200 bg-white p-5 md:p-6 transition-all duration-300 ease-out hover:-translate-y-1 hover:scale-[1.01] hover:shadow-xl hover:border-primary-200"
+        class="group relative mt-3 block overflow-hidden rounded-[1.4rem] bg-primary-600 hover:bg-primary-700 text-white p-5 shadow-lg shadow-primary-600/20 active:scale-[.99] transition"
       >
-        <span class="relative grid place-items-center w-12 h-12 rounded-2xl bg-gray-100 text-gray-700 group-hover:bg-primary-100 group-hover:text-primary-600 transition-colors shrink-0">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" :d="ICONS.box" /></svg>
-          <span class="absolute -top-1 -right-1 grid place-items-center w-4 h-4 rounded-full bg-primary-500 text-white shadow-sm">
-            <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3.2" d="M12 5v14M5 12h14" /></svg>
-          </span>
-        </span>
-        <div class="min-w-0 flex-1">
-          <p class="text-[16px] font-bold text-gray-900 leading-tight">Crear mi envío</p>
-          <p class="text-[13px] text-gray-500 mt-0.5">Ya lo compré, estoy listo para enviar.</p>
+        <div class="flex items-start justify-between">
+          <svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="ICONS.boxPlus" /></svg>
+          <svg class="w-4 h-4 text-white/80 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 17L17 7M9 7h8v8" /></svg>
         </div>
-        <svg class="w-5 h-5 text-gray-300 group-hover:text-primary-500 group-hover:translate-x-0.5 transition-all shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
+        <p class="mt-3 text-[19px] font-extrabold leading-tight">Crear mi envío</p>
+        <p class="mt-1 text-[13.5px] text-white/85">¿Ya compraste? Registra tus paquetes aquí.</p>
       </NuxtLink>
 
-      <!-- Shipment history — a quiet link. -->
-      <NuxtLink to="/app/orders" class="mt-4 flex items-center justify-center gap-1.5 text-[13px] font-semibold text-gray-500 hover:text-primary-600 transition-colors group">
-        <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" :d="ICONS.box" /></svg>
-        Ver mis envíos
-        <svg class="w-3.5 h-3.5 opacity-60 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
-      </NuxtLink>
+      <!-- Your US address. -->
+      <div class="mt-3 rounded-[1.4rem] border border-gray-200 bg-white p-5">
+        <div class="flex items-center justify-between">
+          <h2 class="text-[16px] font-bold text-gray-900">Tu dirección en EE. UU.</h2>
+          <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="ICONS.pin" /></svg>
+        </div>
+        <div class="mt-3 text-[15px] leading-relaxed">
+          <p class="font-semibold text-gray-900">BOXLY {{ user?.name || '' }}</p>
+          <p class="text-gray-600">157 Virginia Ave Suite 835</p>
+          <p class="text-gray-600">San Ysidro, CA 92173</p>
+        </div>
+        <button
+          type="button"
+          @click="copyUsAddress"
+          class="mt-4 w-full inline-flex items-center justify-center gap-2 py-3 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-900 text-[14.5px] font-semibold transition active:scale-[.99]"
+        >
+          <svg v-if="!addressCopied" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+          <svg v-else class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+          {{ addressCopied ? '¡Copiado!' : 'Copiar dirección' }}
+        </button>
+        <div class="mt-3 flex justify-center">
+          <TutorialVideoButton loom-id="46437a61757f41aea84c37842cb3f805" />
+        </div>
+      </div>
+
+      <!-- Everything else Boxly does. -->
+      <div class="mt-3 rounded-[1.4rem] border border-gray-200 bg-white">
+        <h2 class="px-5 pt-5 pb-1 text-[16px] font-bold text-gray-900">Explora más con Boxly</h2>
+        <NuxtLink
+          v-for="(item, i) in explore"
+          :key="item.to"
+          :to="item.to"
+          :class="['group flex items-center gap-3.5 px-5 py-4 hover:bg-gray-50 transition-colors', i < explore.length - 1 ? 'border-b border-gray-100' : 'rounded-b-[1.4rem]']"
+        >
+          <span class="grid place-items-center w-10 h-10 rounded-xl bg-primary-50 text-primary-600 shrink-0">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="item.icon" /></svg>
+          </span>
+          <div class="min-w-0 flex-1">
+            <p class="text-[15px] font-semibold text-gray-900 leading-tight">{{ item.title }}</p>
+            <p class="mt-0.5 text-[13px] text-gray-500 leading-snug">{{ item.sub }}</p>
+          </div>
+          <svg class="w-4 h-4 text-gray-400 group-hover:text-primary-500 group-hover:translate-x-0.5 transition shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
+        </NuxtLink>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-// The logged-in home. This is the concierge hub's welcome dashboard — the US
-// address, create-shipment and shipment-history cards — WITHOUT the removed AI
-// search. The live store browser lives at /app/browse.
+// The logged-in home — a shipping control centre (redesign 2026-10-19): who you
+// are, what's in San Diego / on the way, the create-shipment action, your US
+// address, and a list of everything else. The live store browser lives at
+// /app/browse.
 definePageMeta({
   layout: 'app',
   middleware: ['auth', 'customer', 'complete-profile'],
@@ -132,13 +109,60 @@ definePageMeta({
 useHead({ title: 'Boxly — Tu casillero' })
 
 const user = useUser()
+const { $customFetch } = useNuxtApp()
 
-const STORE_LIST = ['Amazon', 'Costco', 'Target', 'Walmart', 'Nike', 'Apple', 'Home Depot', 'Best Buy', 'Sephora', 'Ross', 'TJ Maxx', 'Burlington', "Macy's", 'Coach', 'Michael Kors', "Levi's", 'Gap', 'Old Navy']
-const marqueeStores = [...STORE_LIST, ...STORE_LIST]
+const firstName = computed(() => (user.value?.name || '').trim().split(/\s+/)[0] || '')
 
 const ICONS = {
   pin: 'M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0zM15 11a3 3 0 11-6 0 3 3 0 016 0z',
   box: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4',
+  boxPlus: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v5m-8-1L4 7m8 4v10M4 7v10l8 4m6-5v6m-3-3h6',
+  truck: 'M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0',
+  sparkle: 'M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z',
+  bag: 'M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z',
+  locker: 'M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6',
+  tag: 'M7 7h.01M7 3h5a1.99 1.99 0 011.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.99 1.99 0 013 12V7a4 4 0 014-4z',
+  list: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4',
+}
+
+const explore = [
+  { to: '/app/search', title: 'Buscar y cotizar con IA', sub: 'Encuentra productos en tiendas de EE. UU.', icon: ICONS.sparkle },
+  { to: '/in-person', title: 'Compras personales', sub: 'Una shopper compra por ti en San Diego', icon: ICONS.bag },
+  { to: '/app/orders', title: 'Mis envíos', sub: 'Historial y seguimiento de tus envíos', icon: ICONS.list },
+  { to: '/app/casillero?from=/app', title: 'Entrega en San Diego', sub: 'Tu casillero y cómo enviarnos tus compras', icon: ICONS.locker },
+  { to: '/app/pricing', title: 'Precios y cómo funciona', sub: 'Tamaños de caja y tarifas', icon: ICONS.tag },
+]
+
+// At-a-glance counts. null = still loading (a skeleton, never a fake number).
+//   En San Diego — packages marked arrived on orders still at the warehouse.
+//   En camino    — orders shipped to Mexico, from the API's exact total.
+// GET /orders pages at 10 but filters by status, so each status is asked for
+// separately instead of counting from the newest 10 orders overall.
+const WAREHOUSE_STATUSES = ['collecting', 'awaiting_packages', 'packages_complete', 'processing']
+const counts = ref({ sanDiego: null, onTheWay: null })
+
+const statTiles = computed(() => [
+  { key: 'sd', label: 'En San Diego', value: counts.value.sanDiego, icon: ICONS.box },
+  { key: 'way', label: 'En camino', value: counts.value.onTheWay, icon: ICONS.truck },
+])
+
+const ordersWithStatus = (status) =>
+  $customFetch('/orders', { params: { status, page: 1 } }).then((r) => r?.data || {})
+
+async function loadCounts() {
+  try {
+    const [shipped, ...warehouse] = await Promise.all([
+      ordersWithStatus('shipped'),
+      ...WAREHOUSE_STATUSES.map(ordersWithStatus),
+    ])
+    const arrived = warehouse
+      .flatMap((page) => page.data || [])
+      .reduce((n, order) => n + (order.items || []).filter((item) => item.arrived).length, 0)
+    counts.value = { sanDiego: arrived, onTheWay: shipped.total ?? (shipped.data || []).length }
+  } catch (error) {
+    console.error('Error loading home counts:', error)
+    counts.value = { sanDiego: '—', onTheWay: '—' } // unknown, not zero
+  }
 }
 
 // Terms update notice — shown when the account hasn't accepted the version the API calls current.
@@ -148,6 +172,7 @@ const showTermsNotice = computed(() =>
   !termsDismissed.value && !!user.value?.current_terms_version && user.value.terms_version !== user.value.current_terms_version)
 onMounted(() => {
   try { termsDismissed.value = localStorage.getItem(termsNoticeKey.value) === '1' } catch { termsDismissed.value = false }
+  loadCounts()
 })
 function dismissTermsNotice() {
   termsDismissed.value = true
@@ -164,9 +189,3 @@ async function copyUsAddress() {
   } catch { /* clipboard blocked — the address is on screen to copy by hand */ }
 }
 </script>
-
-<style scoped>
-.marquee-track { animation: marquee 70s linear infinite; }
-@keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-@media (prefers-reduced-motion: reduce) { .marquee-track { animation: none; } }
-</style>
