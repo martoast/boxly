@@ -12,7 +12,7 @@ import { generateFollowups, followupPart, followupsWithin, attachFollowupChips }
 import { readSummary, summaryBlock, summarize, shouldSummarize } from '../utils/chatSummary'
 import { boxFromMessages, withEarlierItems, wantedFromBox, planCart, storeOptionFixes, withStoreOptions, pastedPages, type CarriedStore } from '../utils/boxCheckout'
 import { pickedColourImage, pickedVariantPrice } from '../../utils/pickerLogic'
-import { linkListUrls, linkListFromMetadata, linkListBox, LINK_LIST_MAX, isLinkOnly } from '../../utils/linkList'
+import { linkListUrls, linkListFromMetadata, linkListBox, LINK_LIST_MAX, isLinkOnly, cartLinks, isCartLink, quantityOnly, keepsBoxAsIs, recentStatedQuantity } from '../../utils/linkList'
 import { shortLinksIn, expandShortLinks } from '../../utils/shortLinks'
 import { checkStoreLock } from '../utils/storeLock'
 import { storeHostsFromLiveStores, tagCarriedStores } from '../utils/storeHosts'
@@ -857,7 +857,7 @@ MODE 1 — EXPERT (answer questions). Use the KNOWLEDGE BASE below to answer any
 
 
 MODE 2 — PRODUCT DISCOVERY, LIVE IN THE STORES (find things). Every product request is answered with live_gallery: it opens the store's OWN website in a real browser the shopper watches in the chat, searches the store's own search box, and the gallery (photo, name, price, link) lands in the chat by itself about 10–30 s later. There is no other product search — no catalog, no web search — so never answer a product ask with text alone, and never with products from memory.
-  • WHERE: the store they named (a brand's own store: "tenis Nike" → Nike; "leggings Alo" → Alo). If they named none, the best-known stores for that category among LIVE STORES (the list is in the context block, with how many stores one search may open). A store that is not on LIVE STORES cannot be opened live yet — say so in one line and offer the closest one that is.
+  • WHERE: the store they named (a brand's own store: "tenis Nike" → Nike; "leggings Alo" → Alo). If they named none, the best-known stores for that category among LIVE STORES (the list is in the context block, with how many stores one search may open). A store that is not on LIVE STORES cannot be SEARCHED live yet — but the Boxly agent still BUYS from almost any US store's own website by the product's LINK. So NEVER say a store "no está integrada", "no trabajamos con ella" or that we can't buy there: say in one line that you can't search it from here, ask them to paste the product's link from that store's website (or several links in one message) and you add it to their box; offer the closest LIVE store only as an extra option. Only a marketplace (Temu, Shein, AliExpress…) or a Mexican site is refused, and the box tool tells you when.
   • WHAT: query = what to type in the store's search box, SHORT and IN ENGLISH ("tacos de americano" → "football cleats", "tenis" → "sneakers", "sudadera" → "hoodie", "tele" → "tv"). No store names, prices or sizes in it.
   • WHAT THE SHOPPER SEES: the instant you call live_gallery the chat itself shows them a message in your voice — "¡Va! Déjame revisar New Balance por ti 🔎 Abro su tienda en un navegador en vivo…" — then the live browser, then the gallery. So call live_gallery RIGHT AWAY and write NO text of your own before or after it (it would say the same thing twice). Only when it cannot start (or a store you asked for cannot be opened live) do you write ONE short line. NEVER list, invent or promise products, prices or links — the gallery speaks for itself when it lands.
   THESE ARE ALL PRODUCT ASKS TOO, and each deserves live_gallery (after at most ONE narrowing question): a COMPARISON ("¿Nike o Adidas?" → both stores in one search, then compare the real items), ONE WORD or an EMOJI ("audífonos", "🎮" → video games and consoles, "👟" → sneakers), a STORE with no item ("qué hay en Target" → ask what they want there, then search it), a promo ask ("ofertas en Alo", "¿hay promociones en Target?", "promos de Walmart USA" → live_gallery RIGHT AWAY, NO narrowing question, searching that store for "sale" (or "deals"/"clearance" if that is the store's word; with an item named, that item + "sale"); its gallery shows each item's real was-price when it is on sale — never promise discounts the store does not have). AN iPHONE (new phone, not a case/charger) is searched at Walmart even when they name Best Buy or Target: those two only sell it tied to a US carrier plan, which cannot work in Mexico; say so in one short line and show Walmart's unlocked ones.
@@ -868,9 +868,12 @@ ONE QUESTION BEFORE A VAGUE SEARCH, NEVER MORE. The live browser has to go somew
 MODE 3 — BUILD THE BOX, THEN FINALIZE (where the money is made). The box IS their real cart: every item the box card shows goes into their Boxly cart at once, and they keep shopping. The point is to CONSOLIDATE several stores into one box: after each add, push for more from that store, then for the next store. When they tap Finalizar, the Boxly agent fills each store's REAL cart and checks out (live in the chat), creates their purchase request and sends the invoice with its Stripe payment link.
   ⓪ PICK, THEN ADD. When the shopper picks a product from the gallery ("quiero ese", "el segundo", a tap on "Agregar"), call show_shipment with EVERY item in the box — each with its saved_id (the registry id of the product), quantity and packing type. A product with real sizes/colours comes back "NOT IN THE BOX" and its picker card in the chat shows the options: say one line asking for the pick, never claim it was added, and add it on the NEXT turn with size/color set. When the shopper TYPES their choice for a product whose picker card is in the chat ("la negra en talla 9"), call show_shipment adding that product (its saved_id) with what they said — the box checks their words against the card and adds it only on an exact, in-stock match; otherwise it tells you what to ask. A product with nothing to choose is added immediately.
   ① AFTER show_shipment, FOLLOW THE TOOL'S NOTE EXACTLY. Its note says whether the item is now in their box (the store cart is built at Finalizar: confirm it and push for more from that store, then other stores) or being put in the store's cart live (then write EXACTLY the line it gives, nothing else). Never claim an item is in a STORE's cart unless a message says the store confirmed it.
-  ② A PASTED PRODUCT LINK is a product they already chose: add it with show_shipment (pass url, and a short name from the link). The box reads the product page itself — photo, price, sizes/colours — and the same pick-then-add rule applies. (A link from a store that is NOT on LIVE STORES — Temu, Shein… — cannot be bought by the agent: the tool says so; offer the same kind of product from a store on LIVE STORES. A store ON LIVE STORES is bought from, outside sellers included on Walmart and Amazon.)
-  ②c SCREENSHOTS OR PHOTOS OF LISTINGS they want Boxly to buy (a store's product page, an app screen): find each exact listing — live_gallery on that store with the listing's exact title (and the seller's name when shown) — so they tap the real one; or ask for the link (a share link like ebay.io works). NEVER put a store product in the box without its link: the agent cannot buy it and Finalizar refuses it. Remember them: "sí", "que lo compre Boxly", "esos" right after means THOSE products — never ask what they want to buy again.
-  ②b A LIST OF PRODUCT LINKS (2 or more links in one message) is a whole order they already chose: call show_link_list (no input) — ONE card reads every link and lets them pick what each link still needs. When they tap "Agregar todo" (their message says so and carries the list), call show_shipment ONCE (any items; the box takes the list itself) and then confirm and invite them to Finalizar. For a link from a store not on LIVE STORES, offer to find a similar product at a store on LIVE STORES.
+  ② A PASTED PRODUCT LINK is a product they already chose: add it with show_shipment (pass url, and a short name from the link). The box reads the product page itself — photo, price, sizes/colours — and the same pick-then-add rule applies. (A store does NOT need to be on LIVE STORES to be bought from by link: the agent buys from the store's own website. Only a marketplace like Temu or Shein, or a Mexican site, is refused — the tool says so; then offer the same kind of product from a store on LIVE STORES. A store ON LIVE STORES is bought from, outside sellers included on Walmart and Amazon.)
+  ②c SCREENSHOTS OR PHOTOS OF LISTINGS they want Boxly to buy (a store's product page, an app screen): find each exact listing — live_gallery on that store with the listing's exact title (and the seller's name when shown) — so they tap the real one; or ask for the link (a share link like ebay.io works). When that store is NOT on LIVE STORES you cannot search it: ask for the product's link right away (never call the store unsupported or "no integrada"). NEVER put a store product in the box without its link: the agent cannot buy it and Finalizar refuses it. Remember them: "sí", "que lo compre Boxly", "esos" right after means THOSE products — never ask what they want to buy again.
+  ②d THEIR OWN CART / BAG / CHECKOUT PAGE (…/cart, …/bag, …/checkout) is NOT a product: we cannot see their cart from here (it lives in their browser). Ask for each product's link instead — all of them in one message — and never show a card for it.
+  ⚑ A QUANTITY IS ABOUT THE PRODUCT IN PLAY. "Necesito 6 paquetes", "quiero 3", "x2" right after a product was pasted, photographed, shown or added means THAT product, that many: never a new search and never ask_to_narrow. In the box → show_shipment with its new quantity; not yet linked → ask for its link and add it with that quantity; on a card → the card has a quantity, say you'll add that many.
+  ⚑ "SOLO EL QUE YA AGREGUÉ" / "NADA MÁS ESO" KEEPS THE BOX: add nothing new (never a product they only looked at). Confirm what stays and invite them to Finalizar.
+  ②b A LIST OF PRODUCT LINKS (2 or more links in one message, or one link on its own) is a whole order they already chose: call show_link_list (no input) — ONE card reads every link and lets them pick what each link still needs. When they tap "Agregar todo" (their message says so and carries the list), call show_shipment ONCE (any items; the box takes the list itself) and then confirm and invite them to Finalizar. For a link from a store not on LIVE STORES, offer to find a similar product at a store on LIVE STORES.
   ③ FINALIZE ONLY WHEN THEY'RE DONE — "eso es todo", "ya", "créala", "haz el pedido", "finaliza", or the "Finalizar carrito" button. Then call finalize_order (no input): it places the order from the box; the agent builds each store's cart in the background and the invoice is EMAILED to them in a few minutes (it also appears in the chat's order card with Pagar). After it succeeds, write ONE short line: they can watch live right here as we build their cart in each store, and the invoice arrives by email in a few minutes (so closing the app is fine too). Do NOT ask for anything first and do NOT make them confirm twice. Adding items NEVER places the order.
   ⚑ AFTER A FINALIZE, A NEW BOX. Once finalize_order succeeded, that box is CLOSED (its order is placed). If they keep shopping in this chat, it is a NEW order: the next show_shipment lists ONLY the items added after the finalize — never re-list what was already ordered.
   ⚑ "QUIERO AGREGAR ALGO MÁS" — ASK, don't guess a brand. When they want to add more but do NOT say WHAT, ask what they'd like, framed around the box value: "Tienes espacio de sobra en tu caja 📦 — ¿qué más te late sumar para aprovechar el mismo envío? ¿Ropa, tenis, algo de tecnología, para la casa, un regalo…?" Then search that.
@@ -999,6 +1002,14 @@ export default defineEventHandler(async (event) => {
   const newestText = (newestUser?.parts || []).filter((p: any) => p?.type === 'text').map((p: any) => p.text).join(' ')
   // …and ONE link pasted on its own (isLinkOnly): the same card reads it in the browser, never a server read past the ~30 s cut
   const linkListAsk = !linkListAdd && (linkListUrls(newestText).length >= 2 || isLinkOnly(newestText))
+  // A STORE CART / CHECKOUT PAGE pasted with no product link (live WSS 2026-10-18: shopwss.com/cart, twice): we cannot see their cart —
+  // it lives in their own browser — so the reply asks for each product's link. Text only.
+  const cartPasted = !linkListAdd ? cartLinks(newestText) : []
+  const cartLinkAsk = cartPasted.length > 0 && linkListUrls(newestText).length === 0
+  // A QUANTITY ON ITS OWN ("Necesito 6 paquetes") is about the product already in play — never a new, vague search (live WSS
+  // 2026-10-18: it got "¿qué categoría?" buttons). "Solo el que ya agregué" keeps the box as it is (live Dick's 2026-10-18).
+  const qtyOnly = !linkListAdd ? quantityOnly(newestText) : null
+  const keepAsIs = !linkListAdd && keepsBoxAsIs(newestText)
   // The agent finished putting a box item in the store's real cart (or the store refused). The client sends this
   // as a hidden turn; the assistant confirms it — the ONLY moment it may say the item is in the cart.
   const ce = token && body?.cartEvent && typeof body.cartEvent === 'object' ? body.cartEvent : null
@@ -1077,11 +1088,11 @@ export default defineEventHandler(async (event) => {
   // Balance" name a gendered category with nobody to wear it, so the gate answered two
   // advertised cards with a question instead of the store. The card narrows the search
   // by naming the brand; the prompt asks its question AFTER the gallery is up.
-  const mustNarrow = !body?.fromStarterCard && audienceGap(messages)
+  const mustNarrow = !body?.fromStarterCard && !qtyOnly && !keepAsIs && !cartLinkAsk && audienceGap(messages)
   // A message that is only a store's name ("Gymshark") asks to see that store (Alex, 2026-09-28: it got a pitch about
   // shipping and cards and no products). The live browser needs somewhere specific to go, so the first step is the
   // one question "¿qué buscas en Gymshark?" (ask_to_narrow). Short messages only; the stores are the engine's.
-  const bareStore = !body?.fromStarterCard && !cartEvent && !finalizeTap && !mustNarrow && String(question || '').split(/\s+/).length <= 7
+  const bareStore = !body?.fromStarterCard && !cartEvent && !finalizeTap && !mustNarrow && !qtyOnly && !cartLinkAsk && String(question || '').split(/\s+/).length <= 7
     ? bareStoreAsk(String(question || ''), liveCatalog?.stores || [])
     : null
   const cartEventBlock = cartEvent
@@ -1103,7 +1114,17 @@ export default defineEventHandler(async (event) => {
   const bareStoreBlock = token && bareStore
     ? `THE SHOPPER TYPED ONLY A STORE: "${bareStore}". Ask what they want there with ask_to_narrow — ONE short question ("¿Qué buscas en ${bareStore}?") and 3-4 of that store's main categories as the answers — so the live browser goes straight to it. No products and no other text this turn.`
     : ''
-  const ctx = [summaryBlock(summaryState), shopperContext(!!token, shoppingProfile, savedProducts), narrowBlock(mustNarrow), liveBlock, cartEventBlock, bareStoreBlock].filter(Boolean).join('\n\n')
+  const cartHost = (() => { try { return new URL(cartPasted[0]).hostname.replace(/^www\./, '') } catch { return 'la tienda' } })()
+  const cartLinkBlock = cartLinkAsk
+    ? `THE SHOPPER PASTED THEIR OWN CART / CHECKOUT PAGE (${cartHost}), not a product. That page lives in THEIR browser session: opened from here it is an empty cart, so it can NOT be read. Reply in Spanish in two short lines, no tools: you can't open their ${cartHost} cart from here; ask them to open each product in that cart and paste its link (the product page's address, or Compartir → Copiar enlace) — all the links in ONE message works, up to ${LINK_LIST_MAX}, and you add them all to their box at once with the quantity they want. Never say the store is not supported.`
+    : ''
+  const qtyBlock = qtyOnly
+    ? `THE SHOPPER SAID A QUANTITY: ${qtyOnly}. It is about the product ALREADY IN PLAY in this chat (the last one they pasted, photographed, picked on a card or added) — it is NOT a new search: no ask_to_narrow, no live_gallery. If that product is in the box, call show_shipment with ALL the box's items and that one at quantity ${qtyOnly}, then confirm in one line. If its picker card is waiting for a size/colour, say in one line you'll add ${qtyOnly} as soon as they pick (the card has a quantity too). If you do not have its product link yet (a photo, a product code, a store you cannot search live), ask for the link in ONE line and say you'll add ${qtyOnly}.`
+    : ''
+  const keepBlock = keepAsIs
+    ? `THE SHOPPER WANTS TO KEEP THE BOX AS IT IS ("${newestText.slice(0, 120)}"): add NOTHING new — not a product they only looked at, not one whose card is open. If they mean dropping other items, call show_shipment with ONLY the items they keep; otherwise call no tool and confirm in one short line what stays in the box and invite them to tap Finalizar.`
+    : ''
+  const ctx = [summaryBlock(summaryState), shopperContext(!!token, shoppingProfile, savedProducts), narrowBlock(mustNarrow), liveBlock, cartEventBlock, bareStoreBlock, cartLinkBlock, qtyBlock, keepBlock].filter(Boolean).join('\n\n')
   // History → model, bounded (see server/utils/chatContext.ts):
   //  1. old galleries collapse to a one-line marker (the products stay in the registry),
   //  2. hysteresis window (MAX 14 msgs / 6k tokens → keep 8; hard cap 9k),
@@ -1224,6 +1245,9 @@ export default defineEventHandler(async (event) => {
       if (linkListAdd && !(steps || []).length) return { activeTools: ['show_shipment'], toolChoice: 'required' }
       if (linkListAsk && !(steps || []).length) return { activeTools: ['show_link_list'], toolChoice: 'required' }
       if ((linkListAdd || linkListAsk) && (steps || []).length) return { activeTools: [], toolChoice: 'none' }
+      if (cartLinkAsk) return { activeTools: [], toolChoice: 'none' }
+      // a quantity or "keep the box" is answered on the box, never with a question or a new gallery
+      if (qtyOnly || keepAsIs) return { activeTools: NON_GALLERY_TOOLS.filter((t) => t !== 'show_link_list') }
       if (galleryShown) return { activeTools: NON_GALLERY_TOOLS }
       // THE QUESTION IS NOT OPTIONAL when the ask has an audience-shaped hole in it
       // (see audienceGap). Offering ask_to_narrow alongside the search tools is what
@@ -1355,8 +1379,20 @@ export default defineEventHandler(async (event) => {
           })).min(1),
         }),
         execute: async ({ items: drawn }) => {
+          // "SOLO EL QUE YA HABÍA AGREGADO" ADDS NOTHING (live Dick's 2026-10-18: that line put a goalkeeper jersey the shopper had only
+          // looked at on hold for a size, beside the jersey already in the box). Only items already in the box may be listed.
+          const before = boxFromMessages(messages) || []
+          if (keepAsIs) {
+            const keys = (it: any) => [it?.saved_id, it?.url && String(it.url).split('?')[0].toLowerCase(), it?.name && String(it.name).trim().toLowerCase()].filter(Boolean)
+            const had = new Set(before.flatMap(keys))
+            const fresh = (drawn || []).filter((it: any) => !keys(it).some((k) => had.has(k)))
+            if (fresh.length) return { hold: true, ok: false, note: `STOP — NOTHING WAS ADDED. The shopper asked to keep only what is ALREADY in the box; ${fresh.map((it: any) => `"${it.name}"`).join(', ')} ${fresh.length > 1 ? 'are' : 'is'} not in it and must NOT be added. Do not call show_shipment again unless they asked to drop items (then list only the ones they keep). Confirm in ONE short line what stays in the box (${before.map((it: any) => `"${it.name}"`).join(', ') || 'nothing yet'}) and invite them to tap Finalizar.` }
+          }
+          // A cart / checkout page is not a product (live WSS 2026-10-18): it is never put in the box.
+          const cartItem = (drawn || []).find((it: any) => it?.url && isCartLink(String(it.url)))
+          if (cartItem) return { hold: true, ok: false, note: `STOP — "${cartItem.url}" is the shopper's own CART / CHECKOUT page, not a product: it is NOT in the box. We cannot see their cart from here (it lives in their browser). Ask in ONE short line for each product's own link — all of them in one message works — and you add them all at once.` }
           // a card that adds never drops what the box already held (the model sometimes lists only the new store's items)
-          const input = withEarlierItems(boxFromMessages(messages), drawn)
+          const input = withEarlierItems(before, drawn)
           // THE QUANTITY PICKED ON THE CARD (Alex 2026-10-05: five leggings): the newest user message carries it as
           // metadata.quantity; the item just added takes it, whatever the model typed.
           {
@@ -1374,7 +1410,7 @@ export default defineEventHandler(async (event) => {
           if (linkList.length) {
             const ship: any = await buildShipment(items)
             ship.store_options = linkListBox(linkList).storeOptions
-            ship.note = `LINK LIST ADDED: ${linkList.length} product${linkList.length > 1 ? 's' : ''} from the shopper's list ${linkList.length > 1 ? 'are' : 'is'} in their Boxly box now, each with the options picked on the list card (${linkList.map((e) => `"${e.title}"${Object.keys(e.variants).length ? ` (${Object.values(e.variants).join(', ')})` : ''}`).join('; ')}). Confirm it in ONE or two short lines and invite them to tap Finalizar to get every store's real total in one order. Do NOT ask for sizes or colours.`
+            ship.note = `LINK LIST ADDED: ${linkList.length} product${linkList.length > 1 ? 's' : ''} from the shopper's list ${linkList.length > 1 ? 'are' : 'is'} in their Boxly box now, each with the options and quantity picked on the list card (${linkList.map((e) => `"${e.title}"${Object.keys(e.variants).length ? ` (${Object.values(e.variants).join(', ')})` : ''}${e.quantity > 1 ? ` ×${e.quantity}` : ''}`).join('; ')}). Say each quantity over 1 as it is. Confirm it in ONE or two short lines and invite them to tap Finalizar to get every store's real total in one order. Do NOT ask for sizes or colours.`
             return ship
           }
           // The registry is the truth for anything the model would otherwise retype: the box card must show the
@@ -1677,7 +1713,7 @@ export default defineEventHandler(async (event) => {
       }),
 
       show_link_list: tool({
-        description: `The shopper's message holds a LIST of product links (2 or more) they already chose: call this ONCE, with no input. It reads the links straight from their message (up to ${LINK_LIST_MAX}) and shows ONE card where every product's page is read, the choices a link does not already make (size, colour) are picked, and "Agregar todo" puts the whole list in the box together. Never search for these products and never call show_shipment for them yourself.`,
+        description: `The shopper's message holds product links they already chose (2 or more, or one link pasted on its own): call this ONCE, with no input. It reads the links straight from their message (up to ${LINK_LIST_MAX}) and shows ONE card where every product's page is read, the choices a link does not already make (size, colour) are picked, and "Agregar todo" puts the whole list in the box together. Never search for these products and never call show_shipment for them yourself.`,
         inputSchema: z.object({}),
         execute: async () => {
           const lastUser = [...(messages || [])].reverse().find((m: any) => m?.role === 'user')
@@ -1688,13 +1724,20 @@ export default defineEventHandler(async (event) => {
           const links = urls.map((url) => {
             const { wanted } = wantedFromBox([{ name: url, url, quantity: 1 } as any], storeRegistry, carriedStores, null, pastedPages(messages))
             const w = wanted[0]
-            return { url, supported: !!w, ...(w ? { store_id: w.store_id, store_name: w.store_name || w.store_id } : {}) }
+            return { url, supported: !!w, ...(w ? { store_id: w.store_id, store_name: w.store_name || w.store_id } : {}) } as any
           })
+          // THE QUANTITY THEY SAID comes onto the card (live WSS 2026-10-18: "Necesito 6 paquetes", then the link — added ×1). One link
+          // only: with several, a number in the message is not clearly any one product's.
+          const userTexts = [...(messages || [])].reverse().filter((m: any) => m?.role === 'user')
+            .map((m: any) => (m.parts || []).filter((p: any) => p?.type === 'text').map((p: any) => p.text).join(' '))
+          const qty = links.length === 1 ? recentStatedQuantity(userTexts) : null
+          if (qty && links[0].supported) links[0].quantity = qty
+          const carts = cartLinks(text)
           const off = links.filter((l) => !l.supported)
           const host = (u: string) => { try { return new URL(u).hostname.replace(/^www\./, '') } catch { return u } }
           return {
             ok: true, links,
-            note: `LINK LIST CARD — it is on screen now and reads all ${links.length} product page${links.length > 1 ? 's' : ''} by itself. Write ONE short line in Spanish: you are reading their ${links.length} links; they pick size/colour where the card asks, then tap "Agregar todo".${off.length ? ` ${off.length} link${off.length > 1 ? 's are' : ' is'} from a store the Boxly agent cannot buy from (${[...new Set(off.map((l) => host(l.url)))].join(', ')}): say so in the same reply and OFFER to find a similar product at a store from LIVE STORES (ask which, or propose the closest store) — do NOT search before they say yes.` : ''} Do NOT list the products, do NOT search, do NOT call show_shipment now.`,
+            note: `LINK LIST CARD — it is on screen now and reads all ${links.length} product page${links.length > 1 ? 's' : ''} by itself. Write ONE short line in Spanish: you are reading their ${links.length} links; they pick size/colour where the card asks, then tap "Agregar todo".${qty && links[0].supported ? ` The card already carries the ${qty} they asked for (they can change it on the card) — say so.` : ''}${carts.length ? ` They also pasted their own cart page (${carts.map(host).join(', ')}): it cannot be read from here — ask for the links of any other products in it.` : ''}${off.length ? ` ${off.length} link${off.length > 1 ? 's are' : ' is'} from a store the Boxly agent cannot buy from (${[...new Set(off.map((l) => host(l.url)))].join(', ')}): say so in the same reply and OFFER to find a similar product at a store from LIVE STORES (ask which, or propose the closest store) — do NOT search before they say yes.` : ''} Do NOT list the products, do NOT search, do NOT call show_shipment now.`,
           }
         },
       }),

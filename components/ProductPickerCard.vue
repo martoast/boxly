@@ -186,7 +186,8 @@ const hasChoices = computed(() => colorways.value.length > 1 || (read.value?.axe
   || (!(read.value?.axes || []).length && (read.value?.variants || []).length > 1))
 
 const leadImage = ref(null)
-const qty = ref(1)
+// starts at the quantity the chat already knows (a link-list row carries what the shopper said), else 1
+const qty = ref(Number.isInteger(Number(props.part?.input?.quantity)) && Number(props.part.input.quantity) > 1 ? Math.min(20, Number(props.part.input.quantity)) : 1)
 const broken = ref(null)
 const pickedPrice = ref(null)
 // PRICE ON PICK (2026-10-05): an option the page left unpriced (Ulta sizes) is asked of the store once, by its sku; until the

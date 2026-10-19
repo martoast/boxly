@@ -38,8 +38,14 @@
             <p class="text-[12px] text-gray-600">
               <span v-if="row.choice.price != null" class="font-bold text-gray-900">${{ usd(row.choice.price) }}</span>
               <span v-if="choiceText(row)"> · {{ choiceText(row) }}</span>
-              <span v-if="row.choice.quantity > 1"> · ×{{ row.choice.quantity }}</span>
+              <span v-if="sent && row.choice.quantity > 1"> · ×{{ row.choice.quantity }}</span>
             </p>
+          </div>
+          <!-- HOW MANY (live WSS 2026-10-18: "6 paquetes" went in ×1): starts at what they asked for, changeable until sent -->
+          <div v-if="!sent" class="shrink-0 flex items-center rounded-full border border-gray-200">
+            <button type="button" aria-label="Menos" :disabled="row.choice.quantity <= 1" class="w-7 h-7 grid place-items-center text-base text-gray-600 disabled:text-gray-300" @click="setQty(row, row.choice.quantity - 1)">−</button>
+            <span class="w-6 text-center text-[13px] font-bold tabular-nums text-gray-900">{{ row.choice.quantity }}</span>
+            <button type="button" aria-label="Más" :disabled="row.choice.quantity >= 20" class="w-7 h-7 grid place-items-center text-base text-gray-600 disabled:text-gray-300" @click="setQty(row, row.choice.quantity + 1)">+</button>
           </div>
           <span class="shrink-0 text-emerald-600 text-[12px] font-bold">✓</span>
           <button v-if="!sent && row.hasChoices" type="button" class="shrink-0 text-[12px] font-semibold text-primary-600 underline underline-offset-2" @click="row.choice = null">Cambiar</button>
@@ -83,11 +89,13 @@ const host = (u) => { try { return new URL(u).hostname.replace(/^www\./, '') } c
 const pinsVersion = (u) => /[?&](?:variant|sku|skuid|size|color|colour|dwvar_[^=]*)=/i.test(String(u)) || /amazon\.com\/(?:[^/]+\/)?dp\//i.test(String(u))
 const kindKey = (a) => (a?.kind && a.kind !== 'other' ? a.kind : a?.name)
 
+// the quantity the shopper said in the chat (the assistant puts it on the link), 1-20
+const qtyOf = (n) => (Number.isInteger(Number(n)) && Number(n) >= 1 ? Math.min(20, Number(n)) : 1)
 const rows = reactive(links.value.map((l) => ({
-  url: l.url, supported: !!l.supported, store_id: l.store_id || null, store_name: l.store_name || host(l.url),
+  url: l.url, supported: !!l.supported, store_id: l.store_id || null, store_name: l.store_name || host(l.url), want: qtyOf(l.quantity),
   title: null, image: null, busy: false, hasChoices: false, choice: null, started: false, soldOut: false,
   // every buyable row shows "reading" from the start — one store is read one link at a time, so a row can wait its turn
-  part: l.supported ? { type: PICKER_PART, toolCallId: `linklist-${l.url}`, state: 'input-available', input: { product: { title: '', url: l.url, image: null, store_name: l.store_name || host(l.url), store_id: l.store_id || null } } } : null,
+  part: l.supported ? { type: PICKER_PART, toolCallId: `linklist-${l.url}`, state: 'input-available', input: { quantity: qtyOf(l.quantity), product: { title: '', url: l.url, image: null, store_name: l.store_name || host(l.url), store_id: l.store_id || null } } } : null,
 })))
 const sent = ref(false)
 
@@ -133,7 +141,7 @@ async function queue() {
 async function read(row, { readUrl = row.url, colorways = null, fresh = false } = {}) {
   if (row.busy) return
   row.busy = true
-  if (!row.part || row.part.state === 'output-error') row.part = { type: PICKER_PART, toolCallId: `linklist-${row.url}`, state: 'input-available', input: { product: product(row) } }
+  if (!row.part || row.part.state === 'output-error') row.part = { type: PICKER_PART, toolCallId: `linklist-${row.url}`, state: 'input-available', input: { quantity: row.want, product: product(row) } }
   let r = null, why = ''
   // the same patience as a picker card: a slow read answers "reading" before Netlify's cut, and is asked again
   for (let attempt = 0, failures = 0; alive && attempt < 12 && failures < 2 && !r; attempt++) {
@@ -155,7 +163,7 @@ async function read(row, { readUrl = row.url, colorways = null, fresh = false } 
   const axes = Array.isArray(r.axes) ? r.axes : []
   const colorwaysOf = Array.isArray(r.colorways) ? r.colorways : []
   row.hasChoices = colorwaysOf.length > 1 || axes.some((a) => (a?.values?.length || 0) > 1)
-  row.part = { type: PICKER_PART, toolCallId: `linklist-${row.url}`, state: 'output-available', input: {}, output: { product: product(row), read: r, read_at: new Date().toISOString(), read_url: readUrl } }
+  row.part = { type: PICKER_PART, toolCallId: `linklist-${row.url}`, state: 'output-available', input: { quantity: row.want }, output: { product: product(row), read: r, read_at: new Date().toISOString(), read_url: readUrl } }
   if (!row.supported || row.choice) return
   // nothing to choose → ready as it is; a link that pins its version, with every choice selected on its page → ready with that choice
   const multi = axes.filter((a) => (a?.values?.length || 0) > 1)
@@ -173,13 +181,18 @@ async function read(row, { readUrl = row.url, colorways = null, fresh = false } 
     const variants = {}
     for (const a of axes) if (selected[a.name] != null && (pinned || (a.values?.length || 0) === 1)) variants[kindKey(a)] = String(selected[a.name])
     if (r.own_color && !variants.color) variants.color = r.own_color
-    row.choice = { title: row.title || host(row.url), url: readUrl, image: row.image, price: r.product?.price ?? null, quantity: 1, variants }
+    row.choice = { title: row.title || host(row.url), url: readUrl, image: row.image, price: r.product?.price ?? null, quantity: row.want, variants }
     persist()
   }
 }
 // The row's own picker card chose (its "Agregar al carrito"): that choice is this row's — nothing is sent yet.
 function choose(row, p) {
-  row.choice = { title: p.title || row.title || host(row.url), url: p.url || row.url, image: p.image || row.image, price: p.price ?? null, quantity: Number(p.quantity) > 1 ? Number(p.quantity) : 1, variants: { ...(p.pick?.variants || {}) } }
+  row.choice = { title: p.title || row.title || host(row.url), url: p.url || row.url, image: p.image || row.image, price: p.price ?? null, quantity: qtyOf(p.quantity), variants: { ...(p.pick?.variants || {}) } }
+  persist()
+}
+function setQty(row, n) {
+  if (sent.value || !row.choice) return
+  row.choice = { ...row.choice, quantity: Math.min(20, Math.max(1, n)) }
   persist()
 }
 const choiceText = (row) => Object.values(row.choice?.variants || {}).join(', ')
