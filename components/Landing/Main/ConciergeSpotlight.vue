@@ -31,7 +31,6 @@
                 {{ t.cta }}
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
               </NuxtLink>
-              <p class="text-xs text-white/70 sm:self-center leading-snug max-w-[200px]">{{ t.hint }}</p>
             </div>
           </div>
 
@@ -61,7 +60,6 @@ const t = createTranslations({
   headline: { es: 'Tu personal shopper en USA', en: 'Your personal shopper in the US' },
   subline:  { es: 'Reserva una hora con tu shopper en San Diego, compra por ti y lo enviamos a México.', en: 'Reserve an hour with your shopper in San Diego, she shops for you and we ship to Mexico.' },
   cta:      { es: 'Reservar horario', en: 'Reserve a time' },
-  hint:     { es: 'Reservas tu horario con $30 USD', en: 'Reserve your time with $30 USD' },
   imageAlt: { es: 'Personal shopper de Boxly en San Diego', en: 'Boxly personal shopper in San Diego' },
 })
 </script>

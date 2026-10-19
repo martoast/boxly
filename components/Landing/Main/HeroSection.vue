@@ -68,19 +68,34 @@
       </div>
 
       <!-- Infinite logo strip, white-on-photo, pinned to the bottom of the
-           hero. Edges are masked so logos fade in/out over the image. -->
+           hero. Edges are masked so logos fade in/out over the image.
+           A REAL scroller (2026-10-19): users reported they couldn't swipe it
+           and that it went blank at the end. It used to be a CSS translate
+           inside overflow-hidden — nothing to swipe, a tap left iOS's sticky
+           :hover pausing it, and the -100%/3 loop drifted by a third of a gap
+           per lap. Now the finger scrolls it natively and `tick` auto-advances
+           it, wrapping by the MEASURED width of one set in both directions. -->
       <div class="relative pb-5 sm:pb-6">
-        <div class="logo-marquee-mask overflow-hidden">
-          <div class="flex gap-8 sm:gap-10 lg:gap-12 w-max animate-hero-logo-scroll">
-            <template v-for="n in 3" :key="`set-${n}`">
+        <div
+          ref="strip"
+          class="logo-marquee-mask logo-strip overflow-x-auto"
+          @touchstart.passive="hold"
+          @touchend.passive="release"
+          @touchcancel.passive="release"
+          @pointerenter="e => e.pointerType === 'mouse' && hold()"
+          @pointerleave="e => e.pointerType === 'mouse' && release()"
+          @wheel.passive="nudge"
+        >
+          <div ref="track" class="flex gap-8 sm:gap-10 lg:gap-12 w-max">
+            <template v-for="n in COPIES" :key="`set-${n}`">
               <img
                 v-for="(logo, index) in logos"
                 :key="`logo-${n}-${index}`"
                 :src="logo.src"
-                :alt="logo.alt"
-                width="120" height="40"
+                :alt="n === 1 ? logo.alt : ''"
+                :aria-hidden="n === 1 ? undefined : 'true'"
+                width="120" height="120"
                 class="h-10 sm:h-12 w-auto object-contain flex-shrink-0 hero-logo-white opacity-70"
-                loading="lazy"
                 decoding="async"
                 draggable="false"
               />
@@ -93,7 +108,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
 const { t: createTranslations } = useLanguage()
 const user = useUser()
@@ -140,6 +155,78 @@ const logos = [
   { src: '/images/stores/ulta-beauty.png', alt: 'Ulta Beauty' },
   { src: 'https://static.nc-myus.com/images/pub/www/uploads/image/774f8d281cfe45ef81f7882de1599be2/carters-logo-120x120.png', alt: "Carter's" },
 ]
+
+// The strip scrolls within [one set, two sets); five copies keep logos on
+// screen up to a viewport three sets wide (~3,400px at lg sizes).
+const COPIES = 5
+const SPEED = 30         // px per second of auto-scroll
+const RESUME_MS = 2500   // after a swipe, let momentum settle before taking over
+
+const strip = ref(null)
+const track = ref(null)
+let period = 0           // exact width of one set, gap included
+let pos = 0              // float position — scrollLeft rounds on some browsers
+let held = false
+let resumeAt = 0
+let last = 0
+let raf = 0
+let observer = null
+
+function measure() {
+  const imgs = track.value?.children
+  if (!imgs || imgs.length <= logos.length) return
+  const next = imgs[logos.length].offsetLeft - imgs[0].offsetLeft
+  if (next > 0 && next !== period) {
+    // Keep the same logo under the viewport when the layout changes (a logo
+    // finishing loading, a resize).
+    const into = period ? (pos - period) / period : 0
+    period = next
+    pos = period + into * period
+    strip.value.scrollLeft = pos
+  }
+}
+
+function hold() { held = true }
+function release() { held = false; nudge() }
+function nudge() { resumeAt = performance.now() + RESUME_MS }
+
+function tick(t) {
+  const el = strip.value
+  const dt = last ? Math.min(t - last, 100) / 1000 : 0
+  last = t
+  if (el && period) {
+    const auto = !held && t >= resumeAt
+    pos = auto ? pos + SPEED * dt : el.scrollLeft
+    let wrapped = false
+    if (pos >= 2 * period) { pos -= period; wrapped = true }
+    else if (pos < period) { pos += period; wrapped = true }
+    // Only write while auto-scrolling or to wrap; writing during a swipe would
+    // fight the finger.
+    if (auto || wrapped) el.scrollLeft = pos
+  }
+  raf = requestAnimationFrame(tick)
+}
+
+onMounted(() => {
+  measure()
+  observer = new ResizeObserver(measure)
+  observer.observe(track.value)
+  // Reduced motion: still swipeable, just never moves on its own.
+  if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    raf = requestAnimationFrame(tick)
+  } else {
+    strip.value.addEventListener('scroll', () => {
+      pos = strip.value.scrollLeft
+      if (pos >= 2 * period) strip.value.scrollLeft = pos - period
+      else if (pos < period) strip.value.scrollLeft = pos + period
+    }, { passive: true })
+  }
+})
+
+onBeforeUnmount(() => {
+  cancelAnimationFrame(raf)
+  observer?.disconnect()
+})
 </script>
 
 <style scoped>
@@ -148,26 +235,18 @@ const logos = [
   filter: brightness(0) invert(1);
 }
 
-/* Track is tripled; shifting by one set (-100%/3) loops seamlessly. */
-@keyframes hero-logo-scroll {
-  from { transform: translateX(0); }
-  to   { transform: translateX(calc(-100% / 3)); }
+/* Swipeable, but no visible scrollbar. */
+.logo-strip {
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
 }
-.animate-hero-logo-scroll {
-  animation: hero-logo-scroll 50s linear infinite;
-  will-change: transform;
-}
-.animate-hero-logo-scroll:hover {
-  animation-play-state: paused;
+.logo-strip::-webkit-scrollbar {
+  display: none;
 }
 
 /* Fade the strip edges into the photo instead of a hard cut. */
 .logo-marquee-mask {
   -webkit-mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent);
           mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .animate-hero-logo-scroll { animation: none; }
 }
 </style>
