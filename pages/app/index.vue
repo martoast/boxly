@@ -19,27 +19,10 @@
       </h1>
       <p class="mt-1 text-[14px] text-gray-500">Tu centro de envíos de Estados Unidos a México.</p>
 
-      <!-- At a glance — real counts from the account (see loadCounts). -->
-      <div class="mt-4 grid grid-cols-2 gap-3">
-        <NuxtLink
-          v-for="s in statTiles"
-          :key="s.key"
-          to="/app/orders"
-          class="rounded-2xl border border-gray-200 bg-white p-4 hover:border-primary-200 hover:shadow-sm transition"
-        >
-          <svg class="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="s.icon" /></svg>
-          <p class="mt-2 text-[24px] font-extrabold text-gray-900 leading-none tabular-nums">
-            <span v-if="s.value === null" class="inline-block w-6 h-6 rounded-md bg-gray-100 animate-pulse align-middle" aria-label="Cargando"></span>
-            <template v-else>{{ s.value }}</template>
-          </p>
-          <p class="mt-1.5 text-[13px] text-gray-500">{{ s.label }}</p>
-        </NuxtLink>
-      </div>
-
       <!-- Primary action — create the shipment. -->
       <NuxtLink
         to="/app/orders/create"
-        class="group relative mt-3 block overflow-hidden rounded-[1.4rem] bg-primary-600 hover:bg-primary-700 text-white p-5 shadow-lg shadow-primary-600/20 active:scale-[.99] transition"
+        class="group relative mt-4 block overflow-hidden rounded-[1.4rem] bg-primary-600 hover:bg-primary-700 text-white p-5 shadow-lg shadow-primary-600/20 active:scale-[.99] transition"
       >
         <div class="flex items-start justify-between">
           <svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="ICONS.boxPlus" /></svg>
@@ -99,9 +82,8 @@
 
 <script setup>
 // The logged-in home — a shipping control centre (redesign 2026-10-19): who you
-// are, what's in San Diego / on the way, the create-shipment action, your US
-// address, and a list of everything else. The live store browser lives at
-// /app/browse.
+// are, the create-shipment action, your US address, and a list of everything
+// else. The live store browser lives at /app/browse.
 definePageMeta({
   layout: 'app',
   middleware: ['auth', 'customer', 'complete-profile'],
@@ -109,15 +91,12 @@ definePageMeta({
 useHead({ title: 'Boxly — Tu casillero' })
 
 const user = useUser()
-const { $customFetch } = useNuxtApp()
 
 const firstName = computed(() => (user.value?.name || '').trim().split(/\s+/)[0] || '')
 
 const ICONS = {
   pin: 'M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0zM15 11a3 3 0 11-6 0 3 3 0 016 0z',
-  box: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4',
   boxPlus: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v5m-8-1L4 7m8 4v10M4 7v10l8 4m6-5v6m-3-3h6',
-  truck: 'M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0',
   sparkle: 'M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z',
   bag: 'M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z',
   locker: 'M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6',
@@ -133,38 +112,6 @@ const explore = [
   { to: '/app/pricing', title: 'Precios y cómo funciona', sub: 'Tamaños de caja y tarifas', icon: ICONS.tag },
 ]
 
-// At-a-glance counts. null = still loading (a skeleton, never a fake number).
-//   En San Diego — packages marked arrived on orders still at the warehouse.
-//   En camino    — orders shipped to Mexico, from the API's exact total.
-// GET /orders pages at 10 but filters by status, so each status is asked for
-// separately instead of counting from the newest 10 orders overall.
-const WAREHOUSE_STATUSES = ['collecting', 'awaiting_packages', 'packages_complete', 'processing']
-const counts = ref({ sanDiego: null, onTheWay: null })
-
-const statTiles = computed(() => [
-  { key: 'sd', label: 'En San Diego', value: counts.value.sanDiego, icon: ICONS.box },
-  { key: 'way', label: 'En camino', value: counts.value.onTheWay, icon: ICONS.truck },
-])
-
-const ordersWithStatus = (status) =>
-  $customFetch('/orders', { params: { status, page: 1 } }).then((r) => r?.data || {})
-
-async function loadCounts() {
-  try {
-    const [shipped, ...warehouse] = await Promise.all([
-      ordersWithStatus('shipped'),
-      ...WAREHOUSE_STATUSES.map(ordersWithStatus),
-    ])
-    const arrived = warehouse
-      .flatMap((page) => page.data || [])
-      .reduce((n, order) => n + (order.items || []).filter((item) => item.arrived).length, 0)
-    counts.value = { sanDiego: arrived, onTheWay: shipped.total ?? (shipped.data || []).length }
-  } catch (error) {
-    console.error('Error loading home counts:', error)
-    counts.value = { sanDiego: '—', onTheWay: '—' } // unknown, not zero
-  }
-}
-
 // Terms update notice — shown when the account hasn't accepted the version the API calls current.
 const termsDismissed = ref(true) // client decides after mount; SSR renders nothing
 const termsNoticeKey = computed(() => `boxly-terms-notice-${user.value?.current_terms_version || ''}`)
@@ -172,7 +119,6 @@ const showTermsNotice = computed(() =>
   !termsDismissed.value && !!user.value?.current_terms_version && user.value.terms_version !== user.value.current_terms_version)
 onMounted(() => {
   try { termsDismissed.value = localStorage.getItem(termsNoticeKey.value) === '1' } catch { termsDismissed.value = false }
-  loadCounts()
 })
 function dismissTermsNotice() {
   termsDismissed.value = true
