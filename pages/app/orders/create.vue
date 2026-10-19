@@ -406,6 +406,7 @@
                 <p class="mt-6 text-center text-xs text-gray-500 leading-relaxed">
                   <span class="font-semibold text-gray-700">{{ t.howTrustStrong }}</span> {{ t.howTrustRest }}
                 </p>
+                <p class="mt-2 text-center text-xs text-gray-500 leading-relaxed">{{ t.howTrustShip }}</p>
 
                 <!-- Pricing catalog link (new tab so the form isn't lost) -->
                 <NuxtLink
@@ -438,8 +439,8 @@
             leave-to-class="opacity-0 -translate-y-4"
           >
             <div v-if="form.order_type === 'shipping'">
-              <!-- Address Mode Toggle (hidden while a Maps link is provided) -->
-              <div v-if="!hasGmapsLink" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6 animate-fadeIn">
+              <!-- Address Mode Toggle -->
+              <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6 animate-fadeIn">
                 <div class="flex items-center justify-between">
                   <div>
                     <h2 class="text-lg font-bold text-gray-900">{{ t.deliveryAddressTitle }}</h2>
@@ -467,47 +468,6 @@
                 </div>
               </div>
 
-              <!-- Google Maps link — the most accurate + seamless option -->
-              <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6 animate-fadeIn">
-                <label for="gmaps_link" class="block text-sm font-semibold text-gray-900">{{ t.gmapsLinkLabel }}</label>
-                <p class="text-sm text-gray-500 mt-1 mb-3">{{ t.gmapsLinkDescription }}</p>
-                <div class="relative">
-                  <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0zM15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                  </span>
-                  <input
-                    id="gmaps_link"
-                    type="text"
-                    inputmode="url"
-                    v-model="form.delivery_address.google_maps_link"
-                    :placeholder="t.gmapsLinkPlaceholder"
-                    class="w-full pl-11 pr-4 py-3 rounded-xl border border-gray-200 text-base focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
-                  />
-                </div>
-                <a href="https://maps.google.com" target="_blank" rel="noopener" class="inline-flex items-center gap-1 mt-2.5 text-xs font-medium text-primary-600 hover:text-primary-700">
-                  {{ t.gmapsLinkHelp }}
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-                </a>
-              </div>
-
-              <!-- Maps-link confirmation — the written address is optional once we have a link -->
-              <div v-if="hasGmapsLink" class="bg-green-50 rounded-2xl border border-green-200 p-5 mb-6 flex items-start gap-3 animate-fadeIn">
-                <span class="flex-shrink-0 w-9 h-9 rounded-full bg-green-100 text-green-600 grid place-items-center">
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                </span>
-                <div class="min-w-0">
-                  <p class="font-semibold text-gray-900 text-sm">{{ t.gmapsConfirmTitle }}</p>
-                  <p class="text-sm text-gray-600 mt-1">{{ t.gmapsConfirmBody }}</p>
-                  <label class="mt-3 flex items-center gap-2 cursor-pointer">
-                    <input v-model="form.save_address" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-primary-500 focus:ring-primary-500" />
-                    <span class="text-sm text-gray-700">{{ t.saveAddressLabel }}</span>
-                  </label>
-                </div>
-              </div>
-
-              <!-- Manual address entry (removed from the DOM while a Maps link is provided,
-                   so its required fields never block submission) -->
-              <template v-if="!hasGmapsLink">
               <!-- Full Address Mode -->
               <div v-if="useFullAddress" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6 animate-fadeIn">
                 <div class="space-y-4">
@@ -569,7 +529,6 @@
                   @update:save-address="form.save_address = $event"
                 />
               </div>
-              </template>
             </div>
           </Transition>
 
@@ -700,7 +659,6 @@ const form = ref({
     postal_code: "",
     referencias: "",
     full_address: "",
-    google_maps_link: "",
   },
   is_rural: false,
   save_address: false,
@@ -742,12 +700,6 @@ const mexicanStates = [
   "Zacatecas",
 ];
 
-// A pasted Google Maps link (a real URL) is treated as a complete, accurate
-// address — it makes the written-address fields optional and hides them.
-const hasGmapsLink = computed(() =>
-  /^https?:\/\//i.test((form.value.delivery_address.google_maps_link || "").trim())
-);
-
 // The free-text address can be written however the customer likes (references,
 // landmarks, etc.) — the ONE thing we require to continue is a valid 5-digit
 // Mexican postal code somewhere in the text, since every address needs it.
@@ -767,13 +719,6 @@ const isFormValid = computed(() => {
 
   // For shipping orders, validate address
   const addr = form.value.delivery_address;
-
-  // A Google Maps link is a complete, accurate address on its own — the most
-  // seamless option — so it satisfies the address requirement by itself.
-  const gmaps = (addr.google_maps_link || "").trim();
-  if (/^https?:\/\//i.test(gmaps)) {
-    return true;
-  }
 
   // Full address mode — allow any free text, but require a valid postal code in it.
   if (useFullAddress.value) {
@@ -843,31 +788,6 @@ const translations = {
     es: "Cargando tu dirección guardada...",
     en: "Loading your saved address...",
   },
-  // Google Maps link — the most accurate way to pin the delivery address
-  gmapsLinkLabel: {
-    es: "Link de Google Maps (recomendado)",
-    en: "Google Maps link (recommended)",
-  },
-  gmapsLinkDescription: {
-    es: "Pega el link de tu ubicación en Google Maps — es lo más preciso para entregarte.",
-    en: "Paste your Google Maps location link — it's the most accurate way for us to deliver.",
-  },
-  gmapsLinkPlaceholder: {
-    es: "https://maps.app.goo.gl/...",
-    en: "https://maps.app.goo.gl/...",
-  },
-  gmapsLinkHelp: {
-    es: "¿Cómo copio mi link? Abrir Google Maps",
-    en: "How do I copy my link? Open Google Maps",
-  },
-  gmapsConfirmTitle: {
-    es: "Usaremos tu ubicación de Google Maps",
-    en: "We'll use your Google Maps location",
-  },
-  gmapsConfirmBody: {
-    es: "Es la forma más precisa de entregarte, así que no necesitas escribir tu dirección. Si prefieres capturarla a mano, borra el link de arriba.",
-    en: "It's the most accurate way to deliver, so you don't need to type your address. If you'd rather enter it by hand, clear the link above.",
-  },
   // Address form translations
   quickAddressSearchTitle: {
     es: "Búsqueda Rápida de Dirección",
@@ -927,8 +847,8 @@ const translations = {
     en: "Individual fields",
   },
   fullAddressLabel: {
-    es: "O pega tu dirección (como aparece en Google Maps)",
-    en: "Or paste your address (as it appears on Google Maps)",
+    es: "Pega tu dirección (como aparece en Google Maps)",
+    en: "Paste your address (as it appears on Google Maps)",
   },
   fullAddressPlaceholder: {
     es: "Ej: Av. Jalisco 3415, Madero Sur, 22046 Tijuana, B.C.",
@@ -942,8 +862,8 @@ const translations = {
   postalMissing: { es: "Incluye tu código postal de 5 dígitos para continuar.", en: "Include your 5-digit postal code to continue." },
   postalHint: { es: "Escribe tu dirección — incluye tu código postal de 5 dígitos (puedes agregar referencias).", en: "Write your address — include your 5-digit postal code (you can add landmarks)." },
   pasteAddressDescription: {
-    es: "Pega el link de Google Maps o tu dirección tal como aparece en Google Maps.",
-    en: "Paste your Google Maps link or your address exactly as it appears on Google Maps.",
+    es: "Pega tu dirección tal como aparece en Google Maps.",
+    en: "Paste your address exactly as it appears on Google Maps.",
   },
   individualFieldsDescription: {
     es: "Captura tu dirección campo por campo.",
@@ -957,14 +877,18 @@ const translations = {
   howTitle: { es: "¿Cómo funciona y cuándo pago?", en: "How it works & when do I pay?" },
   howSubtitle: { es: "Y lo mejor: pagas hasta el final.", en: "And best of all: you pay only at the end." },
   howStep1: { es: "Compra y envía", en: "Shop & send" },
-  howStep2: { es: "Creas tu envío", en: "Create your shipment" },
-  howStep3: { es: "Recibimos y cruzamos", en: "We receive & cross it" },
-  howStep4: { es: "Pagas ya en México", en: "You pay — already in Mexico" },
-  howStep5: { es: "Vuela el mismo día", en: "It flies the same day" },
-  howTrustStrong: { es: "Pagas hasta que tu caja ya cruzó y está lista para volar.", en: "You pay only once your box has crossed and is ready to fly." },
+  howStep2: { es: "Crea tu envío", en: "Create your shipment" },
+  howStep3: { es: "Recibimos y trasladamos a México", en: "We receive it and bring it to Mexico" },
+  howStep4: { es: "Pagas cuando tu caja está lista", en: "You pay when your box is ready" },
+  howStep5: { es: "Preparamos y despachamos tu envío", en: "We prepare and dispatch your shipment" },
+  howTrustStrong: { es: "Pagas únicamente cuando tu caja ya está en México y lista para enviarse.", en: "You pay only once your box is already in Mexico and ready to ship." },
   howTrustRest: {
-    es: "Sin pagos por adelantado — nosotros nos encargamos de la recepción, la consolidación y el cruce. Cuando pagas, generamos tu guía y entregamos tu caja a Paquetexpress para su envío terrestre. 🚚",
-    en: "No upfront payments — we handle receiving, consolidation and the border crossing. Once you pay, we create your guía and hand your box to Paquetexpress for ground shipping. 🚚",
+    es: "Sin pagos por adelantado: nosotros nos encargamos de la recepción, consolidación y cruce de tus paquetes.",
+    en: "No upfront payments: we handle receiving, consolidating and crossing your packages.",
+  },
+  howTrustShip: {
+    es: "Una vez confirmado tu pago, generamos tu guía y coordinamos el envío con Paquetexpress. El despacho normalmente toma de 1 a 2 días hábiles.",
+    en: "Once your payment is confirmed, we create your guía and arrange the shipment with Paquetexpress. Dispatch usually takes 1 to 2 business days.",
   },
   howPricingLink: { es: "Ver catálogo de precios", en: "See pricing catalog" },
   howPricingBody: { es: "Tamaños de caja, tarifas y cómo funciona.", en: "Box sizes, rates and how it works." },
@@ -1119,9 +1043,6 @@ const handleCreateOrder = async () => {
             estado: form.value.delivery_address.estado,
             postal_code: form.value.delivery_address.postal_code,
           };
-      // Save the Google Maps link to the profile too (most accurate)
-      const gmapsForProfile = (form.value.delivery_address.google_maps_link || "").trim();
-      if (gmapsForProfile) profileBody.google_maps_link = gmapsForProfile;
       await $customFetch("/profile", {
         method: "PUT",
         body: profileBody,
@@ -1159,9 +1080,6 @@ const handleCreateOrder = async () => {
         };
         body.is_rural = form.value.is_rural;
       }
-      // Google Maps link — attach if provided (most accurate; works in either mode)
-      const gmaps = (form.value.delivery_address.google_maps_link || "").trim();
-      if (gmaps) body.delivery_address.google_maps_link = gmaps;
     }
 
     const response = await $customFetch("/orders", {
