@@ -1,18 +1,6 @@
 <template>
   <div class="flex-1 overflow-y-auto px-4 md:px-5 pt-6 pb-6">
     <div class="max-w-2xl mx-auto">
-      <!-- Terms update (2026-10-10): a discreet notice for accounts that haven't accepted the current
-           version — never a popup, never blocks the dashboard. Dismissed per browser. -->
-      <div v-if="showTermsNotice" class="mb-3 flex items-start gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-[13px] text-gray-600">
-        <p class="flex-1">
-          Actualizamos nuestros Términos de Servicio para explicar con mayor claridad los tiempos, el manejo de paquetes y el proceso de reclamación.
-          Puedes consultarlos <NuxtLink to="/terms-of-service" class="font-semibold text-primary-600 hover:underline">aquí</NuxtLink>.
-        </p>
-        <button type="button" class="shrink-0 -mr-1 p-1 text-gray-400 hover:text-gray-600" aria-label="Cerrar aviso" @click="dismissTermsNotice">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-        </button>
-      </div>
-
       <!-- Greeting -->
       <h1 class="text-[26px] md:text-[30px] font-extrabold tracking-tight text-gray-900 leading-tight">
         Hola<template v-if="firstName">, {{ firstName }}</template>
@@ -111,19 +99,6 @@ const explore = [
   { to: '/app/casillero?from=/app', title: 'Entrega en San Diego', sub: 'Tu casillero y cómo enviarnos tus compras', icon: ICONS.locker },
   { to: '/app/pricing', title: 'Precios y cómo funciona', sub: 'Tamaños de caja y tarifas', icon: ICONS.tag },
 ]
-
-// Terms update notice — shown when the account hasn't accepted the version the API calls current.
-const termsDismissed = ref(true) // client decides after mount; SSR renders nothing
-const termsNoticeKey = computed(() => `boxly-terms-notice-${user.value?.current_terms_version || ''}`)
-const showTermsNotice = computed(() =>
-  !termsDismissed.value && !!user.value?.current_terms_version && user.value.terms_version !== user.value.current_terms_version)
-onMounted(() => {
-  try { termsDismissed.value = localStorage.getItem(termsNoticeKey.value) === '1' } catch { termsDismissed.value = false }
-})
-function dismissTermsNotice() {
-  termsDismissed.value = true
-  try { localStorage.setItem(termsNoticeKey.value, '1') } catch { /* private mode — hides for this visit */ }
-}
 
 const addressCopied = ref(false)
 async function copyUsAddress() {
