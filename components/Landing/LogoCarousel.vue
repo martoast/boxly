@@ -117,7 +117,7 @@ const logos = [
     alt: 'Bath & Body Works'
   },
   {
-    src: '/images/stores/ulta-beauty.png',
+    src: '/images/stores/ulta-beauty-square.png',
     alt: 'Ulta Beauty'
   },
   {
