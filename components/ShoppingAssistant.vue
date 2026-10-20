@@ -244,48 +244,52 @@
               <div v-if="!promptsReady" key="cards-loading" class="py-16 grid place-items-center">
                 <svg class="w-7 h-7 animate-spin text-gray-300" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
               </div>
+              <!-- Store carousel (2026-10-20): pages of 6 (3 x 2), the top 6 first;
+                   swipe (or the arrows on desktop) for the next page. Native scroll-snap
+                   so touch, trackpad and keyboard all just work. -->
               <div v-else key="cards-ready">
-                <!-- featured (first) card -->
-                <button
-                  v-if="suggestions[0]"
-                  :key="suggestions[0].text"
-                  @click="pickSuggestion(suggestions[0].text)"
-                  class="group relative block w-full h-44 md:h-52 rounded-3xl overflow-hidden mb-3 text-left active:scale-[.99] transition-transform shadow-sm"
-                  :class="`bg-gradient-to-br ${suggestions[0].grad}`"
-                >
-                  <span class="absolute inset-0 grid place-items-center text-[84px] select-none transition-[opacity,transform] duration-300 group-hover:scale-105" :class="cardLoading(suggestions[0]) ? 'opacity-60' : 'opacity-90'">{{ suggestions[0].emoji }}</span>
-                  <img v-if="showCardImg(suggestions[0])" :src="cardImg(suggestions[0])" @load="onCardImgLoad(cardImg(suggestions[0]))" @error="onCardImgError(suggestions[0])" referrerpolicy="no-referrer"
-                       decoding="async"
-                       :class="loadedImgs.has(cardImg(suggestions[0])) ? 'opacity-100' : 'opacity-0'"
-                       class="absolute inset-0 w-full h-full object-cover transition-[opacity,transform] duration-500 group-hover:scale-105" />
-                  <span v-if="cardLoading(suggestions[0])" class="absolute top-3 right-3 grid place-items-center w-7 h-7 rounded-full bg-black/25 backdrop-blur-sm pointer-events-none">
-                    <svg class="w-4 h-4 animate-spin text-white" viewBox="0 0 24 24" fill="none"><circle class="opacity-30" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
-                  </span>
-                  <span class="absolute top-3 left-3 text-[12px] font-bold text-gray-800 bg-white/90 backdrop-blur rounded-full px-2.5 py-1 shadow-sm">Pruébalo</span>
-                  <span class="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/65 to-transparent pointer-events-none"></span>
-                  <span class="absolute left-4 bottom-3.5 right-4 text-white text-lg md:text-xl font-bold leading-snug drop-shadow">{{ suggestions[0].title || suggestions[0].text }}</span>
-                </button>
-
-                <!-- grid of the rest -->
-                <div :key="'grid'" class="grid grid-cols-2 gap-3">
-                  <button
-                    v-for="s in suggestions.slice(1)"
-                    :key="s.text"
-                    @click="pickSuggestion(s.text)"
-                    class="group relative block aspect-[4/5] rounded-2xl overflow-hidden text-left active:scale-[.98] transition-transform shadow-sm"
-                    :class="`bg-gradient-to-br ${s.grad}`"
-                  >
-                    <span class="absolute inset-0 grid place-items-center text-[72px] select-none transition-[opacity,transform] duration-300 group-hover:scale-105" :class="cardLoading(s) ? 'opacity-60' : 'opacity-90'">{{ s.emoji }}</span>
-                    <img v-if="showCardImg(s)" :src="cardImg(s)" @load="onCardImgLoad(cardImg(s))" @error="onCardImgError(s)" referrerpolicy="no-referrer"
-                         decoding="async" loading="lazy" fetchpriority="low"
-                         :class="loadedImgs.has(cardImg(s)) ? 'opacity-100' : 'opacity-0'"
-                         class="absolute inset-0 w-full h-full object-cover transition-[opacity,transform] duration-500 group-hover:scale-105" />
-                    <span v-if="cardLoading(s)" class="absolute top-2.5 right-2.5 grid place-items-center w-6 h-6 rounded-full bg-black/25 backdrop-blur-sm pointer-events-none">
-                      <svg class="w-3.5 h-3.5 animate-spin text-white" viewBox="0 0 24 24" fill="none"><circle class="opacity-30" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
-                    </span>
-                    <span class="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/65 to-transparent pointer-events-none"></span>
-                    <span class="absolute left-3 bottom-2.5 right-3 text-white text-[15px] font-bold leading-snug drop-shadow">{{ s.title || s.text }}</span>
-                  </button>
+                <div v-if="cardPages.length > 1" class="flex items-center justify-between mb-2.5">
+                  <p class="text-[13px] font-semibold text-gray-500"><span class="md:hidden">Desliza para ver más tiendas</span><span class="hidden md:inline">Más tiendas</span></p>
+                  <div class="hidden md:flex items-center gap-1.5">
+                    <button type="button" @click="goCardPage(cardPage - 1)" :disabled="cardPage === 0" aria-label="Tiendas anteriores"
+                            class="grid place-items-center w-8 h-8 rounded-full border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-35 disabled:cursor-default transition">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                    </button>
+                    <button type="button" @click="goCardPage(cardPage + 1)" :disabled="cardPage === cardPages.length - 1" aria-label="Más tiendas"
+                            class="grid place-items-center w-8 h-8 rounded-full border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-35 disabled:cursor-default transition">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
+                    </button>
+                  </div>
+                </div>
+                <div ref="cardTrack" @scroll.passive="onCardTrackScroll" class="card-track flex overflow-x-auto snap-x snap-mandatory overscroll-x-contain -mx-4 md:-mx-1 pb-1">
+                  <div v-for="(page, pi) in cardPages" :key="'page' + pi" class="w-full shrink-0 snap-start px-4 md:px-1">
+                    <div class="grid grid-cols-3 gap-x-2.5 md:gap-x-3.5 gap-y-3.5 md:gap-y-5">
+                      <button
+                        v-for="s in page"
+                        :key="s.text"
+                        @click="pickSuggestion(s.text)"
+                        class="group block text-left min-w-0 active:scale-[.98] transition-transform"
+                      >
+                        <span class="relative block aspect-[4/5] md:aspect-[1/1] rounded-2xl overflow-hidden shadow-sm ring-1 ring-black/5" :class="`bg-gradient-to-br ${s.grad}`">
+                          <span class="absolute inset-0 grid place-items-center text-[44px] md:text-[60px] select-none transition-[opacity,transform] duration-300 group-hover:scale-105" :class="cardLoading(s) ? 'opacity-60' : 'opacity-90'">{{ s.emoji }}</span>
+                          <img v-if="showCardImg(s)" :src="cardImg(s)" @load="onCardImgLoad(cardImg(s))" @error="onCardImgError(s)" referrerpolicy="no-referrer"
+                               decoding="async" :loading="pi === 0 ? 'eager' : 'lazy'" :fetchpriority="pi === 0 ? 'auto' : 'low'"
+                               :class="loadedImgs.has(cardImg(s)) ? 'opacity-100' : 'opacity-0'"
+                               class="absolute inset-0 w-full h-full object-cover transition-[opacity,transform] duration-500 group-hover:scale-105" />
+                          <span v-if="cardLoading(s)" class="absolute top-2 right-2 grid place-items-center w-6 h-6 rounded-full bg-black/25 backdrop-blur-sm pointer-events-none">
+                            <svg class="w-3.5 h-3.5 animate-spin text-white" viewBox="0 0 24 24" fill="none"><circle class="opacity-30" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
+                          </span>
+                        </span>
+                        <span class="block mt-1.5 md:mt-2 text-[13.5px] md:text-[15px] font-semibold text-gray-900 leading-tight truncate">{{ s.title || s.text }}</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <!-- page dots -->
+                <div v-if="cardPages.length > 1" class="mt-4 flex justify-center gap-1.5">
+                  <button v-for="(page, pi) in cardPages" :key="'dot' + pi" type="button" @click="goCardPage(pi)" :aria-label="`Página ${pi + 1}`"
+                          class="h-1.5 rounded-full transition-all duration-300"
+                          :class="pi === cardPage ? 'w-5 bg-gray-800' : 'w-1.5 bg-gray-300 hover:bg-gray-400'"></button>
                 </div>
               </div>
             </Transition>
@@ -1337,6 +1341,27 @@ async function loadStarterPrompts() {
   } catch { if (!serverPrompts.value.length) serverPrompts.value = [] }
 }
 const suggestions = computed(() => serverPrompts.value)
+
+// Starter cards as a paged carousel: 6 per page, the top 6 (admin order) first.
+const CARDS_PER_PAGE = 6
+const cardPages = computed(() => {
+  const list = suggestions.value || []
+  const pages = []
+  for (let i = 0; i < list.length; i += CARDS_PER_PAGE) pages.push(list.slice(i, i + CARDS_PER_PAGE))
+  return pages
+})
+const cardTrack = ref(null)
+const cardPage = ref(0)
+function onCardTrackScroll() {
+  const el = cardTrack.value
+  if (el && el.clientWidth) cardPage.value = Math.round(el.scrollLeft / el.clientWidth)
+}
+function goCardPage(i) {
+  const el = cardTrack.value
+  if (!el) return
+  const n = Math.max(0, Math.min(i, cardPages.value.length - 1))
+  el.scrollTo({ left: n * el.clientWidth, behavior: 'smooth' })
+}
 
 // --- Card images: resolve a representative product photo per card, cached in
 //     localStorage so each query is fetched at most once per browser. ---
@@ -2651,6 +2676,8 @@ function scrollDown() {
 </script>
 
 <style scoped>
+.card-track { scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.card-track::-webkit-scrollbar { display: none; }
 .msg-enter-from { opacity: 0; transform: translateY(10px); }
 .msg-enter-active { transition: opacity .3s ease, transform .3s cubic-bezier(.2,.8,.2,1); }
 .msg-move { transition: transform .3s cubic-bezier(.2,.8,.2,1); }
