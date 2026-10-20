@@ -9,6 +9,18 @@
     <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path stroke-linejoin="round" d="M10 8.8v6.4l5-3.2z" /></svg>
     {{ t.tutorial }}
   </button>
+  <!-- 'play': brand-coloured play icon + "Ver cómo funciona", for page intros. -->
+  <button
+    v-else-if="variant === 'play'"
+    type="button"
+    @click="open"
+    class="inline-flex items-center gap-2 py-1 text-[15px] font-semibold text-primary-700 hover:text-primary-800 transition-colors flex-shrink-0"
+  >
+    <span class="grid place-items-center w-6 h-6 rounded-full bg-primary-600 text-white">
+      <svg class="w-3 h-3 ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+    </span>
+    {{ t.howItWorks }}
+  </button>
   <button
     v-else
     type="button"
@@ -119,7 +131,7 @@ import { Dialog, DialogPanel, DialogTitle, TransitionChild, TransitionRoot } fro
 defineProps({
   // Loom video ID — e.g. "d0b29f8d1eb44727a1fb9799aaf04e61".
   loomId: { type: String, required: true },
-  // 'pill' (default) or 'link'.
+  // 'pill' (default), 'link' or 'play'.
   variant: { type: String, default: 'pill' },
 })
 
@@ -127,6 +139,7 @@ const { t: createTranslations } = useLanguage()
 const t = createTranslations({
   watchTutorial: { es: 'Ver tutorial', en: 'Watch tutorial' },
   tutorial: { es: 'Tutorial', en: 'Tutorial' },
+  howItWorks: { es: 'Ver cómo funciona', en: 'See how it works' },
   eyebrow: { es: 'Guía rápida', en: 'Quick guide' },
   modalTitle: { es: 'Mira cómo funciona', en: 'See how it works' },
   close: { es: 'Cerrar', en: 'Close' },
