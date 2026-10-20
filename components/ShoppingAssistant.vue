@@ -224,8 +224,9 @@
       <Transition name="fade-fast">
         <div v-if="!hub && !loadingChat && !chat.messages.length && !activeId" class="md:flex-1 md:overflow-y-auto px-4 md:px-5 pt-5 pb-6">
           <div class="max-w-2xl mx-auto">
-            <h1 class="text-[26px] md:text-3xl font-extrabold text-gray-900 tracking-tight">Compra en Estados Unidos</h1>
-            <p class="text-gray-500 mt-1 mb-4 text-[14px] md:text-[15px]">Escribe lo que buscas o toca una idea — Boxly lo consigue, lo importa y te lo entrega en México.</p>
+            <p class="text-[11.5px] md:text-[12px] font-semibold uppercase tracking-[0.08em] text-gray-500">Boxly AI · Tu asistente de compras</p>
+            <h1 class="mt-2 text-[28px] md:text-[34px] font-bold text-gray-900 tracking-tight leading-[1.12]">De buscarlo a recibirlo. Todo en Boxly.</h1>
+            <p class="text-gray-500 mt-2.5 mb-4 text-[14.5px] md:text-[15.5px] leading-relaxed">Busca y compara productos de tiendas en USA, arma carritos en varias tiendas al mismo tiempo y recibe tus compras en México. Sin VPN, sin complicaciones.</p>
 
             <!-- C4: a store browser already running for the cart shows here too, above the input. -->
             <div v-if="liveShown" class="mb-4">
@@ -234,7 +235,13 @@
 
             <!-- input at the top -->
             <div class="mb-6">
-              <AssistantComposer ref="composerRef" v-model:text="input" :mic-recording="micRecording" :mic-transcribing="micTranscribing" :mic-levels="micLevels" :mic-error="micError" :busy="isBusy" placeholder="Compra lo que sea…" @send="onComposerSend" @mic="toggleMic" />
+              <AssistantComposer ref="composerRef" v-model:text="input" :mic-recording="micRecording" :mic-transcribing="micTranscribing" :mic-levels="micLevels" :mic-error="micError" :busy="isBusy" placeholder="¿Qué quieres comprar?" @send="onComposerSend" @mic="toggleMic" />
+              <div class="mt-3 flex flex-wrap gap-2">
+                <span v-for="c in heroChips" :key="c.label" class="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1 text-[13px] font-medium text-gray-700">
+                  <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" :d="c.icon" /></svg>
+                  {{ c.label }}
+                </span>
+              </div>
             </div>
 
             <!-- Cards paint immediately with their emoji placeholder; each photo
@@ -1341,6 +1348,13 @@ async function loadStarterPrompts() {
   } catch { if (!serverPrompts.value.length) serverPrompts.value = [] }
 }
 const suggestions = computed(() => serverPrompts.value)
+
+// Value chips under the empty-state composer.
+const heroChips = [
+  { label: 'Sin VPN', icon: 'M5 13l4 4L19 7' },
+  { label: 'Carritos simultáneos', icon: 'M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z' },
+  { label: 'Envíos a México', icon: 'M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0zM13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0' },
+]
 
 // Starter cards as a paged carousel: 6 per page, the top 6 (admin order) first.
 const CARDS_PER_PAGE = 6
