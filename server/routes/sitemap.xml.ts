@@ -35,7 +35,6 @@ const PAGES: Array<{ path: string; priority: string; changefreq: string }> = [
   { path: '/faq',                     priority: '0.7', changefreq: 'monthly' },
   { path: '/help-center',             priority: '0.6', changefreq: 'monthly' },
   { path: '/expats',                  priority: '0.6', changefreq: 'monthly' },
-  { path: '/affiliate-program',       priority: '0.6', changefreq: 'monthly' },
 ]
 
 export default defineEventHandler((event) => {
