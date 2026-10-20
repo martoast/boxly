@@ -1,115 +1,86 @@
 <template>
-  <section class="min-h-screen bg-gray-50 pb-40 sm:pb-32">
-    <!-- Sticky header -->
-    <div class="bg-white/90 backdrop-blur border-b border-gray-200 sticky top-0 z-30">
-      <div class="max-w-3xl mx-auto px-4 py-3.5">
-        <div class="flex items-center gap-3">
-          <NuxtLink :to="backTo" class="p-2 -ml-2 hover:bg-gray-100 rounded-lg transition-colors">
-            <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+  <section class="min-h-screen bg-white pb-40 sm:pb-36">
+    <!-- Header -->
+    <div class="bg-white/95 backdrop-blur sticky top-0 z-30">
+      <div class="max-w-2xl mx-auto px-4 pt-3.5 pb-3">
+        <div class="flex items-center gap-2">
+          <NuxtLink :to="backTo" class="p-2 -ml-2 hover:bg-gray-100 rounded-lg transition-colors" :aria-label="t.back">
+            <svg class="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
             </svg>
           </NuxtLink>
           <div class="flex-1 min-w-0">
-            <h1 class="text-base sm:text-lg font-semibold text-gray-900 truncate">{{ t.createRequest }}</h1>
-            <p class="text-xs text-gray-500">{{ t.stepAddItems }}</p>
+            <h1 class="text-[17px] sm:text-lg font-bold text-gray-900 truncate leading-tight">{{ t.createRequest }}</h1>
+            <p class="text-[13px] text-gray-500">{{ t.stepAddItems }}</p>
           </div>
-          <TutorialVideoButton loom-id="d0b29f8d1eb44727a1fb9799aaf04e61" />
-          <div
-            v-if="hasItems"
-            :class="['bg-primary-100 text-primary-700 px-3 py-1 rounded-full text-sm font-semibold whitespace-nowrap transition-transform', countPulse ? 'count-pulse' : '']"
-          >
-            {{ totalItems }} {{ t.items }}
-          </div>
+          <TutorialVideoButton loom-id="d0b29f8d1eb44727a1fb9799aaf04e61" variant="link" />
         </div>
       </div>
+      <div class="max-w-2xl mx-auto px-4"><div class="border-b border-gray-100"></div></div>
     </div>
 
-    <div class="max-w-3xl mx-auto px-4 py-6 space-y-6">
+    <div class="max-w-2xl mx-auto px-4">
 
-      <!-- ============ PASTE BAR — the whole product, really ============ -->
-      <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary-600 via-primary-600 to-indigo-700 text-white shadow-xl shadow-primary-900/20">
-        <div class="pointer-events-none absolute -top-16 -right-10 w-56 h-56 bg-white/10 rounded-full blur-2xl breathe"></div>
-        <div class="pointer-events-none absolute -bottom-20 -left-10 w-64 h-64 bg-indigo-400/20 rounded-full blur-3xl breathe-slow"></div>
+      <!-- ============ PASTE — the whole product, really ============ -->
+      <div class="pt-6 pb-6 border-b border-gray-100">
+        <h2 class="text-[22px] sm:text-2xl font-bold text-gray-900 tracking-tight">{{ t.heroTitle }}</h2>
+        <p class="mt-1 text-[15px] text-gray-500">{{ t.heroSubtitle }}</p>
 
-        <div class="relative p-6 sm:p-8">
-          <span class="inline-flex items-center gap-1.5 bg-white/15 backdrop-blur px-3 py-1 rounded-full text-xs font-semibold tracking-wide">
-            🇺🇸 → 🇲🇽 {{ t.eyebrow }}
-          </span>
-
-          <h2 class="mt-4 text-2xl sm:text-3xl font-bold leading-tight">
-            {{ hasItems ? t.heroTitleMore : t.heroTitle }}
-          </h2>
-          <p class="mt-2 text-sm sm:text-base text-white/85 max-w-xl leading-relaxed">{{ t.heroSubtitle }}</p>
-
-          <form @submit.prevent="addFromInput" class="mt-5">
-            <div class="flex flex-col sm:flex-row gap-2 bg-white rounded-2xl p-2 shadow-lg">
-              <div class="flex items-center flex-1 min-w-0 pl-2">
-                <svg class="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                </svg>
-                <input
-                  ref="pasteInput"
-                  v-model="quickInput"
-                  type="text"
-                  inputmode="url"
-                  autocomplete="off"
-                  class="w-full border-0 focus:ring-0 text-gray-900 placeholder-gray-400 text-sm sm:text-base py-2.5 px-2 bg-transparent"
-                  :placeholder="t.pastePlaceholder"
-                  @paste="onPaste"
-                >
-              </div>
-              <button
-                type="submit"
-                class="flex items-center justify-center gap-2 bg-gray-900 hover:bg-black text-white font-semibold px-5 py-3 rounded-xl transition-colors active:scale-[0.98]"
-              >
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                </svg>
-                {{ t.addCta }}
-              </button>
-            </div>
-            <!--
-              The add is instant, and that was the problem: testers pasted and
-              couldn't tell it had worked. The confirmation has to appear HERE,
-              under the input, because that's where their eyes already are — the
-              list is further down and they never looked at it. Naming the product
-              also answers the real question: "did I paste the right link?"
-            -->
-            <div class="mt-2.5 pl-1 min-h-[1.25rem]">
-              <Transition name="cue" mode="out-in">
-                <p v-if="cue" :key="cue.id" class="flex items-center gap-1.5 text-xs font-medium" :class="cue.kind === 'dupe' ? 'text-amber-200' : 'text-emerald-200'">
-                  <svg v-if="cue.kind !== 'dupe'" class="w-3.5 h-3.5 flex-shrink-0 check-pop" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                  <svg v-else class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-                  </svg>
-                  <span class="truncate">{{ cue.text }}</span>
-                </p>
-                <p v-else key="hint" class="text-xs text-white/70">{{ t.pasteHint }}</p>
-              </Transition>
-            </div>
-          </form>
-
-          <div class="relative mt-5 overflow-hidden select-none -mx-6 sm:-mx-8" aria-hidden="true">
-            <div class="flex w-max gap-8 whitespace-nowrap marquee-track px-6 sm:px-8">
-              <span v-for="(b, i) in marqueeStores" :key="i" class="text-[12.5px] font-bold tracking-tight text-white/60">{{ b }}</span>
-            </div>
-            <div class="pointer-events-none absolute inset-y-0 left-0 w-12 bg-gradient-to-r from-primary-600 to-transparent"></div>
-            <div class="pointer-events-none absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-indigo-700 to-transparent"></div>
+        <form @submit.prevent="addFromInput" class="mt-4">
+          <div class="flex gap-2">
+            <input
+              ref="pasteInput"
+              v-model="quickInput"
+              type="text"
+              inputmode="url"
+              autocomplete="off"
+              class="flex-1 min-w-0 rounded-full border border-gray-300 bg-white px-4 py-3 text-[15px] text-gray-900 placeholder-gray-400 focus:border-gray-900 focus:ring-0 transition-colors"
+              :placeholder="t.pastePlaceholder"
+              @paste="onPaste"
+            >
+            <button
+              type="submit"
+              :class="[
+                'flex-shrink-0 inline-flex items-center gap-1.5 rounded-full px-5 py-3 text-[15px] font-semibold transition-colors active:scale-[0.98]',
+                quickInput.trim() ? 'bg-gray-900 text-white hover:bg-black' : 'bg-gray-100 text-gray-400'
+              ]"
+            >
+              {{ t.addCta }}
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14m7-7H5" /></svg>
+            </button>
           </div>
-        </div>
+          <!--
+            The add is instant, and that was the problem: testers pasted and
+            couldn't tell it had worked. The confirmation has to appear HERE,
+            under the input, because that's where their eyes already are.
+            Naming the product also answers "did I paste the right link?"
+          -->
+          <div class="mt-2.5 pl-1 min-h-[1.25rem]">
+            <Transition name="cue" mode="out-in">
+              <p v-if="cue" :key="cue.id" class="flex items-center gap-1.5 text-[13px] font-medium" :class="cue.kind === 'dupe' ? 'text-amber-600' : 'text-emerald-600'">
+                <svg v-if="cue.kind !== 'dupe'" class="w-3.5 h-3.5 flex-shrink-0 check-pop" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                <svg v-else class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                </svg>
+                <span class="truncate">{{ cue.text }}</span>
+              </p>
+              <p v-else key="hint" class="text-[13px] text-gray-500">{{ t.pasteHint }}</p>
+            </Transition>
+          </div>
+        </form>
       </div>
 
       <!-- ============ EMPTY STATE ============ -->
-      <div v-if="!hasItems" class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div v-if="!hasItems" class="pt-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div
           v-for="(step, i) in steps"
           :key="i"
-          class="group bg-white rounded-2xl border border-gray-100 p-5 shadow-sm transition-all duration-300 ease-out hover:-translate-y-1.5 hover:shadow-xl hover:border-primary-100"
+          class="rounded-2xl border border-gray-200 p-5"
         >
           <div class="flex items-center gap-3">
-            <div class="w-9 h-9 rounded-xl bg-primary-50 text-primary-600 flex items-center justify-center flex-shrink-0" v-html="step.icon"></div>
+            <div class="w-9 h-9 rounded-xl bg-gray-100 text-gray-700 flex items-center justify-center flex-shrink-0" v-html="step.icon"></div>
             <span class="text-xs font-bold text-gray-300">0{{ i + 1 }}</span>
           </div>
           <h3 class="mt-3 font-semibold text-gray-900 text-sm">{{ step.title }}</h3>
@@ -117,164 +88,136 @@
         </div>
       </div>
 
-      <!-- ============ THE CART ============ -->
-      <div v-if="hasItems" class="space-y-3">
-        <div class="flex items-baseline justify-between ml-1">
-          <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider">{{ t.yourList }}</h3>
-          <span class="text-xs text-gray-400">{{ storeSummary }}</span>
+      <!-- ============ THE LIST — the products are the point of the page ============ -->
+      <div v-if="hasItems" class="pt-6">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-[20px] font-bold text-gray-900">{{ t.yourList }}</h3>
+          <span :class="['rounded-full bg-gray-100 px-3 py-1 text-[13px] font-semibold text-gray-700 tabular-nums', countPulse ? 'count-pulse' : '']">{{ itemsLabel(totalItems) }}</span>
         </div>
 
-        <TransitionGroup name="list" tag="div" class="space-y-2.5">
+        <TransitionGroup name="list" tag="div" class="space-y-3">
           <div
             v-for="(item, index) in form.items"
             :key="item.key"
             :class="[
-              'bg-white rounded-2xl border shadow-sm px-4 py-3.5 transition-all duration-500',
+              'relative bg-white rounded-3xl border p-4 transition-all duration-500',
               item.flash ? 'border-amber-400 ring-2 ring-amber-100' : '',
               item.justAdded && !item.flash ? 'border-emerald-400 ring-2 ring-emerald-100' : '',
               !item.flash && !item.justAdded ? 'border-gray-200' : ''
             ]"
           >
-            <div class="flex items-start gap-3">
-              <!--
-                Thumbnail doubles as an optional photo upload. Default is the
-                store's logo (instant, no backend); tap it to attach a screenshot
-                when the link alone doesn't say which one they mean — a colour, a
-                specific variant, a thing they saw on Instagram.
-              -->
-              <div class="relative flex-shrink-0 mt-0.5">
-                <label
-                  class="group/img relative w-11 h-11 rounded-lg border border-gray-200 bg-gray-50 overflow-hidden cursor-pointer flex items-center justify-center"
-                  :title="t.addPhoto"
+            <button type="button" class="absolute top-3 right-3 p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors" :aria-label="t.remove" @click="removeItem(index)">
+              <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M10 11v6M14 11v6M5 7l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3" /></svg>
+            </button>
+
+            <div class="flex gap-3.5">
+              <!-- The product's own photo (from its page), or the one they attached. -->
+              <div class="relative flex-shrink-0 w-[84px] h-[84px] sm:w-24 sm:h-24 rounded-2xl bg-gray-100 overflow-hidden grid place-items-center">
+                <img
+                  v-if="thumbFor(item)"
+                  :src="thumbFor(item)"
+                  alt=""
+                  referrerpolicy="no-referrer"
+                  class="absolute inset-0 w-full h-full object-cover"
+                  @error="onThumbError(item)"
                 >
-                  <input type="file" accept="image/*" class="sr-only" @change="(e) => pickImage(item, e)">
-
-                  <img v-if="item.imagePreview" :src="item.imagePreview" alt="" class="w-full h-full object-cover">
-                  <img
-                    v-else-if="item.product_url"
-                    :src="faviconFor(item.product_url)"
-                    alt=""
-                    class="w-6 h-6 object-contain"
-                    @error="(e) => (e.target.style.visibility = 'hidden')"
-                  >
-                  <svg v-else class="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
-
-                  <span class="absolute inset-0 bg-gray-900/50 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
-                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                  </span>
-                </label>
-
-                <button
-                  v-if="item.imagePreview"
-                  type="button"
-                  class="absolute -top-1.5 -right-1.5 w-4.5 h-4.5 rounded-full bg-gray-900 text-white flex items-center justify-center shadow"
-                  :aria-label="t.removePhoto"
-                  @click="clearImage(item)"
-                >
-                  <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                </button>
+                <span v-else-if="item.resolving" class="absolute inset-0 shimmer"></span>
+                <svg v-else class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 10V7a4 4 0 00-8 0v3M5 8h14l1 13H4L5 8z" /></svg>
               </div>
 
-              <div class="flex-1 min-w-0">
-                <div class="flex items-start justify-between gap-3">
-                  <div class="min-w-0">
-                    <p class="font-medium text-gray-900 text-sm leading-snug line-clamp-2">{{ item.label }}</p>
-                    <a
-                      v-if="item.product_url"
-                      :href="item.product_url"
-                      target="_blank"
-                      rel="noopener"
-                      class="text-xs text-gray-400 hover:text-primary-600 truncate block mt-0.5"
-                    >{{ item.store }}</a>
-                    <p v-else class="text-xs text-gray-400 mt-0.5">{{ t.noLink }}</p>
-                  </div>
+              <div class="flex-1 min-w-0 pr-7">
+                <p :class="['text-[16px] font-bold leading-snug line-clamp-2 transition-colors', item.resolving && !item.title ? 'text-gray-300' : 'text-gray-900']">{{ displayName(item) }}</p>
+                <a
+                  v-if="item.product_url"
+                  :href="item.product_url"
+                  target="_blank"
+                  rel="noopener"
+                  class="mt-0.5 block text-[13.5px] text-gray-500 hover:text-gray-900 truncate"
+                >{{ item.store }}</a>
+                <p v-else class="mt-0.5 text-[13.5px] text-gray-500">{{ t.noLink }}</p>
 
-                  <div class="flex items-center gap-1 flex-shrink-0">
-                    <!-- quantity stepper -->
-                    <div class="flex items-center bg-gray-50 rounded-lg border border-gray-200">
-                      <button type="button" class="w-7 h-7 flex items-center justify-center text-gray-500 hover:text-gray-900 disabled:opacity-30" :disabled="item.quantity <= 1" @click="item.quantity--">−</button>
-                      <span class="w-6 text-center text-sm font-semibold text-gray-900 tabular-nums">{{ item.quantity }}</span>
-                      <button type="button" class="w-7 h-7 flex items-center justify-center text-gray-500 hover:text-gray-900" @click="item.quantity++">+</button>
-                    </div>
-                    <button type="button" class="p-1.5 text-gray-300 hover:text-red-500 transition-colors" :aria-label="t.remove" @click="removeItem(index)">
-                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
+                <div class="mt-2 flex items-center justify-between gap-2">
+                  <span class="text-[13.5px] text-gray-500">{{ t.quantity }}</span>
+                  <div class="flex items-center">
+                    <button type="button" class="w-8 h-8 grid place-items-center rounded-full text-gray-900 hover:bg-gray-100 disabled:opacity-25 text-lg leading-none" :disabled="item.quantity <= 1" :aria-label="t.less" @click="item.quantity--">−</button>
+                    <span class="w-7 text-center text-[16px] font-semibold text-gray-900 tabular-nums">{{ item.quantity }}</span>
+                    <button type="button" class="w-8 h-8 grid place-items-center rounded-full text-gray-900 hover:bg-gray-100 text-lg leading-none" :aria-label="t.more" @click="item.quantity++">+</button>
                   </div>
                 </div>
+              </div>
+            </div>
 
-                <!-- the only two things we still need from them, inline -->
-                <div class="mt-2.5 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <input
-                    v-model="item.variant"
-                    type="text"
-                    class="w-full text-sm rounded-lg border-gray-200 bg-gray-50/60 focus:bg-white focus:border-primary-400 focus:ring-primary-400 placeholder-gray-400 py-1.5"
-                    :placeholder="t.variantPlaceholder"
-                  >
-                  <input
-                    v-model="item.notes"
-                    type="text"
-                    class="w-full text-sm rounded-lg border-gray-200 bg-gray-50/60 focus:bg-white focus:border-primary-400 focus:ring-primary-400 placeholder-gray-400 py-1.5"
-                    :placeholder="t.notesPlaceholder"
-                  >
-                </div>
+            <!-- Variant: the one thing we still need from them. -->
+            <label class="mt-3.5 block rounded-2xl bg-gray-100 px-4 pt-2.5 pb-2 focus-within:ring-2 focus-within:ring-gray-900/10">
+              <span class="block text-[12.5px] text-gray-500">{{ t.variantLabel }}</span>
+              <input
+                v-model="item.variant"
+                type="text"
+                class="w-full border-0 bg-transparent p-0 pt-0.5 text-[16px] text-gray-900 placeholder-gray-400 focus:ring-0"
+                :placeholder="t.variantPlaceholder"
+              >
+            </label>
 
-                <!--
-                  A VISIBLE control. This started life as a hover overlay on the
-                  44px thumbnail, which nobody could find — and on touch there is
-                  no hover at all, so it simply didn't exist on mobile.
-                -->
-                <div class="mt-2 flex items-center gap-2 flex-wrap">
-                  <label class="inline-flex items-center gap-1.5 text-xs font-medium rounded-lg px-2.5 py-1.5 cursor-pointer border border-dashed transition-colors"
-                    :class="item.imagePreview
-                      ? 'border-emerald-300 text-emerald-700 bg-emerald-50/60 hover:border-emerald-400'
-                      : 'border-gray-300 text-gray-500 hover:border-primary-400 hover:text-primary-600'"
-                  >
-                    <input type="file" accept="image/*" class="sr-only" @change="(e) => pickImage(item, e)">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                    {{ item.imagePreview ? t.changePhoto : t.addPhoto }}
-                  </label>
-
-                  <button
-                    v-if="item.imagePreview"
-                    type="button"
-                    class="text-xs text-gray-400 hover:text-red-500 transition-colors"
-                    @click="clearImage(item)"
-                  >{{ t.removePhoto }}</button>
-                </div>
+            <!-- Photo + note stay folded until they want them. -->
+            <button
+              v-if="!item.extrasOpen && !item.notes && !item.imagePreview"
+              type="button"
+              class="mt-3 inline-flex items-center gap-2 text-[14px] text-gray-500 hover:text-gray-900 transition-colors"
+              @click="item.extrasOpen = true"
+            >
+              <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              {{ t.addExtras }}
+            </button>
+            <div v-else class="mt-3 space-y-2">
+              <input
+                v-model="item.notes"
+                type="text"
+                class="w-full rounded-xl border-gray-200 text-[15px] placeholder-gray-400 focus:border-gray-900 focus:ring-0 py-2"
+                :placeholder="t.notesPlaceholder"
+              >
+              <div class="flex items-center gap-3">
+                <label class="inline-flex items-center gap-1.5 text-[13.5px] font-medium rounded-lg px-3 py-1.5 cursor-pointer border border-dashed transition-colors"
+                  :class="item.imagePreview ? 'border-emerald-300 text-emerald-700 bg-emerald-50/60' : 'border-gray-300 text-gray-600 hover:border-gray-500'"
+                >
+                  <input type="file" accept="image/*" class="sr-only" @change="(e) => pickImage(item, e)">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  {{ item.imagePreview ? t.changePhoto : t.addPhoto }}
+                </label>
+                <button v-if="item.imagePreview" type="button" class="text-[13.5px] text-gray-400 hover:text-red-500 transition-colors" @click="clearImage(item)">{{ t.removePhoto }}</button>
               </div>
             </div>
           </div>
         </TransitionGroup>
-      </div>
 
-      <!-- ============ WHAT HAPPENS NEXT ============ -->
-      <div v-if="hasItems" class="bg-white rounded-2xl border border-gray-200 p-5">
-        <h3 class="font-semibold text-gray-900 text-sm">{{ t.summaryTitle }}</h3>
-        <p class="mt-1.5 text-sm text-gray-500 leading-relaxed">{{ t.summaryBody }}</p>
-        <NuxtLink to="/app/pricing" class="mt-2 inline-block text-sm font-medium text-primary-600 hover:text-primary-700">
-          {{ t.seeBoxPrices }} →
-        </NuxtLink>
+        <!-- What happens next -->
+        <div class="mt-5 rounded-2xl bg-gray-50 p-5">
+          <h3 class="font-semibold text-gray-900 text-sm">{{ t.summaryTitle }}</h3>
+          <p class="mt-1.5 text-sm text-gray-500 leading-relaxed">{{ t.summaryBody }}</p>
+          <NuxtLink to="/app/pricing" class="mt-2 inline-block text-sm font-medium text-gray-900 underline underline-offset-2 hover:text-black">
+            {{ t.seeBoxPrices }} →
+          </NuxtLink>
+        </div>
       </div>
     </div>
 
     <!-- ============ STICKY SUBMIT ============ -->
     <Transition name="slideup">
-      <div v-if="hasItems" class="fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur border-t border-gray-200">
-        <div class="max-w-3xl mx-auto px-4 py-3.5">
-          <p class="text-[11px] text-gray-400 text-center mb-2">{{ t.noChargeYet }}</p>
+      <div v-if="hasItems" class="fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur border-t border-gray-100">
+        <div class="max-w-2xl mx-auto px-4 pt-3 pb-[max(0.875rem,env(safe-area-inset-bottom))]">
+          <p class="text-[13px] text-gray-500 text-center mb-2">{{ t.noChargeYet }}</p>
           <button
             :disabled="loading"
-            class="w-full bg-primary-600 hover:bg-primary-700 disabled:opacity-60 text-white font-semibold py-3.5 rounded-xl transition-colors active:scale-[0.99] flex items-center justify-center gap-2"
+            class="w-full bg-gray-900 hover:bg-black disabled:opacity-60 text-white text-[16px] font-semibold py-3.5 rounded-full transition-colors active:scale-[0.99] flex items-center justify-center gap-2"
             @click="submitRequest"
           >
             <span v-if="loading">{{ t.submitting }}</span>
-            <span v-else>{{ t.submitRequest }} · {{ totalItems }} {{ t.items }}</span>
+            <span v-else>{{ t.submitRequest }} · {{ itemsLabel(totalItems) }}</span>
           </button>
         </div>
       </div>
@@ -300,18 +243,11 @@ const backTo = computed(() => (typeof route.query.from === 'string' ? route.quer
 const translations = {
   createRequest: { es: 'Compra Asistida', en: 'Assisted Shopping' },
   stepAddItems: { es: 'Nueva solicitud', en: 'New request' },
-  eyebrow: { es: 'Compra Asistida', en: 'Assisted Shopping' },
-  heroTitle: { es: 'Pega tus links. Nosotros los compramos.', en: 'Paste your links. We buy them.' },
-  heroTitleMore: { es: '¿Algo más? Pega otro link.', en: 'Anything else? Paste another link.' },
-  heroSubtitle: {
-    es: 'Copia el link de cualquier producto en Estados Unidos y pégalo aquí. Se agrega solo — no tienes que esperar nada.',
-    en: 'Copy the link of any product in the United States and paste it here. It adds itself — nothing to wait for.'
-  },
-  pastePlaceholder: { es: 'Pega un link… o varios de golpe', en: 'Paste a link… or several at once' },
-  pasteHint: {
-    es: 'Se agrega al pegar. Puedes pegar varios links juntos, o escribir el nombre si no tienes el link.',
-    en: 'Adds on paste. You can paste several links at once, or type a name if you have no link.'
-  },
+  back: { es: 'Regresar', en: 'Back' },
+  heroTitle: { es: '¿Qué quieres comprar?', en: 'What do you want to buy?' },
+  heroSubtitle: { es: 'Pega el link de cualquier producto de USA.', en: 'Paste the link of any US product.' },
+  pastePlaceholder: { es: 'https://tienda.com/producto…', en: 'https://store.com/product…' },
+  pasteHint: { es: 'También puedes pegar varios links a la vez.', en: 'You can also paste several links at once.' },
   addCta: { es: 'Agregar', en: 'Add' },
   step1Title: { es: 'Pega tus links', en: 'Paste your links' },
   step1Desc: { es: 'Uno por uno o todos juntos. Sin esperas.', en: 'One by one or all at once. No waiting.' },
@@ -319,11 +255,18 @@ const translations = {
   step2Desc: { es: 'Te cotizamos y, al aprobar, lo compramos.', en: 'We quote you and, once approved, we buy it.' },
   step3Title: { es: 'Llega a México', en: 'It arrives in Mexico' },
   step3Desc: { es: 'Lo enviamos hasta la puerta de tu casa.', en: 'We ship it right to your door.' },
+  item: { es: 'artículo', en: 'item' },
   items: { es: 'artículos', en: 'items' },
+  productOf: { es: 'Producto de', en: 'Product from' },
+  quantity: { es: 'Cantidad', en: 'Quantity' },
+  less: { es: 'Menos', en: 'Less' },
+  more: { es: 'Más', en: 'More' },
+  variantLabel: { es: 'Color / talla / variante', en: 'Color / size / variant' },
+  addExtras: { es: 'Agregar foto o nota (opcional)', en: 'Add a photo or note (optional)' },
   yourList: { es: 'Tu lista', en: 'Your list' },
   remove: { es: 'Eliminar', en: 'Remove' },
   noLink: { es: 'Sin link — lo buscamos por ti', en: 'No link — we’ll find it' },
-  variantPlaceholder: { es: 'Talla / color (opcional)', en: 'Size / color (optional)' },
+  variantPlaceholder: { es: 'Ej. Rosa, talla M', en: 'E.g. Pink, size M' },
   notesPlaceholder: { es: 'Nota (opcional)', en: 'Note (optional)' },
   addPhoto: { es: 'Agregar foto', en: 'Add photo' },
   changePhoto: { es: 'Cambiar foto', en: 'Change photo' },
@@ -335,10 +278,7 @@ const translations = {
     en: "We review your products, confirm price and availability at the store, and send you a quote with the full cost —product, 15% Boxly commission and your box shipping— before charging you anything."
   },
   seeBoxPrices: { es: 'Ver precios de las cajas de envío', en: 'See box shipping prices' },
-  noChargeYet: {
-    es: 'No se te cobra nada aún. Primero recibirás una cotización.',
-    en: "You won't be charged yet. You'll get a quote first."
-  },
+  noChargeYet: { es: 'Recibirás una cotización antes de pagar.', en: "You'll get a quote before you pay." },
   submitRequest: { es: 'Enviar solicitud', en: 'Submit request' },
   submitting: { es: 'Enviando…', en: 'Sending…' },
   successMsg: { es: 'Solicitud enviada', en: 'Request sent' },
@@ -352,8 +292,7 @@ const translations = {
 
 const t = createTranslations(translations);
 
-const STORE_LIST = ['Amazon', 'Costco', 'Target', 'Walmart', 'Nike', 'Apple', 'Home Depot', 'Best Buy', 'Sephora', 'Ross', 'TJ Maxx', 'Burlington', "Macy's", 'Coach', 'Michael Kors', "Levi's", 'Gap', 'Old Navy', 'Columbia', 'New Balance', 'Crocs', 'LEGO', 'Pokémon Center', 'Bath & Body Works', "Victoria's Secret", 'Ulta Beauty', "Dick's Sporting Goods", 'y miles más'];
-const marqueeStores = [...STORE_LIST, ...STORE_LIST];
+const itemsLabel = (n) => `${n} ${n === 1 ? t.value.item : t.value.items}`;
 
 const steps = computed(() => [
   { title: t.value.step1Title, desc: t.value.step1Desc, icon: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>' },
@@ -387,8 +326,6 @@ const storeOf = (url) => {
   }
 };
 
-const faviconFor = (url) => `https://www.google.com/s2/favicons?sz=64&domain=${encodeURIComponent(storeOf(url))}`;
-
 /**
  * Product name from the URL slug — the same walk the API does, so what the
  * customer sees here is exactly what gets saved. No request, no spinner.
@@ -405,12 +342,72 @@ const labelFor = (url) => {
   for (const raw of segments) {
     const slug = raw.replace(/\.(html?|aspx?|php|htm)$/i, '');
     if (SKIP_SEGMENTS.has(slug.toLowerCase())) continue;
-    if (!/[a-z]{3,}/i.test(slug)) continue;
+    // A real slug has words ("align-pant-2"); a lone token must be a plain word
+    // ("leggings") — short-link codes like "J7xj0lxatg" and SKUs are not names.
+    if (/[-_+]/.test(slug) ? !/[a-z]{3,}/i.test(slug) : !/^[a-z]{4,}$/i.test(slug)) continue;
     const pretty = slug.replace(/[-_+]+/g, ' ').replace(/\s+/g, ' ').trim();
     if (!pretty) continue;
     return pretty.replace(/\b\w/g, (c) => c.toUpperCase());
   }
-  return storeOf(url) || url;
+  return '';
+};
+
+/** "shop.lululemon.com" → "lululemon". */
+const brandOf = (url) => {
+  const parts = storeOf(url).split('.').filter(Boolean);
+  return parts.length >= 2 ? parts[parts.length - 2] : parts[0] || '';
+};
+
+// The store page's real title once we have it; until then the slug; failing
+// that, "Producto de lululemon" rather than a meaningless code.
+const displayName = (item) => {
+  if (!item.product_url) return item.label;
+  return item.title || item.label || `${t.value.productOf} ${brandOf(item.product_url)}`;
+};
+
+// ── Product preview (name + photo) ──────────────────────────────────────────
+// Adding never waits on this: the row lands instantly with its slug name, and
+// the real title and photo fill in when the store page answers. A few at a
+// time, so pasting a dozen links stays inside the endpoint's rate limit.
+const PREVIEW_CONCURRENCY = 3;
+const previewQueue = [];
+let previewsRunning = 0;
+
+const resolveItem = (item) => {
+  if (!item?.product_url) return;
+  item.resolving = true;
+  previewQueue.push(item);
+  pumpPreviews();
+};
+
+const pumpPreviews = () => {
+  while (previewsRunning < PREVIEW_CONCURRENCY && previewQueue.length) {
+    const item = previewQueue.shift();
+    // Removed while it waited — skip it.
+    if (!form.value.items.some((i) => i.key === item.key)) continue;
+    previewsRunning++;
+    $customFetch('/products/extract', { method: 'POST', body: { url: item.product_url } })
+      .then((res) => {
+        const d = res?.data || {};
+        const live = form.value.items.find((i) => i.key === item.key);
+        if (!live) return;
+        if (typeof d.title === 'string' && d.title.trim()) live.title = d.title.trim().slice(0, 255);
+        if (typeof d.image === 'string' && /^https?:\/\//.test(d.image)) live.image = d.image;
+      })
+      .catch(() => { /* no preview — the slug / brand name stands */ })
+      .finally(() => {
+        const live = form.value.items.find((i) => i.key === item.key);
+        if (live) live.resolving = false;
+        previewsRunning--;
+        pumpPreviews();
+      });
+  }
+};
+
+const thumbFor = (item) => item.imagePreview || (!item.imageFailed && item.image) || '';
+const onThumbError = (item) => {
+  if (item.imagePreview) return;
+  item.imageFailed = true;
 };
 
 // ── Feedback ─────────────────────────────────────────────────────────────────
@@ -454,6 +451,11 @@ const pushItem = ({ url = '', name = '' }) => {
     key: ++seq,
     product_url: url,
     label: url ? labelFor(url) : name,
+    title: '',
+    image: '',
+    imageFailed: false,
+    resolving: false,
+    extrasOpen: false,
     store: url ? storeOf(url) : '',
     name: url ? '' : name,
     quantity: 1,
@@ -465,8 +467,11 @@ const pushItem = ({ url = '', name = '' }) => {
     justAdded: true,
   };
   form.value.items.push(item);
-  setTimeout(() => { item.justAdded = false; }, 1600);
-  return item;
+  // Work on the reactive row, not the raw object we pushed.
+  const live = form.value.items[form.value.items.length - 1];
+  setTimeout(() => { live.justAdded = false; }, 1600);
+  resolveItem(live);
+  return live;
 };
 
 const refocus = () => nextTick(() => pasteInput.value?.focus());
@@ -492,7 +497,7 @@ const ingest = (text) => {
     showCue(t.value.alreadyAdded, 'dupe');
   } else if (added.length === 1) {
     // Name it. The reassurance they actually want is "yes, that was the right link".
-    showCue(`${t.value.addedOne} · ${added[0].label}`);
+    showCue(`${t.value.addedOne} · ${displayName(added[0])}`);
     pulseCount();
   } else {
     showCue(`${added.length} ${t.value.addedMany}`);
@@ -558,7 +563,9 @@ onMounted(() => {
   try {
     const saved = JSON.parse(sessionStorage.getItem(DRAFT_KEY) || 'null');
     if (Array.isArray(saved?.items) && saved.items.length) {
-      form.value.items = saved.items.map((i) => ({ ...i, key: ++seq, flash: false }));
+      form.value.items = saved.items.map((i) => ({ ...i, key: ++seq, flash: false, justAdded: false, resolving: false, imageFailed: false }));
+      // A draft saved before its preview landed gets one more try.
+      form.value.items.filter((i) => i.product_url && !i.title && !i.image).forEach(resolveItem);
     }
   } catch { /* no-op */ }
   refocus();
@@ -587,6 +594,8 @@ const submitRequest = async () => {
       form.value.items.forEach((i, index) => {
         body.append(`items[${index}][product_url]`, i.product_url || '');
         if (!i.product_url) body.append(`items[${index}][product_name]`, i.name || i.label);
+        else if (i.title) body.append(`items[${index}][product_name]`, i.title);
+        if (!i.imageFile && i.image && !i.imageFailed) body.append(`items[${index}][product_image_url]`, i.image);
         body.append(`items[${index}][quantity]`, String(Number(i.quantity) || 1));
         if (i.notes) body.append(`items[${index}][notes]`, i.notes);
         body.append(`items[${index}][options]`, i.variant ? JSON.stringify({ 'Talla / Color': i.variant }) : '{}');
@@ -598,7 +607,11 @@ const submitRequest = async () => {
           // A link is enough — the API derives the name from it. Name-only items
           // (no link) send what the customer typed.
           product_url: i.product_url || '',
-          ...(i.product_url ? {} : { product_name: i.name || i.label }),
+          // The store page's real title when the preview found it; otherwise the
+          // API derives the name from the link's slug.
+          ...(i.product_url ? (i.title ? { product_name: i.title } : {}) : { product_name: i.name || i.label }),
+          // The product photo, re-hosted by the API so the request keeps it.
+          ...(i.image && !i.imageFailed ? { product_image_url: i.image } : {}),
           quantity: Number(i.quantity) || 1,
           ...(i.notes ? { notes: i.notes } : {}),
           // The variant is free text on purpose: making it a dropdown is what
@@ -655,13 +668,12 @@ const submitRequest = async () => {
 .slideup-enter-active, .slideup-leave-active { transition: transform 0.25s ease, opacity 0.25s ease; }
 .slideup-enter-from, .slideup-leave-to { transform: translateY(100%); opacity: 0; }
 
-@keyframes breathe {
-  0%, 100% { transform: scale(1); opacity: 0.9; }
-  50% { transform: scale(1.15); opacity: 0.6; }
+/* Photo placeholder while the product preview loads. */
+.shimmer {
+  background: linear-gradient(100deg, rgba(229, 231, 235, 0) 30%, rgba(255, 255, 255, 0.7) 50%, rgba(229, 231, 235, 0) 70%) #f3f4f6;
+  background-size: 200% 100%;
+  animation: shimmer 1.3s linear infinite;
 }
-.breathe { animation: breathe 7s ease-in-out infinite; }
-.breathe-slow { animation: breathe 10s ease-in-out infinite; }
-.marquee-track { animation: marquee 70s linear infinite; }
-@keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-@media (prefers-reduced-motion: reduce) { .breathe, .breathe-slow, .marquee-track { animation: none; } }
+@keyframes shimmer { from { background-position: 150% 0; } to { background-position: -50% 0; } }
+@media (prefers-reduced-motion: reduce) { .shimmer { animation: none; } }
 </style>
