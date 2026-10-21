@@ -1,7 +1,16 @@
 <template>
+  <!-- Custom trigger: whatever the caller puts in the slot opens the video. -->
+  <button
+    v-if="$slots.default"
+    type="button"
+    :class="triggerClass"
+    @click="open"
+  >
+    <slot />
+  </button>
   <!-- 'link': a quiet text link for headers that are already busy. -->
   <button
-    v-if="variant === 'link'"
+    v-else-if="variant === 'link'"
     type="button"
     @click="open"
     class="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors flex-shrink-0"
@@ -25,12 +34,15 @@
     v-else
     type="button"
     @click="open"
-    class="inline-flex items-center gap-2 pl-1.5 pr-4 py-1.5 rounded-full bg-white text-primary-700 text-sm font-semibold border border-primary-100 hover:bg-primary-50 hover:border-primary-200 transition-all shadow-sm flex-shrink-0"
+    :class="[
+      'inline-flex items-center rounded-full bg-white text-primary-700 font-semibold border border-primary-100 hover:bg-primary-50 hover:border-primary-200 transition-all shadow-sm flex-shrink-0',
+      variant === 'video' ? 'gap-1.5 pl-1 pr-3 py-1 text-[13px]' : 'gap-2 pl-1.5 pr-4 py-1.5 text-sm',
+    ]"
   >
-    <span class="flex items-center justify-center w-7 h-7 rounded-full bg-primary-600 text-white">
+    <span :class="['flex items-center justify-center rounded-full bg-primary-600 text-white', variant === 'video' ? 'w-6 h-6' : 'w-7 h-7']">
       <svg class="w-3.5 h-3.5 ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
     </span>
-    {{ t.watchTutorial }}
+    {{ variant === 'video' ? t.watchVideo : t.watchTutorial }}
   </button>
 
   <!--
@@ -133,6 +145,8 @@ defineProps({
   loomId: { type: String, required: true },
   // 'pill' (default), 'link' or 'play'.
   variant: { type: String, default: 'pill' },
+  // Classes for the slot trigger.
+  triggerClass: { type: String, default: '' },
 })
 
 const { t: createTranslations } = useLanguage()
@@ -140,6 +154,7 @@ const t = createTranslations({
   watchTutorial: { es: 'Ver tutorial', en: 'Watch tutorial' },
   tutorial: { es: 'Tutorial', en: 'Tutorial' },
   howItWorks: { es: 'Ver cómo funciona', en: 'See how it works' },
+  watchVideo: { es: 'Ver video', en: 'Watch video' },
   eyebrow: { es: 'Guía rápida', en: 'Quick guide' },
   modalTitle: { es: 'Mira cómo funciona', en: 'See how it works' },
   close: { es: 'Cerrar', en: 'Close' },
