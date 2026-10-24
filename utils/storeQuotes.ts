@@ -169,7 +169,11 @@ export function storeDoneMessage(quote: StoreQuote & { reason?: string | null },
   // The "all totals" line only when every store is terminal and this is the last one announced — and never right after a store
   // that could not be quoted (live Costco 2026-10-22: "No pude cotizar costco.com (…). ¡Listo! Ya tengo todos los totales ✅")
   if (!final) return own
-  return quoteDone(quote) ? `${own} ¡Listo! Ya tengo todos los totales ✅` : `${own} Ya revisé todas las tiendas; te ayudo a elegir otra opción para este producto 👇`
+  if (quoteDone(quote)) return `${own} ¡Listo! Ya tengo todos los totales ✅`
+  // sold out → another option; any other reason (the store's total could not be checked) → the team takes it from here
+  return /sin existencias|agotad|sold out|no disponible|no hay productos/i.test(dropReason(quote))
+    ? `${own} Te ayudo a elegir otra opción para este producto 👇`
+    : `${own} Nuestro equipo lo revisa y te escribe por WhatsApp 📲`
 }
 
 // ---- The final summary (checkout_summary on GET /purchase-requests/{id}) ----

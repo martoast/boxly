@@ -756,7 +756,7 @@ function onInvoiceReady(requestId, requestNumber, { kind, conversation_id = null
   if (hasInvoiceMessage(requestId)) return
   const invoice = { id: `invoice-${requestId}`, role: 'assistant', parts: kind === 'invoice'
     ? [{ type: 'text', text: 'Aquí está tu factura final 👇' }, { type: 'data-invoice', data: { purchase_request_id: requestId, request_number: requestNumber || null } }]
-    : [{ type: 'text', text: 'Ya tengo los totales de tus tiendas. Nuestro equipo revisa tu pedido y te manda la factura por WhatsApp 📲' }, { type: 'data-invoice', data: { purchase_request_id: requestId, kind: 'manual' } }] }
+    : [{ type: 'text', text: 'Nuestro equipo revisa tu pedido y te manda la factura por WhatsApp 📲' }, { type: 'data-invoice', data: { purchase_request_id: requestId, kind: 'manual' } }] }
   const next = { id: `invoice-next-${requestId}`, role: 'assistant', parts: [{ type: 'text', text: kind === 'invoice'
     ? '¿Y ahora qué sigue? 🙌\n\n1️⃣ Paga tu factura con el botón Pagar (también te llegó a tu correo).\n\n2️⃣ En cuanto se confirme tu pago, nuestro equipo compra tus productos en cada tienda y los envía a nuestra bodega en San Diego.\n\n3️⃣ Te avisamos cuando lleguen y preparamos tu caja para mandarla a México (el envío de la caja se cotiza aparte).\n\nSi tienes cualquier duda, escríbeme aquí.'
     : '¿Y ahora qué sigue? 🙌\n\n1️⃣ Te mandamos la factura por WhatsApp; págala con el enlace.\n\n2️⃣ En cuanto se confirme tu pago, nuestro equipo compra tus productos en cada tienda y los envía a nuestra bodega en San Diego.\n\n3️⃣ Te avisamos cuando lleguen y preparamos tu caja para mandarla a México (el envío de la caja se cotiza aparte).' }] }
