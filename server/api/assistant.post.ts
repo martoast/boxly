@@ -265,6 +265,8 @@ function audienceGap(messages: any[]): boolean {
   if (!t || /https?:\/\//i.test(t)) return false
   if (t.trim().split(/\s+/).length > 14) return false
   if (/\b(?:talla|size|medida)\b/i.test(t)) return false
+  // a PROMOTIONS ask searches the store's sale right away (the prompt's rule; typed, it was asked "¿para quién?" — the starter card skips this)
+  if (/\b(?:promo(?:cion(?:es)?|s)?|ofertas?|descuentos?|rebajas?|sale|deals?|liquidacion|clearance|outlet)\b/i.test(t)) return false
   if (RE_SELF_GENDERED.test(t)) return false
   if (RE_AUDIENCE.test(t)) return false
   // A women's-only store already says who it is for (lab 2026-10-08: "pijama de Victoria's Secret" was asked "¿para mujer o para niña?")
