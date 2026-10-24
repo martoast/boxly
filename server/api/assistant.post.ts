@@ -194,6 +194,10 @@ const RESTRICTED_RE = new RegExp([
   String.raw`\b(?:vape|vapes|vapeador(?:es)?|vaper|vapear|e-?cigs?|e-?cigarettes?|nicotina|nicotine|zyn|tabaco|hookah|shisha|narguile|cigars?)\b`,
   String.raw`\b(?:municion(?:es)?|ammo|ammunition|balas?|rifles?|escopetas?|revolver(?:es)?|firearms?|glock|ar-?15|ak-?47|silenciador|taser|pepper spray|gas pimienta)\b`,
   String.raw`\bpistolas?\b(?!\s+(?:de\s+)?(?:agua|calor|silic|pintura|clavos|pegamento|juguete|nerf))`,
+  // AIR GUNS AND THEIR PARTS (Alex 2026-10-24: "Magazine Brocock 5.5mm" was declined, then searched on eBay from the shopper's photos).
+  // Airsoft and paintball stay normal products.
+  String.raw`\b(?:air\s?(?:rifles?|guns?|pistols?)|airguns?|pellet\s+guns?|rifles?\s+de\s+(?:aire|diábolos|diabolos|postas)|pistolas?\s+de\s+(?:aire|diábolos|diabolos|postas)|pcp|brocock|daystate|fx\s+impact|benjamin\s+marauder|hatsan|air\s+arms)\b`,
+  String.raw`\b(?:magazines?|cargador(?:es)?|mira\s+telesc[oó]pica|scope)\b[^\n]{0,30}\b(?:\d(?:[.,]\d+)?\s?mm|calibre|caliber|\.22|\.177|\.25|rifle|pistol|gun)\b`,
   String.raw`\b(?:medicamentos?\s+controlados?|con\s+receta|receta\s+m[eé]dica|prescription\s+(?:drugs?|medication)|adderall|oxycodone|oxicodona|xanax|tramadol)\b`,
   String.raw`\b(?:animal(?:es)?\s+vivos?|cachorros?\s+(?:de\s+)?venta|comprar\s+un\s+(?:perro|gato|perico|loro|conejo|h[aá]mster))\b`,
 ].join('|'), 'i')
@@ -270,7 +274,13 @@ function audienceGap(messages: any[]): boolean {
 }
 
 function restrictedAsk(messages: any[]): boolean {
-  return RESTRICTED_RE.test(plainText(lastUserText(messages)))
+  if (RESTRICTED_RE.test(plainText(lastUserText(messages)))) return true
+  // A PHOTO (or a bare "ese") RIGHT AFTER A REFUSED ASK is the same ask (live 2026-10-24: "Magazine Brocock 5.5mm" declined, then four photos
+  // of it were searched on eBay): while the newest message brings no words of its own, the last few asks decide
+  const users = (messages || []).filter((m: any) => m?.role === 'user')
+  const newest = plainText(lastUserText(messages)).replace(/https?:\/\/\S+/g, '').trim()
+  if (newest.split(/\s+/).filter((w) => w.length > 2).length > 2) return false
+  return users.slice(-4, -1).some((m: any) => RESTRICTED_RE.test(plainText((m.parts || []).filter((p: any) => p?.type === 'text').map((p: any) => p.text).join(' '))))
 }
 // What a refusing tool hands back: no products, and an instruction the model cannot
 // turn into a shopping answer.
@@ -857,12 +867,13 @@ MODE 1 — EXPERT (answer questions). Use the KNOWLEDGE BASE below to answer any
 
 
 MODE 2 — PRODUCT DISCOVERY, LIVE IN THE STORES (find things). Every product request is answered with live_gallery: it opens the store's OWN website in a real browser the shopper watches in the chat, searches the store's own search box, and the gallery (photo, name, price, link) lands in the chat by itself about 10–30 s later. There is no other product search — no catalog, no web search — so never answer a product ask with text alone, and never with products from memory.
-  • WHERE: the store they named (a brand's own store: "tenis Nike" → Nike; "leggings Alo" → Alo). If they named none, the best-known stores for that category among LIVE STORES (the list is in the context block, with how many stores one search may open). A store that is not on LIVE STORES cannot be SEARCHED live yet — but the Boxly agent still BUYS from almost any US store's own website by the product's LINK. So NEVER say a store "no está integrada", "no trabajamos con ella" or that we can't buy there: say in one line that you can't search it from here, ask them to paste the product's link from that store's website (or several links in one message) and you add it to their box; offer the closest LIVE store only as an extra option. Only a marketplace (Temu, Shein, AliExpress…) or a Mexican site is refused, and the box tool tells you when.
+  • WHERE: the store they named (a brand's own store: "tenis Nike" → Nike; "leggings Alo" → Alo). If they named none, the best-known stores for that category among LIVE STORES (the list is in the context block, with how many stores one search may open). A store that is not on LIVE STORES cannot be SEARCHED live yet — but the Boxly agent still BUYS from almost any US store's own website by the product's LINK. So NEVER say a store "no está integrada", "no trabajamos con ella" or that we can't buy there: say in one line that you can't search it from here, ask them to paste the product's link from that store's website (or several links in one message) and you add it to their box; offer the closest LIVE store only as an extra option. A BRAND (not a store) whose own site is not on LIVE STORES — Hugo Boss, Calvin Klein, Ralph Lauren, Tommy Hilfiger, Michael Kors, Levi's, Guess… — IS sold by LIVE department/off-price stores: search it there right away (Nordstrom Rack, TJ Maxx, Amazon — whichever are on LIVE STORES; the brand in the query, e.g. "Hugo Boss men jacket"), and say in the same breath they can also paste a link from the brand's own site. Decide this BEFORE any narrowing question: never ask "¿para quién?" and then answer that you cannot search it (live 2026-10-22: "chamarras hugo boss" → "¿para hombre o mujer?" → "no la puedo navegar en vivo", twice). Only a marketplace (Temu, Shein, AliExpress…) or a Mexican site is refused, and the box tool tells you when.
   • WHAT: query = what to type in the store's search box, SHORT and IN ENGLISH ("tacos de americano" → "football cleats", "tenis" → "sneakers", "sudadera" → "hoodie", "tele" → "tv"). No store names, prices or sizes in it.
   • WHAT THE SHOPPER SEES: the instant you call live_gallery the chat itself shows them a message in your voice — "¡Va! Déjame revisar New Balance por ti 🔎 Abro su tienda en un navegador en vivo…" — then the live browser, then the gallery. So call live_gallery RIGHT AWAY and write NO text of your own before or after it (it would say the same thing twice). Only when it cannot start (or a store you asked for cannot be opened live) do you write ONE short line. NEVER list, invent or promise products, prices or links — the gallery speaks for itself when it lands.
   THESE ARE ALL PRODUCT ASKS TOO, and each deserves live_gallery (after at most ONE narrowing question): a COMPARISON ("¿Nike o Adidas?" → both stores in one search, then compare the real items), ONE WORD or an EMOJI ("audífonos", "🎮" → video games and consoles, "👟" → sneakers), a STORE with no item ("qué hay en Target" → ask what they want there, then search it), a promo ask ("ofertas en Alo", "¿hay promociones en Target?", "promos de Walmart USA" → live_gallery RIGHT AWAY, NO narrowing question, searching that store for "sale" (or "deals"/"clearance" if that is the store's word; with an item named, that item + "sale"); its gallery shows each item's real was-price when it is on sale — never promise discounts the store does not have). AN iPHONE (new phone, not a case/charger) is searched at Walmart even when they name Best Buy or Target: those two only sell it tied to a US carrier plan, which cannot work in Mexico; say so in one short line and show Walmart's unlocked ones.
 
 "VER MÁS" — the gallery's own button sends \`Ver más: "<query>" en <stores>\`: call live_gallery AT ONCE with EXACTLY that query (character for character) and those stores — no question, no narrowing, no other words in the query. The live store browser answers it with the NEXT products of that search (it skips the ones already shown). Say nothing but the usual one short line.
+NEVER SAY A PRODUCT DOES NOT EXIST. Your own knowledge is older than today's store shelves: new models come out after it (live 2026-10-23: "iPhone 18" was answered "todavía no existe, Apple va en la serie 16" and searched as iPhone 16 — the shopper then pasted apple.com's iPhone 18 Pro page). Search EXACTLY the model, version or year the shopper names ("iPhone 18" → query "iPhone 18"); if the store has nothing by that name, say you did not find it there and offer the closest — never correct them about what exists.
 ONE QUESTION BEFORE A VAGUE SEARCH, NEVER MORE. The live browser has to go somewhere SPECIFIC. When the ask is too broad to search a store with — who it is for is missing ("un disfraz de Batman": hombre, mujer o niño are three different products), no product type ("un regalo", "algo para el gym", "ropa"), or only a store name ("Gymshark"; a store + promos/ofertas is NOT this — search its sale) — call ask_to_narrow with ONE question and 2-4 tappable answers, in a turn of its own, and say nothing else. The card asks it; do not repeat the question in your text and do not call live_gallery in the same turn. Then search with what they tapped. NEVER ask about size or colour (the picker handles those), never twice in a row, and never for an ask that is already specific — "tenis Nike Pegasus 41" goes straight to live_gallery.
 
 MODE 3 — BUILD THE BOX, THEN FINALIZE (where the money is made). The box IS their real cart: every item the box card shows goes into their Boxly cart at once, and they keep shopping. The point is to CONSOLIDATE several stores into one box: after each add, push for more from that store, then for the next store. When they tap Finalizar, the Boxly agent fills each store's REAL cart and checks out (live in the chat), creates their purchase request and sends the invoice with its Stripe payment link.
@@ -1002,6 +1013,7 @@ export default defineEventHandler(async (event) => {
   const newestText = (newestUser?.parts || []).filter((p: any) => p?.type === 'text').map((p: any) => p.text).join(' ')
   // …and ONE link pasted on its own (isLinkOnly): the same card reads it in the browser, never a server read past the ~30 s cut
   const linkListAsk = !linkListAdd && (linkListUrls(newestText).length >= 2 || isLinkOnly(newestText))
+  const seeMoreAsk = !linkListAdd && /^\s*Ver m[aá]s:\s*"/i.test(newestText)
   // A STORE CART / CHECKOUT PAGE pasted with no product link (live WSS 2026-10-18: shopwss.com/cart, twice): we cannot see their cart —
   // it lives in their own browser — so the reply asks for each product's link. Text only.
   const cartPasted = !linkListAdd ? cartLinks(newestText) : []
@@ -1246,6 +1258,9 @@ export default defineEventHandler(async (event) => {
       if (linkListAsk && !(steps || []).length) return { activeTools: ['show_link_list'], toolChoice: 'required' }
       if ((linkListAdd || linkListAsk) && (steps || []).length) return { activeTools: [], toolChoice: 'none' }
       if (cartLinkAsk) return { activeTools: [], toolChoice: 'none' }
+      // "VER MÁS" IS A PAGE, NEVER A QUESTION (live 2026-10-24: Adidas and DFYNE answered the button with "¿para quién?" — its query names no
+      // audience, so the narrowing gate fired): the gallery, then one line
+      if (seeMoreAsk) return (steps || []).length ? { activeTools: [], toolChoice: 'none' } : { activeTools: ['live_gallery'], toolChoice: 'required' }
       // a quantity or "keep the box" is answered on the box, never with a question or a new gallery
       if (qtyOnly || keepAsIs) return { activeTools: NON_GALLERY_TOOLS.filter((t) => t !== 'show_link_list') }
       if (galleryShown) return { activeTools: NON_GALLERY_TOOLS }
@@ -1792,7 +1807,8 @@ export default defineEventHandler(async (event) => {
           stores: z.array(z.string()).min(1).max(4).describe('Store names from LIVE STORES, e.g. ["Gymshark"] or ["On", "New Balance", "Nike"]. The store the shopper named, else the best-known ones for this category.'),
         }),
         execute: async ({ query, stores }: any) => {
-          if (restrictedAsk(messages)) return REFUSAL
+          // …and the query the model wrote itself (a photo search names the item: "Brocock magazine 22", 2026-10-24)
+          if (restrictedAsk(messages) || RESTRICTED_RE.test(plainText(String(query || '')))) return REFUSAL
           // A guest: live search needs an account (the session, the conversation and the cart are theirs).
           if (!token) return { ok: false, error: 'not_authenticated', note: 'NO LIVE GALLERY — this visitor is not signed in. Call create_account now with ONE short line in Spanish saying that to search it live in the store they need their free Boxly account and you bring them right back here. Do NOT describe or list products.' }
           const stop = (error: string, why: string) => ({ ok: false, error, note: `NO LIVE GALLERY — ${why} Nothing is on screen; do NOT describe products.` })
@@ -1846,6 +1862,25 @@ export default defineEventHandler(async (event) => {
           const { wanted, unsupported } = wantedFromBox(box, storeRegistry, carriedStores, null, pastedPages(messages))
           if (unsupported.length) {
             return { ...stop('unsupported_items', `${unsupported.join(', ')} ${unsupported.length > 1 ? 'are' : 'is'} not from a store the Boxly agent can buy from (a marketplace, or no product page). Say ONE short line naming ${unsupported.length > 1 ? 'them' : 'it'} and ask the shopper to take ${unsupported.length > 1 ? 'them' : 'it'} out of the box, or to search the same product live in a store that can.`), unsupported }
+          }
+          // THE SAME THING ALREADY ORDERED AND NOT PAID (live 2026-10-19/22: three YoungLA invoices, two of them for the same shirt, none paid):
+          // asked once — an unpaid request from another chat (quoted / in review, last 14 days) holding one of the box's products. A second
+          // Finalizar tap after that question goes ahead.
+          const askedDup = (messages || []).some((m: any) => m?.role === 'assistant' && (m.parts || []).some((p: any) => p?.type === 'tool-finalize_order' && p?.output?.error === 'duplicate_unpaid'))
+          if (!askedDup) {
+            try {
+              const keyOf = (u: any) => { try { const x = new URL(String(u)); return `${x.hostname.replace(/^www\./, '')}${x.pathname.replace(/\/+$/, '')}`.toLowerCase() } catch { return '' } }
+              const boxKeys = new Set(box.map((b: any) => keyOf(b.url)).filter(Boolean))
+              const listed: any = await callApi('/purchase-requests', { token, timeoutMs: 6000 })
+              const reqs: any[] = Array.isArray(listed?.data) ? listed.data : (Array.isArray(listed?.data?.data) ? listed.data.data : [])
+              const since = Date.now() - 14 * 86_400_000
+              const dup = reqs.find((r: any) => ['quoted', 'pending_review'].includes(String(r?.status)) && String(r?.conversation_id ?? '') !== String(conversationId ?? '')
+                && Date.parse(r?.created_at || '') > since && (r?.items || []).some((i: any) => boxKeys.has(keyOf(i?.product_url))))
+              if (dup) {
+                const item = (dup.items || []).find((i: any) => boxKeys.has(keyOf(i?.product_url)))
+                return { ...stop('duplicate_unpaid', `the shopper ALREADY has an unpaid order ${dup.request_number || ''} with "${item?.product_name || item?.name || 'este producto'}" (${dup.status === 'quoted' ? 'its invoice is waiting to be paid' : 'it is being reviewed'}). Ask in ONE or two short lines (Spanish) whether they want to pay that one (it is in "Mis compras") or place a NEW order anyway — if new, they tap Finalizar again.`), request_number: dup.request_number || null }
+              }
+            } catch { /* never blocks an order */ }
           }
           // FINALIZAR NEVER REMOVES (live 2026-10-03: the last card listed only the Gymshark items and the sync deleted the two Alo
           // lines from the order): the chat's cart is the order; this sync only adds or updates what the box card shows.

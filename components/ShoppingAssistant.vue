@@ -426,6 +426,12 @@
                     <div v-else-if="part.type === 'tool-live_gallery' && (part.state === 'input-streaming' || part.state === 'input-available' || (part.state === 'output-available' && part.output?.ok))"
                          class="bg-white border border-gray-100 rounded-3xl rounded-bl-lg px-4 py-3 shadow-sm text-[15px] leading-relaxed">
                       {{ liveSearchLine(part) }}
+                      <!-- A SEARCH THAT NEVER BROUGHT RESULTS and is not the one running (live 2026-10-22/24: a shopper's newer search in another
+                           chat replaced it — "superseded" — and this chat kept "¡Va! Déjame revisar…" forever) -->
+                      <div v-if="stoppedSearch(m, part)" class="mt-2 text-[13px] text-gray-500">
+                        Esta búsqueda se detuvo antes de terminar (por ejemplo, porque abriste otra búsqueda).
+                        <button type="button" :disabled="isBusy" class="font-semibold text-primary-700 underline disabled:opacity-50" @click="retrySearch(part)">Buscar de nuevo</button>
+                      </div>
                     </div>
 
                     <a v-else-if="part.type === 'tool-show_contact_whatsapp' && part.state === 'output-available'"
@@ -2120,6 +2126,26 @@ function liveSearchOf(m) {
     }
   }
   return null
+}
+// A live search with no results in this chat that is not the search running now: it stopped (superseded, failed or lost).
+function stoppedSearch(m, part) {
+  const id = part?.output?.ok ? part.output?.live_session?.id : null
+  // only a message from the chat's history (numeric ids): a search started on this page is followed by its own card and ending
+  if (!id || liveShown.value?.id === id || !/^\d+$/.test(String(m?.id))) return false
+  const list = chat.messages
+  const at = list.indexOf(m)
+  if (at < 0) return false
+  // its results land in this message or a following assistant one
+  for (let k = at; k < list.length && k <= at + 4; k++) {
+    if (k > at && list[k]?.role === 'user') break
+    if ((list[k]?.parts || []).some((p) => p?.type === 'tool-live_results')) return false
+  }
+  return true
+}
+function retrySearch(part) {
+  const q = part?.output?.query || part?.input?.query
+  const stores = part?.output?.stores || part?.input?.stores || []
+  if (q && stores.length) sendFollowup(`Ver más: "${q}" en ${stores.join(', ')}`)
 }
 function seeMore(m) {
   const s = liveSearchOf(m)

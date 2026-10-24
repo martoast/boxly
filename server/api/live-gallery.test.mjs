@@ -27,6 +27,8 @@ writeFileSync(tmp, [
   '  const authedNote = { ok: false, error: "not_authenticated" }',
   '  const REFUSAL = { refused: true }',
   '  const restrictedAsk = () => !!ctx.restricted',
+  '  const RESTRICTED_RE = /\\bbrocock\\b/i',
+  '  const plainText = (t) => String(t)',
   '  const liveStoreList = async () => ctx.liveCatalog',
   '  const callApi = async (path: string, opts: any) => { ctx.calls.push({ path, ...opts }); return ctx.reply }',
   '  const tools = {',
