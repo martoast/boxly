@@ -21,3 +21,11 @@ assert.equal(sel.Size, null, 'cleared when M is sold out in Black')
   assert.deepEqual(v, { color: 'Black', Print: 'Stripes', size: 'XS' })
 }
 console.log('colour-stock-wait: all checks pass')
+// a SOLD-OUT page colour is never pre-picked (live Costco 2026-10-24: Gray, sold out, came picked)
+{
+  const line = sfc.split('\n').find((l) => l.startsWith('const colourSoldOut = '))
+  const fn = new Function('variants', `${line}; return colourSoldOut`)
+  const soldOut = fn({ value: [{ options: { Color: 'Gray' }, available: false }, { options: { Color: 'Navy' }, available: true }, { options: { Size: 'M' }, available: null }] })
+  assert.equal(soldOut({ name: 'Color' }, 'Gray'), true); assert.equal(soldOut({ name: 'Color' }, 'Navy'), false); assert.equal(soldOut({ name: 'Color' }, 'Tan'), false)
+  console.log('colour-stock-wait: sold-out page colour not pre-picked')
+}

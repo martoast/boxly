@@ -153,9 +153,12 @@ watchEffect(() => { for (const a of axes.value) if (a.values.length === 1 && !se
 // THE COLOUR THEY TAPPED COMES PICKED (Alex 2026-10-05: "I selected the RAIN CLOUD color in the gallery yet it is not
 // selected here"). The card opened is that colourway's own page, and the read says which colour it shows (selected): only
 // the colour is filled in, once, on open; size and the rest stay for the shopper (Alex 2026-09-28).
+// …never a colour the read says is SOLD OUT (live Costco 2026-10-24: the page opens on Gray, sold out; it came picked, a size was
+// tapped and "Gray, X-Small" went into the box)
+const colourSoldOut = (a, c) => { const rows = variants.value.filter((v) => (v.options?.[a.name] ?? v.color) === c); return rows.length > 0 && rows.every((v) => v.available === false) }
 for (const a of axes.value) {
   const want = a.kind === 'color' ? props.data?.selected?.[a.name] : null
-  if (want && !sel[a.name] && a.values.includes(want)) sel[a.name] = want
+  if (want && !sel[a.name] && a.values.includes(want) && !colourSoldOut(a, want)) sel[a.name] = want
 }
 for (const a of axes.value) if (a.kind === 'color' && sel[a.name]) askColourStock(sel[a.name])
 // The opening price: AFTER `sel` and the colour they tapped (above it, the effect hit an uninitialised `sel`, threw, and the
