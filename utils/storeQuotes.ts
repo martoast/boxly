@@ -166,8 +166,10 @@ export function storeDoneMessage(quote: StoreQuote & { reason?: string | null },
       })()
     : `No pude cotizar ${name} (${dropReason(quote)}).`
   if (next) return `${own} Sigo con ${next} 👇`
-  // The "all totals" line only when every store is terminal and this is the last one announced.
-  return final ? `${own} ¡Listo! Ya tengo todos los totales ✅` : own
+  // The "all totals" line only when every store is terminal and this is the last one announced — and never right after a store
+  // that could not be quoted (live Costco 2026-10-22: "No pude cotizar costco.com (…). ¡Listo! Ya tengo todos los totales ✅")
+  if (!final) return own
+  return quoteDone(quote) ? `${own} ¡Listo! Ya tengo todos los totales ✅` : `${own} Ya revisé todas las tiendas; te ayudo a elegir otra opción para este producto 👇`
 }
 
 // ---- The final summary (checkout_summary on GET /purchase-requests/{id}) ----
