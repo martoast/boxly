@@ -5,7 +5,10 @@
       <button type="button" class="p-2 -ml-2 rounded-full bg-white/10" :aria-label="t.close" @click="close">
         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
       </button>
-      <p class="text-sm font-semibold">{{ capturedCount }} {{ t.scanned }}<span v-if="sending" class="text-white/60"> · {{ sending }} {{ t.sending }}</span></p>
+      <p class="text-sm font-semibold text-center">
+        <span v-if="place" class="inline-block mb-0.5 px-2 py-0.5 rounded-full bg-white/15 text-xs">📍 {{ place }}</span>
+        <span class="block">{{ capturedCount }} {{ t.scanned }}<span v-if="sending" class="text-white/60"> · {{ sending }} {{ t.sending }}</span></span>
+      </p>
       <button v-if="torchSupported" type="button" class="p-2 -mr-2 rounded-full" :class="torchOn ? 'bg-yellow-400 text-black' : 'bg-white/10'" :aria-label="t.torch" @click="toggleTorch">
         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
       </button>
@@ -75,6 +78,7 @@ import { loadCv, findLabel } from '~/utils/labelQuad'
 const props = defineProps({
   items: { type: Array, default: () => [] }, // the parent's queue: shows the last few results coming back
   english: { type: Boolean, default: false },
+  place: { type: String, default: '' }, // the warehouse these scans are saved to (admin), shown so it is never a surprise
 })
 const emit = defineEmits(['capture', 'close'])
 

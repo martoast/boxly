@@ -9,7 +9,20 @@
           </h1>
           <p class="text-sm text-gray-500 mt-1">{{ t.subtitle }}</p>
         </div>
-        <div class="flex items-center gap-2 sm:shrink-0">
+        <div class="flex flex-wrap items-center gap-2 sm:shrink-0">
+          <!-- Admin: which warehouse these scans are in. Tijuana unless switched — an employee is always their own. -->
+          <div v-if="!isEmployee" class="w-full sm:w-auto inline-flex rounded-xl bg-gray-100 p-1" role="radiogroup" :aria-label="t.scanAt">
+            <button
+              v-for="l in ['tijuana', 'san_diego']"
+              :key="l"
+              type="button"
+              role="radio"
+              :aria-checked="scanLocation === l"
+              class="flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors"
+              :class="scanLocation === l ? (l === 'tijuana' ? 'bg-emerald-600 text-white shadow-sm' : 'bg-sky-600 text-white shadow-sm') : 'text-gray-500 hover:text-gray-700'"
+              @click="scanLocation = l"
+            >{{ t.scanIn }} {{ t.loc[l] }}</button>
+          </div>
           <NuxtLink
             v-if="!isEmployee"
             to="/app/admin/wall"
@@ -150,6 +163,12 @@
           <input v-model="onlyCheck" type="checkbox" class="rounded border-gray-300 text-primary-500 focus:ring-primary-500">
           {{ t.onlyCheck }}
         </label>
+        <button
+          v-if="dupIds.size"
+          type="button"
+          class="shrink-0 px-3 py-2 rounded-xl text-sm font-semibold bg-orange-50 text-orange-700 border border-orange-100 hover:bg-orange-100"
+          @click="selectDuplicates"
+        >{{ t.selectDups(dupIds.size) }}</button>
       </div>
 
       <div v-if="loading" class="bg-white rounded-2xl border border-gray-100 p-8 text-center text-gray-400">{{ t.loading }}</div>
@@ -160,25 +179,38 @@
       </div>
 
       <div v-else class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div class="hidden sm:grid grid-cols-[3.5rem_1fr_1fr_7rem_8rem] gap-4 px-4 py-3 bg-gray-50 border-b border-gray-100 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-          <span />
-          <span>{{ t.colName }}</span>
-          <span>{{ t.colTracking }}</span>
-          <span>{{ t.colCarrier }}</span>
-          <span>{{ t.colDate }}</span>
+        <div class="flex items-center bg-gray-50 border-b border-gray-100">
+          <label class="pl-4 py-3 shrink-0 flex items-center" :title="t.selectAll">
+            <input type="checkbox" class="w-4 h-4 rounded border-gray-300 text-primary-500 focus:ring-primary-500" :checked="allSelected" :indeterminate="selected.size > 0 && !allSelected" :aria-label="t.selectAll" @change="toggleAll">
+          </label>
+          <div class="hidden sm:grid flex-1 grid-cols-[3.5rem_1fr_1fr_7rem_8rem] gap-4 px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+            <span />
+            <span>{{ t.colName }}</span>
+            <span>{{ t.colTracking }}</span>
+            <span>{{ t.colCarrier }}</span>
+            <span>{{ t.colDate }}</span>
+          </div>
+          <span class="sm:hidden px-3 text-xs font-semibold text-gray-500">{{ t.selectAll }}</span>
         </div>
-        <div v-for="s in scans" :key="s.id" class="border-b border-gray-100 last:border-0">
-          <button type="button" class="w-full text-left grid grid-cols-[3.5rem_1fr] sm:grid-cols-[3.5rem_1fr_1fr_7rem_8rem] gap-x-4 gap-y-1 px-4 py-3 items-center hover:bg-gray-50" @click="toggle(s)">
-            <img :src="s.image_url" alt="" loading="lazy" class="w-14 h-14 object-cover rounded-lg bg-gray-100 row-span-3 sm:row-span-1">
-            <span class="min-w-0">
-              <span class="font-medium text-gray-900 truncate block">{{ s.recipient_name || '—' }}</span>
-              <span v-if="!isEmployee && s.location" class="inline-flex mt-0.5 mr-1 px-2 py-0.5 rounded-full text-xs font-semibold border" :class="s.location === 'tijuana' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-sky-50 text-sky-700 border-sky-100'">{{ t.locShort[s.location] }}</span>
-              <span v-if="s.needs_check" class="inline-flex mt-0.5 px-2 py-0.5 rounded-full text-xs font-semibold border bg-amber-50 text-amber-700 border-amber-100">{{ t.needsCheck }}</span>
-            </span>
-            <span class="font-mono text-xs text-gray-600 break-all">{{ s.tracking_number || '—' }}</span>
-            <span class="text-xs text-gray-500 uppercase">{{ s.carrier || '—' }}</span>
-            <span class="text-xs text-gray-400 hidden sm:block">{{ formatDate(s.created_at) }}</span>
-          </button>
+        <div v-for="s in scans" :key="s.id" class="border-b border-gray-100 last:border-0" :class="selected.has(s.id) ? 'bg-primary-50/60' : ''">
+          <div class="flex items-center">
+            <!-- tick several rows to delete them together (doubles: the same package scanned twice) -->
+            <label class="pl-4 py-3 self-stretch shrink-0 flex items-center cursor-pointer">
+              <input type="checkbox" class="w-4 h-4 rounded border-gray-300 text-primary-500 focus:ring-primary-500" :checked="selected.has(s.id)" :aria-label="s.recipient_name || s.tracking_number || ''" @change="toggleSelect(s.id)">
+            </label>
+            <button type="button" class="flex-1 min-w-0 text-left grid grid-cols-[3.5rem_1fr] sm:grid-cols-[3.5rem_1fr_1fr_7rem_8rem] gap-x-4 gap-y-1 px-4 py-3 items-center hover:bg-gray-50" @click="toggle(s)">
+              <img :src="s.image_url" alt="" loading="lazy" class="w-14 h-14 object-cover rounded-lg bg-gray-100 row-span-3 sm:row-span-1">
+              <span class="min-w-0">
+                <span class="font-medium text-gray-900 truncate block">{{ s.recipient_name || '—' }}</span>
+                <span v-if="!isEmployee && s.location" class="inline-flex mt-0.5 mr-1 px-2 py-0.5 rounded-full text-xs font-semibold border" :class="s.location === 'tijuana' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-sky-50 text-sky-700 border-sky-100'">{{ t.locShort[s.location] }}</span>
+                <span v-if="s.needs_check" class="inline-flex mt-0.5 mr-1 px-2 py-0.5 rounded-full text-xs font-semibold border bg-amber-50 text-amber-700 border-amber-100">{{ t.needsCheck }}</span>
+                <span v-if="dupIds.has(s.id)" class="inline-flex mt-0.5 px-2 py-0.5 rounded-full text-xs font-semibold border bg-orange-50 text-orange-700 border-orange-100">{{ t.duplicate }}</span>
+              </span>
+              <span class="font-mono text-xs text-gray-600 break-all">{{ s.tracking_number || '—' }}</span>
+              <span class="text-xs text-gray-500 uppercase">{{ s.carrier || '—' }}</span>
+              <span class="text-xs text-gray-400 hidden sm:block">{{ formatDate(s.created_at) }}</span>
+            </button>
+          </div>
 
           <div v-if="openId === s.id" class="px-4 pb-4 grid gap-4 sm:grid-cols-[16rem_1fr]">
             <a :href="s.image_url" target="_blank" rel="noopener"><img :src="s.image_url" alt="" class="w-full rounded-xl border border-gray-100"></a>
@@ -197,6 +229,12 @@
                 <input v-model="edit.needs_check" type="checkbox" class="rounded border-gray-300 text-primary-500 focus:ring-primary-500" @change="edit.checkTouched = true">
                 {{ t.needsCheck }}
               </label>
+              <!-- Admin: scanned in the wrong warehouse? Move this package, or its whole scanning session. -->
+              <div v-if="!isEmployee && s.location" class="flex flex-wrap items-center gap-2 text-xs">
+                <span class="text-gray-500">{{ t.warehouse }}: <strong class="text-gray-800">{{ t.loc[s.location] }}</strong></span>
+                <button type="button" :disabled="moving" class="px-2.5 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 font-semibold text-gray-700 disabled:opacity-50" @click="move(s, false)">{{ t.moveTo }} {{ t.loc[otherLoc(s)] }}</button>
+                <button v-if="s.batch" type="button" :disabled="moving" class="px-2.5 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 font-semibold text-gray-700 disabled:opacity-50" @click="move(s, true)">{{ t.moveBatchTo }} {{ t.loc[otherLoc(s)] }}</button>
+              </div>
               <dl class="grid grid-cols-[9rem_1fr] gap-x-3 gap-y-1 text-xs">
                 <template v-for="row in details(s)" :key="row[0]">
                   <dt class="text-gray-400">{{ row[0] }}</dt>
@@ -216,7 +254,15 @@
         </div>
       </div>
     </div>
-    <LabelCameraScanner v-if="scannerOpen" :items="queue" :english="isEmployee" @capture="onCapture" @close="scannerOpen = false" />
+    <!-- bulk actions: shown while any row is ticked -->
+    <div v-if="selected.size" class="fixed inset-x-0 bottom-0 z-40 px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pointer-events-none">
+      <div class="pointer-events-auto max-w-xl mx-auto flex items-center gap-3 bg-gray-900 text-white rounded-2xl shadow-2xl px-4 py-3">
+        <p class="text-sm font-semibold flex-1">{{ t.selectedCount(selected.size) }}</p>
+        <button type="button" class="text-sm text-white/70 hover:text-white" @click="selected = new Set()">{{ t.cancel }}</button>
+        <button type="button" :disabled="deleting" class="px-3 py-2 rounded-xl bg-red-600 hover:bg-red-700 disabled:opacity-50 text-sm font-semibold" @click="removeSelected">{{ deleting ? t.deleting : t.deleteSelected }}</button>
+      </div>
+    </div>
+    <LabelCameraScanner v-if="scannerOpen" :items="queue" :english="isEmployee" :place="isEmployee ? '' : t.loc[scanLocation]" @capture="onCapture" @close="scannerOpen = false" />
   </section>
 </template>
 
@@ -266,6 +312,9 @@ const t = computed(() => (isEmployee.value
       period: { day: 'Today', week: 'Week', month: 'Month', year: 'Year', all: 'All' },
       quick: { day: 'Today', week: 'This week', month: 'This month', year: 'This year' }, map: 'Customer map',
       loc: { san_diego: 'San Diego', tijuana: 'Tijuana' }, locShort: { san_diego: 'SD', tijuana: 'TJ' }, locAll: 'All',
+      selectAll: 'Select all', duplicate: 'Duplicate', selectDups: (n) => `Select ${n} duplicate${n === 1 ? '' : 's'}`,
+      selectedCount: (n) => `${n} selected`, cancel: 'Cancel', deleteSelected: 'Delete', deleting: 'Deleting…',
+      confirmDeleteMany: (n) => `Delete ${n} package${n === 1 ? '' : 's'}?`, deletedMany: (n) => `${n} deleted`,
       prev: 'Previous', next: 'Next',
       packagesScanned: 'packages scanned', packagesShort: 'packages', toCheck: 'to check',
     }
@@ -301,6 +350,11 @@ const t = computed(() => (isEmployee.value
       period: { day: 'Hoy', week: 'Semana', month: 'Mes', year: 'Año', all: 'Todo' },
       quick: { day: 'Hoy', week: 'Esta semana', month: 'Este mes', year: 'Este año' }, map: 'Mapa de clientes',
       loc: { san_diego: 'San Diego', tijuana: 'Tijuana' }, locShort: { san_diego: 'SD', tijuana: 'TJ' }, locAll: 'Todos',
+      selectAll: 'Seleccionar todos', duplicate: 'Duplicado', selectDups: (n) => `Seleccionar ${n} duplicado${n === 1 ? '' : 's'}`,
+      selectedCount: (n) => `${n} seleccionado${n === 1 ? '' : 's'}`, cancel: 'Cancelar', deleteSelected: 'Eliminar', deleting: 'Eliminando…',
+      confirmDeleteMany: (n) => `¿Eliminar ${n} paquete${n === 1 ? '' : 's'}?`, deletedMany: (n) => `${n} eliminado${n === 1 ? '' : 's'}`,
+      scanAt: 'Bodega donde escaneas', scanIn: 'Escanear en', warehouse: 'Bodega', moveTo: 'Mover a', moveBatchTo: 'Mover todo el lote a',
+      moved: (n, place) => `${n} paquete${n === 1 ? '' : 's'} movido${n === 1 ? '' : 's'} a ${place}`,
       prev: 'Anterior', next: 'Siguiente',
       packagesScanned: 'paquetes escaneados', packagesShort: 'paquetes', toCheck: 'por revisar',
     }))
@@ -310,6 +364,11 @@ const t = computed(() => (isEmployee.value
 const myWarehouse = computed(() => useState('user').value?.warehouse_location || 'san_diego')
 const locationFilter = ref('')
 const locationQuery = () => (!isEmployee.value && locationFilter.value ? { location: locationFilter.value } : {})
+// Where the admin's NEW scans are saved. Tijuana by default (Alex, 2026-10-31: admins almost never scan in San
+// Diego, and the old silent San Diego default mislabelled a whole Tijuana session). Not remembered between
+// visits on purpose: a San Diego day must not leak into the next Tijuana one.
+const scanLocation = ref('tijuana')
+const otherLoc = (s) => (s.location === 'tijuana' ? 'san_diego' : 'tijuana')
 
 // ---- period: today / week / month (warehouse days, San Diego time) -----------------------
 // The employee page is only this (Alex, 2026-10-08): what got scanned today, this week, this
@@ -479,6 +538,80 @@ const save = async (s) => {
   }
 }
 
+// ---- multi-select: tick doubles and delete them together ------------------------------------
+const selected = ref(new Set())
+const allSelected = computed(() => scans.value.length > 0 && scans.value.every((s) => selected.value.has(s.id)))
+const toggleSelect = (id) => {
+  const next = new Set(selected.value)
+  next.has(id) ? next.delete(id) : next.add(id)
+  selected.value = next
+}
+const toggleAll = () => { selected.value = allSelected.value ? new Set() : new Set(scans.value.map((s) => s.id)) }
+// A double = the same tracking number scanned again AT THE SAME WAREHOUSE (the San Diego and the Tijuana scan
+// of one package are both real). The first scan of each is kept; every later copy is a duplicate.
+const dupIds = computed(() => {
+  const first = new Map()
+  const dups = new Set()
+  for (const s of [...scans.value].sort((a, b) => a.id - b.id)) {
+    if (!s.tracking_number) continue
+    const key = `${s.location || ''}|${s.tracking_number}`
+    first.has(key) ? dups.add(s.id) : first.set(key, s.id)
+  }
+  return dups
+})
+const selectDuplicates = () => { selected.value = new Set(dupIds.value) }
+// The list changes (filters, period, search): a ticked row that is no longer shown can't be deleted by surprise.
+watch(scans, (rows) => {
+  const shown = new Set(rows.map((s) => s.id))
+  if ([...selected.value].some((id) => !shown.has(id))) selected.value = new Set([...selected.value].filter((id) => shown.has(id)))
+})
+
+const deleting = ref(false)
+const removeSelected = async () => {
+  const ids = [...selected.value]
+  if (!ids.length || !confirm(t.value.confirmDeleteMany(ids.length))) return
+  deleting.value = true
+  const gone = new Set()
+  const errors = []
+  const queueIds = [...ids]
+  const worker = async () => {
+    for (let id = queueIds.shift(); id; id = queueIds.shift()) {
+      try {
+        await $customFetch(`${apiNs.value}/label-scans/${id}`, { method: 'DELETE' })
+        gone.add(id)
+      } catch (e) {
+        errors.push(e?.data?.message || String(e))
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(PARALLEL, ids.length) }, worker))
+  scans.value = scans.value.filter((s) => !gone.has(s.id))
+  selected.value = new Set(ids.filter((id) => !gone.has(id))) // failures stay ticked for a retry
+  if (gone.has(openId.value)) openId.value = null
+  deleting.value = false
+  refreshStatsSoon()
+  toast.show(errors.length
+    ? { message: `${t.value.deletedMany(gone.size)} · ${errors[0]}`, type: 'error' }
+    : { message: t.value.deletedMany(gone.size), type: 'success' })
+}
+
+const moving = ref(false)
+const move = async (s, wholeBatch) => {
+  const to = otherLoc(s)
+  moving.value = true
+  try {
+    const res = await $customFetch(`${apiNs.value}/label-scans/${s.id}`, { method: 'PUT', body: { location: to, whole_batch: wholeBatch } })
+    toast.show({ message: t.value.moved(res.moved ?? 0, t.value.loc[to]), type: 'success' })
+    openId.value = null
+    fetchScans(1)
+    refreshStatsSoon()
+  } catch (e) {
+    toast.show({ message: e?.data?.message || String(e), type: 'error' })
+  } finally {
+    moving.value = false
+  }
+}
+
 const remove = async (s) => {
   if (!confirm(t.value.confirmDelete)) return
   try {
@@ -493,7 +626,7 @@ const remove = async (s) => {
 const copyMessage = async (s) => {
   const name = String(s.recipient_name || '').replace(/^BOXLY\s+/i, '').trim()
   const tracking = s.tracking_number ? `${s.tracking_number}${s.carrier ? ` (${String(s.carrier).toUpperCase()})` : ''}` : '—'
-  const text = `¡Hola ${name}! 📦 Llegó un paquete tuyo a nuestra bodega en San Diego.\nNúmero de guía: ${tracking}`
+  const text = `¡Hola ${name}! 📦 Llegó un paquete tuyo a nuestra bodega en ${t.value.loc[s.location] || 'San Diego'}.\nNúmero de guía: ${tracking}`
   try {
     await navigator.clipboard.writeText(text)
     toast.show({ message: t.value.copied, type: 'success' })
@@ -508,6 +641,8 @@ const queue = ref([])
 const PARALLEL = 6
 let nextId = 0
 let batch = ''
+// Each photo keeps the warehouse picked when it was taken, so switching mid-upload never relabels it.
+const queueLocation = () => (isEmployee.value ? null : scanLocation.value)
 
 const busy = computed(() => queue.value.some((i) => i.status === 'waiting' || i.status === 'working'))
 const doneCount = computed(() => queue.value.filter((i) => ['done', 'retake', 'duplicate'].includes(i.status)).length)
@@ -561,6 +696,7 @@ const processOne = async (item) => {
     form.append('image', image, 'label.jpg')
     form.append('batch', batch)
     form.append('packages', JSON.stringify(packages))
+    if (item.location) form.append('location', item.location)
     const res = await $customFetch(`${apiNs.value}/label-scans`, { method: 'POST', body: form })
     const rows = res.data || []
     if (!period.value || period.value.to >= today.value) scans.value = [...rows.slice().reverse(), ...scans.value]
@@ -600,7 +736,7 @@ const onPick = (event) => {
     queue.value = queue.value.filter((i) => i.status === 'failed')
     batch = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
   }
-  queue.value.push(...files.map((file) => reactive({ id: nextId++, name: file.name, file, prepared: null, status: 'waiting', error: '', result: null })))
+  queue.value.push(...files.map((file) => reactive({ id: nextId++, name: file.name, file, prepared: null, location: queueLocation(), status: 'waiting', error: '', result: null })))
   run()
 }
 
@@ -617,7 +753,7 @@ const openScanner = () => { // one batch per scanning session; finished rows fro
 }
 
 const onCapture = ({ barcodes, image, label }) => {
-  queue.value.push(reactive({ id: nextId++, name: label || '…', file: null, prepared: { barcodes, image }, fromCamera: true, issue: '', status: 'waiting', error: '', result: null }))
+  queue.value.push(reactive({ id: nextId++, name: label || '…', file: null, prepared: { barcodes, image }, location: queueLocation(), fromCamera: true, issue: '', status: 'waiting', error: '', result: null }))
   run()
 }
 

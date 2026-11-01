@@ -404,7 +404,7 @@
 
                 <!-- One concise trust line -->
                 <p class="mt-6 text-center text-xs text-gray-500 leading-relaxed">
-                  <span class="font-semibold text-gray-700">{{ t.howTrustStrong }}</span> {{ t.howTrustRest }}
+                  <span class="font-semibold text-gray-700">{{ t.howTrustStrong }}</span>
                 </p>
                 <p class="mt-2 text-center text-xs text-gray-500 leading-relaxed">{{ t.howTrustShip }}</p>
 
@@ -882,13 +882,9 @@ const translations = {
   howStep4: { es: "Pagas cuando tu caja está lista", en: "You pay when your box is ready" },
   howStep5: { es: "Preparamos y despachamos tu envío", en: "We prepare and dispatch your shipment" },
   howTrustStrong: { es: "Pagas únicamente cuando tu caja ya está en México y lista para enviarse.", en: "You pay only once your box is already in Mexico and ready to ship." },
-  howTrustRest: {
-    es: "Sin pagos por adelantado: nosotros nos encargamos de la recepción, consolidación y cruce de tus paquetes.",
-    en: "No upfront payments: we handle receiving, consolidating and crossing your packages.",
-  },
   howTrustShip: {
-    es: "Una vez confirmado tu pago, generamos tu guía y coordinamos el envío con Paquetexpress. El despacho normalmente toma de 1 a 2 días hábiles.",
-    en: "Once your payment is confirmed, we create your guía and arrange the shipment with Paquetexpress. Dispatch usually takes 1 to 2 business days.",
+    es: "El despacho normalmente toma de 1 a 2 días hábiles.",
+    en: "Dispatch usually takes 1 to 2 business days.",
   },
   howPricingLink: { es: "Ver catálogo de precios", en: "See pricing catalog" },
   howPricingBody: { es: "Tamaños de caja, tarifas y cómo funciona.", en: "Box sizes, rates and how it works." },
