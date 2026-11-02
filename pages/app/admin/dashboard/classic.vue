@@ -1128,6 +1128,26 @@
             :colors="['#2E6BB7']"
             :height="360"
           />
+          <!-- Retained capital: profit minus the founders' draw, per month (or accumulated) — what the business kept. -->
+          <TrajectoryChart
+            :key="`ret-${trajectoryMode}`"
+            :title="t.retainedCapital"
+            :subtitle="t.retainedHint"
+            :type="trajectoryMode === 'cumulative' ? 'area' : 'bar'"
+            format="currency"
+            :categories="categories"
+            :series="retainedSeries"
+            :colors="['#10b981']"
+          >
+            <template #action>
+              <div class="text-right shrink-0">
+                <p class="text-[11px] font-medium text-gray-400">{{ t.retainedTotal }}</p>
+                <p class="text-base font-bold" :class="retainedAllTime < 0 ? 'text-red-600' : 'text-emerald-600'">
+                  {{ retainedAllTime < 0 ? '-' : '' }}${{ formatMoney(Math.abs(retainedAllTime)) }}
+                </p>
+              </div>
+            </template>
+          </TrajectoryChart>
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <TrajectoryChart
               :key="`cust-${trajectoryMode}`"
@@ -1213,6 +1233,16 @@ const customerSeries = computed(() => {
       : t.value.newCustomersSeries;
   return [{ name, data }];
 });
+
+// Retained capital = profit − founders' draw (personal expenses), month by month or accumulated.
+const retainedSeries = computed(() => {
+  const kept = (trajectory.value ?? []).map((m) => m.retained ?? 0);
+  const cum = trajectoryMode.value === "cumulative";
+  return [{ name: t.value.retainedCapital, data: cum ? runningTotal(kept) : kept }];
+});
+const retainedAllTime = computed(() =>
+  (trajectory.value ?? []).reduce((sum, m) => sum + (m.retained ?? 0), 0)
+);
 
 const salesSeries = computed(() => {
   const rows = trajectory.value ?? [];
@@ -1423,6 +1453,8 @@ const translations = {
   totalExpenses: { es: "Gastos Totales", en: "Total Expenses" },
   foundersDistribution: { es: "Distribución a socios", en: "Founders' distribution" },
   retainedCapital: { es: "Capital retenido", en: "Retained capital" },
+  retainedHint: { es: "Ganancia menos el retiro de socios (gastos personales)", en: "Profit minus the founders' draw (personal expenses)" },
+  retainedTotal: { es: "Acumulado", en: "All-time" },
   netProfit: { es: "Ganancia Neta", en: "Net Profit" },
   margin: { es: "margen", en: "margin" },
   conversations: { es: "Leads", en: "Leads" },
