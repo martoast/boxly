@@ -12,7 +12,7 @@ import { generateFollowups, followupPart, followupsWithin, attachFollowupChips }
 import { readSummary, summaryBlock, summarize, shouldSummarize } from '../utils/chatSummary'
 import { boxFromMessages, withEarlierItems, wantedFromBox, planCart, storeOptionFixes, withStoreOptions, pastedPages, type CarriedStore } from '../utils/boxCheckout'
 import { pickedColourImage, pickedVariantPrice } from '../../utils/pickerLogic'
-import { linkListUrls, linkListFromMetadata, linkListBox, LINK_LIST_MAX, isLinkOnly, cartLinks, isCartLink, quantityOnly, keepsBoxAsIs, recentStatedQuantity } from '../../utils/linkList'
+import { linkListUrls, usStoreUrl, linkListFromMetadata, linkListBox, LINK_LIST_MAX, isLinkOnly, cartLinks, isCartLink, quantityOnly, keepsBoxAsIs, recentStatedQuantity } from '../../utils/linkList'
 import { shortLinksIn, expandShortLinks } from '../../utils/shortLinks'
 import { checkStoreLock } from '../utils/storeLock'
 import { storeHostsFromLiveStores, tagCarriedStores } from '../utils/storeHosts'
@@ -272,7 +272,19 @@ function audienceGap(messages: any[]): boolean {
   // A women's-only store already says who it is for (lab 2026-10-08: "pijama de Victoria's Secret" was asked "¿para mujer o para niña?")
   if (RE_WOMENS_STORE.test(t)) return false
   if (!RE_GENDERED_CATEGORY.test(t)) return false
+  // ALREADY ANSWERED IN THIS CHAT (live 2026-10-31: a shopper tapped "Para hombre" and was asked "¿Para quién…?" four more times, then
+  // swore at the assistant): the chat's last answer stands until they say otherwise
+  if (answeredAudience(messages)) return false
   return !askedToNarrowLast(messages)
+}
+
+/** Did the shopper already say who it is for in this chat (a short reply like "Para hombre" among their last few messages)? */
+function answeredAudience(messages: any[]): boolean {
+  const users = (messages || []).filter((m: any) => m?.role === 'user').slice(-8, -1)
+  return users.some((m: any) => {
+    const t = plainText((m.parts || []).filter((p: any) => p?.type === 'text').map((p: any) => p.text).join(' '))
+    return t.trim().split(/\s+/).length <= 6 && RE_AUDIENCE.test(t)
+  })
 }
 
 function restrictedAsk(messages: any[]): boolean {
@@ -877,7 +889,7 @@ MODE 2 — PRODUCT DISCOVERY, LIVE IN THE STORES (find things). Every product re
 
 "VER MÁS" — the gallery's own button sends \`Ver más: "<query>" en <stores>\`: call live_gallery AT ONCE with EXACTLY that query (character for character) and those stores — no question, no narrowing, no other words in the query. The live store browser answers it with the NEXT products of that search (it skips the ones already shown). Say nothing but the usual one short line.
 NEVER SAY A PRODUCT DOES NOT EXIST. Your own knowledge is older than today's store shelves: new models come out after it (live 2026-10-23: "iPhone 18" was answered "todavía no existe, Apple va en la serie 16" and searched as iPhone 16 — the shopper then pasted apple.com's iPhone 18 Pro page). Search EXACTLY the model, version or year the shopper names ("iPhone 18" → query "iPhone 18"); if the store has nothing by that name, say you did not find it there and offer the closest — never correct them about what exists.
-ONE QUESTION BEFORE A VAGUE SEARCH, NEVER MORE. The live browser has to go somewhere SPECIFIC. When the ask is too broad to search a store with — who it is for is missing ("un disfraz de Batman": hombre, mujer o niño are three different products), no product type ("un regalo", "algo para el gym", "ropa"), or only a store name ("Gymshark"; a store + promos/ofertas is NOT this — search its sale) — call ask_to_narrow with ONE question and 2-4 tappable answers, in a turn of its own, and say nothing else. The card asks it; do not repeat the question in your text and do not call live_gallery in the same turn. Then search with what they tapped. NEVER ask about size or colour (the picker handles those), never twice in a row, and never for an ask that is already specific — "tenis Nike Pegasus 41" goes straight to live_gallery.
+ONE QUESTION BEFORE A VAGUE SEARCH, NEVER MORE. Who it is for is asked ONCE PER CHAT: once they answered ("Para hombre"), every later search in the chat is for that person until they say otherwise — never ask it again (live 2026-10-31: asked five times in one chat). The live browser has to go somewhere SPECIFIC. When the ask is too broad to search a store with — who it is for is missing ("un disfraz de Batman": hombre, mujer o niño are three different products), no product type ("un regalo", "algo para el gym", "ropa"), or only a store name ("Gymshark"; a store + promos/ofertas is NOT this — search its sale) — call ask_to_narrow with ONE question and 2-4 tappable answers, in a turn of its own, and say nothing else. The card asks it; do not repeat the question in your text and do not call live_gallery in the same turn. Then search with what they tapped. NEVER ask about size or colour (the picker handles those), never twice in a row, and never for an ask that is already specific — "tenis Nike Pegasus 41" goes straight to live_gallery.
 
 MODE 3 — BUILD THE BOX, THEN FINALIZE (where the money is made). The box IS their real cart: every item the box card shows goes into their Boxly cart at once, and they keep shopping. The point is to CONSOLIDATE several stores into one box: after each add, push for more from that store, then for the next store. When they tap Finalizar, the Boxly agent fills each store's REAL cart and checks out (live in the chat), creates their purchase request and sends the invoice with its Stripe payment link.
   ⓪ PICK, THEN ADD. When the shopper picks a product from the gallery ("quiero ese", "el segundo", a tap on "Agregar"), call show_shipment with EVERY item in the box — each with its saved_id (the registry id of the product), quantity and packing type. A product with real sizes/colours comes back "NOT IN THE BOX" and its picker card in the chat shows the options: say one line asking for the pick, never claim it was added, and add it on the NEXT turn with size/color set. When the shopper TYPES their choice for a product whose picker card is in the chat ("la negra en talla 9"), call show_shipment adding that product (its saved_id) with what they said — the box checks their words against the card and adds it only on an exact, in-stock match; otherwise it tells you what to ask. A product with nothing to choose is added immediately.
@@ -1397,6 +1409,8 @@ export default defineEventHandler(async (event) => {
           })).min(1),
         }),
         execute: async ({ items: drawn }) => {
+          // a store's other-country/other-language page becomes its US English page (usStoreUrl: A&F /shop/wd-es/, Michael Kors /us/es/)
+          for (const it of drawn || []) if (it?.url) it.url = usStoreUrl(String(it.url))
           // "SOLO EL QUE YA HABÍA AGREGADO" ADDS NOTHING (live Dick's 2026-10-18: that line put a goalkeeper jersey the shopper had only
           // looked at on hold for a size, beside the jersey already in the box). Only items already in the box may be listed.
           const before = boxFromMessages(messages) || []

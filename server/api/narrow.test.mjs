@@ -43,6 +43,7 @@ wf(tmp, [
   ...['RE_AUDIENCE', 'RE_GENDERED_CATEGORY', 'RE_SELF_GENDERED', 'RE_WOMENS_STORE'].map((n) => cut(new RegExp(`const ${n} = [^\\n]*`))),
   cut(/function askedToNarrowLast\(messages: any\[\]\): boolean \{[\s\S]*?\n\}/),
   cut(/function audienceGap\(messages: any\[\]\): boolean \{[\s\S]*?\n\}/),
+  cut(/function answeredAudience\(messages: any\[\]\): boolean \{[\s\S]*?\n\}/),
   'export { audienceGap }',
 ].join('\n'));
 let audienceGap;
@@ -59,6 +60,10 @@ for (const q of ['unos tenis', 'sudadera Hot Topic', 'busco un disfraz de Batman
 // Already answered — never ask twice.
 for (const q of ['camisa polo para hombre', 'tenis de mujer', 'sudadera para niño', "men's polo shirt", 'disfraz de Batman para niña', 'perfume unisex'])
   ok(`"${q}" already says who`, !asks(q));
+
+// Answered earlier IN THIS CHAT (live 2026-10-31: "Para hombre", then asked four more times): never again
+ok('a later "chamarras" after "Para hombre" is not asked', !audienceGap(said('Tenis', '¿Para quién?', 'Para hombre', 'Listo', 'Quiero esa chamarra')));
+ok('a first "chamarras" still is', audienceGap(said('Quiero esa chamarra')));
 
 // Gendered by the word itself.
 for (const q of ['un vestido negro', 'una falda larga', 'corbata de seda', 'bikini'])

@@ -72,4 +72,15 @@ assert.equal(recentStatedQuantity(['https://a.com/p/2']), null)
 for (const t of ['entonces solo el jersey que ya había agregado', 'solo eso', 'nada más lo que tengo', 'solo lo que ya tengo en la caja']) assert.equal(keepsBoxAsIs(t), true, t)
 for (const t of ['solo el negro', 'solo quiero ver', 'quiero el jersey', 'solo la talla M']) assert.equal(keepsBoxAsIs(t), false, t)
 
+// Other-country / other-language store pages become the US English page (live 2026-11-01 A&F wd-es, 2026-10-31 Michael Kors /us/es/)
+{
+  const { usStoreUrl, linkListUrls } = await import('./linkList.ts')
+  assert.equal(usStoreUrl('https://www.abercrombie.com/shop/wd-es/p/maternity-90s-straight-jean-60683823-1002?categoryId=1'), 'https://www.abercrombie.com/shop/us/p/maternity-90s-straight-jean-60683823-1002?categoryId=1')
+  assert.equal(usStoreUrl('https://www.hollisterco.com/shop/wd/p/x-123'), 'https://www.hollisterco.com/shop/us/p/x-123')
+  assert.equal(usStoreUrl('https://www.abercrombie.com/shop/us/p/x-1'), 'https://www.abercrombie.com/shop/us/p/x-1')
+  assert.equal(usStoreUrl('https://www.michaelkors.com/us/es/signature-logo-cotton-blend-zip-up-hoodie/OF550TQ48U.html'), 'https://www.michaelkors.com/signature-logo-cotton-blend-zip-up-hoodie/OF550TQ48U.html')
+  assert.equal(usStoreUrl('https://www.nike.com/t/x/1'), 'https://www.nike.com/t/x/1')
+  assert.deepEqual(linkListUrls('https://www.abercrombie.com/shop/wd-es/p/j-6068'), ['https://www.abercrombie.com/shop/us/p/j-6068'])
+  console.log('  ✓ other-market store links become the US page')
+}
 process.exit(bad ? 1 : 0)

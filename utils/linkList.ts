@@ -33,6 +33,20 @@ export function cartLinks(text: string | null | undefined): string[] {
 }
 
 /** The distinct product links in a message, in order, at most LINK_LIST_MAX (http becomes https; our own site and cart pages are skipped). */
+/** PURE. A store's US English page for a link to one of its other-country or other-language pages (live 2026-11-01/10-31: an
+ *  abercrombie.com/shop/wd-es/… maternity jean read in pesos six times; a michaelkors.com/us/es/… hoodie read with no sizes and its
+ *  checkout could not find it). Anything else comes back as it was. */
+export function usStoreUrl(url: string): string {
+  let u: URL
+  try { u = new URL(url) } catch { return url }
+  const host = u.hostname.replace(/^www\./, '').toLowerCase()
+  // Abercrombie & Fitch / Hollister: /shop/<market>/… → /shop/us/… (wd, wd-es, mx, ca, uk, eu…)
+  if (/^(?:abercrombie|hollisterco)\.com$/.test(host)) u.pathname = u.pathname.replace(/^\/shop\/(?!us\/)[a-z]{2}(?:-[a-z]{2})?\//i, '/shop/us/')
+  // Michael Kors: /us/es/… (Spanish) → the English page
+  if (host === 'michaelkors.com') u.pathname = u.pathname.replace(/^\/us\/es\//i, '/')
+  return u.toString()
+}
+
 export function linkListUrls(text: string | null | undefined): string[] {
   const out: string[] = []
   const seen = new Set<string>()
@@ -43,6 +57,7 @@ export function linkListUrls(text: string | null | undefined): string[] {
     if (isCartLink(u.toString())) continue
     if (u.protocol === 'http:') u.protocol = 'https:'
     u.hash = ''
+    u = new URL(usStoreUrl(u.toString()))
     const key = `${u.hostname.replace(/^www\./, '')}${u.pathname.replace(/\/+$/, '')}${u.search}`.toLowerCase()
     if (seen.has(key)) continue
     seen.add(key)
