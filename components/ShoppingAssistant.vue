@@ -649,7 +649,7 @@ import { pickedColourImage } from '../utils/pickerLogic'
 import { withLiveRows, newLiveResultMessages } from '../utils/liveGallery'
 import { nextHelpState, preopenUrl } from '../utils/liveShopping'
 import { PICKER_PART } from '../utils/typedPick'
-import { notExactly } from '../utils/exactMatch'
+import { notExactly, iphoneNotListed } from '../utils/exactMatch'
 
 // Auto-continue ONLY for the client-side create_account tool once it has a
 // result. Server tools (live_gallery/show_shipment/…) are fully resolved
@@ -2111,7 +2111,10 @@ async function pickSuggestion(text) {
 // later message). Its EXACT query and stores, so "Ver más" repeats that very search (the engine matches it to skip what it showed).
 function notExactLine(m, part) {
   const q = liveSearchOf(m)?.query
-  if (!q || !notExactly(q, (part.output?.products || []).map((p) => p?.title || ''))) return ''
+  const titles = (part.output?.products || []).map((p) => p?.title || '')
+  // a new iPhone with no phone in the gallery (only cases): where the unlocked phone is bought, and that its total is quoted exactly
+  if (q && iphoneNotListed(q, titles)) return 'Esta tienda solo vende este iPhone con plan de compañía de EE. UU. (no funciona en México). Elígelo en apple.com — modelo, color, capacidad y “Unlocked” — y pega aquí el link: lo agregamos a tu caja y al finalizar te damos el total exacto con impuestos.'
+  if (!q || !notExactly(q, titles)) return ''
   return `No encontré exactamente “${q}” en estas tiendas; esto es lo más parecido. Si tienes el link del producto, pégalo y lo cotizo.`
 }
 

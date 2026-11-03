@@ -19,3 +19,11 @@ export function notExactly(query: string, titles: string[]): boolean {
   if (!titles.length || words(query).length < 2) return false
   return missingQueryWords(query, titles).length > 0
 }
+
+// A NEW iPHONE ASKED FOR, NO PHONE SHOWN (live 2026-11-02: "iPhone 18 Pro Max" at Walmart lists it only with a carrier plan — those cards
+// are dropped — so the gallery was all cases): the chat says where the unlocked phone is bought instead of leaving cases as the answer.
+const NOT_A_PHONE = /\b(?:case|cover|funda|screen protector|protector|charger|cargador|cable|adapter|stand|mount|holder|wallet|skin|lens protector|magsafe charger|band|strap)\b/i
+export function iphoneNotListed(query: string, titles: string[]): boolean {
+  if (!/\biphone\s*\d{2}\b/i.test(String(query || '')) || /\b(?:case|funda|cover|charger|cargador|protector)\b/i.test(String(query || ''))) return false
+  return titles.length > 0 && titles.every((t) => NOT_A_PHONE.test(String(t || '')))
+}
