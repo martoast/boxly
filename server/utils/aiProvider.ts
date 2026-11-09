@@ -4,22 +4,20 @@ import { createOpenAI } from '@ai-sdk/openai'
 
 /**
  * ONE place that decides which LLM provider/model every server route uses, so we
- * can switch the whole app between Anthropic (Claude) and Google (Gemini) — and
- * back — with env vars alone, no code changes.
+ * can switch the whole app between OpenAI, Anthropic (Claude) and Google (Gemini) —
+ * and back — with env vars alone, no code changes. Default: OpenAI when its key is set.
  *
  * WHY: Claude Haiku is excellent but expensive at our volume. Gemini Flash-Lite
  * is ~10x cheaper per token (and has a generous free tier for dev/testing). This
  * helper lets us flip providers safely and reversibly.
  *
- *   - Default is ANTHROPIC unless GEMINI_API_KEY is present, so simply *deploying*
- *     this code never changes prod's behavior — prod keeps using Claude until we
- *     add GEMINI_API_KEY (and optionally AI_PROVIDER=google) to its env.
- *   - AI_PROVIDER ('google' | 'anthropic') force-overrides the choice either way
+ *   - Default: OPENAI when OPENAI_API_KEY is set, else Anthropic, else Gemini.
+ *   - AI_PROVIDER ('openai' | 'google' | 'anthropic') force-overrides the choice either way
  *     (set AI_PROVIDER=anthropic to instantly revert even with a Gemini key set).
  *
  * Models (override per env):
- *   - chat (the agentic concierge): Gemini 3.1 Flash-Lite  / Claude Haiku 4.5
- *   - aux  (curate, intent, title…): Gemini 2.5 Flash-Lite / Claude Haiku 4.5
+ *   - chat (the agentic concierge): gpt-6-luna / Gemini 3.8 Flash / Claude Haiku 4.5
+ *   - aux  (curate, intent, title…): gpt-6-luna / Gemini 2.5 Flash-Lite / Claude Haiku 4.5
  *
  * Gemini "thinking" is disabled (thinkingBudget: 0) everywhere — we don't need it
  * for these tasks and it bills as (expensive) output tokens and adds latency.
@@ -30,11 +28,12 @@ export type ProviderName = 'google' | 'anthropic' | 'openai'
 export function aiProvider(): ProviderName {
   const forced = (process.env.AI_PROVIDER || '').toLowerCase()
   if (forced === 'google' || forced === 'anthropic' || forced === 'openai') return forced
-  // No explicit choice: prefer whichever key is present (prod has GEMINI → unchanged).
-  if (process.env.GEMINI_API_KEY) return 'google'
-  if (process.env.ANTHROPIC_API_KEY) return 'anthropic'
+  // No explicit choice: OPENAI first (Alex 2026-11-09: "it uses the OpenAI key" — Gemini's prepaid credits ran out on ~Nov 6 and every
+  // chat failed for 3 days while OPENAI_API_KEY sat unused in the env), then Anthropic, then Gemini.
   if (process.env.OPENAI_API_KEY) return 'openai'
-  return 'anthropic'
+  if (process.env.ANTHROPIC_API_KEY) return 'anthropic'
+  if (process.env.GEMINI_API_KEY) return 'google'
+  return 'openai'
 }
 
 export function isGoogle(): boolean { return aiProvider() === 'google' }
@@ -57,10 +56,10 @@ const GOOGLE_AUX_MODEL = process.env.GOOGLE_AUX_MODEL || 'gemini-2.5-flash-lite'
 const ANTHROPIC_CHAT_MODEL = process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001'
 const ANTHROPIC_AUX_MODEL =
   process.env.ANTHROPIC_RANK_MODEL || process.env.ANTHROPIC_TITLE_MODEL || 'claude-haiku-4-5-20251001'
-// OpenAI: gpt-4o-mini / gpt-4.1-mini are the fast+cheap tier — good candidates for the
-// ~2s target. Override with OPENAI_CHAT_MODEL / OPENAI_AUX_MODEL.
-const OPENAI_CHAT_MODEL = process.env.OPENAI_CHAT_MODEL || 'gpt-4o-mini'
-const OPENAI_AUX_MODEL = process.env.OPENAI_AUX_MODEL || 'gpt-4o-mini'
+// OpenAI: gpt-6-luna, the current fast model (the same one the engine's store agent runs, Alex 2026-09-29; gpt-4o-era models are a
+// generation behind). Override with OPENAI_CHAT_MODEL / OPENAI_AUX_MODEL.
+const OPENAI_CHAT_MODEL = process.env.OPENAI_CHAT_MODEL || 'gpt-6-luna'
+const OPENAI_AUX_MODEL = process.env.OPENAI_AUX_MODEL || 'gpt-6-luna'
 
 function google() { return createGoogleGenerativeAI({ apiKey: process.env.GEMINI_API_KEY }) }
 function anthropic() { return createAnthropic({ apiKey: process.env.ANTHROPIC_API_KEY }) }
