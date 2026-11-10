@@ -997,6 +997,9 @@ export default defineEventHandler(async (event) => {
     .filter((p: any) => p?.type === 'text' && typeof p.text === 'string' && shortLinksIn(p.text).length)
     .map(async (p: any) => { p.text = await expandShortLinks(p.text) })))
   const token: string | undefined = body?.token || undefined
+  // boxly-api's AI search health check (boxly:assistant-health, every 6 hours) marks its "hola": the model answers it like any message
+  // (that is what is checked), but it is never logged as a guest's question in the admin (Alex 2026-11-10: "how did we get a guest?")
+  const healthCheck = body?.health === true
   // PHASE MARKERS. A few turns per hundred hang and never reach onFinish or onError, so
   // nothing about them appears in the logs at all — and one hung the full 90s even after
   // the model stream was given a 45s abort, which means the stall is NOT inside
@@ -1337,7 +1340,8 @@ export default defineEventHandler(async (event) => {
       // A turn that used a product tool is a SEARCH; a turn with no product tool is a
       // business QUESTION. Both are reported from here (see logEvent).
       const usedProductTool = (steps || []).some((s: any) => (s.toolCalls || []).some((c: any) => PRODUCT_TOOLS.has(c.toolName)))
-      if (usedProductTool) logSearch(steps || [], auth, conversationId)
+      if (healthCheck) { /* the health check's ping: answered, never logged */ }
+      else if (usedProductTool) logSearch(steps || [], auth, conversationId)
       else logQuestion(question, text || '', auth, conversationId)
       // Durably save the turn server-side (awaited so it completes within the
       // stream lifecycle — see persistTurn). Authoritative writer of chat history.
