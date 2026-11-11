@@ -121,7 +121,7 @@ export function quoteStepLabel(q: Pick<StoreQuote, 'status' | 'total_cents' | 's
     return label
   }
   if (q.status === 'verified') return 'Listo · total verificado en la tienda'
-  if (q.status === 'partial') return 'Listo · algunos productos no estaban disponibles'
+  if (q.status === 'partial') return 'Listo · con cambios: algunos productos no estaban disponibles o la tienda limita la cantidad'
   return q.reason || 'Lo revisa nuestro equipo'
 }
 
