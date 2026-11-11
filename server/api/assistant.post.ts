@@ -1828,8 +1828,8 @@ export default defineEventHandler(async (event) => {
           stores: z.array(z.string()).min(1).max(4).describe('Store names from LIVE STORES, e.g. ["Gymshark"] or ["On", "New Balance", "Nike"]. The store the shopper named, else the best-known ones for this category. A BRAND that is not itself a live store ("t shirt lacoste", "tommy hilfiger polo") is searched where that brand is sold: Amazon (brands sell there officially) plus a department or off-price store that carries it — never only off-price stores (Nordstrom Rack + TJ Maxx had no Lacoste at all, 2026-11-11).'),
           // THE SHOPPER'S OWN LIMITS ARE ENFORCED ON EVERY CARD (Oswaldo "T shirt lacoste de 40 usd o menos", lab 2026-11-11: 15 shirts, not
           // one Lacoste; Arturo/Karla "promociones": 0-4 of 12 on sale). The engine keeps only the cards that answer them.
-          brand: z.string().max(60).optional().describe('The BRAND the shopper asked for when it is not the store itself ("t shirt lacoste" at Nordstrom Rack → "Lacoste"; "PINK" at Victoria\'s Secret → "PINK"). Leave it out for a plain category or when the brand IS the store (Gymshark at Gymshark).'),
-          max_price: z.number().positive().optional().describe('The shopper\'s price limit in US DOLLARS per item ("de 40 usd o menos" → 40). Only when they gave one; a limit in pesos is divided by 18.'),
+          brand: z.string().max(60).optional().describe('The BRAND the shopper asked for when it is not the store itself ("t shirt lacoste" at Nordstrom Rack → "Lacoste"; "PINK" at Victoria\'s Secret → "PINK"). OMIT it for a plain category or when the brand IS the store (Gymshark at Gymshark).'),
+          max_price: z.number().positive().optional().describe('The shopper\'s price limit in US DOLLARS per item ("de 40 usd o menos" → 40). Only when the shopper wrote a price limit; otherwise OMIT this field. A limit in pesos is divided by 18.'),
           on_sale: z.boolean().optional().describe('true when they ask for promociones / ofertas / descuentos / rebajas / sale: only marked-down items are shown.'),
         }),
         execute: async ({ query, stores, brand, max_price, on_sale }: any) => {
@@ -1847,7 +1847,8 @@ export default defineEventHandler(async (event) => {
           const cleanBrand = typeof brand === 'string' ? brand.replace(/[^\p{L}\p{N} &.'-]+/gu, ' ').replace(/\s+/g, ' ').trim().slice(0, 60) : ''
           // the brand that IS one of the stores searched is no filter (every card there is that brand, and titles often leave it out)
           const brandIsStore = cleanBrand && picked.some((st) => st.name.toLowerCase().replace(/[^a-z0-9]/g, '') === cleanBrand.toLowerCase().replace(/[^a-z0-9]/g, ''))
-          const filters = (() => { const f: any = {}; if (cleanBrand && !brandIsStore) f.brand = cleanBrand; if (typeof max_price === 'number' && max_price >= 1 && max_price <= 100000) f.max_price = Math.round(max_price * 100) / 100; if (on_sale === true) f.on_sale = true; return Object.keys(f).length ? f : null })()
+          // a price limit only when the shopper wrote a number (the model once sent max_price 0.009 for "promociones")
+          const filters = (() => { const f: any = {}; if (cleanBrand && !brandIsStore) f.brand = cleanBrand; if (typeof max_price === 'number' && max_price >= 1 && max_price <= 100000 && /\d/.test(lastUserText(messages))) f.max_price = Math.round(max_price * 100) / 100; if (on_sale === true) f.on_sale = true; return Object.keys(f).length ? f : null })()
           if (!picked.length) return stop('unknown_store', `${unknown.join(', ') || 'That store'} cannot be opened live yet. Say so in ONE short line and offer the closest store from: ${live.stores.map((st) => st.name).join(', ')}.`)
           const start = () => callApi('/live-shopping/sessions', {
             method: 'POST', token, timeoutMs: 15000,
