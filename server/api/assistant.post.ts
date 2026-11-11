@@ -1826,8 +1826,13 @@ export default defineEventHandler(async (event) => {
         inputSchema: z.object({
           query: z.string().describe('What to type in the store\'s own search box: SHORT product words IN ENGLISH, e.g. "running shoes", "leggings", "women hoodie". No store names, no prices, no sizes.'),
           stores: z.array(z.string()).min(1).max(4).describe('Store names from LIVE STORES, e.g. ["Gymshark"] or ["On", "New Balance", "Nike"]. The store the shopper named, else the best-known ones for this category.'),
+          // THE SHOPPER'S OWN LIMITS ARE ENFORCED ON EVERY CARD (Oswaldo "T shirt lacoste de 40 usd o menos", lab 2026-11-11: 15 shirts, not
+          // one Lacoste; Arturo/Karla "promociones": 0-4 of 12 on sale). The engine keeps only the cards that answer them.
+          brand: z.string().max(60).optional().describe('The BRAND the shopper asked for when it is not the store itself ("t shirt lacoste" at Nordstrom Rack → "Lacoste"; "PINK" at Victoria\'s Secret → "PINK"). Leave it out for a plain category or when the brand IS the store (Gymshark at Gymshark).'),
+          max_price: z.number().positive().optional().describe('The shopper\'s price limit in US DOLLARS per item ("de 40 usd o menos" → 40). Only when they gave one; a limit in pesos is divided by 18.'),
+          on_sale: z.boolean().optional().describe('true when they ask for promociones / ofertas / descuentos / rebajas / sale: only marked-down items are shown.'),
         }),
-        execute: async ({ query, stores }: any) => {
+        execute: async ({ query, stores, brand, max_price, on_sale }: any) => {
           // …and the query the model wrote itself (a photo search names the item: "Brocock magazine 22", 2026-10-24)
           if (restrictedAsk(messages) || RESTRICTED_RE.test(plainText(String(query || '')))) return REFUSAL
           // A guest: live search needs an account (the session, the conversation and the cart are theirs).
@@ -1839,10 +1844,14 @@ export default defineEventHandler(async (event) => {
           const live = liveCatalog || await liveStoreList(token)
           if (!live) return stop('live_unavailable', 'the live store browser is not available right now. Say so in ONE short line and offer to try again in a moment.')
           const { stores: picked, unknown } = resolveLiveStores(stores, live.stores, live.max)
+          const cleanBrand = typeof brand === 'string' ? brand.replace(/[^\p{L}\p{N} &.'-]+/gu, ' ').replace(/\s+/g, ' ').trim().slice(0, 60) : ''
+          // the brand that IS one of the stores searched is no filter (every card there is that brand, and titles often leave it out)
+          const brandIsStore = cleanBrand && picked.some((st) => st.name.toLowerCase().replace(/[^a-z0-9]/g, '') === cleanBrand.toLowerCase().replace(/[^a-z0-9]/g, ''))
+          const filters = (() => { const f: any = {}; if (cleanBrand && !brandIsStore) f.brand = cleanBrand; if (typeof max_price === 'number' && max_price >= 1 && max_price <= 100000) f.max_price = Math.round(max_price * 100) / 100; if (on_sale === true) f.on_sale = true; return Object.keys(f).length ? f : null })()
           if (!picked.length) return stop('unknown_store', `${unknown.join(', ') || 'That store'} cannot be opened live yet. Say so in ONE short line and offer the closest store from: ${live.stores.map((st) => st.name).join(', ')}.`)
           const start = () => callApi('/live-shopping/sessions', {
             method: 'POST', token, timeoutMs: 15000,
-            body: { conversation_id: conversationId, objective: q, store_id: picked[0].id, ...(picked.length > 1 ? { store_ids: picked.map((st) => st.id) } : {}) },
+            body: { conversation_id: conversationId, objective: q, store_id: picked[0].id, ...(picked.length > 1 ? { store_ids: picked.map((st) => st.id) } : {}), ...(filters ? { filters } : {}) },
           }).catch(() => ({ ok: false, status: 0 }))
           let r: any = await start()
           // ONE MORE TRY (prod 2026-10-14: a shopper's first Target search failed to start while the engine was idle and the same

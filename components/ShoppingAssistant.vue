@@ -355,7 +355,7 @@
                     </template>
                     <!-- Search/browse finished but found nothing — clean message, not an empty
                          carousel. Suppress it if ANOTHER search in this turn did find options. -->
-                    <div v-else-if="showNoResults(m, part)" class="text-[13px] text-gray-500 bg-white border border-gray-100 rounded-2xl px-4 py-3 shadow-sm">No encontré opciones para eso ahora. ¿Probamos con otra marca o término?</div>
+                    <div v-else-if="showNoResults(m, part)" class="text-[13px] text-gray-500 bg-white border border-gray-100 rounded-2xl px-4 py-3 shadow-sm">{{ noResultsText(m, part) }}</div>
 
                     <!-- TERMINAL failure. Must come BEFORE the loaders below: a tool
                          that errored or was cut off mid-stream is never getting a
@@ -1637,6 +1637,18 @@ function relTime(iso) {
   if (!Number.isFinite(ms) || ms < 0) return 'ahora'
   const m = Math.round(ms / 60000)
   return m < 1 ? 'ahora' : m < 60 ? `hace ${m} min` : `hace ${Math.round(m / 60)} h`
+}
+// An empty gallery under the shopper's own limits says which ones (Oswaldo 2026-11-11: "Lacoste de $40 o menos"; Karla: Rhode "promociones")
+function noResultsText(m, part) {
+  const generic = 'No encontré opciones para eso ahora. ¿Probamos con otra marca o término?'
+  const list = chat.messages || []
+  let ask = part?.type === 'tool-live_gallery' ? part : null
+  for (let i = list.indexOf(m); !ask && i >= 0; i--) ask = [...(list[i]?.parts || [])].reverse().find((p) => p?.type === 'tool-live_gallery' && p.input) || null
+  const f = ask?.input || {}
+  if (!f.brand && !f.max_price && !f.on_sale) return generic
+  const what = [f.on_sale ? 'promociones' : '', f.brand ? `de ${f.brand}` : '', f.max_price ? `de $${f.max_price} o menos` : ''].filter(Boolean).join(' ') || 'eso'
+  const where = Array.isArray(ask?.output?.stores) && ask.output.stores.length ? ` en ${ask.output.stores.join(', ')}` : ''
+  return `No encontré ${f.on_sale ? '' : 'productos '}${what}${where} ahora mismo. ¿Busco en otra tienda${f.max_price ? ' o subo un poco el precio' : ''}?`
 }
 function showNoResults(m, part) {
   if (!isGalleryTool(part) || part.state !== 'output-available' || hasProducts(m)) return false
