@@ -2215,9 +2215,13 @@ function sendLinkList(list) {
 }
 // "Buscar similar" for a link from a store the agent cannot buy from.
 function askSimilar(row) {
-  const what = row?.title ? `“${row.title}”` : `el producto de ${row?.store_name || 'esa tienda'}`
+  // a page we could not open has no title: the product's words come from its link (Camila 2026-11-11: ".../san-diego-padres-leaf-camo-pro-pinch-snapback-hat/o-1243…")
+  const slug = (() => { try { return new URL(row?.url).pathname.split('/').filter((x) => /^[a-z0-9]+(?:-[a-z0-9]+){2,}$/i.test(x) && /[a-z]{3}/i.test(x)).sort((a, b) => b.length - a.length)[0]?.replace(/-/g, ' ') || '' } catch { return '' } })()
+  const what = row?.title ? `“${row.title}”` : slug ? `“${slug}”` : `el producto de ${row?.store_name || 'esa tienda'}`
   // a sold-out link (its store is supported): something similar that is in stock; an unsupported store: a store we buy from
-  const text = row?.soldOut ? `${what} está agotado: busca algo similar que esté disponible` : `Busca algo similar a ${what} en una tienda donde sí puedan comprar`
+  const text = row?.soldOut ? `${what} está agotado: busca algo similar que esté disponible`
+    : row?.unreadable ? `No se pudo abrir la página de ${what}: búscalo o algo similar en otra tienda`
+    : `Busca algo similar a ${what} en una tienda donde sí puedan comprar`
   ensureConversation(text)
   chat.sendMessage({ text })
   scrollDown()

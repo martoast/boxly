@@ -29,6 +29,16 @@
           <button type="button" :disabled="sent" class="shrink-0 rounded-full border border-primary-200 px-3 py-1.5 text-[12px] font-bold text-primary-700 hover:bg-primary-50 disabled:opacity-50" @click="$emit('similar', row)">Buscar similar</button>
         </div>
 
+        <!-- The store's page could not be opened (it shows us nothing, or the product is gone): said plainly, with a similar search. -->
+        <div v-else-if="row.unreadable && !row.choice" class="flex items-center gap-3 rounded-xl bg-gray-50 px-3 py-2.5">
+          <img v-if="row.image" :src="row.image" alt="" referrerpolicy="no-referrer" class="w-12 h-12 rounded-lg object-cover bg-white shrink-0" />
+          <div class="min-w-0 flex-1">
+            <p class="text-[13px] font-semibold text-gray-800 line-clamp-2">{{ row.title || host(row.url) }}</p>
+            <p class="text-[11.5px] text-amber-700 font-semibold">{{ row.unreadable === 'page_not_found' ? 'Este producto ya no está en ' + host(row.url) : 'No pudimos abrir esta página de ' + host(row.url) }}</p>
+          </div>
+          <button type="button" :disabled="sent" class="shrink-0 rounded-full border border-primary-200 px-3 py-1.5 text-[12px] font-bold text-primary-700 hover:bg-primary-50 disabled:opacity-50" @click="$emit('similar', row)">Buscar similar</button>
+        </div>
+
         <!-- Chosen (on its card, or nothing to choose): one line, changeable until the list is sent. -->
         <div v-else-if="row.choice" class="flex items-center gap-3 rounded-xl px-2 py-2">
           <img v-if="row.choice.image" :src="row.choice.image" alt="" referrerpolicy="no-referrer" class="w-12 h-12 rounded-lg object-cover bg-gray-50 shrink-0" />
@@ -149,7 +159,9 @@ async function read(row, { readUrl = row.url, colorways = null, fresh = false } 
       const x = await $fetch('/api/product-variants', { method: 'POST', timeout: 28000, body: { url: readUrl, max_age_s: fresh ? 0 : 900, skip_colorways: !!colorways?.length, ...(colorways?.length ? { colorways } : {}) } })
       why = x?.reason || x?.error || (x ? '' : 'empty')
       if (x && (!x.reason || x.reason === 'no_variants' || x.reason === 'need_url')) r = x
-      else if (['blocked', 'page_not_found', 'marketplace'].includes(x?.reason) || x?.error === 'page_not_found') break
+      // A page that shows us nothing (the catalog already looked twice) or a store wall: said at once, not 3 minutes of "leyendo"
+      // (Camila 2026-11-11: a mitchellandness.com link read empty six times, ~40 s each, and the row ended on "Código: empty_read")
+      else if (['blocked', 'page_not_found', 'marketplace', 'empty_read'].includes(x?.reason) || x?.error === 'page_not_found') break
       // the store's reader is on another page right now: wait, it is not a failure
       else if (x?.reason === 'busy') await new Promise((res) => setTimeout(res, 4000))
       else if (x?.reason !== 'reading') { failures++; await new Promise((res) => setTimeout(res, 1500)) }
@@ -157,7 +169,10 @@ async function read(row, { readUrl = row.url, colorways = null, fresh = false } 
   }
   row.busy = false
   // the failure's own words, under the row (support screenshots; live BBW 2026-10-10: rows failed while every read succeeded)
-  if (!r) { row.part = { ...row.part, state: 'output-error', errorText: why || (alive ? 'read_failed' : 'left') }; return }
+  if (!r) {
+    if (alive && ['blocked', 'empty_read', 'page_not_found'].includes(why)) row.unreadable = why
+    row.part = { ...row.part, state: 'output-error', errorText: why || (alive ? 'read_failed' : 'left') }; return
+  }
   row.title = r.product?.title || row.title
   row.image = r.product?.image || r.product?.images?.[0] || row.image
   const axes = Array.isArray(r.axes) ? r.axes : []
