@@ -1,3 +1,4 @@
+import { shortLinksIn, expandShortLink } from '../../utils/shortLinks.ts'
 // Variants for ONE product URL, callable from the BROWSER — so the product modal can behave like a real product
 // page: open, load, show sizes/colours/quantity, add to cart. Alex, 2026-09-11: "when they clicked from the browsing
 // gallery... have a little loading there and then pull all the info and variants right there... and then they click
@@ -18,8 +19,11 @@ const hostOf = (u: string) => { try { return new URL(u).hostname.replace(/^www\.
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event).catch(() => null)
-  const url = typeof body?.url === 'string' ? body.url.trim() : ''
-  if (!/^https?:\/\//i.test(url)) return { variants: [], axes: [], reason: 'need_url' }
+  const asked = typeof body?.url === 'string' ? body.url.trim() : ''
+  if (!/^https?:\/\//i.test(asked)) return { variants: [], axes: [], reason: 'need_url' }
+  // A STORE'S SHARE LINK IS READ AS ITS PRODUCT PAGE (Aaron 2026-11-09: two "https://a.co/d/…" links in the link card were read as a
+  // site of their own and failed as another country's prices): the short link is followed to the store's page first (utils/shortLinks.ts).
+  const url = shortLinksIn(asked).length ? (await expandShortLink(asked).catch(() => null)) || asked : asked
   // LIVE ON EVERY OPEN (Alex, 2026-09-11: "it should be a live read each time to get the variants and images of
   // the product from the product details page"). max_age_s 0 = never serve a cached row: the shopper who tapped a
   // product gets that product page as it is right now — its photos, its sizes, its stock, its price. For a feed
