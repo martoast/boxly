@@ -1839,8 +1839,8 @@ export default defineEventHandler(async (event) => {
           if (!token) return { ok: false, error: 'not_authenticated', note: 'NO LIVE GALLERY — this visitor is not signed in. Call create_account now with ONE short line in Spanish saying that to search it live in the store they need their free Boxly account and you bring them right back here. Do NOT describe or list products.' }
           const stop = (error: string, why: string) => ({ ok: false, error, note: `NO LIVE GALLERY — ${why} Nothing is on screen; do NOT describe products.` })
           if (!conversationId) return stop('no_conversation', 'this chat is not saved yet. Say ONE short line asking them to send the request again.')
-          const q = liveGalleryQuery(query)
-          if (q.length < 2) return stop('empty_query', 'there was nothing to search for. Ask what they are looking for with ask_to_narrow.')
+          const q0 = liveGalleryQuery(query)
+          if (q0.length < 2) return stop('empty_query', 'there was nothing to search for. Ask what they are looking for with ask_to_narrow.')
           const live = liveCatalog || await liveStoreList(token)
           if (!live) return stop('live_unavailable', 'the live store browser is not available right now. Say so in ONE short line and offer to try again in a moment.')
           const { stores: picked, unknown } = resolveLiveStores(stores, live.stores, live.max)
@@ -1849,6 +1849,9 @@ export default defineEventHandler(async (event) => {
           const brandIsStore = cleanBrand && picked.some((st) => st.name.toLowerCase().replace(/[^a-z0-9]/g, '') === cleanBrand.toLowerCase().replace(/[^a-z0-9]/g, ''))
           // a price limit only when the shopper wrote a number (the model once sent max_price 0.009 for "promociones")
           const filters = (() => { const f: any = {}; if (cleanBrand && !brandIsStore) f.brand = cleanBrand; if (typeof max_price === 'number' && max_price >= 1 && max_price <= 100000 && /\d/.test(lastUserText(messages))) f.max_price = Math.round(max_price * 100) / 100; if (on_sale === true) f.on_sale = true; return Object.keys(f).length ? f : null })()
+          // the brand is part of what the store's search box gets (Karla "promociones PINK" 2026-11-11: VS searched just "sale", its main
+          // line came back and the PINK filter kept none)
+          const q = filters?.brand && !q0.toLowerCase().includes(String(filters.brand).toLowerCase()) ? `${filters.brand} ${q0}`.slice(0, 120) : q0
           if (!picked.length) return stop('unknown_store', `${unknown.join(', ') || 'That store'} cannot be opened live yet. Say so in ONE short line and offer the closest store from: ${live.stores.map((st) => st.name).join(', ')}.`)
           const start = () => callApi('/live-shopping/sessions', {
             method: 'POST', token, timeoutMs: 15000,
