@@ -17,6 +17,9 @@ export function storeKey(v: unknown): string {
   return String(v ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/&/g, 'and').replace(/[^a-z0-9]+/g, '')
 }
 
+/** Shoppers' shorthand for a live store (Karla 2026-11-12 "Sale de tenis para dama MK": "MK" was taken for a brand sold elsewhere). */
+const STORE_SHORTHAND: Record<string, string> = { mk: 'michaelkors', vs: 'victoriassecret', bbw: 'bathandbodyworks', ae: 'americaneagle', nb: 'newbalance', tj: 'tjmaxx', tjmax: 'tjmaxx', nrack: 'nordstromrack' }
+
 /**
  * The stores a live gallery may open: each requested name or id matched against the ENGINE's store list (GET
  * /live-shopping/stores — the only stores a session can be created for), distinct, in request order, at most `max`
@@ -32,7 +35,8 @@ export function resolveLiveStores(requested: unknown, catalog: LiveStore[], max:
   const unknown: string[] = []
   const cap = Math.max(1, Math.min(4, Math.floor(Number(max) || 1)))
   for (const raw of Array.isArray(requested) ? requested : []) {
-    const k = storeKey(raw)
+    const k0 = storeKey(raw)
+    const k = STORE_SHORTHAND[k0] || k0
     if (!k) continue
     const hit = byKey.get(k) || byKey.get(k.replace(/(?:com|store|shop|official|usa|us)$/, ''))
     if (!hit) { unknown.push(String(raw).slice(0, 60)); continue }
