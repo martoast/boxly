@@ -18,6 +18,8 @@ export function storeKey(v: unknown): string {
 }
 
 /** Shoppers' shorthand for a live store (Karla 2026-11-12 "Sale de tenis para dama MK": "MK" was taken for a brand sold elsewhere). */
+/** storeKey with shoppers' shorthand resolved ("MK" → "michaelkors"). */
+export function liveStoreKey(v: unknown): string { const k = storeKey(v); return STORE_SHORTHAND[k] || k }
 const STORE_SHORTHAND: Record<string, string> = { mk: 'michaelkors', vs: 'victoriassecret', bbw: 'bathandbodyworks', ae: 'americaneagle', nb: 'newbalance', tj: 'tjmaxx', tjmax: 'tjmaxx', nrack: 'nordstromrack' }
 
 /**

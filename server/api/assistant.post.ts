@@ -16,7 +16,7 @@ import { linkListUrls, usStoreUrl, linkListFromMetadata, linkListBox, LINK_LIST_
 import { shortLinksIn, expandShortLinks } from '../../utils/shortLinks'
 import { checkStoreLock } from '../utils/storeLock'
 import { storeHostsFromLiveStores, tagCarriedStores } from '../utils/storeHosts'
-import { resolveLiveStores, liveGalleryQuery, liveResultsAsText, type LiveStore } from '../../utils/liveGallery'
+import { resolveLiveStores, liveGalleryQuery, liveResultsAsText, liveStoreKey, type LiveStore } from '../../utils/liveGallery'
 
 /**
  * AI shopping-assistant chat backend.
@@ -1850,6 +1850,12 @@ export default defineEventHandler(async (event) => {
           const pinkAsked = (Array.isArray(stores) ? stores : []).some((st: any) => PINK_STORE.test(String(st)))
           const { stores: picked, unknown } = resolveLiveStores((Array.isArray(stores) ? stores : []).map((st: any) => PINK_STORE.test(String(st)) ? "Victoria's Secret" : st), live.stores, live.max)
           if (pinkAsked) brand = 'PINK'
+          // A BRAND THAT IS ONE OF OUR STORES is searched THERE (lab 2026-11-12 "Sale de tenis para dama MK": the model searched Nordstrom and
+          // Neiman for "Michael Kors" and showed their MK bags; Michael Kors' own store has the sneakers)
+          {
+            const bk = liveStoreKey(String(brand || '')), own = bk ? live.stores.find((st) => liveStoreKey(st.name) === bk || liveStoreKey(st.id) === bk) : null
+            if (own && !picked.some((st) => st.id === own.id)) { picked.splice(0, picked.length, { id: own.id, name: own.name }); unknown.splice(0) }
+          }
           const cleanBrand = typeof brand === 'string' ? brand.replace(/[^\p{L}\p{N} &.'-]+/gu, ' ').replace(/\s+/g, ' ').trim().slice(0, 60) : ''
           // the brand that IS one of the stores searched is no filter (every card there is that brand, and titles often leave it out)
           const brandIsStore = cleanBrand && picked.some((st) => st.name.toLowerCase().replace(/[^a-z0-9]/g, '') === cleanBrand.toLowerCase().replace(/[^a-z0-9]/g, ''))

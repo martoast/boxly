@@ -13,7 +13,7 @@ const cut = (re) => { const m = api.match(re); if (!m) throw new Error('missing 
 const block = cut(/      live_gallery: tool\(\{[\s\S]*?\n      \}\),\n/)
 const tmp = new URL('./__live_gallery.tmp.ts', import.meta.url)
 writeFileSync(tmp, [
-  "import { resolveLiveStores, liveGalleryQuery } from '../../utils/liveGallery.ts'",
+  "import { resolveLiveStores, liveGalleryQuery, liveStoreKey } from '../../utils/liveGallery.ts'",
   // A chainable stand-in for zod: the schema is not what is under test here.
   'const chain: any = new Proxy(function () {}, { get: () => chain, apply: () => chain })',
   'const z: any = chain',
