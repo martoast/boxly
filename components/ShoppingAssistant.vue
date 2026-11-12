@@ -1927,6 +1927,18 @@ function ensureChatToken() {
   return tokenPromise
 }
 
+// A SIGNED-IN SHOPPER NEVER SENDS AS A GUEST (lab 2026-11-12: the first message after a night idle was answered "necesito que entres a tu
+// cuenta" while the sidebar showed the account; a retry worked). The token mint can fail after a long idle (an expired security cookie) or
+// run before the account is known: the send waits for the account, and a signed-in shopper with no token refreshes the cookie and mints again.
+async function chatTokenForSend() {
+  if (!user.value) { for (let i = 0; i < 20 && user.value === undefined; i++) await new Promise((r) => setTimeout(r, 150)) }
+  await ensureChatToken()
+  if (!user.value || token.value) return
+  try { await $fetch(`${useRuntimeConfig().public.apiUrl}/csrf-cookie`, { credentials: 'include', headers: { Accept: 'application/json' } }) } catch {}
+  tokenPromise = null
+  await ensureChatToken()
+}
+
 // Create the thread the instant the user sends their first message (like
 // ChatGPT) — it shows in the sidebar immediately, before the AI even responds.
 // SINGLE, GUARDED creator: a send and the background persist() can both ask for a
@@ -1969,7 +1981,7 @@ async function onComposerSend({ files } = {}) {
   if (files && files.length) lastComposerFile.value = files[0]
   // Token + conversation are independent — mint both in parallel instead of
   // serially. Still awaited so the conversation id rides on turn 1 (analytics linking).
-  await Promise.all([ensureChatToken(), ensureConversation(text)])
+  await Promise.all([chatTokenForSend(), ensureConversation(text)])
   chat.sendMessage({ text: text || undefined, files: files || undefined })
   clearPipeline() // the routing hint was for this turn only
   scrollDown()
@@ -2114,7 +2126,7 @@ async function pickSuggestion(text) {
   input.value = ''
   // Token + conversation are independent — mint both in parallel instead of
   // serially. Still awaited so the conversation id rides on turn 1 (analytics linking).
-  await Promise.all([ensureChatToken(), ensureConversation(text)])
+  await Promise.all([chatTokenForSend(), ensureConversation(text)])
   chat.sendMessage({ text })
   clearPipeline()
   scrollDown()
@@ -2184,9 +2196,9 @@ function seeMore(m) {
   sendFollowup(`Ver más: "${s.query}" en ${s.stores.join(', ')}`)
 }
 // Tapping a follow-up chip (cross-sell) sends it as the next shopper message.
-function sendFollowup(text) {
+async function sendFollowup(text) {
   if (isBusy.value || !text) return
-  ensureChatToken()
+  await chatTokenForSend()
   ensureConversation(text)
   chat.sendMessage({ text })
   scrollDown()
@@ -2231,11 +2243,11 @@ function addToBoxlyCart(p) {
     .catch((e) => console.warn('boxly cart add failed', e?.data?.message || e))
 }
 // "Agregar todo" on the link-list card: the whole list in one message; the box takes it as it is (show_shipment, utils/linkList.ts).
-function sendLinkList(list) {
+async function sendLinkList(list) {
   if (!Array.isArray(list) || !list.length) return
   // the assistant is still answering: send when it is done (the card already shows the list as sent)
   if (isBusy.value) { setTimeout(() => sendLinkList(list), 800); return }
-  ensureChatToken()
+  await chatTokenForSend()
   const text = `Agrega todos estos productos a mi caja (${list.length})`
   ensureConversation(text)
   chat.sendMessage({ text, metadata: { link_list: list } })
@@ -2254,8 +2266,8 @@ function askSimilar(row) {
   chat.sendMessage({ text })
   scrollDown()
 }
-function sendAssisted(p) {
-  ensureChatToken()
+async function sendAssisted(p) {
+  await chatTokenForSend()
   if (isBusy.value) { pendingPick.value = { p, assisted: true }; return }
   const { store, price, urlPart } = productTail(p)
   // The modal is the product page now: when the shopper chose size/colour/quantity there, its sentence already
@@ -2274,8 +2286,8 @@ function sendAssisted(p) {
   scrollDown()
 }
 // Gallery "Pedir" — add to the consolidated shipment/order (self-import flow).
-function onPickProduct(p) {
-  ensureChatToken()
+async function onPickProduct(p) {
+  await chatTokenForSend()
   if (isBusy.value) { pendingPick.value = { p, assisted: false }; return }
   const { store, price, urlPart } = productTail(p)
   const text = `Agrégalo a mi envío: ${p.title}${store}${price}${urlPart}`
@@ -2296,9 +2308,9 @@ function onAskProduct(p) {
 }
 
 // Shipment card actions — finalize the consolidated order, or keep adding.
-function onFinalizeShipment() {
+async function onFinalizeShipment() {
   if (isBusy.value) return
-  ensureChatToken()
+  await chatTokenForSend()
   // Explicit FINALIZE — the AI creates the one purchase request from everything in the cart.
   const text = 'Ya, eso es todo — finaliza y crea mi pedido con todo lo que tengo en el carrito.'
   if (user.value) finalizeTapped.value = true
@@ -2527,7 +2539,7 @@ async function maybeResumeGuest() {
   } catch (e) { console.error('resume claim failed', e) }
   scrollDown()
   // Continue where they left off (token is minted by initLoggedIn).
-  await ensureChatToken()
+  await chatTokenForSend()
   chat.sendMessage({ text: `Ya creé mi cuenta ✅ ${stash.intent || 'Continuemos con el pedido.'}`.trim() })
   scrollDown()
   return true
