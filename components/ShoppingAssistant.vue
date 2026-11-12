@@ -2126,8 +2126,24 @@ function notExactLine(m, part) {
   const titles = (part.output?.products || []).map((p) => p?.title || '')
   // a new iPhone with no phone in the gallery (only cases): where the unlocked phone is bought, and that its total is quoted exactly
   if (q && iphoneNotListed(q, titles)) return 'Esta tienda solo vende este iPhone con plan de compañía de EE. UU. (no funciona en México). Elígelo en apple.com — modelo, color, capacidad y “Unlocked” — y pega aquí el link: lo agregamos a tu caja y al finalizar te damos el total exacto con impuestos.'
-  if (!q || !notExactly(q, titles)) return ''
+  if (!q || !notExactly(q, titles)) return promoLine(m, part)
   return `No encontré exactamente “${q}” en estas tiendas; esto es lo más parecido. Si tienes el link del producto, pégalo y lo cotizo.`
+}
+// THE DEALS, SAID (Alex 2026-11-11: "finding the best deals is a selling point"): a promo gallery opens with how many deals in how many
+// stores and the best one — "Encontré 24 ofertas en 3 tiendas · la mejor: 62% menos en Alo".
+function promoLine(m, part) {
+  const list = chat.messages || []
+  let ask = null
+  for (let i = list.indexOf(m); !ask && i >= 0 && i >= list.indexOf(m) - 6; i--) ask = [...(list[i]?.parts || [])].reverse().find((p) => p?.type === 'tool-live_gallery' && p.input) || null
+  if (ask?.input?.on_sale !== true) return ''
+  const amt = (v) => (typeof v === 'number' ? v : typeof v?.amount === 'number' ? v.amount : null)
+  const deals = (part.output?.products || []).map((p) => ({ now: amt(p?.price ?? p?.current_price), was: amt(p?.was ?? p?.list_price), store: p?.store_name || p?.store || p?.store_id || '' }))
+    .filter((d) => d.now != null && d.was != null && d.was > d.now)
+  if (!deals.length) return ''
+  const stores = new Set(deals.map((d) => d.store).filter(Boolean))
+  const best = deals.reduce((a, b) => ((b.was - b.now) / b.was > (a.was - a.now) / a.was ? b : a))
+  const pct = Math.round(((best.was - best.now) / best.was) * 100)
+  return `Encontré ${deals.length} oferta${deals.length === 1 ? '' : 's'}${stores.size > 1 ? ` en ${stores.size} tiendas` : ''} · la mejor: ${pct}% menos${best.store && stores.size > 1 ? ` en ${best.store}` : ''} 🔥`
 }
 
 function liveSearchOf(m) {
