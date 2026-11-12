@@ -2134,6 +2134,9 @@ async function pickSuggestion(text) {
 // The live search a live gallery answered: the nearest live_gallery call at or before its message (the API appends the results as a
 // later message). Its EXACT query and stores, so "Ver más" repeats that very search (the engine matches it to skip what it showed).
 function notExactLine(m, part) {
+  // a promo gallery says its deals; its search words ("… sneakers sale") are never in a product's title, so "not exactly" would always fire
+  const promo = promoLine(m, part)
+  if (promo) return promo
   const q = liveSearchOf(m)?.query
   const titles = (part.output?.products || []).map((p) => p?.title || '')
   // a new iPhone with no phone in the gallery (only cases): where the unlocked phone is bought, and that its total is quoted exactly
