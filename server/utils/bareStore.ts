@@ -20,11 +20,21 @@ export function bareStoreAsk(text: string, stores: StoreRef[]): string | null {
   const rest = words.filter((w) => !FILLER.has(w))
   if (!rest.length || rest.length > 4) return null
   const said = compact(rest.join(''))
-  if (said.length < 3) return null
+  if (said.length < 2) return null
   for (const s of stores || []) {
     const name = s?.name || s?.id
     const keys = [s?.name, s?.id].filter(Boolean).map((k) => compact(String(k)))
     if (keys.some((k) => k.length >= 3 && k === said)) return String(name)
   }
-  return null
+  // what shoppers call a store (Ilse 2026-11-12 typed "Bath" and was asked "¿Qué buscas?", then left)
+  const nick = NICKNAMES[said]
+  const hit = nick ? (stores || []).find((s) => compact(String(s?.id || '')) === compact(nick)) : null
+  return hit ? String(hit.name || hit.id) : null
+}
+
+/** Shoppers' names for a store → its id. */
+const NICKNAMES: Record<string, string> = {
+  bath: 'bath-body-works', bathandbody: 'bath-body-works', bathbody: 'bath-body-works', bbw: 'bath-body-works', bathbodyworks: 'bath-body-works',
+  mk: 'michael-kors', michael: 'michael-kors', vs: 'victorias-secret', victoria: 'victorias-secret', victorias: 'victorias-secret',
+  ae: 'american-eagle', tj: 'tjmaxx', tjmax: 'tjmaxx', nb: 'new-balance', lulu: 'lululemon', coach: 'coach-outlet',
 }
