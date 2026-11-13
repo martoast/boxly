@@ -40,6 +40,24 @@
           </div>
         </div>
 
+        <!-- WHERE SHOPPERS STOP (2026-11-13): each chat's furthest stage — results → opened → added → Finalizar → paid (test accounts left out) -->
+        <div v-if="funnel && funnel.chats" class="mb-6 bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <div class="flex items-baseline justify-between gap-3 mb-3">
+            <h2 class="text-lg font-bold text-gray-900">Embudo</h2>
+            <span class="text-xs font-semibold text-gray-400">{{ fmt(funnel.chats) }} chats · últimos {{ days }} días</span>
+          </div>
+          <div class="space-y-2">
+            <div v-for="(st, i) in funnelStages" :key="st.key" class="flex items-center gap-3">
+              <span class="w-36 shrink-0 text-sm text-gray-700">{{ st.label }}</span>
+              <div class="flex-1 h-6 rounded-md bg-gray-100 overflow-hidden">
+                <div class="h-full rounded-md bg-primary-500" :style="{ width: Math.max(2, pctOf(funnel[st.key], funnel.chats)) + '%' }" />
+              </div>
+              <span class="w-28 shrink-0 text-right text-sm font-semibold text-gray-900">{{ fmt(funnel[st.key]) }} <span class="font-normal text-gray-400">· {{ pctOf(funnel[st.key], funnel.chats) }}%</span></span>
+              <span class="w-24 shrink-0 text-right text-xs" :class="i && dropOf(i) >= 50 ? 'text-red-600 font-semibold' : 'text-gray-400'">{{ i ? `−${dropOf(i)}%` : '' }}</span>
+            </div>
+          </div>
+        </div>
+
         <!-- Recent activity (everything, chronological) + stores shown -->
         <div class="grid lg:grid-cols-3 gap-6">
           <div class="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
@@ -443,6 +461,22 @@ function fmtDate(d) {
 
 function fmt(n) { return new Intl.NumberFormat('es-MX').format(Number(n) || 0) }
 
+// The funnel: how many chats reached each stage (GET /ai-search/funnel); hidden where the endpoint is not offered (staff roles)
+const funnel = ref(null)
+const funnelStages = [
+  { key: 'results', label: 'Vio resultados' },
+  { key: 'opened', label: 'Abrió un producto' },
+  { key: 'added', label: 'Agregó a su caja' },
+  { key: 'finalized', label: 'Finalizó' },
+  { key: 'paid', label: 'Pagó' },
+]
+const pctOf = (n, of) => (of ? Math.round((Number(n) || 0) * 100 / of) : 0)
+// the drop from the stage before ("−60%": 6 of 10 who saw results never opened a product)
+function dropOf(i) {
+  const prev = Number(funnel.value?.[funnelStages[i - 1].key]) || 0, now = Number(funnel.value?.[funnelStages[i].key]) || 0
+  return prev ? Math.round((prev - now) * 100 / prev) : 0
+}
+
 // Both requests go out TOGETHER. The old version awaited `stats` before it even
 // started the second call, so the two round-trips were serial for no reason.
 async function load() {
@@ -455,7 +489,9 @@ async function load() {
     })
     .finally(() => { loading.value = false })
 
-  await Promise.all([stats$, loadFeed(1)])
+  const funnel$ = $customFetch(`${props.apiBase}/ai-search/funnel`, { params: { days: days.value } })
+    .then((r) => { funnel.value = r.data }).catch(() => { funnel.value = null })
+  await Promise.all([stats$, loadFeed(1), funnel$])
 }
 onMounted(load)
 </script>
