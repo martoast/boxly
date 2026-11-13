@@ -2137,6 +2137,8 @@ function notExactLine(m, part) {
   // a promo gallery says its deals; its search words ("… sneakers sale") are never in a product's title, so "not exactly" would always fire
   const promo = promoLine(m, part)
   if (promo) return promo
+  // a promo gallery without markdowns (an offers store, Bath & Body Works) says nothing rather than "no encontré exactamente “sale”"
+  if (lastGalleryAsk(m)?.input?.on_sale === true) return ''
   const q = liveSearchOf(m)?.query
   const titles = (part.output?.products || []).map((p) => p?.title || '')
   // a new iPhone with no phone in the gallery (only cases): where the unlocked phone is bought, and that its total is quoted exactly
@@ -2146,10 +2148,14 @@ function notExactLine(m, part) {
 }
 // THE DEALS, SAID (Alex 2026-11-11: "finding the best deals is a selling point"): a promo gallery opens with how many deals in how many
 // stores and the best one — "Encontré 24 ofertas en 3 tiendas · la mejor: 62% menos en Alo".
-function promoLine(m, part) {
+function lastGalleryAsk(m) {
   const list = chat.messages || []
   let ask = null
   for (let i = list.indexOf(m); !ask && i >= 0 && i >= list.indexOf(m) - 6; i--) ask = [...(list[i]?.parts || [])].reverse().find((p) => p?.type === 'tool-live_gallery' && p.input) || null
+  return ask
+}
+function promoLine(m, part) {
+  const ask = lastGalleryAsk(m)
   if (ask?.input?.on_sale !== true) return ''
   const amt = (v) => (typeof v === 'number' ? v : typeof v?.amount === 'number' ? v.amount : null)
   const deals = (part.output?.products || []).map((p) => ({ now: amt(p?.price ?? p?.current_price), was: amt(p?.was ?? p?.list_price), store: p?.store_name || p?.store || p?.store_id || '' }))
