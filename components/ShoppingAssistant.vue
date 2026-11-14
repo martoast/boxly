@@ -1930,11 +1930,14 @@ function ensureChatToken() {
 // A SIGNED-IN SHOPPER NEVER SENDS AS A GUEST (lab 2026-11-12: the first message after a night idle was answered "necesito que entres a tu
 // cuenta" while the sidebar showed the account; a retry worked). The token mint can fail after a long idle (an expired security cookie) or
 // run before the account is known: the send waits for the account, and a signed-in shopper with no token refreshes the cookie and mints again.
+async function refreshCsrf() {
+  try { await $fetch(`${useRuntimeConfig().public.apiUrl}/csrf-cookie`, { credentials: 'include', headers: { Accept: 'application/json' } }) } catch {}
+}
 async function chatTokenForSend() {
   if (!user.value) { for (let i = 0; i < 20 && user.value === undefined; i++) await new Promise((r) => setTimeout(r, 150)) }
   await ensureChatToken()
   if (!user.value || token.value) return
-  try { await $fetch(`${useRuntimeConfig().public.apiUrl}/csrf-cookie`, { credentials: 'include', headers: { Accept: 'application/json' } }) } catch {}
+  await refreshCsrf()
   tokenPromise = null
   await ensureChatToken()
 }
@@ -1952,7 +1955,10 @@ function ensureConversation(firstText) {
   if (activeId.value) return Promise.resolve(activeId.value)
   if (convPromise) return convPromise
   const title = (firstText || '').replace(/\s+/g, ' ').trim().slice(0, 60) || 'Nuevo chat'
-  convPromise = $customFetch('/conversations', { method: 'POST', body: { title } })
+  // the first write after a long idle can meet an expired security cookie (lab 2026-11-14: the chat was not created, the search answered
+  // "No pude abrir la búsqueda"): refresh it and create once more
+  const create = () => $customFetch('/conversations', { method: 'POST', body: { title } })
+  convPromise = create().catch(async () => { await refreshCsrf(); return create() })
     .then((r) => {
       const c = r.data
       activeId.value = c.id
