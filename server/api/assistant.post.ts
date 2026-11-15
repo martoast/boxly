@@ -14,6 +14,7 @@ import { boxFromMessages, withEarlierItems, wantedFromBox, planCart, storeOption
 import { pickedColourImage, pickedVariantPrice } from '../../utils/pickerLogic'
 import { linkListUrls, usStoreUrl, linkListFromMetadata, linkListBox, LINK_LIST_MAX, isLinkOnly, cartLinks, isCartLink, quantityOnly, keepsBoxAsIs, recentStatedQuantity } from '../../utils/linkList'
 import { shortLinksIn, expandShortLinks } from '../../utils/shortLinks'
+import { LIVE_STORES_FALLBACK } from '../utils/liveStoresFallback'
 import { checkStoreLock } from '../utils/storeLock'
 import { storeHostsFromLiveStores, tagCarriedStores } from '../utils/storeHosts'
 import { resolveLiveStores, liveGalleryQuery, liveResultsAsText, liveStoreKey, type LiveStore } from '../../utils/liveGallery'
@@ -1048,7 +1049,8 @@ export default defineEventHandler(async (event) => {
     : null
   // The engine's store list, read before the loop (the prompt names it; live_gallery validates against it). A guest
   // has none: live search needs an account (the session, its conversation and the cart are per shopper).
-  const liveCatalog = token ? await liveStoreList(token) : null
+  // no token on this message (its first, before the token was ready): the last list this server saw, else the snapshot — never "no stores"
+  const liveCatalog = token ? await liveStoreList(token) : (liveStoresCache || { stores: LIVE_STORES_FALLBACK, max: 1 })
   // The live stores' own sites (host → engine store id): a pasted link or a registry row on one of them is that
   // store's product, and a box item whose title starts with a store's name is searched for on its site.
   const liveHosts = storeHostsFromLiveStores(liveCatalog?.stores)
