@@ -180,3 +180,21 @@ app still refuses it if some other store invents a new shape.
 - [x] the picked colour's photo (pickedColourImage from the chat's picker reads) for the cart line and the box card
 - [x] tests: sync gate (boxlyCart), pickedColourImage
 - [ ] API aa7a547 (sync_on_add off, quotes 2 at once) pushed only after the engine proof (multi-item add+checkout from an empty bag, 2 stores at once)
+
+# Campaign scheduling + calendar (2026-11-17)
+
+Alex: "make it clear when a campaign is scheduled, have a calendar view of scheduled campaigns, and make it easy to schedule a campaign on any day of the calendar."
+
+## Plan
+- [x] API: `scheduled_at` on email campaigns; `boxly:campaigns-scheduled` (every minute) starts a due draft with the admin's own Start; PUT accepts `scheduled_at`
+- [x] API: `GET /{admin|shopping}/campaigns/calendar?from&to` — campaigns scheduled/sent in range + unscheduled drafts
+- [x] `utils/campaignSchedule.ts` — central-Mexico-time helpers (label, day, time, instant, month grid) + tests
+- [x] `components/CampaignScheduleControl.vue` — schedule / change / unschedule a draft (date + time)
+- [x] `components/CampaignCalendar.vue` — month grid: scheduled (violet), sending (blue), sent (green); click a future day → pick a draft + time → schedule; ✕ unschedules
+- [x] Campaign list pages (admin + shopping): List | Calendario toggle; status "Programada · lun 23 nov, 9:00"
+- [x] Campaign detail pages (admin + shopping): the schedule control; scheduled status in the header
+
+## Review
+- No campaign is scheduled by this change; the team schedules from the admin. A scheduled draft can still be started by hand or edited/unscheduled while a draft.
+- Times are central Mexico (UTC-6). The scheduler starts each campaign once (Start only takes drafts); a failed start clears its time so it is not retried every minute.
+- Same two components serve the admin and shopping pages (only the API prefix differs).

@@ -38,8 +38,17 @@
         </div>
       </div>
 
+      <!-- List | Calendar (2026-11-17: when each campaign is scheduled or went out) -->
+      <div class="flex justify-end mb-3">
+        <div class="inline-flex rounded-xl border border-gray-200 bg-white p-1 text-sm font-medium">
+          <button type="button" class="px-3 py-1.5 rounded-lg" :class="view === 'list' ? 'bg-gray-900 text-white' : 'text-gray-600 hover:text-gray-900'" @click="view = 'list'">{{ t.listView }}</button>
+          <button type="button" class="px-3 py-1.5 rounded-lg" :class="view === 'calendar' ? 'bg-gray-900 text-white' : 'text-gray-600 hover:text-gray-900'" @click="view = 'calendar'">{{ t.calendarView }}</button>
+        </div>
+      </div>
+      <CampaignCalendar v-if="view === 'calendar'" api-prefix="/shopping" detail-base="/app/shopping/campaigns" @changed="fetchCampaigns(pagination.currentPage)" />
+
       <!-- Main Card -->
-      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+      <div v-else class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <!-- Search & Filters -->
         <div class="px-4 sm:px-6 py-4 bg-gray-50/50 border-b border-gray-100">
           <div class="space-y-3">
@@ -98,8 +107,8 @@
                   <p class="font-semibold text-gray-900 truncate">{{ campaign.name }}</p>
                   <p class="text-sm text-gray-500 truncate">{{ getAudienceLabel(campaign.audience) }}</p>
                 </div>
-                <span :class="getStatusBadgeClass(campaign.status)" class="shrink-0 text-xs px-2 py-1 rounded-full font-medium">
-                  {{ getStatusLabel(campaign.status) }}
+                <span :class="getStatusBadgeClass(campaign.status, campaign)" class="shrink-0 text-xs px-2 py-1 rounded-full font-medium">
+                  {{ getStatusLabel(campaign.status, campaign) }}
                 </span>
               </div>
               <div class="grid grid-cols-4 gap-1.5 text-center text-sm">
@@ -150,8 +159,8 @@
                     {{ getAudienceLabel(campaign.audience) }}
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap">
-                    <span :class="getStatusBadgeClass(campaign.status)" class="text-xs px-2.5 py-1 rounded-full font-medium">
-                      {{ getStatusLabel(campaign.status) }}
+                    <span :class="getStatusBadgeClass(campaign.status, campaign)" class="text-xs px-2.5 py-1 rounded-full font-medium">
+                      {{ getStatusLabel(campaign.status, campaign) }}
                     </span>
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{{ campaign.total_recipients }}</td>
@@ -196,13 +205,14 @@
 </template>
 
 <script setup>
+import { isScheduled, scheduleLabel } from '~/utils/campaignSchedule'
 definePageMeta({
   layout: 'shopping',
   middleware: ['auth', 'shopping']
 })
 
 const { $customFetch } = useNuxtApp()
-const { t: createTranslations } = useLanguage()
+const { t: createTranslations, language } = useLanguage()
 
 const translations = {
   campaigns: { es: 'Campañas', en: 'Campaigns' },
@@ -210,6 +220,9 @@ const translations = {
   searchPlaceholder: { es: 'Buscar por nombre...', en: 'Search by name...' },
   allStatuses: { es: 'Todos los estados', en: 'All statuses' },
   statusDraft: { es: 'Borrador', en: 'Draft' },
+  statusScheduled: { es: 'Programada', en: 'Scheduled' },
+  listView: { es: 'Lista', en: 'List' },
+  calendarView: { es: 'Calendario', en: 'Calendar' },
   statusSending: { es: 'Enviando', en: 'Sending' },
   statusPaused: { es: 'Pausada', en: 'Paused' },
   statusCompleted: { es: 'Completada', en: 'Completed' },
@@ -247,6 +260,7 @@ const translations = {
 const t = createTranslations(translations)
 
 const campaigns = ref([])
+const view = ref('list')
 const loading = ref(true)
 const searchQuery = ref('')
 const statusFilter = ref('')
@@ -263,7 +277,8 @@ const stats = computed(() => [
   { label: t.value.totalEmailsSent, value: summaryStats.value.total_emails_sent },
 ])
 
-const getStatusBadgeClass = (status) => {
+const getStatusBadgeClass = (status, campaign = null) => {
+  if (isScheduled(campaign)) return 'bg-violet-100 text-violet-700'
   const classes = {
     draft: 'bg-gray-100 text-gray-700',
     sending: 'bg-blue-100 text-blue-700',
@@ -274,7 +289,8 @@ const getStatusBadgeClass = (status) => {
   return classes[status] || 'bg-gray-100 text-gray-700'
 }
 
-const getStatusLabel = (status) => {
+const getStatusLabel = (status, campaign = null) => {
+  if (isScheduled(campaign)) return `${t.value.statusScheduled} · ${scheduleLabel(campaign.scheduled_at, language.value === 'en' ? 'en' : 'es')}`
   const labels = {
     draft: t.value.statusDraft,
     sending: t.value.statusSending,

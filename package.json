@@ -31,7 +31,8 @@
     "test:picker-card": "node --experimental-strip-types server/api/picker-card.test.mjs",
     "test:variant-sane": "node server/api/variant-sane.test.mjs",
     "test:variant-chrome": "node --experimental-strip-types server/api/variant-chrome.test.mjs",
-    "test:label-tracking": "node --experimental-strip-types utils/labelTracking.test.mjs"
+    "test:label-tracking": "node --experimental-strip-types utils/labelTracking.test.mjs",
+    "test:campaign-schedule": "node --experimental-strip-types utils/campaignSchedule.test.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.84",

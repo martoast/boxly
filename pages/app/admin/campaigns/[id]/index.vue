@@ -13,9 +13,9 @@
             </NuxtLink>
             <div>
               <h1 class="text-xl sm:text-2xl font-extrabold text-gray-900">{{ campaign?.name }}</h1>
-              <span v-if="campaign" :class="getStatusBadgeClass(campaign.status)"
+              <span v-if="campaign" :class="getStatusBadgeClass(campaign.status, campaign)"
                 class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium mt-1">
-                {{ getStatusLabel(campaign.status) }}
+                {{ getStatusLabel(campaign.status, campaign) }}
               </span>
             </div>
           </div>
@@ -69,6 +69,9 @@
     </div>
 
     <div v-else class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
+      <!-- When this draft sends by itself (2026-11-17) -->
+      <CampaignScheduleControl :campaign="campaign" api-prefix="/admin" @updated="fetchCampaign" />
+
       <!-- Analytics Cards -->
       <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
         <div v-for="stat in statsCards" :key="stat.label" class="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
@@ -462,6 +465,7 @@
 </template>
 
 <script setup>
+import { isScheduled, scheduleLabel } from '~/utils/campaignSchedule'
 import {
   UsersIcon,
   EnvelopeIcon,
@@ -479,7 +483,7 @@ definePageMeta({
 
 const route = useRoute()
 const { $customFetch } = useNuxtApp()
-const { t: createTranslations } = useLanguage()
+const { t: createTranslations, language } = useLanguage()
 
 const translations = {
   campaignInfo: { es: 'Información de la Campaña', en: 'Campaign Details' },
@@ -538,6 +542,7 @@ const translations = {
   previous: { es: 'Anterior', en: 'Previous' },
   next: { es: 'Siguiente', en: 'Next' },
   statusDraft: { es: 'Borrador', en: 'Draft' },
+  statusScheduled: { es: 'Programada', en: 'Scheduled' },
   statusSending: { es: 'Enviando', en: 'Sending' },
   statusPaused: { es: 'Pausada', en: 'Paused' },
   statusCompleted: { es: 'Completada', en: 'Completed' },
@@ -638,7 +643,8 @@ const resizeIframe = () => {
   }
 }
 
-const getStatusBadgeClass = (status) => {
+const getStatusBadgeClass = (status, campaign = null) => {
+  if (isScheduled(campaign)) return 'bg-violet-100 text-violet-700'
   const classes = {
     draft: 'bg-gray-100 text-gray-700',
     sending: 'bg-primary-50 text-primary-700',
@@ -649,7 +655,8 @@ const getStatusBadgeClass = (status) => {
   return classes[status] || 'bg-gray-100 text-gray-700'
 }
 
-const getStatusLabel = (status) => {
+const getStatusLabel = (status, campaign = null) => {
+  if (isScheduled(campaign)) return `${t.value.statusScheduled} · ${scheduleLabel(campaign.scheduled_at, language.value === 'en' ? 'en' : 'es')}`
   const labels = {
     draft: t.value.statusDraft,
     sending: t.value.statusSending,
