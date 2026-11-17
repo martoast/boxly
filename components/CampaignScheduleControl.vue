@@ -54,8 +54,9 @@ const t = createTranslations({
 
 const scheduled = computed(() => isScheduled(props.campaign))
 const today = mxDay(new Date())
+const tomorrow = mxDay(new Date(Date.now() + 86400000))
 const editing = ref(false)
-const day = ref('')
+const day = ref(tomorrow) // pre-filled: tomorrow at 9:00 (central Mexico) — the team only adjusts it
 const time = ref('09:00')
 const busy = ref(false)
 const error = ref('')

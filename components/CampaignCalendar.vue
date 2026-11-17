@@ -7,7 +7,7 @@
         <button type="button" class="p-2 rounded-lg hover:bg-gray-100" :aria-label="t.prev" @click="shift(-1)">
           <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
         </button>
-        <h2 class="text-lg font-bold text-gray-900 capitalize w-44 text-center">{{ monthTitle }}</h2>
+        <h2 class="text-lg font-bold text-gray-900 w-44 text-center">{{ monthTitle }}</h2>
         <button type="button" class="p-2 rounded-lg hover:bg-gray-100" :aria-label="t.next" @click="shift(1)">
           <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
         </button>
@@ -52,7 +52,7 @@
     <!-- Schedule a draft on the clicked day -->
     <div v-if="pickDay" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" @click.self="pickDay = null">
       <div class="w-full max-w-md bg-white rounded-2xl shadow-xl p-5">
-        <h3 class="text-lg font-bold text-gray-900">{{ t.scheduleOn }} <span class="capitalize">{{ dayTitle(pickDay) }}</span></h3>
+        <h3 class="text-lg font-bold text-gray-900">{{ t.scheduleOn }} {{ dayTitle(pickDay) }}</h3>
         <p class="text-xs text-gray-500 mt-1">{{ t.mxTime }}</p>
         <div v-if="!drafts.length" class="mt-4 text-sm text-gray-600">{{ t.noDrafts }}</div>
         <template v-else>
@@ -108,7 +108,9 @@ const weekdays = computed(() => (language?.value === 'en' ? ['Mon', 'Tue', 'Wed'
 const today = mxDay(new Date())
 const view = ref({ y: Number(today.slice(0, 4)), m: Number(today.slice(5, 7)) - 1 })
 const grid = computed(() => monthGrid(view.value.y, view.value.m))
-const monthTitle = computed(() => new Intl.DateTimeFormat(locale.value, { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(Date.UTC(view.value.y, view.value.m, 1))))
+// first letter only ("Noviembre de 2026", not "Noviembre De 2026" from CSS capitalize)
+const upFirst = (s) => s.charAt(0).toUpperCase() + s.slice(1)
+const monthTitle = computed(() => upFirst(new Intl.DateTimeFormat(locale.value, { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(Date.UTC(view.value.y, view.value.m, 1)))))
 const dayTitle = (d) => new Intl.DateTimeFormat(locale.value, { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${d}T12:00:00Z`))
 
 const campaigns = ref([])
