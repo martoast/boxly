@@ -664,6 +664,7 @@ const fromBarcodesOnly = (barcodes) => {
 
 const processOne = async (item) => {
   item.status = 'working'
+  let claimed = []
   try {
     const { barcodes, image } = item.prepared || await prepareLabelPhoto(item.file)
     let packages
@@ -684,14 +685,19 @@ const processOne = async (item) => {
       item.prepared = null
       return
     }
-    // The same package shot twice: every tracking number on it is already saved.
-    const tracks = packages.map((p) => p.tracking_number).filter(Boolean)
-    if (tracks.length === packages.length && tracks.every((tr) => knownTracking.value.has(tr))) {
-      item.result = { name: packages[0]?.recipient_name || '—', tracking: tracks[0], needs_check: false }
+    // The same package shot twice: every tracking number on it is already saved, or claimed by a shot read just
+    // before it (photos are read 6 at once, so two shots of one box used to both pass and both get saved). Per
+    // warehouse: the San Diego and the Tijuana scan of one box are both real.
+    const loc = item.location || myWarehouse.value
+    const keys = packages.map((p) => p.tracking_number).filter(Boolean).map((tr) => `${loc}|${tr}`)
+    if (keys.length === packages.length && keys.every((k) => knownTracking.value.has(k) || claimedTracking.has(k))) {
+      item.result = { name: packages[0]?.recipient_name || '—', tracking: packages[0].tracking_number, needs_check: false }
       item.status = 'duplicate'
       item.prepared = null
       return
     }
+    claimed = keys
+    keys.forEach((k) => claimedTracking.add(k)) // claimed before the upload awaits, so a shot read meanwhile sees it
     const form = new FormData()
     form.append('image', image, 'label.jpg')
     form.append('batch', batch)
@@ -699,15 +705,20 @@ const processOne = async (item) => {
     if (item.location) form.append('location', item.location)
     const res = await $customFetch(`${apiNs.value}/label-scans`, { method: 'POST', body: form })
     const rows = res.data || []
-    if (!period.value || period.value.to >= today.value) scans.value = [...rows.slice().reverse(), ...scans.value]
-    refreshStatsSoon()
-    item.result = { name: rows[0]?.recipient_name || '—', tracking: rows[0]?.tracking_number || '', needs_check: rows.some((r) => r.needs_check) }
-    item.status = 'done'
+    // the API returns a box this warehouse already has as its existing row (duplicate: true) instead of saving it again
+    const added = rows.filter((r) => !r.duplicate)
+    if (added.length && (!period.value || period.value.to >= today.value)) scans.value = [...added.slice().reverse(), ...scans.value]
+    if (added.length) refreshStatsSoon()
+    item.result = { name: rows[0]?.recipient_name || '—', tracking: rows[0]?.tracking_number || '', needs_check: added.some((r) => r.needs_check) }
+    item.status = added.length ? 'done' : 'duplicate'
     item.file = null
     item.prepared = null
   } catch (e) {
     item.status = 'failed'
     item.error = e?.data?.message || e?.message || String(e)
+  } finally {
+    // in flight only: once saved the row is in the list (and the API refuses a second copy); a failed one can be retried
+    claimed.forEach((k) => claimedTracking.delete(k))
   }
 }
 
@@ -742,7 +753,8 @@ const onPick = (event) => {
 
 // ---- live camera: each capture joins the same queue and is sent right away ----
 const scannerOpen = ref(false)
-const knownTracking = computed(() => new Set(scans.value.map((s) => s.tracking_number).filter(Boolean)))
+const knownTracking = computed(() => new Set(scans.value.filter((s) => s.tracking_number).map((s) => `${s.location || myWarehouse.value}|${s.tracking_number}`)))
+const claimedTracking = new Set() // warehouse|tracking of photos read and still uploading
 
 const openScanner = () => { // one batch per scanning session; finished rows from before are cleared off the list
   if (!busy.value) {

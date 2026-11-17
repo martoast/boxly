@@ -198,3 +198,18 @@ Alex: "make it clear when a campaign is scheduled, have a calendar view of sched
 - No campaign is scheduled by this change; the team schedules from the admin. A scheduled draft can still be started by hand or edited/unscheduled while a draft.
 - Times are central Mexico (UTC-6). The scheduler starts each campaign once (Start only takes drafts); a failed start clears its time so it is not retried every minute.
 - Same two components serve the admin and shopping pages (only the API prefix differs).
+
+# Label scans: stop duplicates at the source + clean up the old ones (2026-11-17)
+
+Alex: "we need a clean up process automatically for the scanning … a lot of duplicates that could have been easily solved."
+
+## What the data says (1,037 scans, Oct 7 – Nov 16)
+- 119 same-warehouse duplicate rows: Mauricio shoots the same label twice in a row (two different photos, same package, seconds apart, same session). 115 of 119 are in the same session.
+- 108 "duplicates" are NOT duplicates: the same package scanned in San Diego and later in Tijuana. Keep both.
+- Root cause: the page reads 6 photos at once. Its "already scanned" check only knows rows already SAVED, so two shots of one box read at the same time both pass and both get saved. The check also ignores the warehouse, so an admin scanning in Tijuana could skip a box only because San Diego scanned it.
+
+## Plan
+- [x] Scan page: a tracking number counts as taken the moment its photo is read (before upload), per warehouse → the second shot shows "Duplicado" and is not saved
+- [x] API (safety net for two phones / reloads): saving a tracking number that warehouse already has returns the existing row (marked duplicate) instead of a new one
+- [ ] One-off cleanup of the 119 existing duplicates: keep one row per package per warehouse (the checked/named one, else the first), delete the rest — only after Alex OKs
+- [ ] Tests (API + app), push, verify on a real session
