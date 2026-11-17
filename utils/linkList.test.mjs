@@ -80,6 +80,10 @@ for (const t of ['solo el negro', 'solo quiero ver', 'quiero el jersey', 'solo l
   assert.equal(usStoreUrl('https://www.abercrombie.com/shop/us/p/x-1'), 'https://www.abercrombie.com/shop/us/p/x-1')
   assert.equal(usStoreUrl('https://www.michaelkors.com/us/es/signature-logo-cotton-blend-zip-up-hoodie/OF550TQ48U.html'), 'https://www.michaelkors.com/signature-logo-cotton-blend-zip-up-hoodie/OF550TQ48U.html')
   assert.equal(usStoreUrl('https://www.nike.com/t/x/1'), 'https://www.nike.com/t/x/1')
+  assert.equal(usStoreUrl('https://row.gymshark.com/products/gymshark-training-midi-long-sleeve-top-ls-tops-black-ss26?variant=1'), 'https://www.gymshark.com/products/gymshark-training-midi-long-sleeve-top-ls-tops-black-ss26')
+  assert.equal(usStoreUrl('https://uk.gymshark.com/collections/sale'), 'https://uk.gymshark.com/collections/sale', 'only product pages')
+  assert.equal(usStoreUrl('https://www.gymshark.com/products/x'), 'https://www.gymshark.com/products/x')
+  assert.deepEqual(linkListUrls('https://row.gymshark.com/products/a https://www.gymshark.com/products/a'), ['https://www.gymshark.com/products/a'], 'same product once')
   assert.deepEqual(linkListUrls('https://www.abercrombie.com/shop/wd-es/p/j-6068'), ['https://www.abercrombie.com/shop/us/p/j-6068'])
   console.log('  ✓ other-market store links become the US page')
 }

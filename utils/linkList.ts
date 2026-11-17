@@ -44,6 +44,9 @@ export function usStoreUrl(url: string): string {
   if (/^(?:abercrombie|hollisterco)\.com$/.test(host)) u.pathname = u.pathname.replace(/^\/shop\/(?!us\/)[a-z]{2}(?:-[a-z]{2})?\//i, '/shop/us/')
   // Michael Kors: /us/es/… (Spanish) → the English page
   if (host === 'michaelkors.com') u.pathname = u.pathname.replace(/^\/us\/es\//i, '/')
+  // Gymshark: row. / uk. / ca. … product → the same handle on the US store (live 2026-11-17: row.gymshark.com checkout ships only to
+  // the shopper's country — "importer's license required" for Mexico — so a 4-item order could not be quoted; US handles are the same)
+  if (/^[a-z]{2,3}\.gymshark\.com$/.test(host) && /^\/products\//i.test(u.pathname)) { u.hostname = 'www.gymshark.com'; u.search = '' }
   return u.toString()
 }
 
