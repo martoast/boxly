@@ -211,5 +211,10 @@ Alex: "we need a clean up process automatically for the scanning … a lot of du
 ## Plan
 - [x] Scan page: a tracking number counts as taken the moment its photo is read (before upload), per warehouse → the second shot shows "Duplicado" and is not saved
 - [x] API (safety net for two phones / reloads): saving a tracking number that warehouse already has returns the existing row (marked duplicate) instead of a new one
-- [ ] One-off cleanup of the 119 existing duplicates: keep one row per package per warehouse (the checked/named one, else the first), delete the rest — only after Alex OKs
-- [ ] Tests (API + app), push, verify on a real session
+- [x] One-off cleanup (Alex OK'd): keep one row per package per warehouse (the checked/named one, else the first), delete the rest — 165 rows (the first count of 119 missed doubles inside boxes also scanned at the other warehouse)
+- [x] Tests (API + app), push; live check on the next real session
+
+## Review
+- Scan page: a tracking number is claimed per warehouse as soon as its photo is read and released when its upload ends, so a second shot read in parallel shows "Duplicado"; a failed upload can still be retried. The already-saved check is now per warehouse too.
+- API: store() returns the existing row (duplicate: true) for a box the warehouse already has; no photo upload when every package is known. Rows with no tracking number are never treated as duplicates.
+- Cleanup: 1,037 → 872 rows, 0 same-warehouse doubles left, every kept row verified; San Diego + Tijuana pairs untouched. Backup of the deleted rows kept outside the repo.
