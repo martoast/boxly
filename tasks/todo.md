@@ -218,3 +218,9 @@ Alex: "we need a clean up process automatically for the scanning … a lot of du
 - Scan page: a tracking number is claimed per warehouse as soon as its photo is read and released when its upload ends, so a second shot read in parallel shows "Duplicado"; a failed upload can still be retried. The already-saved check is now per warehouse too.
 - API: store() returns the existing row (duplicate: true) for a box the warehouse already has; no photo upload when every package is known. Rows with no tracking number are never treated as duplicates.
 - Cleanup: 1,037 → 872 rows, 0 same-warehouse doubles left, every kept row verified; San Diego + Tijuana pairs untouched. Backup of the deleted rows kept outside the repo.
+
+# Customer orders page: drop the overview cards (2026-11-17)
+Alex: the cards on top make customers feel they've spent too much; keep only the table and search.
+- [x] Remove the 4 cards (desktop + mobile scroll) from pages/app/orders/index.vue, their stats code and the extra /orders request that only fed them
+## Review
+- Customer orders page = header, search, orders table/cards, pagination. Admin/shopping pages untouched (separate pages).

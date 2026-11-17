@@ -71,44 +71,10 @@
     <!-- Main Content -->
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
       
-      <!-- Stats Cards (Desktop Only) -->
-      <div class="hidden sm:grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8 animate-fadeIn" style="animation-delay: 0.2s">
-        <div v-for="(stat, index) in stats" :key="index" 
-          class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-all duration-300 group"
-        >
-          <div class="flex items-center justify-between mb-4">
-            <div :class="`p-3 rounded-xl ${stat.bgColor} group-hover:scale-110 transition-transform duration-300`">
-              <svg class="w-6 h-6" :class="stat.iconColor" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="stat.icon"/>
-              </svg>
-            </div>
-            <span class="text-2xl font-bold text-gray-900">{{ stat.value }}</span>
-          </div>
-          <p class="text-sm font-medium text-gray-500">{{ stat.label }}</p>
-        </div>
-      </div>
-
-      <!-- Mobile Horizontal Scroll Stats -->
-      <div class="sm:hidden mb-6 -mx-4 px-4 overflow-x-auto scrollbar-hide pb-2">
-        <div class="flex gap-3 min-w-max">
-          <div v-for="(stat, index) in stats" :key="index" 
-            class="bg-white rounded-xl p-4 shadow-sm border border-gray-100 min-w-[140px]"
-          >
-            <div :class="`w-8 h-8 rounded-lg ${stat.bgColor} flex items-center justify-center mb-2`">
-              <svg class="w-4 h-4" :class="stat.iconColor" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="stat.icon"/>
-              </svg>
-            </div>
-            <p class="text-xl font-bold text-gray-900">{{ stat.value }}</p>
-            <p class="text-xs font-medium text-gray-500">{{ stat.label }}</p>
-          </div>
-        </div>
-      </div>
-
       <!-- Orders Section -->
       <div
         class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden animate-fadeIn"
-        style="animation-delay: 0.3s"
+        style="animation-delay: 0.1s"
       >
         <!-- Search Section -->
         <div class="px-4 sm:px-6 py-4 bg-gray-50/50 border-b border-gray-100">
@@ -496,7 +462,6 @@ const { t: createTranslations } = useLanguage();
 
 // State
 const orders = ref([]);
-const allOrders = ref([]);
 const loading = ref(true);
 const searchQuery = ref("");
 const searchDebounce = ref(null);
@@ -534,11 +499,6 @@ const translations = {
   showingSearchResults: { es: "Mostrando resultados de búsqueda", en: "Showing search results" },
   clearSearch: { es: "Limpiar búsqueda", en: "Clear search" },
   
-  // Stats
-  totalOrders: { es: "Total", en: "Total" },
-  activeOrders: { es: "Activas", en: "Active" },
-  inTransit: { es: "En Tránsito", en: "In Transit" },
-  delivered: { es: "Entregadas", en: "Delivered" },
   // Address
   address: { es: "Dirección", en: "Address" },
   noAddress: { es: "Sin dirección", en: "No address" },
@@ -546,53 +506,6 @@ const translations = {
 };
 
 const t = createTranslations(translations);
-
-// Computed stats - UPDATED for new statuses
-const stats = computed(() => {
-  const ordersForStats = allOrders.value.length > 0 ? allOrders.value : orders.value;
-  const totalOrders = ordersForStats.length;
-  
-  const activeOrders = ordersForStats.filter((o) =>
-    ["collecting", "awaiting_packages", "packages_complete", "processing"].includes(o.status)
-  ).length;
-  
-  const inTransit = ordersForStats.filter((o) => o.status === "shipped").length;
-  
-  const delivered = ordersForStats.filter((o) =>
-    ["delivered", "awaiting_payment", "paid"].includes(o.status)
-  ).length;
-
-  return [
-    {
-      label: t.value.totalOrders,
-      value: totalOrders,
-      icon: "M20 7H4a2 2 0 00-2 2v6a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2zM9 12H5V9h4v3z",
-      bgColor: "bg-primary-50",
-      iconColor: "text-primary-600",
-    },
-    {
-      label: t.value.activeOrders,
-      value: activeOrders,
-      icon: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z",
-      bgColor: "bg-amber-50",
-      iconColor: "text-amber-600",
-    },
-    {
-      label: t.value.inTransit,
-      value: inTransit,
-      icon: "M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0",
-      bgColor: "bg-yellow-50",
-      iconColor: "text-yellow-600",
-    },
-    {
-      label: t.value.delivered,
-      value: delivered,
-      icon: "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z",
-      bgColor: "bg-green-50",
-      iconColor: "text-green-600",
-    },
-  ];
-});
 
 // Methods
 const fetchOrders = async (page = 1) => {
@@ -617,20 +530,6 @@ const fetchOrders = async (page = 1) => {
     console.error("Error fetching orders:", error);
   } finally {
     loading.value = false;
-  }
-};
-
-const fetchAllOrdersForStats = async () => {
-  try {
-    const response = await $customFetch("/orders", {
-      params: {
-        page: 1,
-        per_page: 10,
-      },
-    });
-    allOrders.value = response.data.data;
-  } catch (error) {
-    console.error("Error fetching all orders:", error);
   }
 };
 
@@ -690,7 +589,6 @@ watch(searchQuery, (newValue) => {
 
 onMounted(() => {
   fetchOrders();
-  fetchAllOrdersForStats();
 });
 
 onUnmounted(() => {
