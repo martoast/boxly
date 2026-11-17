@@ -135,8 +135,9 @@ const chipClass = (c) => (isScheduled(c) ? 'bg-violet-100 text-violet-800 hover:
 
 async function load() {
   loading.value = true
-  const first = `${view.value.y}-${String(view.value.m + 1).padStart(2, '0')}-01`
-  const last = new Date(Date.UTC(view.value.y, view.value.m + 1, 0)).toISOString().slice(0, 10)
+  // one day either side: the API's days are UTC, the calendar's central Mexico (a Nov 30, 8 p.m. send is Dec 1 in UTC); byDay places each by its Mexico day
+  const first = new Date(Date.UTC(view.value.y, view.value.m, 0)).toISOString().slice(0, 10)
+  const last = new Date(Date.UTC(view.value.y, view.value.m + 1, 1)).toISOString().slice(0, 10)
   try {
     const r = await $customFetch(`${props.apiPrefix}/campaigns/calendar`, { params: { from: first, to: last } })
     campaigns.value = r?.data?.campaigns || []
