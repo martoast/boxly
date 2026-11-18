@@ -87,11 +87,11 @@ export function buildAct(k, { kit, $, tint, gsap }) {
     // Boxly US address, a banner says "Llegó 1 de 3…"; he sets it aside; all three → "¡Ya llegaron todos!"
     place(at(330))
     // each package's shelf slot is its CSS home (final pose); it arrives at the counter, then is put on the shelf
-    const PK = [{ x: 458, h: 34 }, { x: 522, h: 30 }, { x: 586, h: 46 }]
+    const PK = [{ x: 456, dy: 144 }, { x: 528, dy: 144 }, { x: 500, dy: 40 }] // shelf slot → counter offset
     tl.set($('w1-done'), { opacity: 0 }, 0)
     PK.forEach((p, i) => {
       tl.set($('w1-dot' + i), { backgroundColor: '#CBD5E1' }, 0)
-      tl.set($('w1-pkg' + i), { x: 720 - p.x, y: 144, opacity: 1 }, 0)
+      tl.set($('w1-pkg' + i), { x: 720 - p.x, y: p.dy, opacity: 1 }, 0)
       tl.set($('w1-label' + i), { opacity: 0 }, 0)
       tl.set($('w1-stamp' + i), { scale: 0 }, 0)
     })
@@ -134,7 +134,6 @@ export function buildAct(k, { kit, $, tint, gsap }) {
     tl.set(light, { backgroundColor: '#DC2626' }, 0)
     tl.set(tint, { v: 0 }, 0)
     tl.set($('w2-load'), { opacity: 1 }, 0); tl.set($('w2-out'), { opacity: 0 }, 0)
-    tl.to($('w2-load'), { opacity: 0, duration: 0.15 }, 4.8); tl.to($('w2-out'), { opacity: 1, duration: 0.2 }, 4.9)
     const pk = [0, 1, 2, 3, 4, 5].map((i) => $('w2-pkg' + i))
     pk.forEach((el) => tl.set(el, { x: -80, opacity: 1, scale: 1 }, 0))
     // presses the start button on the panel
@@ -158,12 +157,24 @@ export function buildAct(k, { kit, $, tint, gsap }) {
     tl.set(light, { backgroundColor: '#DC2626' }, 4.25)
     tl.to(door, { x: 0, duration: 0.45, ease: 'power2.inOut' }, 4.3)
     to(tl, { lookX: 0, lookY: 0 }, 4.3, 0.25)
-    tl.to($('w2-van'), { y: -3, duration: 0.07, yoyo: true, repeat: 5, ease: 'sine.inOut' }, 4.75)
-    tl.to($('w2-puffs'), { opacity: 1, duration: 0.15 }, 4.75).to($('w2-puffs'), { x: -40, opacity: 0, duration: 0.6, ease: 'power1.out' }, 4.9)
-    tl.to($('w2-ok'), { opacity: 1, scale: 1, duration: 0.3, ease: 'back.out(2.2)' }, 4.85)
-    tl.to(tint, { v: 1, duration: 0.9, ease: 'sine.inOut' }, 4.6)
-    home(tl, 4.7, 0.55)
-    blink(tl, 5.4, 'R', 0.45)
+    const van = $('w2-van')
+    tl.set(van, { x: 0, opacity: 1, scaleX: 1, scaleY: 1, transformOrigin: '50% 100%' }, 0)
+    tl.set($('w2-ok'), { opacity: 0 }, 0)
+    tl.to(van, { y: -3, duration: 0.07, yoyo: true, repeat: 5, ease: 'sine.inOut' }, 4.75)          // engine on
+    tl.to($('w2-puffs'), { opacity: 1, duration: 0.15 }, 4.8).to($('w2-puffs'), { x: -40, opacity: 0, duration: 0.6, ease: 'power1.out' }, 4.95)
+    tl.to(van, { scaleX: 0.96, scaleY: 1.03, duration: 0.12, ease: 'power2.out' }, 5.15)          // pull-away squash
+    tl.to(van, { scaleX: 1, scaleY: 1, duration: 0.3, ease: 'elastic.out(1, .5)' }, 5.27)
+    tl.to(van, { x: 340, duration: 0.9, ease: 'power2.in' }, 5.15)
+    tl.to(van, { opacity: 0, duration: 0.15 }, 5.95)
+    ;[0, 1].forEach((w) => tl.to($('w2-wheel' + w), { rotation: 540, svgOrigin: w ? '196 126' : '46 126', duration: 0.9, ease: 'power2.in' }, 5.15))
+    // waves it off, THEN the board flips and the room warms toward Tijuana
+    arc(tl, 'R', { x: 246, y: 66, r: -20, pose: 'open' }, 5.1, 0.25)
+    ;[18, -16, 12].forEach((a, i) => to(tl, { hRr: a }, 5.35 + i * 0.15, 0.15, E.soft))
+    tl.to($('w2-load'), { opacity: 0, duration: 0.15 }, 6.0); tl.to($('w2-out'), { opacity: 1, duration: 0.2 }, 6.1)
+    tl.to($('w2-ok'), { opacity: 1, scale: 1, duration: 0.3, ease: 'back.out(2.2)' }, 6.1)
+    tl.to(tint, { v: 1, duration: 0.9, ease: 'sine.inOut' }, 6.1)
+    home(tl, 6.0, 0.55)
+    blink(tl, 6.7, 'R', 0.45)
   }
 
   if (k === 3) {

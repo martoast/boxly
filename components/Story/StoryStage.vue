@@ -82,10 +82,10 @@
                     <div class="rack-tag"><b>Reservado</b><span>MARÍA LÓPEZ</span></div>
                     <div class="rack-prog"><i v-for="j in 3" :key="j" :data-s="'w1-dot' + (j - 1)"></i><span class="rack-done" data-s="w1-done">Pedido completo ✓</span></div>
                     <i class="rack-board" style="top:136px"></i><i class="rack-board" style="top:236px"></i>
-                    <i class="rack-ghost" style="left:12px;top:204px;width:52px;height:32px"></i><i class="rack-ghost" style="left:136px;top:198px;width:58px;height:38px"></i>
+                    <i class="rack-ghost" style="left:150px;top:106px;width:44px;height:30px"></i><i class="rack-ghost" style="left:150px;top:200px;width:44px;height:36px"></i>
                   </div>
                   <div class="counter" style="left:392px;width:268px"></div>
-                  <div v-for="(pk, i) in PACKAGES" :key="'p' + i" class="pkg" :class="pk.cls" :data-s="'w1-pkg' + i" :style="`left:${458 + i * 64}px;top:${196 - pk.h}px;width:${pk.w}px;height:${pk.h}px`">
+                  <div v-for="(pk, i) in PACKAGES" :key="'p' + i" class="pkg" :class="pk.cls" :data-s="'w1-pkg' + i" :style="`left:${SHELF[i].x}px;top:${SHELF[i].board - pk.h}px;width:${pk.w}px;height:${pk.h}px`">
                     <img :src="pk.logo" alt="" class="pkg-logo" />
                   </div>
                   <div v-for="(b, i) in W1_BANNERS" :key="'b' + i" class="banner" :class="{ keep: i === 3 }" :data-s="'w1-ban' + i"><img src="/app-icon.svg" alt="" /><div><b>Boxly</b><span>{{ b }}</span></div></div>
@@ -112,10 +112,10 @@
                     <g data-s="w2-door"><rect x="20" y="20" width="80" height="98" rx="4" fill="#14306A" stroke="#0A1C3A" stroke-width="2" /><rect x="22" y="78" width="76" height="12" fill="#FECD04" /><rect x="84" y="56" width="10" height="4" rx="2" fill="#9CA3AF" /></g>
                     <image href="/app-icon.svg" x="112" y="26" width="40" height="40" />
                     <text x="108" y="112" font-size="15" font-weight="900" fill="#fff" font-family="inherit">Boxly</text>
-                    <circle cx="46" cy="126" r="17" fill="#1F2937" stroke="#9CA3AF" stroke-width="5" /><circle cx="196" cy="126" r="17" fill="#1F2937" stroke="#9CA3AF" stroke-width="5" />
+                    <g data-s="w2-wheel0"><circle cx="46" cy="126" r="17" fill="#1F2937" stroke="#9CA3AF" stroke-width="5" /><path d="M46 113 V139 M33 126 H59" stroke="#6B7280" stroke-width="3" /></g><g data-s="w2-wheel1"><circle cx="196" cy="126" r="17" fill="#1F2937" stroke="#9CA3AF" stroke-width="5" /><path d="M196 113 V139 M183 126 H209" stroke="#6B7280" stroke-width="3" /></g>
                   </svg>
                   <div class="puffs" data-s="w2-puffs"><i></i><i></i><i></i></div>
-                  <div class="pill" data-s="w2-ok" style="left:430px;top:196px">🚚 Rumbo a Tijuana ✓</div>
+                  <div class="pill" data-s="w2-ok" style="left:452px;top:300px">🚚 Rumbo a Tijuana ✓</div>
                 </div>
 
                 <!-- 3 · scanned in Tijuana -->
@@ -205,7 +205,7 @@ import { buildAct } from './storyActs.js'
 const WORLDS = [
   { kicker: 'Boxly', h: 'Compra en cualquier tienda de EE.UU.', p: 'Target, Amazon, Gymshark, New Balance… Boxly lo recibe en San Diego, lo junta en una caja y te lo manda a cualquier parte de México.', cta: 'Empieza a comprar' },
   { kicker: '1 · San Diego', h: 'Lo recibimos y lo guardamos en San Diego.', p: 'Cada paquete llega a tu dirección en San Diego con tu nombre. Lo escaneamos y lo guardamos en tu espacio hasta que llegue todo tu pedido.' },
-  { kicker: '2 · Rumbo a Tijuana', h: 'Los llevamos a Tijuana.', p: 'Cargamos tus paquetes en nuestra camioneta y los llevamos de San Diego a Tijuana. Tú no haces nada.' },
+  { kicker: '2 · Rumbo a Tijuana', rail: '2 · A Tijuana', h: 'Los llevamos a Tijuana.', p: 'Cargamos tus paquetes en nuestra camioneta y los llevamos de San Diego a Tijuana. Tú no haces nada.' },
   { kicker: '3 · Tijuana', h: 'Ya están en Tijuana.', p: 'Los escaneamos otra vez al llegar a Tijuana, para que sepas que todo cruzó.' },
   { kicker: '4 · Tu caja', h: 'Múltiples tiendas, 1 caja.', p: 'Juntamos todo en una sola caja. Pagas por tamaño de caja, en pesos, sin sorpresas.' },
   { kicker: '5 · El envío', h: 'A cualquier parte de México.', p: 'Con guía de rastreo, desde Tijuana hasta tu puerta.' },
@@ -245,6 +245,8 @@ const BELT = [
   { logo: L('gymshark.png'), cls: 'poly', w: 56, h: 28 }, { logo: L('bath-body-works.svg'), cls: 'whitebox', w: 56, h: 36 },
   { logo: L('new-balance.svg'), cls: 'carton', w: 64, h: 42 }, { logo: L('walmart.svg'), cls: 'carton', w: 58, h: 36 },
 ]
+// world 1 shelf slots (page px): two on the top board, the tall carton on the lower one
+const SHELF = [{ x: 456, board: 196 }, { x: 528, board: 196 }, { x: 500, board: 300 }]
 const W1_BANNERS = ['Llegó 1 de 3 · Target', 'Llegó 2 de 3 · Gymshark', 'Llegó 3 de 3 · New Balance', '¡Ya llegaron todos! 🎉']
 const SIZES = ['S', 'M', 'L', 'XL']
 const CARDS = [
@@ -412,7 +414,7 @@ onMounted(async () => {
     rail.value.style.opacity = railOn.toFixed(3)
     rail.value.style.pointerEvents = railOn > 0.5 ? 'auto' : 'none'
     dots.forEach((d, i) => d.classList.toggle('on', i + 1 === active))
-    railLabel.value.textContent = active ? WORLDS[active].kicker : ''
+    railLabel.value.textContent = active ? (WORLDS[active].rail || WORLDS[active].kicker) : ''
     head.value.classList.toggle('solid', window.scrollY > 10)
     return moving || (current === 2 && !reduce)
   }
@@ -562,7 +564,7 @@ onBeforeUnmount(() => cleanup())
 .panel2 i { position: absolute; left: 9px; top: 9px; width: 16px; height: 16px; border-radius: 99px; background: #16A34A; box-shadow: 0 0 0 3px #1F2937; }
 .belt-pkg { left: 0; }
 .pkg.whitebox { background: #fff; border: 2px solid #D1D5DB; }
-.van { position: absolute; left: 432px; top: 262px; width: 236px; height: 150px; overflow: visible; }
+.van { position: absolute; left: 432px; top: 262px; width: 236px; height: 150px; overflow: visible; opacity: 0; transform: translateX(340px); } /* final pose: it has left */
 .puffs { position: absolute; left: 404px; top: 380px; display: flex; gap: 4px; opacity: 0; }
 .puffs i { width: 14px; height: 14px; border-radius: 99px; background: #D1D5DB; }
 /* 3 */
@@ -613,7 +615,7 @@ onBeforeUnmount(() => cleanup())
 
 /* the rail */
 .sc-rail { position: absolute; z-index: 8; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 12px; padding: 8px 14px; border-radius: 99px; background: color-mix(in srgb, var(--bg) 70%, #fff); box-shadow: 0 6px 20px rgba(12, 37, 76, .12); opacity: 0; }
-.sc-rail-label { font-size: 12px; font-weight: 800; color: var(--ink); min-width: 90px; }
+.sc-rail-label { font-size: 12px; font-weight: 800; color: var(--ink); min-width: 90px; white-space: nowrap; }
 .sc-rail button { width: 8px; height: 8px; border-radius: 99px; background: color-mix(in srgb, var(--ink) 25%, transparent); transition: width .2s; }
 .sc-rail button.on { width: 22px; background: var(--accent); }
 </style>
