@@ -102,7 +102,8 @@ const explore = [
 
 const addressCopied = ref(false)
 async function copyUsAddress() {
-  const text = `BOXLY ${user.value?.name || ''}\n157 Virginia Ave Suite 835\nSan Ysidro, CA 92173`
+  // the button says "Copiar dirección": only the address (Alex 2026-11-18: the name line was being copied too)
+  const text = '157 Virginia Ave Suite 835\nSan Ysidro, CA 92173'
   try {
     await navigator.clipboard.writeText(text)
     addressCopied.value = true
