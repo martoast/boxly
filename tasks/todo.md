@@ -224,3 +224,21 @@ Alex: the cards on top make customers feel they've spent too much; keep only the
 - [x] Remove the 4 cards (desktop + mobile scroll) from pages/app/orders/index.vue, their stats code and the extra /orders request that only fed them
 ## Review
 - Customer orders page = header, search, orders table/cards, pagination. Admin/shopping pages untouched (separate pages).
+
+# Landing page rework: scroll-story with the Boxly mascot (plan, 2026-11-18, waiting on Alex)
+
+Brief from Henry/Alex: a scroll-driven story like kiru.video/a (pinned stage, 7 worlds, ~5 s GSAP scene per world, rewinds on scroll back),
+mascot "Boxly" (Erick's art) as a vector rig, real store logos in the hero, Spanish-first. Ships first at a hidden noindex URL; the current
+home page stays until Alex says swap.
+
+## Build plan
+- [x] 1. Storyboard doc (docs/landing-storyboard.md): the 7 worlds second by second (Boxly track | window/phone track), Kiru's format → Alex reviews
+  - Decided (Alex via Henry, 2026-11-18): Erick's design exactly — closed cube, brows carry the mood, no lid flaps, no added parts
+- [ ] 2. Mascot rig: flat-vector SVG parts drawn from Erick's render (body/faces, eyes + blink, 6–7 mouths, brows, gloves open/thumb/hold, legs, sneakers); idle + wave + scan + thumbs-up test page
+- [ ] 3. Engine port: showcase.js + kip.js → a client-only Vue component (onMounted, no SSR animation; server renders each world's final pose); GSAP added; world 0 on the hidden page; phone check
+- [ ] 4. Worlds 1–6
+- [ ] 5. Sections below: box-size price calculator (reuse BoxPricing data), stores, reviews, FAQ, sign-up CTA
+- [ ] 6. Swap into / only on Alex's OK
+
+## Hidden page
+- pages/<hidden>.vue, robots noindex,nofollow (useHead + X-Robots-Tag via routeRules); the sitemap is an explicit list, so it stays out.
