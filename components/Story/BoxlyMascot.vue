@@ -108,7 +108,7 @@ import BoxlyShoe from './BoxlyShoe.vue'
 
 // ---- skeleton (body space = the cube's own drawing coordinates) ----
 const PIVOT = [122, 286]                       // the body squashes / leans around the point between his feet
-const SHOULDER = { L: [44, 138], R: [199, 172] } // left: mid-height of the side face; right: mouth level on the front edge
+const SHOULDER = { L: [46, 150], R: [199, 172] } // left: mid-height of the side face; right: mouth level on the front edge
 const HIP = { L: [94, 198], R: [146, 200] }
 const ARM = 90, LEG = 50
 const ANKLE = { L: [80, 244], R: [148, 246] }  // where the feet stand (scene space)
@@ -168,7 +168,7 @@ const init = (() => {
     legL: limb(T(HIP.L), a('L'), LEG, [1, -0.15], 30), legR: limb(T(HIP.R), a('R'), LEG, [1, -0.15], 30),
     sockL: `translate(${a('L')[0]} ${a('L')[1] + 2})`, sockR: `translate(${a('R')[0]} ${a('R')[1] + 2})`,
     shoeL: `translate(${a('L')[0] + SHOE_AT.L[0]} ${a('L')[1] + SHOE_AT.L[1]})`, shoeR: `translate(${a('R')[0] + SHOE_AT.R[0]} ${a('R')[1] + SHOE_AT.R[1]})`,
-    armL: limb(T(SHOULDER.L), hL, ARM, [-1, 0.7], 34), armR: limb(T(SHOULDER.R), hR, ARM, [1, 0.7], 34),
+    armL: limb(T(SHOULDER.L), hL, ARM, [-1, 0.7], 22), armR: limb(T(SHOULDER.R), hR, ARM, [1, 0.7], 34),
     handL: `translate(${hL[0]} ${hL[1]}) rotate(${st.hLr})`, handR: `translate(${hR[0]} ${hR[1]}) rotate(${st.hRr})`,
   }
 })()
@@ -226,7 +226,7 @@ function render() {
 
   // arms: shoulder → elbow (down and out) → glove; the gloves are in body space
   const hL = T([st.hLx, st.hLy]), hR = T([st.hRx, st.hRy])
-  armL.value.setAttribute('d', limb(T(SHOULDER.L), hL, ARM, [-1, 0.7], 34))
+  armL.value.setAttribute('d', limb(T(SHOULDER.L), hL, ARM, [-1, 0.7], 22))
   armR.value.setAttribute('d', limb(T(SHOULDER.R), hR, ARM, [1, 0.7], 34))
   at(handL.value, `translate(${hL[0]} ${hL[1]}) rotate(${st.hLr + st.lean})`)
   at(handR.value, `translate(${hR[0]} ${hR[1]}) rotate(${st.hRr + st.lean})`)
@@ -234,7 +234,7 @@ function render() {
   scanLight.value.setAttribute('fill', st.beep > 0.5 ? '#3DD68C' : '#E5484D')
 
   // carton: on the floor, or between the gloves (sagging on its spring)
-  const held = [(hL[0] + hR[0]) / 2 + spr.box.x, (hL[1] + hR[1]) / 2 - 2 + spr.box.y]
+  const held = [(hL[0] + hR[0]) / 2 + spr.box.x, (hL[1] + hR[1]) / 2 - 18 + spr.box.y]
   const cx = st.cFx + (held[0] - st.cFx) * st.cHeld, cy = st.cFy + (held[1] - st.cFy) * st.cHeld
   carton.value.setAttribute('opacity', st.cOn)
   at(carton.value, `translate(${cx} ${cy}) rotate(${spr.box.x * 0.8})`)
@@ -303,11 +303,11 @@ const MOVES = {
   // WAVE: dip (anticipation) → spring up onto his toes with a stretch → the arm swings up on an arc → a wave whose wrist
   // trails the hand and loses energy → the arm drops past rest and settles (follow-through)
   wave(tl) {
-    to(tl, { by: 9, sx: 1.07, sy: 0.93, lean: -4 }, 0, 0.16, E.out)
+    to(tl, { by: 8, sx: 1.05, sy: 0.95, lean: -4 }, 0, 0.16, E.out)
     loosen(tl, 0, 0.16)
     brows(tl, 0, { ly: 2, ry: 2 }, 0.12)
     tl.addLabel('up', 0.16)
-    to(tl, { by: -6, sx: 0.95, sy: 1.08, lean: 5 }, 'up', 0.22, E.out)
+    to(tl, { by: -6, sx: 0.96, sy: 1.05, lean: 5 }, 'up', 0.22, E.out)
     to(tl, { y: -14 }, 'up', 0.2, E.out).to(st, { y: 0, duration: 0.2, ease: E.in }, 'up+=0.2')
     arc(tl, 'R', { x: 246, y: 62, r: -22, pose: 'open' }, 0.16, 0.3)
     brows(tl, 0.18, { ly: -7, ry: -8 }, 0.16, E.pop)
@@ -345,7 +345,7 @@ const MOVES = {
     to(tl, { mouthX: 3 }, 0.62, 0.1)
     for (let i = 0; i < 3; i++) to(tl, { hRy: 190 + (i % 2 ? 1.2 : -1.2) }, 0.7 + i * 0.06, 0.06, 'none') // holding steady
     tl.addLabel('beep', 0.95)
-    tl.to(st, { beep: 1, duration: 0.01 }, 'beep').to(st, { beep: 0, duration: 0.01 }, 'beep+=0.55')
+    tl.to(st, { beep: 1, duration: 0.01 }, 'beep') // stays green (scanned ✓) until it is put away
     to(tl, { blinkL: 0, blinkR: 0, mouthX: 0 }, 'beep', 0.08)
     brows(tl, 'beep', { ly: -7, ry: -8 }, 0.12, E.pop)
     mouth(tl, 'beep', 'smile')
@@ -354,6 +354,7 @@ const MOVES = {
     to(tl, { lean: 9, by: 5 }, 'beep+=0.36', 0.1, E.io).to(st, { lean: 4, by: 3, duration: 0.14, ease: E.io }, 'beep+=0.46')
     hand(tl, 'R', { x: 214, y: 160, r: 30 }, 'beep+=0.65', 0.2, E.in)
     to(tl, { scan: 0 }, 'beep+=0.82', 0.06)
+    tl.set(st, { beep: 0 }, 'beep+=0.9')
     home(tl, 1.85, 0.5)
   },
   // LIFT (a heavy carton): notices it → a breath in (anticipation) → squats with bent knees and grips it → strains, a
@@ -361,9 +362,10 @@ const MOVES = {
   // → sets it down with bent knees → dusts his gloves off
   lift(tl) {
     const crouch = { bx: 12, by: 7, sx: 1.04, sy: 0.96, lean: 13 }
-    const gripL = inv([st.cFx - 30, st.cFy + 2], crouch), gripR = inv([st.cFx + 32, st.cFy - 2], crouch)
+    // the mitts on the carton's SIDES, under its bottom corners, so the box stays in view between them
+    const gripL = inv([st.cFx - 40, st.cFy + 18], crouch), gripR = inv([st.cFx + 40, st.cFy + 18], crouch)
     const carry = { bx: -2, by: -4, sx: 0.96, sy: 1.05, lean: -7 }
-    const cL = [118, 228], cR = [200, 222]
+    const cL = [114, 236], cR = [206, 232]
     tl.set(st, { cOn: 1, cHeld: 0 }, 0)
     // notice
     to(tl, { lookX: 4, lookY: 4, lean: 3 }, 0, 0.18, E.out)
@@ -377,12 +379,11 @@ const MOVES = {
     tl.addLabel('down', 0.56)
     to(tl, crouch, 'down', 0.32, E.io)
     stepFoot(tl, 'R', 12, 'down', 0.26, 7)
-    hand(tl, 'L', { x: gripL[0], y: gripL[1], r: 70, pose: 'open' }, 'down+=0.06', 0.3, E.io)
-    hand(tl, 'R', { x: gripR[0], y: gripR[1], r: -70, pose: 'open' }, 'down+=0.06', 0.3, E.io)
+    hand(tl, 'L', { x: gripL[0], y: gripL[1], r: 100, pose: 'open' }, 'down+=0.06', 0.3, E.io)
+    hand(tl, 'R', { x: gripR[0], y: gripR[1], r: -100, pose: 'open' }, 'down+=0.06', 0.3, E.io)
     brows(tl, 'down+=0.1', { ly: 3, lr: 8, ry: 3, rr: -8 }, 0.15)
     mouth(tl, 'down+=0.12', 'line')
-    tl.call(() => { poses.L = 'fist'; poses.R = 'fist' }, null, 'down+=0.36')
-    // strain: a shake, the carton lifts only a hair
+        // strain: a shake, the carton lifts only a hair
     tl.addLabel('strain', 1.0)
     mouth(tl, 'strain', 'strain')
     to(tl, { blinkL: 0.5, blinkR: 0.5 }, 'strain', 0.1)
@@ -393,8 +394,8 @@ const MOVES = {
     tl.addLabel('heave', 1.48)
     to(tl, { cHeld: 1 }, 'heave', 0.18, E.out)
     to(tl, carry, 'heave', 0.6, E.heavy)
-    hand(tl, 'L', { x: cL[0], y: cL[1], r: 40 }, 'heave', 0.6, E.heavy)
-    hand(tl, 'R', { x: cR[0], y: cR[1], r: -40 }, 'heave', 0.6, E.heavy)
+    hand(tl, 'L', { x: cL[0], y: cL[1], r: 95 }, 'heave', 0.6, E.heavy)
+    hand(tl, 'R', { x: cR[0], y: cR[1], r: -95 }, 'heave', 0.6, E.heavy)
     stepFoot(tl, 'L', -10, 'heave+=0.42', 0.26, 8)
     stepFoot(tl, 'R', -12, 'heave+=0.56', 0.26, 8)
     to(tl, { lean: -10 }, 'heave+=0.6', 0.14, E.out).to(st, { lean: -6, duration: 0.3, ease: E.settle }, 'heave+=0.74')
@@ -410,13 +411,12 @@ const MOVES = {
     to(tl, setDown, 'set', 0.4, E.io)
     mouth(tl, 'set', 'closed')
     to(tl, { lookX: 4, lookY: 4 }, 'set', 0.2)
-    const putL = inv([st.cFx - 30 - 22, st.cFy + 2], setDown), putR = inv([st.cFx + 32 - 22, st.cFy - 2], setDown)
-    hand(tl, 'L', { x: putL[0], y: putL[1], r: 70 }, 'set', 0.4, E.io)
-    hand(tl, 'R', { x: putR[0], y: putR[1], r: -70 }, 'set', 0.4, E.io)
+    const putL = inv([st.cFx - 40 - 22, st.cFy + 18], setDown), putR = inv([st.cFx + 40 - 22, st.cFy + 18], setDown)
+    hand(tl, 'L', { x: putL[0], y: putL[1], r: 100 }, 'set', 0.4, E.io)
+    hand(tl, 'R', { x: putR[0], y: putR[1], r: -100 }, 'set', 0.4, E.io)
     tl.set(st, { cFx: st.cFx - 22 }, 'set')
     to(tl, { cHeld: 0 }, 'set+=0.34', 0.12, E.in)
-    tl.call(() => { poses.L = 'open'; poses.R = 'open' }, null, 'set+=0.42')
-    // stand, dust the gloves off (secondary action), back to Erick's pose
+        // stand, dust the gloves off (secondary action), back to Erick's pose
     tl.addLabel('dust', 3.6)
     to(tl, { bx: 0, by: 0, sx: 1, sy: 1, lean: 0, lookX: 0, lookY: 0 }, 'dust', 0.3, E.over)
     hand(tl, 'L', { x: 126, y: 226, r: 10 }, 'dust', 0.22)
@@ -434,17 +434,17 @@ const MOVES = {
   // up, a little hop, the glove springs open → settles happy
   hmm(tl) {
     to(tl, { lookX: -3, lookY: -4, lean: -3 }, 0, 0.25, E.out)
-    brows(tl, 0.05, { ly: -6, lr: -8, ry: 3, rr: 10 }, 0.2)
+    brows(tl, 0.05, { ly: -8, lr: -10, ry: 4, rr: 12 }, 0.2)
     mouth(tl, 0.08, 'line')
     to(tl, { mouthX: -4 }, 0.08, 0.2)
     hand(tl, 'L', { x: 30, y: 214, r: 15, pose: 'open', poseAt: 0.05 }, 0.05, 0.25)
-    arc(tl, 'R', { x: 188, y: 196, r: -50, pose: 'fist' }, 0.05, 0.3, false)
-    for (let i = 0; i < 3; i++) to(tl, { hRr: i % 2 ? -50 : -38 }, 0.45 + i * 0.16, 0.1, E.soft) // tapping the chin
+    arc(tl, 'R', { x: 172, y: 186, r: -40, pose: 'fist' }, 0.05, 0.3, false)
+    for (let i = 0; i < 3; i++) to(tl, { hRr: i % 2 ? -40 : -28 }, 0.45 + i * 0.16, 0.1, E.soft) // tapping the chin
     to(tl, { lookX: 3 }, 0.6, 0.14, E.io).to(st, { lookX: -2, duration: 0.14, ease: E.io }, 0.9)
     to(tl, { mouthX: 3 }, 0.62, 0.14, E.io)
     tl.addLabel('aha', 1.25)
-    to(tl, { by: 6, sy: 0.95, sx: 1.04 }, 'aha', 0.1, E.out)
-    to(tl, { by: -6, sy: 1.08, sx: 0.95, lean: 3 }, 'aha+=0.1', 0.16, E.out)
+    to(tl, { by: 5, sy: 0.96, sx: 1.04 }, 'aha', 0.1, E.out)
+    to(tl, { by: -6, sy: 1.05, sx: 0.96, lean: 3 }, 'aha+=0.1', 0.16, E.out)
     to(tl, { y: -16 }, 'aha+=0.1', 0.16, E.out).to(st, { y: 0, duration: 0.16, ease: E.in }, 'aha+=0.26')
     to(tl, { lookX: 0, lookY: 0, mouthX: 0 }, 'aha+=0.1', 0.12)
     brows(tl, 'aha+=0.1', { ly: -9, ry: -10 }, 0.1, E.pop)
@@ -457,12 +457,12 @@ const MOVES = {
   // THUMBS: winds back (anticipation, a cocky look) → punches the thumb forward on an arc, leaning in with a stretch →
   // a held wink with a smirk → settles with an overshoot
   thumbs(tl) {
-    to(tl, { lean: -7, by: 6, sx: 1.04, sy: 0.96, bx: -4 }, 0, 0.22, E.out)
+    to(tl, { lean: -6, by: 5, sx: 1.04, sy: 0.96, bx: -4 }, 0, 0.22, E.out)
     hand(tl, 'R', { x: 206, y: 176, r: 20, pose: 'fist' }, 0, 0.22, E.out)
     brows(tl, 0, { ly: 2, lr: 6, ry: -2, rr: -4 }, 0.2)
     mouth(tl, 0.02, 'smirk')
     tl.addLabel('punch', 0.24)
-    to(tl, { lean: 8, by: -3, sx: 0.96, sy: 1.06, bx: 4 }, 'punch', 0.16, E.out)
+    to(tl, { lean: 7, by: -3, sx: 0.96, sy: 1.04, bx: 4 }, 'punch', 0.16, E.out)
     arc(tl, 'R', { x: 252, y: 108, r: -12, pose: 'thumb' }, 0.24, 0.18)
     stepFoot(tl, 'R', 8, 'punch', 0.22, 6)
     brows(tl, 'punch', { ly: -6, ry: -7 }, 0.12, E.pop)
@@ -478,11 +478,11 @@ const MOVES = {
   // overshoots and settles; the arms follow through after the body
   hop(tl) {
     loosen(tl, 0, 0.18)
-    to(tl, { by: 14, sx: 1.1, sy: 0.88 }, 0, 0.2, E.out)
+    to(tl, { by: 12, sx: 1.07, sy: 0.935 }, 0, 0.2, E.out)
     brows(tl, 0, { ly: 3, ry: 3 }, 0.15)
     mouth(tl, 0.05, 'closed')
     tl.addLabel('off', 0.22)
-    to(tl, { by: -8, sx: 0.92, sy: 1.12 }, 'off', 0.12, E.out)
+    to(tl, { by: -8, sx: 0.94, sy: 1.065 }, 'off', 0.12, E.out)
     to(tl, { y: -64 }, 'off', 0.32, 'power2.out').to(st, { y: 0, duration: 0.28, ease: 'power2.in' }, 'off+=0.32')
     to(tl, { by: 0, sx: 1, sy: 1 }, 'off+=0.14', 0.2, E.io)
     to(tl, { fLy: '-=14', fRy: '-=10', fLr: 14, fRr: -10 }, 'off+=0.06', 0.18, E.out).to(st, { fLy: ANKLE.L[1], fRy: ANKLE.R[1], fLr: 0, fRr: 0, duration: 0.22, ease: E.in }, 'off+=0.38')
@@ -491,7 +491,7 @@ const MOVES = {
     brows(tl, 'off+=0.05', { ly: -8, ry: -9 }, 0.12, E.pop)
     mouth(tl, 'off+=0.08', 'o')
     tl.addLabel('land', 0.82)
-    to(tl, { by: 15, sx: 1.12, sy: 0.88 }, 'land', 0.07, E.out)
+    to(tl, { by: 13, sx: 1.08, sy: 0.925 }, 'land', 0.07, E.out)
     to(tl, { by: 0, sx: 1, sy: 1 }, 'land+=0.07', 0.45, E.settle)
     hand(tl, 'L', { x: 34, y: 228, r: 20 }, 'land', 0.12, E.in)
     hand(tl, 'R', { x: 220, y: 232, r: -20 }, 'land', 0.12, E.in)
