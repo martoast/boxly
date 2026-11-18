@@ -15,25 +15,25 @@
       <g ref="body">
         <!-- legs + sneakers -->
         <g ref="legL">
-          <path d="M94 196 L80 252" stroke="#14306A" stroke-width="14" stroke-linecap="round" fill="none" />
-          <g ref="shoeL" transform="translate(74 268)">
-            <ellipse cx="0" cy="-12" rx="11" ry="6" fill="#FFFDF6" stroke="#D8D2C2" stroke-width="1.5" />
-            <path d="M-24 4 C-26 -10 -12 -14 2 -13 C16 -12 26 -6 26 4 Z" fill="#14306A" />
-            <path d="M-8 -12 L-2 2 M0 -13 L6 1" stroke="#FECD04" stroke-width="3.2" stroke-linecap="round" />
-            <rect x="-27" y="2" width="56" height="8" rx="4" fill="#FFFDF6" stroke="#D8D2C2" stroke-width="1.2" />
+          <path d="M94 196 L80 244" stroke="#14306A" stroke-width="26" stroke-linecap="round" fill="none" />
+          <g ref="shoeL" transform="translate(74 266)">
+            <path d="M-30 6 C-32 -14 -16 -22 2 -21 C20 -20 34 -12 34 6 Z" fill="#14306A" stroke="#0C254C" stroke-width="2" />
+            <path d="M-6 -20 L4 4" stroke="#FECD04" stroke-width="9" stroke-linecap="round" />
+            <rect x="-34" y="3" width="72" height="12" rx="6" fill="#FFFDF6" stroke="#D8D2C2" stroke-width="1.5" />
+            <ellipse cx="4" cy="-21" rx="17" ry="8.5" fill="#FFFDF6" stroke="#D8D2C2" stroke-width="1.8" />
           </g>
         </g>
         <g ref="legR">
-          <path d="M146 200 L148 254" stroke="#14306A" stroke-width="14" stroke-linecap="round" fill="none" />
-          <g ref="shoeR" transform="translate(154 270)">
-            <ellipse cx="-4" cy="-12" rx="11" ry="6" fill="#FFFDF6" stroke="#D8D2C2" stroke-width="1.5" />
-            <path d="M-24 4 C-26 -10 -12 -14 2 -13 C16 -12 28 -6 28 4 Z" fill="#14306A" />
-            <path d="M-6 -12 L0 2 M2 -13 L8 1" stroke="#FECD04" stroke-width="3.2" stroke-linecap="round" />
-            <rect x="-27" y="2" width="58" height="8" rx="4" fill="#FFFDF6" stroke="#D8D2C2" stroke-width="1.2" />
+          <path d="M146 200 L148 246" stroke="#14306A" stroke-width="26" stroke-linecap="round" fill="none" />
+          <g ref="shoeR" transform="translate(156 268)">
+            <path d="M-30 6 C-32 -14 -16 -22 2 -21 C20 -20 34 -12 34 6 Z" fill="#14306A" stroke="#0C254C" stroke-width="2" />
+            <path d="M-6 -20 L4 4" stroke="#FECD04" stroke-width="9" stroke-linecap="round" />
+            <rect x="-34" y="3" width="72" height="12" rx="6" fill="#FFFDF6" stroke="#D8D2C2" stroke-width="1.5" />
+            <ellipse cx="-6" cy="-21" rx="17" ry="8.5" fill="#FFFDF6" stroke="#D8D2C2" stroke-width="1.8" />
           </g>
         </g>
         <!-- back arm (left), drawn under the cube -->
-        <path ref="armL" stroke="#14306A" stroke-width="16" stroke-linecap="round" fill="none" />
+        <path ref="armL" stroke="#14306A" stroke-width="24" stroke-linecap="round" fill="none" />
         <!-- the cube -->
         <g ref="cube" stroke="#0C254C" stroke-width="9" stroke-linejoin="round">
           <path d="M40 78 L126 46 L196 74 L104 98 Z" fill="#FFD62E" />
@@ -42,19 +42,31 @@
         </g>
         <!-- face, on the front face -->
         <g ref="face">
-          <g ref="eyeL" transform="translate(134 141) rotate(-6)">
-            <ellipse rx="12.5" ry="15.5" fill="#FFFDF6" stroke="#0C254C" stroke-width="2.2" />
-            <g clip-path="url(#bx-eye-l)">
-              <g ref="pupilL"><circle cx="2" cy="1" r="8.5" fill="#4A2A14" /><circle cx="2.5" cy="1.5" r="4.6" fill="#140904" /><circle cx="-0.8" cy="-2.6" r="2.4" fill="#fff" /></g>
-              <rect ref="lidL" x="-14" y="-17" width="28" height="34" fill="#FECD04" transform="scale(1 0)" />
+          <g transform="translate(134 141) rotate(-6)">
+            <g ref="eyeL">
+              <ellipse rx="12.5" ry="15.5" fill="#FFFDF6" stroke="#0C254C" stroke-width="2.2" />
+              <g clip-path="url(#bx-eye-l)">
+                <g ref="pupilL"><circle cx="2" cy="1.5" r="10" fill="#4A2A14" /><circle cx="2.5" cy="2" r="5.2" fill="#140904" /><circle cx="-1.6" cy="-2.8" r="2.8" fill="#fff" /></g>
+                <!-- the lid closes from the top edge down (origin at y -17) -->
+                <rect ref="lidL" x="-14" y="-17" width="28" height="34" fill="#FECD04" transform="translate(0 -17) scale(1 0) translate(0 17)" />
+              </g>
+              <path d="M-12 -4 Q-2 -17 12 -6" stroke="#0C254C" stroke-width="3.6" stroke-linecap="round" fill="none" />
             </g>
+            <!-- shut (blink / wink): a happy arc, the eye hidden -->
+            <path ref="shutL" d="M-11 2 Q0 -9 11 2" stroke="#0C254C" stroke-width="3.8" stroke-linecap="round" fill="none" opacity="0" />
           </g>
-          <g ref="eyeR" transform="translate(173 134) rotate(-6)">
-            <ellipse rx="12.5" ry="15.5" fill="#FFFDF6" stroke="#0C254C" stroke-width="2.2" />
-            <g clip-path="url(#bx-eye-r)">
-              <g ref="pupilR"><circle cx="2" cy="1" r="8.5" fill="#4A2A14" /><circle cx="2.5" cy="1.5" r="4.6" fill="#140904" /><circle cx="-0.8" cy="-2.6" r="2.4" fill="#fff" /></g>
-              <rect ref="lidR" x="-14" y="-17" width="28" height="34" fill="#FECD04" transform="scale(1 0)" />
+          <g transform="translate(173 134) rotate(-6)">
+            <g ref="eyeR">
+              <ellipse rx="12.5" ry="15.5" fill="#FFFDF6" stroke="#0C254C" stroke-width="2.2" />
+              <g clip-path="url(#bx-eye-r)">
+                <g ref="pupilR"><circle cx="2" cy="1.5" r="10" fill="#4A2A14" /><circle cx="2.5" cy="2" r="5.2" fill="#140904" /><circle cx="-1.6" cy="-2.8" r="2.8" fill="#fff" /></g>
+                <!-- the lid closes from the top edge down (origin at y -17) -->
+                <rect ref="lidR" x="-14" y="-17" width="28" height="34" fill="#FECD04" transform="translate(0 -17) scale(1 0) translate(0 17)" />
+              </g>
+              <path d="M-12 -4 Q-2 -17 12 -6" stroke="#0C254C" stroke-width="3.6" stroke-linecap="round" fill="none" />
             </g>
+            <!-- shut (blink / wink): a happy arc, the eye hidden -->
+            <path ref="shutR" d="M-11 2 Q0 -9 11 2" stroke="#0C254C" stroke-width="3.8" stroke-linecap="round" fill="none" opacity="0" />
           </g>
           <path ref="browL" d="M-11 3 Q0 -5 11 0" transform="translate(132 117)" stroke="#0C254C" stroke-width="6" stroke-linecap="round" fill="none" />
           <path ref="browR" d="M-11 3 Q0 -6 11 -1" transform="translate(172 109)" stroke="#0C254C" stroke-width="6" stroke-linecap="round" fill="none" />
@@ -74,16 +86,22 @@
             </g>
           </g>
         </g>
-        <!-- left glove: in front of the cube, on his hip (the arm comes from behind) -->
-        <g ref="handL"><g transform="scale(1.45)"><BoxlyGlove :pose="poses.L" side="L" /></g></g>
+        <!-- a carton he lifts and carries (sits between his gloves) -->
+        <g ref="carton" opacity="0">
+          <rect x="-34" y="-26" width="68" height="52" rx="5" fill="#C98B4E" stroke="#8A5A2B" stroke-width="2.5" />
+          <path d="M-34 -10 H34 M0 -26 V-10" stroke="#8A5A2B" stroke-width="2" />
+          <rect x="-12" y="4" width="24" height="12" rx="2" fill="#FFFDF6" />
+        </g>
+        <!-- left glove: in front of the cube, the fist on his hip (the arm comes from behind the side face) -->
+        <g ref="handL"><BoxlyGlove :pose="poses.L" side="L" /></g>
         <!-- front arm (right) + its prop -->
-        <path ref="armR" stroke="#14306A" stroke-width="16" stroke-linecap="round" fill="none" />
+        <path ref="armR" stroke="#14306A" stroke-width="24" stroke-linecap="round" fill="none" />
         <g ref="handR">
           <g ref="scanner" opacity="0">
             <rect x="-11" y="-58" width="22" height="44" rx="6" fill="#2B3445" stroke="#0C254C" stroke-width="2" />
             <rect x="-8" y="-58" width="16" height="9" rx="3" ref="scanLight" fill="#E5484D" />
           </g>
-          <g transform="scale(1.45)"><BoxlyGlove :pose="poses.R" side="R" /></g>
+          <BoxlyGlove :pose="poses.R" side="R" />
         </g>
       </g>
     </g>
@@ -100,15 +118,16 @@ import { gsap } from 'gsap'
 import BoxlyGlove from './BoxlyGlove.vue'
 
 // shoulders (body space) and arm length; a shorter reach bends the elbow out and down
-const SHOULDER = { L: [56, 138], R: [196, 134] }
+const SHOULDER = { L: [46, 140], R: [198, 136] } // at the cube's silhouette edges, so an arm always emerges from the body
 const ARM = 66
 // Erick's pose: the left glove on the hip, the right one thumbs up
-const REST = { L: { x: 44, y: 176, r: 25, pose: 'fist' }, R: { x: 244, y: 116, r: -8, pose: 'thumb' } }
+const REST = { L: { x: 58, y: 188, r: 15, pose: 'fist' }, R: { x: 244, y: 116, r: -8, pose: 'thumb' } }
 
 const svg = ref(null), root = ref(null), body = ref(null), shadow = ref(null)
 const armL = ref(null), armR = ref(null), handL = ref(null), handR = ref(null)
 const pupilL = ref(null), pupilR = ref(null), lidL = ref(null), lidR = ref(null)
 const browL = ref(null), browR = ref(null), mouths = ref(null), scanner = ref(null), scanLight = ref(null)
+const eyeL = ref(null), eyeR = ref(null), shutL = ref(null), shutR = ref(null), carton = ref(null)
 const legL = ref(null), legR = ref(null), say = ref(null), face = ref(null)
 const poses = reactive({ L: REST.L.pose, R: REST.R.pose })
 const sayText = ref('')
@@ -122,7 +141,7 @@ const st = reactive({
   mouth: 'smile',
   hLx: REST.L.x, hLy: REST.L.y, hLr: REST.L.r,
   hRx: REST.R.x, hRy: REST.R.y, hRr: REST.R.r,
-  footL: 0, footR: 0, scan: 0, beep: 0, say: 0,
+  footL: 0, footR: 0, scan: 0, beep: 0, say: 0, carry: 0,
 })
 
 function arm(side, hx, hy) {
@@ -145,8 +164,13 @@ function render() {
   face.value.setAttribute('transform', `translate(${st.lookX * 0.6} ${st.lookY * 0.5})`)
   pupilL.value.setAttribute('transform', `translate(${st.lookX} ${st.lookY})`)
   pupilR.value.setAttribute('transform', `translate(${st.lookX} ${st.lookY})`)
-  lidL.value.setAttribute('transform', `scale(1 ${st.blinkL})`)
-  lidR.value.setAttribute('transform', `scale(1 ${st.blinkR})`)
+  // lids close from the top; fully shut shows the happy arc instead of the eye
+  lidL.value.setAttribute('transform', `translate(0 -17) scale(1 ${st.blinkL}) translate(0 17)`)
+  lidR.value.setAttribute('transform', `translate(0 -17) scale(1 ${st.blinkR}) translate(0 17)`)
+  eyeL.value.setAttribute('opacity', st.blinkL > 0.85 ? 0 : 1); shutL.value.setAttribute('opacity', st.blinkL > 0.85 ? 1 : 0)
+  eyeR.value.setAttribute('opacity', st.blinkR > 0.85 ? 0 : 1); shutR.value.setAttribute('opacity', st.blinkR > 0.85 ? 1 : 0)
+  carton.value.setAttribute('opacity', st.carry)
+  carton.value.setAttribute('transform', `translate(${(st.hLx + st.hRx) / 2} ${(st.hLy + st.hRy) / 2 - 4})`)
   browL.value.setAttribute('transform', `translate(132 ${117 + st.browLy}) rotate(${st.browLr})`)
   browR.value.setAttribute('transform', `translate(172 ${109 + st.browRy}) rotate(${st.browRr})`)
   for (const m of mouths.value.children) m.setAttribute('opacity', m.dataset.m === st.mouth ? 1 : 0)
@@ -179,7 +203,7 @@ const mouth = (tl, at, m) => tl.call(() => { st.mouth = m }, null, at)
 const blink = (tl, at, which = 'both') => {
   const k = which === 'L' ? ['blinkL'] : which === 'R' ? ['blinkR'] : ['blinkL', 'blinkR']
   const on = Object.fromEntries(k.map((x) => [x, 1])), off = Object.fromEntries(k.map((x) => [x, 0]))
-  tl.to(st, { ...on, duration: 0.07, ease: 'none' }, at).to(st, { ...off, duration: 0.09, ease: 'none' }, at + (which === 'both' ? 0.1 : 0.35))
+  tl.to(st, { ...on, duration: 0.07, ease: 'none' }, at).to(st, { ...off, duration: 0.09, ease: 'none' }, at + (which === 'both' ? 0.1 : 0.6))
   return tl
 }
 const speak = (tl, at, text, hold = 1.1) => {
@@ -242,7 +266,7 @@ function build(name) {
     tl.to(st, { lean: 3, duration: 0.3, ease: E.pop }, 0.35)
     brows(tl, 0.35, { ly: -5, ry: -6 })
     blink(tl, 1.0, 'R')
-    mouth(tl, 1.0, 'closed'); mouth(tl, 1.45, 'smile')
+    mouth(tl, 1.0, 'closed'); mouth(tl, 1.7, 'smile')
     brows(tl, 1.6, {})
     tl.to(st, { lean: 0, duration: 0.4 }, 1.7)
   } else if (name === 'hmm') {
@@ -259,15 +283,17 @@ function build(name) {
   } else if (name === 'lift') {
     toNeutral(tl, 0)
     squash(tl, 0.1, 0.16, 0.2)
-    hand(tl, 'L', { x: 34, y: 206, r: 30, pose: 'open' }, 0.1, 0.25)
-    hand(tl, 'R', { x: 216, y: 204, r: -30, pose: 'open' }, 0.1, 0.25)
+    tl.to(st, { carry: 1, duration: 0.15 }, 0.05)
+    hand(tl, 'L', { x: 118, y: 236, r: 30, pose: 'open' }, 0.05, 0.25)
+    hand(tl, 'R', { x: 214, y: 228, r: -40, pose: 'open' }, 0.05, 0.25)
     brows(tl, 0.1, { ly: 3, lr: 6, ry: 3, rr: -6 })
     mouth(tl, 0.1, 'line')
-    hand(tl, 'L', { x: 26, y: 150, r: 30 }, 0.4, 0.35, E.up)
-    hand(tl, 'R', { x: 222, y: 146, r: -30 }, 0.4, 0.35, E.up)
+    hand(tl, 'L', { x: 120, y: 214, r: 30 }, 0.4, 0.35, E.up)
+    hand(tl, 'R', { x: 216, y: 206, r: -40 }, 0.4, 0.35, E.up)
     tl.to(st, { sx: 0.94, sy: 1.06, duration: 0.3, ease: E.up }, 0.4).to(st, { sx: 1, sy: 1, duration: 0.4 }, 0.9)
     mouth(tl, 0.8, 'closed')
     brows(tl, 0.8, { ly: -3, ry: -3 })
+    tl.to(st, { carry: 0, duration: 0.2 }, 1.45)
     rest(tl, 1.5)
     mouth(tl, 1.6, 'smile')
     brows(tl, 1.6, {})
