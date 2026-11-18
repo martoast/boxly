@@ -20,8 +20,8 @@
             <path d="M-30 6 C-32 -14 -16 -22 2 -21 C20 -20 34 -12 34 6 Z" fill="#14306A" stroke="#0C254C" stroke-width="2" />
             <path d="M-6 -20 L4 4" stroke="#FECD04" stroke-width="9" stroke-linecap="round" />
             <rect x="-34" y="3" width="72" height="12" rx="6" fill="#FFFDF6" stroke="#D8D2C2" stroke-width="1.5" />
-            <ellipse cx="4" cy="-21" rx="17" ry="8.5" fill="#FFFDF6" stroke="#D8D2C2" stroke-width="1.8" />
           </g>
+          <rect x="63" y="230" width="34" height="16" rx="8" fill="#FFFDF6" stroke="#D8D2C2" stroke-width="1.8" />
         </g>
         <g ref="legR">
           <path d="M146 200 L148 246" stroke="#14306A" stroke-width="26" stroke-linecap="round" fill="none" />
@@ -29,11 +29,11 @@
             <path d="M-30 6 C-32 -14 -16 -22 2 -21 C20 -20 34 -12 34 6 Z" fill="#14306A" stroke="#0C254C" stroke-width="2" />
             <path d="M-6 -20 L4 4" stroke="#FECD04" stroke-width="9" stroke-linecap="round" />
             <rect x="-34" y="3" width="72" height="12" rx="6" fill="#FFFDF6" stroke="#D8D2C2" stroke-width="1.5" />
-            <ellipse cx="-6" cy="-21" rx="17" ry="8.5" fill="#FFFDF6" stroke="#D8D2C2" stroke-width="1.8" />
           </g>
+          <rect x="131" y="232" width="34" height="16" rx="8" fill="#FFFDF6" stroke="#D8D2C2" stroke-width="1.8" />
         </g>
         <!-- back arm (left), drawn under the cube -->
-        <path ref="armL" stroke="#14306A" stroke-width="24" stroke-linecap="round" fill="none" />
+        <path ref="armL" stroke="#14306A" stroke-width="24" stroke-linecap="round" stroke-linejoin="round" fill="none" />
         <!-- the cube -->
         <g ref="cube" stroke="#0C254C" stroke-width="9" stroke-linejoin="round">
           <path d="M40 78 L126 46 L196 74 L104 98 Z" fill="#FFD62E" />
@@ -50,7 +50,7 @@
                 <!-- the lid closes from the top edge down (origin at y -17) -->
                 <rect ref="lidL" x="-14" y="-17" width="28" height="34" fill="#FECD04" transform="translate(0 -17) scale(1 0) translate(0 17)" />
               </g>
-              <path d="M-12 -4 Q-2 -17 12 -6" stroke="#0C254C" stroke-width="3.6" stroke-linecap="round" fill="none" />
+              <path d="M-12.5 0 A12.5 15.5 0 0 1 12.5 0" stroke="#0C254C" stroke-width="3.8" stroke-linecap="round" fill="none" />
             </g>
             <!-- shut (blink / wink): a happy arc, the eye hidden -->
             <path ref="shutL" d="M-11 2 Q0 -9 11 2" stroke="#0C254C" stroke-width="3.8" stroke-linecap="round" fill="none" opacity="0" />
@@ -63,7 +63,7 @@
                 <!-- the lid closes from the top edge down (origin at y -17) -->
                 <rect ref="lidR" x="-14" y="-17" width="28" height="34" fill="#FECD04" transform="translate(0 -17) scale(1 0) translate(0 17)" />
               </g>
-              <path d="M-12 -4 Q-2 -17 12 -6" stroke="#0C254C" stroke-width="3.6" stroke-linecap="round" fill="none" />
+              <path d="M-12.5 0 A12.5 15.5 0 0 1 12.5 0" stroke="#0C254C" stroke-width="3.8" stroke-linecap="round" fill="none" />
             </g>
             <!-- shut (blink / wink): a happy arc, the eye hidden -->
             <path ref="shutR" d="M-11 2 Q0 -9 11 2" stroke="#0C254C" stroke-width="3.8" stroke-linecap="round" fill="none" opacity="0" />
@@ -95,7 +95,7 @@
         <!-- left glove: in front of the cube, the fist on his hip (the arm comes from behind the side face) -->
         <g ref="handL"><BoxlyGlove :pose="poses.L" side="L" /></g>
         <!-- front arm (right) + its prop -->
-        <path ref="armR" stroke="#14306A" stroke-width="24" stroke-linecap="round" fill="none" />
+        <path ref="armR" stroke="#14306A" stroke-width="24" stroke-linecap="round" stroke-linejoin="round" fill="none" />
         <g ref="handR">
           <g ref="scanner" opacity="0">
             <rect x="-11" y="-58" width="22" height="44" rx="6" fill="#2B3445" stroke="#0C254C" stroke-width="2" />
@@ -118,10 +118,11 @@ import { gsap } from 'gsap'
 import BoxlyGlove from './BoxlyGlove.vue'
 
 // shoulders (body space) and arm length; a shorter reach bends the elbow out and down
-const SHOULDER = { L: [46, 140], R: [198, 136] } // at the cube's silhouette edges, so an arm always emerges from the body
-const ARM = 66
+// at the cube's silhouette edges (left: mid-height of the side face; right: mouth level on the front face's edge)
+const SHOULDER = { L: [44, 138], R: [199, 172] }
+const ARM = 90
 // Erick's pose: the left glove on the hip, the right one thumbs up
-const REST = { L: { x: 58, y: 188, r: 15, pose: 'fist' }, R: { x: 244, y: 116, r: -8, pose: 'thumb' } }
+const REST = { L: { x: 52, y: 202, r: 10, pose: 'fist' }, R: { x: 244, y: 116, r: -8, pose: 'thumb' } }
 
 const svg = ref(null), root = ref(null), body = ref(null), shadow = ref(null)
 const armL = ref(null), armR = ref(null), handL = ref(null), handR = ref(null)
@@ -147,12 +148,12 @@ const st = reactive({
 function arm(side, hx, hy) {
   const [sx, sy] = SHOULDER[side]
   const dx = hx - sx, dy = hy - sy, d = Math.hypot(dx, dy) || 1
-  const bend = Math.min(22, d < ARM ? Math.sqrt((ARM / 2) ** 2 - (d / 2) ** 2) : 0)
+  const bend = Math.min(34, d < ARM ? Math.sqrt((ARM / 2) ** 2 - (d / 2) ** 2) : 0)
   // the elbow points down and outward (away from the body), never up into a loop
   const nx = -dy / d, ny = dx / d, out = side === 'L' ? -1 : 1
   const sgn = (ny + nx * out * 0.5) >= 0 ? 1 : -1
-  const cx = (sx + hx) / 2 + nx * bend * 2 * sgn, cy = (sy + hy) / 2 + ny * bend * 2 * sgn
-  return `M${sx} ${sy} Q${cx.toFixed(1)} ${cy.toFixed(1)} ${hx.toFixed(1)} ${hy.toFixed(1)}`
+  const ex = (sx + hx) / 2 + nx * bend * sgn, ey = (sy + hy) / 2 + ny * bend * sgn
+  return `M${sx} ${sy} L${ex.toFixed(1)} ${ey.toFixed(1)} L${hx.toFixed(1)} ${hy.toFixed(1)}`
 }
 
 function render() {
