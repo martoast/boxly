@@ -357,14 +357,13 @@ const MOVES = {
     tl.set(st, { beep: 0 }, 'beep+=0.9')
     home(tl, 1.85, 0.5)
   },
-  // LIFT (a heavy carton): notices it → a breath in (anticipation) → squats with bent knees and grips it → strains, a
-  // shake, it barely moves → heaves it up slowly, leaning back to counterbalance, a step to catch his balance → proud
-  // → sets it down with bent knees → dusts his gloves off
+  // LIFT: notices the carton → a breath in (anticipation) → a light squat with bent knees, grips it → lifts it in one
+  // smooth, confident rise with a little bounce (no struggling — Alex) → proud → sets it down → dusts his gloves off
   lift(tl) {
     const crouch = { bx: 12, by: 7, sx: 1.04, sy: 0.96, lean: 13 }
     // the mitts on the carton's SIDES, under its bottom corners, so the box stays in view between them
     const gripL = inv([st.cFx - 40, st.cFy + 18], crouch), gripR = inv([st.cFx + 40, st.cFy + 18], crouch)
-    const carry = { bx: -2, by: -4, sx: 0.96, sy: 1.05, lean: -7 }
+    const carry = { bx: 0, by: -3, sx: 0.98, sy: 1.03, lean: -2 }
     const cL = [114, 236], cR = [206, 232]
     tl.set(st, { cOn: 1, cHeld: 0 }, 0)
     // notice
@@ -377,36 +376,29 @@ const MOVES = {
     mouth(tl, 0.36, 'closed')
     // squat + reach (knees bend because the feet stay planted)
     tl.addLabel('down', 0.56)
-    to(tl, crouch, 'down', 0.32, E.io)
+    to(tl, crouch, 'down', 0.26, E.io)
     stepFoot(tl, 'R', 12, 'down', 0.26, 7)
     hand(tl, 'L', { x: gripL[0], y: gripL[1], r: 100, pose: 'open' }, 'down+=0.06', 0.3, E.io)
     hand(tl, 'R', { x: gripR[0], y: gripR[1], r: -100, pose: 'open' }, 'down+=0.06', 0.3, E.io)
-    brows(tl, 'down+=0.1', { ly: 3, lr: 8, ry: 3, rr: -8 }, 0.15)
-    mouth(tl, 'down+=0.12', 'line')
-        // strain: a shake, the carton lifts only a hair
-    tl.addLabel('strain', 1.0)
-    mouth(tl, 'strain', 'strain')
-    to(tl, { blinkL: 0.5, blinkR: 0.5 }, 'strain', 0.1)
-    brows(tl, 'strain', { ly: 5, lr: 14, ry: 5, rr: -14 }, 0.1)
-    for (let i = 0; i < 6; i++) to(tl, { bx: crouch.bx + (i % 2 ? 1.6 : -1.6) }, `strain+=${0.05 + i * 0.06}`, 0.06, 'none')
-    to(tl, { cHeld: 0.08 }, 'strain+=0.1', 0.3, E.io)
-    // the heave: slow in, slow out (it is heavy); he leans back to counterbalance and steps to catch his balance
-    tl.addLabel('heave', 1.48)
-    to(tl, { cHeld: 1 }, 'heave', 0.18, E.out)
-    to(tl, carry, 'heave', 0.6, E.heavy)
-    hand(tl, 'L', { x: cL[0], y: cL[1], r: 95 }, 'heave', 0.6, E.heavy)
-    hand(tl, 'R', { x: cR[0], y: cR[1], r: -95 }, 'heave', 0.6, E.heavy)
-    stepFoot(tl, 'L', -10, 'heave+=0.42', 0.26, 8)
-    stepFoot(tl, 'R', -12, 'heave+=0.56', 0.26, 8)
-    to(tl, { lean: -10 }, 'heave+=0.6', 0.14, E.out).to(st, { lean: -6, duration: 0.3, ease: E.settle }, 'heave+=0.74')
+    brows(tl, 'down+=0.1', { ly: 1, ry: 1 }, 0.15)
+    mouth(tl, 'down+=0.12', 'closed')
+        // the lift: easy and confident (Alex: no struggling) — one smooth rise with a little bounce, a happy carry
+    tl.addLabel('heave', 1.0)
+    to(tl, { cHeld: 1 }, 'heave', 0.12, E.out)
+    to(tl, carry, 'heave', 0.38, E.over)
+    hand(tl, 'L', { x: cL[0], y: cL[1], r: 95 }, 'heave', 0.38, E.over)
+    hand(tl, 'R', { x: cR[0], y: cR[1], r: -95 }, 'heave', 0.38, E.over)
+    brows(tl, 'heave', { ly: -5, ry: -6 }, 0.14, E.pop)
+    mouth(tl, 'heave', 'smile')
+    to(tl, { lookX: 1, lookY: 0 }, 'heave', 0.2)
     // proud
-    tl.addLabel('proud', 2.35)
+    tl.addLabel('proud', 1.45)
     to(tl, { blinkL: 0, blinkR: 0, lookX: -1, lookY: -2 }, 'proud', 0.12)
     brows(tl, 'proud', { ly: -6, ry: -7 }, 0.14, E.pop)
     mouth(tl, 'proud', 'smile')
     to(tl, { by: -8, sy: 1.07 }, 'proud+=0.05', 0.14, E.out).to(st, { by: -4, sy: 1.05, duration: 0.3, ease: E.settle }, 'proud+=0.19')
     // set it down (knees bend again, gently)
-    tl.addLabel('set', 3.05)
+    tl.addLabel('set', 2.15)
     const setDown = { bx: 10, by: 6, sx: 1.04, sy: 0.96, lean: 11 }
     to(tl, setDown, 'set', 0.4, E.io)
     mouth(tl, 'set', 'closed')
@@ -417,7 +409,7 @@ const MOVES = {
     tl.set(st, { cFx: st.cFx - 22 }, 'set')
     to(tl, { cHeld: 0 }, 'set+=0.34', 0.12, E.in)
         // stand, dust the gloves off (secondary action), back to Erick's pose
-    tl.addLabel('dust', 3.6)
+    tl.addLabel('dust', 2.7)
     to(tl, { bx: 0, by: 0, sx: 1, sy: 1, lean: 0, lookX: 0, lookY: 0 }, 'dust', 0.3, E.over)
     hand(tl, 'L', { x: 126, y: 226, r: 10 }, 'dust', 0.22)
     hand(tl, 'R', { x: 154, y: 224, r: -10 }, 'dust', 0.22)
@@ -427,8 +419,8 @@ const MOVES = {
     }
     mouth(tl, 'dust+=0.24', 'smile')
     brows(tl, 'dust+=0.24', { ly: -3, ry: -3 }, 0.2)
-    home(tl, 4.2, 0.55)
-    to(tl, { cOn: 0 }, 4.4, 0.3)
+    home(tl, 3.3, 0.55)
+    to(tl, { cOn: 0 }, 3.5, 0.3)
   },
   // THINK: looks up and aside, one brow up, glove to the chin, the mouth slides to one side, eyes dart → AHA: brows shoot
   // up, a little hop, the glove springs open → settles happy
