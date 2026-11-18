@@ -58,7 +58,7 @@
                     <p class="pc-name">{{ p.name }}</p>
                     <p class="pc-meta"><span class="pc-size" :data-s="'w0-size' + i">{{ p.size }}</span> · ${{ p.price }} USD</p>
                     <span class="pc-btn" :data-s="'w0-btn' + i">Agregar al carrito</span>
-                    <span class="pc-ok" :data-s="'w0-ok' + i">{{ p.store }} ✓</span>
+                    <span class="pc-ok" :data-s="'w0-ok' + i">✓ En el carrito</span>
                   </div>
                   <div class="pill" data-s="w0-pill" style="left:24px;top:366px">🛍️ 3 tiendas · 3 pedidos</div>
                   <div class="pill soft" data-s="w0-pill2" style="left:24px;top:404px">Todo va a tu dirección Boxly en EE.UU.</div>
@@ -72,7 +72,7 @@
                     <div v-for="(pk, i) in PACKAGES" :key="i" class="lc-label" :data-s="'w1-label' + i">
                       <img :src="pk.logo" alt="" class="h-4 w-auto mb-1" />
                       <p class="font-black text-[15px] leading-tight">BOXLY MARÍA LÓPEZ</p>
-                      <p class="text-[12px] leading-snug">157 Virginia Ave Suite 835<br />San Ysidro, CA 92173</p>
+                      <p class="text-[12px] leading-snug">1234 Calle Ejemplo, Suite 000<br />San Diego, CA</p>
                       <div class="barcode"></div>
                       <span class="stamp" :data-s="'w1-stamp' + i">✓</span>
                     </div>
@@ -140,11 +140,10 @@
                 <div class="page" data-w="5">
                   <div class="mx-card">
                     <svg viewBox="0 0 420 300" class="mx-map">
-                      <path d="M44 30 L120 30 L170 54 L238 58 C262 78 280 98 300 104 C318 120 322 140 312 160 C304 178 312 198 336 206 C356 212 368 196 382 184 L400 170 L410 190 C404 210 384 222 370 226 L352 238 C330 246 300 246 270 240 C240 234 214 222 196 210 C176 196 160 178 150 160 C138 140 118 118 104 96 C96 84 86 72 76 62 L70 54 C60 46 52 38 44 30 Z" fill="#F4E3D3" stroke="#C9622E" stroke-width="2" stroke-linejoin="round" />
-                      <path d="M22 28 L34 30 C44 60 64 96 84 126 C96 144 104 160 100 168 C90 160 72 138 58 112 C44 86 30 58 22 28 Z" fill="#F4E3D3" stroke="#C9622E" stroke-width="2" stroke-linejoin="round" />
-                      <path data-s="w5-route" d="M24 30 C 70 70, 130 120, 180 188" fill="none" stroke="#C9622E" stroke-width="3.2" stroke-dasharray="7 7" />
-                      <circle cx="24" cy="30" r="6" fill="#0C254C" /><text x="34" y="24" font-size="13" font-weight="700" fill="#0C254C">Tijuana</text>
-                      <g data-s="w5-pin" class="pin"><circle cx="180" cy="188" r="7" fill="#C9622E" stroke="#fff" stroke-width="2.5" /><text x="192" y="193" font-size="13" font-weight="700" fill="#0C254C">Guadalajara</text></g>
+                      <path d="M16.0 26.4 L46.7 23.9 L45.3 26.7 L93.8 43.2 L129.9 43.1 L130.0 36.8 L152.4 37.0 L172.1 53.5 L178.7 67.5 L193.3 75.4 L201.5 65.0 L216.5 64.7 L241.2 95.6 L246.3 110.9 L271.4 117.6 L262.5 165.6 L270.9 190.5 L287.1 216.8 L305.7 225.9 L331.5 218.8 L343.1 221.8 L353.3 209.4 L358.2 186.4 L399.4 177.9 L404.0 184.4 L392.3 205.4 L395.7 206.2 L390.8 223.2 L387.4 216.6 L373.5 230.8 L350.1 230.7 L350.0 238.6 L344.7 238.5 L357.4 250.5 L357.0 254.9 L340.5 255.0 L334.2 276.1 L306.8 252.0 L311.6 255.7 L300.1 250.2 L301.4 253.0 L279.5 260.8 L190.9 223.7 L164.9 200.7 L162.5 195.1 L167.7 192.4 L164.5 189.2 L168.3 179.7 L160.9 163.9 L133.3 136.3 L129.1 129.9 L132.0 130.1 L119.5 124.3 L121.3 120.8 L115.0 120.9 L116.4 109.7 L79.5 75.2 L68.2 45.2 L44.1 35.2 L47.9 59.4 L70.4 83.4 L83.3 107.7 L87.0 107.3 L98.7 140.1 L102.4 143.5 L103.7 140.1 L114.5 152.1 L107.0 160.2 L102.5 150.4 L80.6 133.2 L76.7 114.1 L66.8 104.0 L61.1 107.1 L43.3 93.0 L55.1 93.8 L55.4 83.4 L34.6 64.9 Z" fill="#F4E3D3" stroke="#C9622E" stroke-width="2" stroke-linejoin="round" />
+                      <path data-s="w5-route" d="M17.1 26.6 C 47.1 96.6, 122.1 131.1, 192.1 191.1" fill="none" stroke="#C9622E" stroke-width="3.2" stroke-dasharray="7 7" />
+                      <circle cx="17.1" cy="26.6" r="6" fill="#0C254C" /><text x="29.1" y="22.6" font-size="13" font-weight="700" fill="#0C254C">Tijuana</text>
+                      <g data-s="w5-pin" class="pin"><circle cx="192.1" cy="191.1" r="7" fill="#C9622E" stroke="#fff" stroke-width="2.5" /><text x="204.1" y="196.1" font-size="13" font-weight="700" fill="#0C254C">Guadalajara</text></g>
                     </svg>
                   </div>
                   <div class="track" data-s="w5-track"><b>En camino</b><span>Guía 7741 2026 MX</span></div>
@@ -300,15 +299,19 @@ onMounted(async () => {
     const artEl = art.value, boardEl = board.value, copyEl = copy.value
     if (mobile) {
       stage.value.classList.add('mobile')
-      const cw = 700, ch = 520, cx = 130, cy = 140
+      const cw = 740, ch = 540, cx = 110, cy = 130
       Object.assign(copyEl.style, { left: '20px', right: '20px', width: 'auto' })
       const room = vh - headH
       const tallest = Math.max(...blocks.map(({ el }) => el.offsetHeight))
-      const artH = Math.round(clamp(room - tallest - 72, room * 0.3, room * 0.52))
-      Object.assign(artEl.style, { left: '0', top: `${headH}px`, width: `${vw}px`, height: `${artH}px` })
-      const s = Math.min(vw / cw, artH / ch)
-      boardEl.style.transform = `translate(${(vw - cw * s) / 2 - cx * s}px, ${(artH - ch * s) / 2 - cy * s}px) scale(${s})`
-      Object.assign(copyEl.style, { top: `${headH + artH + 14}px`, height: `${vh - headH - artH - 14 - 58}px` })
+      const maxH = Math.round(clamp(room - tallest - 72, room * 0.3, room * 0.56))
+      const s = Math.min(vw / cw, maxH / ch)
+      const artH = Math.round(ch * s)
+      // centre the art + copy group in the space above the rail (no dead band under the copy)
+      const free = room - 58 - artH - 14 - tallest
+      const artTop = headH + Math.max(0, Math.round(free / 2))
+      Object.assign(artEl.style, { left: '0', top: `${artTop}px`, width: `${vw}px`, height: `${artH}px` })
+      boardEl.style.transform = `translate(${(vw - cw * s) / 2 - cx * s}px, ${-cy * s}px) scale(${s})`
+      Object.assign(copyEl.style, { top: `${artTop + artH + 14}px`, height: `${Math.max(tallest, vh - artTop - artH - 14 - 58)}px` })
       for (const p of props) {
         const el = p.el
         const x0 = Math.max(el.offsetLeft, cx), x1 = Math.min(el.offsetLeft + el.offsetWidth, cx + cw)
@@ -337,7 +340,8 @@ onMounted(async () => {
     ;['--bg', '--ink', '--accent', '--soft'].forEach((v, i) => {
       const c = mix(a[i], b[i], f)
       stage.value.style.setProperty(v, c)
-      if (i < 2) head.value.style.setProperty(v, c)
+      // the header takes the room's light only while the stage is pinned; past it, the page's own light
+      if (i < 2) head.value.style.setProperty(v, (window.scrollY - top) / q > last + 0.38 ? ['#FFFFFF', '#0C254C'][i] : c)
     })
     // world 2's warm tint: its act raises it; it fades out as world 3's warm palette blends in (no double-warm room)
     tint.value.style.opacity = (tintAct.v * (1 - smooth(2.34, 2.66, n)) * (n < 1.6 ? 0 : 1)).toFixed(3)
@@ -428,7 +432,7 @@ onBeforeUnmount(() => cleanup())
 .mundos { position: relative; }
 .sc-stage { position: sticky; top: 0; height: 100vh; height: 100lvh; overflow: hidden; background: var(--bg); color: var(--ink); }
 .sc-stage::before { content: ""; position: absolute; inset: -10%; background: radial-gradient(60% 55% at 68% 48%, color-mix(in srgb, var(--accent) 20%, transparent), transparent 70%); pointer-events: none; }
-.room-tint { position: absolute; inset: 0; z-index: 1; pointer-events: none; opacity: 0; background: radial-gradient(80% 80% at 60% 55%, rgba(236, 140, 70, .42), rgba(217, 115, 58, .22)); }
+.room-tint { position: absolute; inset: 0; z-index: 1; pointer-events: none; opacity: 0; background: radial-gradient(80% 80% at 60% 55%, rgba(244, 214, 190, .96), rgba(251, 235, 221, .94)); }
 .sc-copy { position: absolute; z-index: 3; }
 .sc-block { position: absolute; left: 0; right: 0; top: 50%; will-change: opacity, transform; }
 .sc-kicker { font-size: 13px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
@@ -467,12 +471,12 @@ onBeforeUnmount(() => cleanup())
 .lc-h { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #6B7A90; margin-bottom: 8px; }
 .counter { position: absolute; top: 340px; height: 72px; border-radius: 10px 10px 0 0; background: linear-gradient(#C99A6B, #B07F52); box-shadow: inset 0 3px 0 #DDB389; }
 .pkg { position: absolute; border-radius: 6px; display: grid; place-items: center; box-shadow: 0 4px 10px rgba(0, 0, 0, .12); }
-.pkg.mailer { background: #fff; border: 2px solid #C8102E; border-radius: 9px; }
+.pkg.mailer { background: #CC0000; border-radius: 10px; }
 .pkg.poly { background: #E5E7EB; border-radius: 12px; }
 .pkg.carton { background: #C98B4E; border: 2px solid #8A5A2B; }
 .pkg.stackbox { background: #C98B4E; border: 2px solid #8A5A2B; }
-.pkg-logo { max-width: 70%; max-height: 50%; object-fit: contain; }
-.pkg.carton .pkg-logo { background: #fff; padding: 2px 4px; border-radius: 3px; }
+.pkg-logo { width: 72%; height: 56%; object-fit: contain; }
+.pkg.carton .pkg-logo, .pkg.mailer .pkg-logo { background: #fff; padding: 2px 5px; border-radius: 4px; }
 .banner { position: absolute; left: 160px; top: 8px; width: 340px; display: flex; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 16px; background: rgba(255, 255, 255, .96); box-shadow: 0 10px 26px rgba(12, 37, 76, .18); opacity: 0; }
 .banner.keep { opacity: 1; }
 .banner img { width: 30px; height: 30px; border-radius: 8px; }
@@ -490,18 +494,18 @@ onBeforeUnmount(() => cleanup())
 @media (prefers-reduced-motion: reduce) { .lw-track { animation: none; } }
 .pcard { position: absolute; top: 140px; width: 130px; height: 176px; padding: 10px; border-radius: 16px; background: #fff; box-shadow: 0 8px 22px rgba(12, 37, 76, .12), 0 0 0 1px rgba(12, 37, 76, .06); }
 .pc-logo { height: 16px; width: auto; max-width: 84px; object-fit: contain; }
-.pc-art { width: 80px; height: 60px; margin: 6px auto 2px; }
+.pc-art { width: 104px; height: 74px; margin: 4px auto 0; }
 .pc-name { font-size: 13px; font-weight: 800; color: #0C254C; }
 .pc-meta { font-size: 11px; color: #6B7A90; }
 .pc-size { display: inline-block; padding: 0 5px; border-radius: 5px; background: #0C254C; color: #fff; font-weight: 700; }
 .pc-btn { position: absolute; left: 10px; right: 10px; bottom: 10px; text-align: center; padding: 5px 0; border-radius: 9px; background: #FECD04; color: #0C254C; font-size: 11px; font-weight: 800; }
 .pc-badge { position: absolute; right: -8px; top: -8px; width: 22px; height: 22px; border-radius: 99px; background: #E5484D; color: #fff; font-size: 12px; font-weight: 800; display: grid; place-items: center; }
-.pc-ok { position: absolute; left: 50%; top: 38%; transform: translate(-50%, -50%); padding: 5px 10px; border-radius: 99px; background: #16A34A; color: #fff; font-size: 12px; font-weight: 800; white-space: nowrap; box-shadow: 0 6px 14px rgba(22, 163, 74, .3); }
+.pc-ok { position: absolute; left: 10px; right: 10px; bottom: 10px; text-align: center; padding: 5px 0; border-radius: 9px; background: #16A34A; color: #fff; font-size: 11px; font-weight: 800; white-space: nowrap; }
 .cursor { position: absolute; left: 90px; top: 220px; width: 26px; height: 26px; opacity: 0; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .25)); }
 
 /* 1 */
 .label-card, .list-card, .picker { position: absolute; left: 24px; top: 56px; width: 250px; padding: 14px; border-radius: 16px; background: #fff; box-shadow: 0 8px 22px rgba(12, 37, 76, .12), 0 0 0 1px rgba(12, 37, 76, .06); }
-.label-card { height: 190px; }
+.label-card { left: 150px !important; top: 72px !important; height: 162px; }
 .lc-label { position: absolute; left: 14px; right: 14px; top: 34px; padding: 10px; border: 2px dashed #0C254C; border-radius: 10px; color: #0C254C; background: #fff; opacity: 0; }
 .lc-label:last-of-type { opacity: 1; }
 .barcode { height: 26px; margin-top: 8px; background: repeating-linear-gradient(90deg, #0C254C 0 2px, transparent 2px 4px, #0C254C 4px 7px, transparent 7px 9px); }
@@ -526,7 +530,7 @@ onBeforeUnmount(() => cleanup())
 .team-hands i { width: 34px; height: 18px; border-radius: 9px; background: #F59E0B; border: 2px solid #B45309; }
 
 /* 3 */
-.list-card { height: 176px; }
+.list-card { left: 150px !important; top: 72px !important; height: 176px; }
 .lc-row { display: flex; align-items: center; gap: 10px; padding: 9px 4px; border-bottom: 1px solid #EEF2F7; font-size: 14px; font-weight: 700; color: #0C254C; }
 .lc-row b { margin-left: auto; width: 24px; height: 24px; border-radius: 99px; background: #16A34A; color: #fff; display: grid; place-items: center; font-size: 13px; }
 .pkg-ok { position: absolute; right: -8px; top: -10px; width: 22px; height: 22px; border-radius: 99px; background: #16A34A; color: #fff; display: grid; place-items: center; font-size: 12px; font-weight: 900; }
@@ -568,7 +572,7 @@ onBeforeUnmount(() => cleanup())
 .flap.l { left: -2px; transform-origin: left bottom; transform: rotate(-125deg); }
 .flap.r { right: -2px; transform-origin: right bottom; transform: rotate(125deg); }
 .item { position: absolute; top: 196px; width: 80px; text-align: center; }
-.item .pc-art { margin: 0 auto; }
+.item .pc-art { margin: 0 auto; width: 80px; height: 60px; }
 .item-logo { height: 14px; width: auto; max-width: 74px; margin: 2px auto 0; object-fit: contain; }
 
 /* the rail */

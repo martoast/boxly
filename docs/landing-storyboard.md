@@ -26,10 +26,9 @@ One shopper, **María López**, buys from 3 US stores Boxly customers shop a lot
 | B | Gymshark | leggings | poly bag |
 | C | New Balance | sneakers | grey New Balance shoe box in a brown carton |
 
-Each package carries the label exactly as customers write it: **BOXLY MARÍA LÓPEZ**, 157 Virginia Ave Suite 835, San
-Ysidro, CA 92173. Suite 835 is Boxly's own address, the same one the app gives every customer (only the name line
-changes), so it is not a private customer suite. Showing it on the labels explains the address; there is no separate
-address world.
+Each package carries a label with **BOXLY MARÍA LÓPEZ** and a **placeholder** San Diego address ("1234 Calle Ejemplo, Suite 000,
+San Diego, CA"). **Never the real Boxly US address on a public page** (Alex 2026-11-18): customers get it when they create
+their account. The label only has to show that it is a San Diego address with their name; there is no separate address world.
 
 ## How it is built (Kiru's engine, ported)
 
@@ -115,7 +114,7 @@ escaneamos al llegar y te avisamos.
 | t | Boxly | Window |
 |---|-------|--------|
 | 0–0.8 s | Stands at a counter with a handheld scanner in his right glove | A delivery hand (the carrier's, gloveless, cut by the window edge) slides package A onto the counter |
-| 0.9 s | Leans in, raises the scanner, brows together | Label close-up: **MARÍA LÓPEZ · BOXLY**, 157 Virginia Ave Suite 835, San Ysidro |
+| 0.9 s | Leans in, raises the scanner, brows together | Label close-up: **BOXLY MARÍA LÓPEZ**, placeholder San Diego address |
 | 1.3 s | **Beep**, a small nod | ✓ stamps on the label. The banner slides down from the window's top edge: **"Llegó 1 de 3 · Target"** |
 | 2.0–2.4 s | Sets A on a shelf behind him (lift: squash, carry, set down) | Package B slides in |
 | 2.7 s | Scan, beep, nod | ✓. Notification stacks: **"Llegó 2 de 3 · Gymshark"** |
@@ -229,7 +228,7 @@ information**; everything they say is also in the window or the copy.
 Logos and notifications moved inside the window (mobile crop); room colour by scroll, with a `.room-tint` act only for
 world 2's crossing; world 6 room navy; customer picks and Boxly adds to the cart; bare hands for the customer; world 4
 6.2 s with the "hmm" merged; prices server-rendered with a safe fallback; proof cards per world; one stage in window
-coordinates. Suite 835 kept: it is Boxly's shared address, not a customer's.
+coordinates. Address on the labels: a placeholder San Diego address only (Alex: the real one is for account holders).
 
 ## Open questions
 
