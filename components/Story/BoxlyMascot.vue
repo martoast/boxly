@@ -298,6 +298,18 @@ function stepFoot(tl, side, dx, t, dur = 0.28, h = 10) {
   tl.to(st, { [k + 'r']: dx > 0 ? -12 : 12, duration: dur / 2, ease: E.out }, t).to(st, { [k + 'r']: 0, duration: dur / 2, ease: E.over }, t + dur / 2)
 }
 
+// a travelling hop (the story moves him between stations): anticipation, a stretched arc, a squashed landing
+function hopTo(tl, t, x, h = 22, dur = 0.42) {
+  to(tl, { by: 6, sx: 1.05, sy: 0.95 }, t, 0.1, E.out)
+  to(tl, { by: -3, sx: 0.96, sy: 1.04 }, t + 0.1, 0.12, E.out)
+  tl.to(st, { x, duration: dur, ease: 'power1.inOut' }, t + 0.1)
+  tl.to(st, { y: -h, duration: dur / 2, ease: E.out }, t + 0.1).to(st, { y: 0, duration: dur / 2, ease: E.in }, t + 0.1 + dur / 2)
+  to(tl, { fLy: ANKLE.L[1] - 8, fRy: ANKLE.R[1] - 5, fLr: 10, fRr: -6 }, t + 0.12, dur / 2, E.out)
+  to(tl, { fLy: ANKLE.L[1], fRy: ANKLE.R[1], fLr: 0, fRr: 0 }, t + 0.1 + dur / 2, dur / 2, E.in)
+  to(tl, { by: 5, sx: 1.05, sy: 0.95 }, t + 0.1 + dur, 0.07, E.out)
+  to(tl, { by: 0, sx: 1, sy: 1 }, t + 0.17 + dur, 0.3, E.settle)
+}
+
 // ---- the moves ----
 const MOVES = {
   // WAVE: dip (anticipation) → spring up onto his toes with a stretch → the arm swings up on an arc → a wave whose wrist
@@ -510,6 +522,19 @@ function startIdle() {
   blink(idle, 4.3); blink(idle, 4.55)
 }
 
+function reset() {
+  current?.kill(); current = null
+  Object.assign(st, base())
+  poses.L = REST.L.pose; poses.R = REST.R.pose
+  spr.face.x = spr.face.y = spr.face.vx = spr.face.vy = 0
+  spr.box.x = spr.box.y = spr.box.vx = spr.box.vy = 0
+  lastBody = null; lastHands = null
+}
+const pauseIdle = () => idle?.pause()
+const resumeIdle = () => idle?.restart()
+// what a story world uses to choreograph him on its own timeline
+const kit = { st, poses, to, hand, arc, brows, mouth, blink, speak, home, loosen, stepFoot, hopTo, inv, T, E, REST, ANKLE, MOVES, reset }
+
 function play(name) {
   idle?.pause()
   current?.kill()
@@ -531,7 +556,7 @@ onMounted(() => {
 })
 onBeforeUnmount(() => { if (tick) gsap.ticker.remove(tick); idle?.kill(); current?.kill() })
 
-defineExpose({ st, poses, build, play, render, REST })
+defineExpose({ st, poses, build, play, render, REST, kit, reset, pauseIdle, resumeIdle })
 </script>
 
 <style scoped>

@@ -236,8 +236,8 @@ home page stays until Alex says swap.
   - Decided (Alex via Henry, 2026-11-18): Erick's design exactly — closed cube, brows carry the mood, no lid flaps, no added parts
 - [x] 2. Mascot rig: flat-vector SVG parts drawn from Erick's render (components/Story/BoxlyMascot.vue + BoxlyGlove.vue); test bench on the hidden page /nueva-7kq3 (wave, scan, lift, think, thumbs up + wink, hop) — waiting on Alex/Erick's look
   - Products (Alex 2026-11-18): Target, Gymshark, New Balance; hidden URL /nueva-7kq3 (noindex meta + X-Robots-Tag)
-- [ ] 3. Engine port: showcase.js + kip.js → a client-only Vue component (onMounted, no SSR animation; server renders each world's final pose); GSAP added; world 0 on the hidden page; phone check
-- [ ] 4. Worlds 1–6
+- [x] 3. Engine port (components/Story/StoryStage.vue: pinned stage, palettes by scroll, copy, window pages, spring cards, mobile crop, rail) + world 0 — /nueva-7kq3 (bench moved to /nueva-7kq3/boxly)
+- [x] 4. Worlds 1–6 (components/Story/storyActs.js: one GSAP act per world; real logos in public/logos/stores from Wikimedia Commons + gymshark.com)
 - [ ] 5. Sections below: box-size price calculator (reuse BoxPricing data), stores, reviews, FAQ, sign-up CTA
 - [ ] 6. Swap into / only on Alex's OK
 

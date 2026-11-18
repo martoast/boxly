@@ -24,6 +24,7 @@ export default defineNuxtConfig({
   routeRules: {
     // hidden landing rework under review — never indexed (docs/landing-storyboard.md)
     '/nueva-7kq3': { headers: { 'X-Robots-Tag': 'noindex, nofollow' } },
+    '/nueva-7kq3/**': { headers: { 'X-Robots-Tag': 'noindex, nofollow' } },
     // Retired in-person wizard pages: keep old links working (/in-person/review is pages/in-person/review.vue: it keeps ?cancelled=1).
     '/in-person/stores': { redirect: '/in-person' },
     '/in-person/details': { redirect: '/in-person' },
