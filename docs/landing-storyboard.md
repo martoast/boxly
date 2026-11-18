@@ -106,7 +106,7 @@ Boxly adds it to that store's cart. That is the real Boxly AI flow: the agent bu
 
 **Payoff:** you can buy from any US store, and Boxly is the one who takes care of it.
 
-## 1 · "Lo recibimos en EE.UU." (5.4 s)
+## 1 · "Lo recibimos y lo guardamos en San Diego" (5.4 s) — REVISED 2026-11-18 (Alex): after each scan the package goes onto a warehouse shelf reserved for María; the bin fills 1/3 → 3/3 → "Pedido completo ✓" (we hold everything until the whole order is in).
 
 **Copy:** *Lo recibimos en San Diego.* / Cada paquete llega a tu dirección Boxly en EE.UU. con tu nombre. Lo
 escaneamos al llegar y te avisamos.
@@ -124,7 +124,7 @@ escaneamos al llegar y te avisamos.
 
 **Payoff:** your packages arrive at your own US address, and you know the moment each one lands.
 
-## 2 · "Cruzamos a Tijuana" (5.0 s)
+## 2 · "Los llevamos a Tijuana" (5.6 s) — REVISED 2026-11-18: no map, no border line (Alex); Boxly starts a conveyor belt and packages from every store ride into the Boxly van, its door slides shut, thumbs up, "Rumbo a Tijuana ✓". The table below is the original version, kept for reference.
 
 **Copy:** *Los cruzamos a Tijuana.* / Nuestro equipo cruza tus paquetes de San Diego a Tijuana. Tú no haces nada.
 
@@ -154,7 +154,7 @@ escaneamos al llegar y te avisamos.
 
 ## 4 · "Tu caja final" (6.2 s, the second wow)
 
-**Copy:** *3 paquetes → 1 caja.* / Juntamos todo en una sola caja. Pagas por tamaño de caja, en pesos, sin sorpresas.
+**Copy:** *Múltiples tiendas, 1 caja.* / Juntamos todo en una sola caja. Pagas por tamaño de caja, en pesos, sin sorpresas.
 
 | t | Boxly | Window |
 |---|-------|--------|
@@ -166,7 +166,7 @@ escaneamos al llegar y te avisamos.
 | 3.0 s | — | **✓ Pagado** blooms; the banner: "Pago recibido · Caja M" |
 | 3.4–4.4 s | Closes the flaps of the **shipping box** (the box, not Boxly) and runs the tape across (the tape gun swings on a spring) | — |
 | 4.6 s | Presses a small Boxly-logo sticker on the side | — |
-| 5.1 s | Looks at you, **winks**, thumbs up | Card: **"3 paquetes → 1 caja"** (inside the window) |
+| 5.1 s | Looks at you, **winks**, thumbs up | Card: **"Múltiples paquetes → 1 caja"** (inside the window; Alex: "múltiples", not "3") |
 
 **Payoff:** three orders become one box, priced by size, paid in pesos.
 

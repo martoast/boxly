@@ -86,9 +86,12 @@ export function buildAct(k, { kit, $, tint, gsap }) {
     // 1 · Received in San Diego: each package lands on the counter, Boxly scans it (beep ✓), the label shows her name and
     // Boxly US address, a banner says "Llegó 1 de 3…"; he sets it aside; all three → "¡Ya llegaron todos!"
     place(at(330))
-    const PK = [{ x3: 404 }, { x3: 478 }, { x3: 548 }]
+    // each package's shelf slot is its CSS home (final pose); it arrives at the counter, then is put on the shelf
+    const PK = [{ x: 458, h: 34 }, { x: 522, h: 30 }, { x: 586, h: 46 }]
+    tl.set($('w1-done'), { opacity: 0 }, 0)
     PK.forEach((p, i) => {
-      tl.set($('w1-pkg' + i), { x: 720 - p.x3, opacity: 1 }, 0)
+      tl.set($('w1-dot' + i), { backgroundColor: '#CBD5E1' }, 0)
+      tl.set($('w1-pkg' + i), { x: 720 - p.x, y: 144, opacity: 1 }, 0)
       tl.set($('w1-label' + i), { opacity: 0 }, 0)
       tl.set($('w1-stamp' + i), { scale: 0 }, 0)
     })
@@ -96,7 +99,7 @@ export function buildAct(k, { kit, $, tint, gsap }) {
     scanOut(0.15)
     PK.forEach((p, i) => {
       const t = 0.45 + i * 1.35
-      tl.to($('w1-pkg' + i), { x: 440 - p.x3, duration: 0.45, ease: 'power3.out' }, t)
+      tl.to($('w1-pkg' + i), { x: 440 - p.x, duration: 0.45, ease: 'power3.out' }, t)
       if (i) tl.to($('w1-label' + (i - 1)), { opacity: 0, duration: 0.15 }, t + 0.25)
       tl.to($('w1-label' + i), { opacity: 1, duration: 0.2 }, t + 0.3)
       aim(t + 0.4)
@@ -104,9 +107,14 @@ export function buildAct(k, { kit, $, tint, gsap }) {
       tl.to($('w1-stamp' + i), { scale: 1, duration: 0.3, ease: 'back.out(2.6)' }, t + 0.86)
       if (i) hide($('w1-ban' + (i - 1)), t + 0.8, 0.2)
       show($('w1-ban' + i), t + 0.88)
-      tl.to($('w1-pkg' + i), { x: 0, duration: 0.35, ease: 'power2.inOut' }, t + 1.1)
+      // onto her reserved shelf (an arc: up first, then across), and the bin's progress fills
+      tl.to($('w1-pkg' + i), { y: 0, duration: 0.4, ease: 'power2.out' }, t + 1.05)
+      tl.to($('w1-pkg' + i), { x: 0, duration: 0.4, ease: 'power1.inOut' }, t + 1.05)
+      tl.to($('w1-dot' + i), { backgroundColor: '#16A34A', duration: 0.15 }, t + 1.4)
+      hand(tl, 'R', { x: 246, y: 120 }, t + 1.0, 0.2, E.out); hand(tl, 'R', { x: 246, y: 186 }, t + 1.25, 0.2)
       to(tl, { lean: 0, by: 0, sx: 1, sy: 1, lookX: 2, lookY: 1 }, t + 1.1, 0.25)
     })
+    tl.to($('w1-done'), { opacity: 1, duration: 0.3 }, 4.45)
     hide($('w1-ban2'), 4.4, 0.2)
     show($('w1-ban3'), 4.5)
     to(tl, { scan: 0 }, 4.5, 0.1)
@@ -115,42 +123,47 @@ export function buildAct(k, { kit, $, tint, gsap }) {
   }
 
   if (k === 2) {
-    // 2 · Crossing to Tijuana: Boxly pushes the three packages along the counter to the crossing team's door and hands them
-    // over; the dot crosses the border on the map and the room warms (tint act); he waves them off, thumbs up
-    place(at(330))
-    const stack = $('w2-stack'), hands = $('w2-hands'), dot = $('w2-dot')
-    tl.set(stack, { x: 0, opacity: 1 }, 0)
-    tl.set(hands, { opacity: 0, x: 30 }, 0)
-    tl.set(dot, { x: -15, y: -148 }, 0)
+    // 2 · Loading the van (Alex: no map, no border line): Boxly starts the belt, packages from every store ride into the
+    // Boxly van, he watches them in with a little nod for each, the side door slides shut, a thumbs up, the van rumbles
+    // and the room warms toward Tijuana (tint act). Final pose: the loaded van with its door shut + "Rumbo a Tijuana ✓".
+    place(at(96))
+    const door = $('w2-door'), rollers = $('w2-rollers'), light = $('w2-light')
+    tl.set(door, { x: -76 }, 0)                       // open (slid toward the back)
     tl.set($('w2-ok'), { opacity: 0, scale: 0.6 }, 0)
+    tl.set($('w2-puffs'), { opacity: 0, x: 0 }, 0)
+    tl.set(light, { backgroundColor: '#DC2626' }, 0)
     tl.set(tint, { v: 0 }, 0)
-    // push (both gloves on the stack, small steps)
-    hand(tl, 'L', { x: 214, y: 196, r: 80, pose: 'open' }, 0.05, 0.3)
-    hand(tl, 'R', { x: 236, y: 186, r: -60, pose: 'open' }, 0.05, 0.3)
-    to(tl, { lean: 8, by: 4 }, 0.1, 0.25)
-    mouth(tl, 0.1, 'closed')
-    for (let i = 0; i < 3; i++) {
-      const t = 0.4 + i * 0.32
-      tl.to(st, { x: at(330 + (i + 1) * 46), duration: 0.32, ease: 'power1.inOut' }, t)
-      kit.stepFoot(tl, i % 2 ? 'R' : 'L', 0, t, 0.3, 7)
-    }
-    tl.to(stack, { x: 138, duration: 0.96, ease: 'power1.inOut' }, 0.4)
-    tl.to(hands, { opacity: 1, x: 0, duration: 0.25, ease: 'power2.out' }, 1.25)
-    tl.to(stack, { x: 210, opacity: 0, duration: 0.45, ease: 'power2.in' }, 1.5)
-    tl.to(hands, { x: 40, opacity: 0, duration: 0.35, ease: 'power2.in' }, 1.75)
-    // wave them off and watch the dot cross
-    to(tl, { lean: 0, by: 0 }, 1.45, 0.25)
-    arc(tl, 'R', { x: 246, y: 66, r: -20, pose: 'open' }, 1.6, 0.25)
-    ;[18, -16, 12].forEach((a, i) => to(tl, { hRr: a }, 1.85 + i * 0.15, 0.15, E.soft))
-    mouth(tl, 1.6, 'smile')
-    to(tl, { lookX: -4, lookY: -2 }, 2.3, 0.25)
-    tl.to(dot, { x: 0, duration: 1.1, ease: 'sine.inOut' }, 2.3)
-    tl.to(dot, { y: 0, duration: 1.1, ease: 'power1.inOut' }, 2.3)
-    tl.to(tint, { v: 1, duration: 0.9, ease: 'sine.inOut' }, 2.7)
-    tl.to($('w2-ok'), { opacity: 1, scale: 1, duration: 0.3, ease: 'back.out(2.2)' }, 3.4)
-    brows(tl, 3.4, { ly: -6, ry: -7 }, 0.15, E.pop)
-    home(tl, 3.6, 0.55)
-    blink(tl, 4.3)
+    tl.set($('w2-load'), { opacity: 1 }, 0); tl.set($('w2-out'), { opacity: 0 }, 0)
+    tl.to($('w2-load'), { opacity: 0, duration: 0.15 }, 4.8); tl.to($('w2-out'), { opacity: 1, duration: 0.2 }, 4.9)
+    const pk = [0, 1, 2, 3, 4, 5].map((i) => $('w2-pkg' + i))
+    pk.forEach((el) => tl.set(el, { x: -80, opacity: 1, scale: 1 }, 0))
+    // presses the start button on the panel
+    to(tl, { lookX: 4, lookY: 2, lean: 5 }, 0.1, 0.2)
+    hand(tl, 'R', { x: 226, y: 150, r: -20, pose: 'fist' }, 0.15, 0.25, E.out)
+    hand(tl, 'R', { x: 232, y: 162 }, 0.42, 0.08, E.in)
+    tl.set(light, { backgroundColor: '#16A34A' }, 0.48)
+    hand(tl, 'R', { x: 226, y: 206, r: -10, pose: 'open' }, 0.55, 0.25)
+    to(tl, { lean: 0 }, 0.55, 0.25)
+    brows(tl, 0.5, { ly: -6, ry: -7 }, 0.12, E.pop)
+    // the belt runs
+    tl.to(rollers, { attr: { 'stroke-dashoffset': -180 }, duration: 3.4, ease: 'none' }, 0.5)
+    pk.forEach((el, i) => {
+      const t = 0.6 + i * 0.42, endX = 470 - (el ? parseFloat(el.style.width) / 2 : 30)
+      tl.to(el, { x: endX, duration: 1.5, ease: 'none' }, t)
+      tl.to(el, { x: endX + 30, scale: 0.6, opacity: 0, duration: 0.22, ease: 'power1.in' }, t + 1.5)
+      to(tl, { by: 4, sy: 0.97 }, t + 1.5, 0.08, E.out).to(st, { by: 0, sy: 1, duration: 0.2, ease: E.io }, t + 1.58) // a nod as it goes in
+    })
+    to(tl, { lookX: 5, lookY: 0 }, 1.6, 0.4)
+    // door shut, thumbs up, the van rumbles off-to-be
+    tl.set(light, { backgroundColor: '#DC2626' }, 4.25)
+    tl.to(door, { x: 0, duration: 0.45, ease: 'power2.inOut' }, 4.3)
+    to(tl, { lookX: 0, lookY: 0 }, 4.3, 0.25)
+    tl.to($('w2-van'), { y: -3, duration: 0.07, yoyo: true, repeat: 5, ease: 'sine.inOut' }, 4.75)
+    tl.to($('w2-puffs'), { opacity: 1, duration: 0.15 }, 4.75).to($('w2-puffs'), { x: -40, opacity: 0, duration: 0.6, ease: 'power1.out' }, 4.9)
+    tl.to($('w2-ok'), { opacity: 1, scale: 1, duration: 0.3, ease: 'back.out(2.2)' }, 4.85)
+    tl.to(tint, { v: 1, duration: 0.9, ease: 'sine.inOut' }, 4.6)
+    home(tl, 4.7, 0.55)
+    blink(tl, 5.4, 'R', 0.45)
   }
 
   if (k === 3) {

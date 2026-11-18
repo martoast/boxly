@@ -77,28 +77,45 @@
                       <span class="stamp" :data-s="'w1-stamp' + i">✓</span>
                     </div>
                   </div>
+                  <!-- her reserved space on the warehouse shelf: packages wait here until the whole order is in -->
+                  <div class="rack">
+                    <div class="rack-tag"><b>Reservado</b><span>MARÍA LÓPEZ</span></div>
+                    <div class="rack-prog"><i v-for="j in 3" :key="j" :data-s="'w1-dot' + (j - 1)"></i><span class="rack-done" data-s="w1-done">Pedido completo ✓</span></div>
+                    <i class="rack-board" style="top:136px"></i><i class="rack-board" style="top:236px"></i>
+                    <i class="rack-ghost" style="left:12px;top:204px;width:52px;height:32px"></i><i class="rack-ghost" style="left:136px;top:198px;width:58px;height:38px"></i>
+                  </div>
                   <div class="counter" style="left:392px;width:268px"></div>
-                  <div v-for="(pk, i) in PACKAGES" :key="'p' + i" class="pkg" :class="pk.cls" :data-s="'w1-pkg' + i" :style="`left:${pk.x3}px;top:${340 - pk.h}px;width:${pk.w}px;height:${pk.h}px`">
+                  <div v-for="(pk, i) in PACKAGES" :key="'p' + i" class="pkg" :class="pk.cls" :data-s="'w1-pkg' + i" :style="`left:${458 + i * 64}px;top:${196 - pk.h}px;width:${pk.w}px;height:${pk.h}px`">
                     <img :src="pk.logo" alt="" class="pkg-logo" />
                   </div>
                   <div v-for="(b, i) in W1_BANNERS" :key="'b' + i" class="banner" :class="{ keep: i === 3 }" :data-s="'w1-ban' + i"><img src="/app-icon.svg" alt="" /><div><b>Boxly</b><span>{{ b }}</span></div></div>
                 </div>
 
-                <!-- 2 · crossing to Tijuana -->
+                <!-- 2 · loading the van to Tijuana (Alex: no map, no border line — a conveyor belt into a Boxly van) -->
                 <div class="page" data-w="2">
-                  <div class="map-card">
-                    <div class="map-us">San Diego, CA</div>
-                    <div class="map-border"><span>Frontera</span></div>
-                    <div class="map-mx">Tijuana, B.C.</div>
-                    <i class="map-dot sd"></i><i class="map-dot tj"></i>
-                    <svg class="map-route" viewBox="0 0 400 280"><path d="M190 80 C 230 140, 170 170, 205 228" fill="none" stroke="#2E6BB7" stroke-width="3" stroke-dasharray="6 7" /></svg>
-                    <div class="traveler" data-s="w2-dot"><i></i><span>3 paquetes</span></div>
-                    <div class="map-ok" data-s="w2-ok">Cruzando ✓</div>
-                  </div>
-                  <div class="door"><span>Equipo de cruce</span></div>
-                  <div class="team-hands" data-s="w2-hands"><i></i><i></i></div>
-                  <div class="pkg stackbox" data-s="w2-stack" style="left:430px;top:282px;width:76px;height:58px"></div>
-                  <div class="counter" style="left:392px;width:140px"></div>
+                  <div class="wall2"></div>
+                  <div class="sign2"><img src="/app-icon.svg" alt="" /><div><b>Boxly · San Diego</b><span>Salidas diarias a Tijuana</span></div></div>
+                  <div class="board2"><p>Salidas de hoy</p><div><b>Tijuana</b><span>16:00</span><em class="b2-load" data-s="w2-load">Cargando…</em><em class="b2-out" data-s="w2-out">Salió ✓</em></div><div class="dim"><b>Tijuana</b><span>Mañana 16:00</span><em>Programada</em></div></div>
+                  <div class="dock2"></div>
+                  <div class="floor2"></div>
+                  <!-- the belt: rollers + a control panel Boxly starts it from -->
+                  <div class="belt"><svg viewBox="0 0 460 26" preserveAspectRatio="none"><rect x="0" y="0" width="460" height="14" rx="7" fill="#374151" /><line data-s="w2-rollers" x1="6" y1="7" x2="454" y2="7" stroke="#9CA3AF" stroke-width="4" stroke-dasharray="3 15" stroke-linecap="round" /><rect x="40" y="14" width="8" height="48" fill="#4B5563" /><rect x="400" y="14" width="8" height="48" fill="#4B5563" /></svg></div>
+                  <div class="panel2"><i data-s="w2-light"></i></div>
+                  <div v-for="(pk, i) in BELT" :key="'bp' + i" class="pkg inbox belt-pkg" :class="pk.cls" :data-s="'w2-pkg' + i" :style="`width:${pk.w}px;height:${pk.h}px;top:${352 - pk.h}px`"><img :src="pk.logo" alt="" class="pkg-logo" /></div>
+                  <!-- the Boxly van, side view; its side door slides open for loading -->
+                  <svg class="van" data-s="w2-van" viewBox="0 0 236 150">
+                    <rect x="2" y="10" width="164" height="112" rx="12" fill="#0C254C" />
+                    <rect x="2" y="78" width="164" height="12" fill="#FECD04" />
+                    <path d="M166 40 H204 L232 72 V122 H166 Z" fill="#0C254C" />
+                    <path d="M174 48 H200 L220 72 H174 Z" fill="#BFD7F2" />
+                    <rect x="20" y="20" width="80" height="98" rx="4" fill="#111827" />
+                    <g data-s="w2-door"><rect x="20" y="20" width="80" height="98" rx="4" fill="#14306A" stroke="#0A1C3A" stroke-width="2" /><rect x="22" y="78" width="76" height="12" fill="#FECD04" /><rect x="84" y="56" width="10" height="4" rx="2" fill="#9CA3AF" /></g>
+                    <image href="/app-icon.svg" x="112" y="26" width="40" height="40" />
+                    <text x="108" y="112" font-size="15" font-weight="900" fill="#fff" font-family="inherit">Boxly</text>
+                    <circle cx="46" cy="126" r="17" fill="#1F2937" stroke="#9CA3AF" stroke-width="5" /><circle cx="196" cy="126" r="17" fill="#1F2937" stroke="#9CA3AF" stroke-width="5" />
+                  </svg>
+                  <div class="puffs" data-s="w2-puffs"><i></i><i></i><i></i></div>
+                  <div class="pill" data-s="w2-ok" style="left:430px;top:196px">🚚 Rumbo a Tijuana ✓</div>
                 </div>
 
                 <!-- 3 · scanned in Tijuana -->
@@ -133,7 +150,7 @@
                   <div v-for="(pk, i) in PACKAGES" :key="'p' + i" class="pkg inbox" :class="pk.cls" :data-s="'w4-pkg' + i" :style="`left:${312 + i * 46}px;top:${356 - pk.h}px;width:${pk.w}px;height:${pk.h}px`"><img :src="pk.logo" alt="" class="pkg-logo" /></div>
                   <div class="bx bx-s" data-s="w4-boxS"><span>S</span></div>
                   <div class="bx bx-m" data-s="w4-boxM"><span>M</span><i class="tape" data-s="w4-tape"></i><i class="sticker" data-s="w4-sticker"><img src="/app-icon.svg" alt="" /></i></div>
-                  <div class="pill" data-s="w4-card" style="left:24px;top:300px">📦 3 paquetes → 1 caja</div>
+                  <div class="pill" data-s="w4-card" style="left:24px;top:300px">📦 Múltiples paquetes → 1 caja</div>
                 </div>
 
                 <!-- 5 · anywhere in Mexico -->
@@ -158,7 +175,7 @@
                   <div v-for="(p, i) in PRODUCTS" :key="p.store" class="item" :data-s="'w6-item' + i" :style="`left:${206 + (i - 1) * 74}px`">
                     <div class="pc-art" v-html="p.art"></div><img :src="p.logo" :alt="p.store" class="item-logo" />
                   </div>
-                  <div class="banner keep" data-s="w6-ban"><img src="/app-icon.svg" alt="" /><div><b>Boxly</b><span>Entregado ✓ · 3 compras, 1 caja</span></div></div>
+                  <div class="banner keep" data-s="w6-ban"><img src="/app-icon.svg" alt="" /><div><b>Boxly</b><span>Entregado ✓ · todo en 1 caja</span></div></div>
                 </div>
               </div>
             </div>
@@ -187,10 +204,10 @@ import { buildAct } from './storyActs.js'
 
 const WORLDS = [
   { kicker: 'Boxly', h: 'Compra en cualquier tienda de EE.UU.', p: 'Target, Amazon, Gymshark, New Balance… Boxly lo recibe en San Diego, lo junta en una caja y te lo manda a cualquier parte de México.', cta: 'Empieza a comprar' },
-  { kicker: '1 · San Diego', h: 'Lo recibimos en San Diego.', p: 'Cada paquete llega a tu dirección Boxly en EE.UU. con tu nombre. Lo escaneamos al llegar y te avisamos.' },
-  { kicker: '2 · El cruce', h: 'Los cruzamos a Tijuana.', p: 'Nuestro equipo cruza tus paquetes de San Diego a Tijuana. Tú no haces nada.' },
+  { kicker: '1 · San Diego', h: 'Lo recibimos y lo guardamos en San Diego.', p: 'Cada paquete llega a tu dirección en San Diego con tu nombre. Lo escaneamos y lo guardamos en tu espacio hasta que llegue todo tu pedido.' },
+  { kicker: '2 · Rumbo a Tijuana', h: 'Los llevamos a Tijuana.', p: 'Cargamos tus paquetes en nuestra camioneta y los llevamos de San Diego a Tijuana. Tú no haces nada.' },
   { kicker: '3 · Tijuana', h: 'Ya están en Tijuana.', p: 'Los escaneamos otra vez al llegar a Tijuana, para que sepas que todo cruzó.' },
-  { kicker: '4 · Tu caja', h: '3 paquetes → 1 caja.', p: 'Juntamos todo en una sola caja. Pagas por tamaño de caja, en pesos, sin sorpresas.' },
+  { kicker: '4 · Tu caja', h: 'Múltiples tiendas, 1 caja.', p: 'Juntamos todo en una sola caja. Pagas por tamaño de caja, en pesos, sin sorpresas.' },
   { kicker: '5 · El envío', h: 'A cualquier parte de México.', p: 'Con guía de rastreo, desde Tijuana hasta tu puerta.' },
   { kicker: '6 · Entregado', h: 'Entregado.', p: 'Abres una caja y ahí está todo: tus 3 compras de 3 tiendas.', cta: 'Empieza a comprar' },
 ]
@@ -223,17 +240,22 @@ const PACKAGES = [
   { logo: L('gymshark.png'), item: 'Leggings', cls: 'poly', w: 60, h: 30, x1: 440, x3: 478 },
   { logo: L('new-balance.svg'), item: 'Tenis', cls: 'carton', w: 74, h: 46, x1: 436, x3: 548 },
 ]
+const BELT = [
+  { logo: L('target.svg'), cls: 'mailer', w: 58, h: 30 }, { logo: L('amazon.svg'), cls: 'carton', w: 60, h: 40 },
+  { logo: L('gymshark.png'), cls: 'poly', w: 56, h: 28 }, { logo: L('bath-body-works.svg'), cls: 'whitebox', w: 56, h: 36 },
+  { logo: L('new-balance.svg'), cls: 'carton', w: 64, h: 42 }, { logo: L('walmart.svg'), cls: 'carton', w: 58, h: 36 },
+]
 const W1_BANNERS = ['Llegó 1 de 3 · Target', 'Llegó 2 de 3 · Gymshark', 'Llegó 3 de 3 · New Balance', '¡Ya llegaron todos! 🎉']
 const SIZES = ['S', 'M', 'L', 'XL']
 const CARDS = [
   { w: 0, x: 0, y: 150, logo: L('amazon.svg'), from: 'left' }, { w: 0, x: 818, y: 120, logo: L('walmart.svg'), from: 'right', d: 0.03 },
   { w: 0, x: 10, y: 560, logo: L('sephora.svg'), from: 'left', d: 0.06 }, { w: 0, x: 812, y: 600, t: 'Sin tarjeta americana', from: 'right', d: 0.09 },
   { w: 1, x: 0, y: 200, t: 'Escaneado 12:41', s: 'San Diego', from: 'left' }, { w: 1, x: 812, y: 590, t: 'Tu dirección en EE.UU.', s: 'con tu nombre', from: 'right', d: 0.05 },
-  { w: 2, x: 0, y: 230, t: 'Cruce diario', from: 'left' }, { w: 2, x: 812, y: 590, t: 'Tú no haces nada', from: 'right', d: 0.05 },
+  { w: 2, x: 0, y: 230, t: 'Salida diaria', from: 'left' }, { w: 2, x: 812, y: 590, t: 'Tú no haces nada', from: 'right', d: 0.05 },
   { w: 3, x: 0, y: 220, t: 'Escaneado 09:15', s: 'Tijuana', from: 'left' }, { w: 3, x: 820, y: 600, t: '3 de 3 ✓', from: 'right', d: 0.05 },
   { w: 4, x: 0, y: 200, t: 'Pagas en pesos', from: 'left' }, { w: 4, x: 816, y: 600, t: 'Precio fijo por caja', from: 'right', d: 0.05 },
   { w: 5, x: 0, y: 220, t: 'Guía de rastreo', from: 'left' }, { w: 5, x: 812, y: 600, t: 'Toda la República', from: 'right', d: 0.05 },
-  { w: 6, x: 0, y: 200, t: '★★★★★', s: '"Llegó todo perfecto"', from: 'left' }, { w: 6, x: 812, y: 600, t: '3 tiendas → 1 caja', from: 'right', d: 0.05 },
+  { w: 6, x: 0, y: 200, t: '★★★★★', s: '"Llegó todo perfecto"', from: 'left' }, { w: 6, x: 812, y: 600, t: 'Múltiples tiendas → 1 caja', from: 'right', d: 0.05 },
 ]
 
 // live box prices, rendered on the server (fallback = last good prices: never $0 or an empty picker)
@@ -505,30 +527,44 @@ onBeforeUnmount(() => cleanup())
 
 /* 1 */
 .label-card, .list-card, .picker { position: absolute; left: 24px; top: 56px; width: 250px; padding: 14px; border-radius: 16px; background: #fff; box-shadow: 0 8px 22px rgba(12, 37, 76, .12), 0 0 0 1px rgba(12, 37, 76, .06); }
-.label-card { left: 150px !important; top: 72px !important; height: 162px; }
+.label-card { left: 24px !important; top: 72px !important; height: 162px; }
 .lc-label { position: absolute; left: 14px; right: 14px; top: 34px; padding: 10px; border: 2px dashed #0C254C; border-radius: 10px; color: #0C254C; background: #fff; opacity: 0; }
 .lc-label:last-of-type { opacity: 1; }
 .barcode { height: 26px; margin-top: 8px; background: repeating-linear-gradient(90deg, #0C254C 0 2px, transparent 2px 4px, #0C254C 4px 7px, transparent 7px 9px); }
 .stamp { position: absolute; right: 8px; top: 8px; width: 34px; height: 34px; border-radius: 99px; background: #16A34A; color: #fff; font-weight: 900; display: grid; place-items: center; font-size: 18px; transform: rotate(-12deg); }
 
-/* 2 */
-.map-card { position: absolute; left: 24px; top: 20px; width: 400px; height: 300px; border-radius: 16px; overflow: hidden; background: linear-gradient(#DCEAFB 0 52%, #F8E4D2 52%); box-shadow: 0 0 0 1px rgba(12, 37, 76, .06); }
-.map-us, .map-mx { position: absolute; left: 16px; font-size: 13px; font-weight: 800; color: #0C254C; }
-.map-us { top: 14px; } .map-mx { bottom: 14px; color: #8A3B12; }
-.map-border { position: absolute; left: 0; right: 0; top: 52%; border-top: 3px dashed #0C254C; }
-.map-border span { position: absolute; right: 12px; top: -22px; font-size: 11px; font-weight: 800; color: #0C254C; opacity: .7; }
-.map-dot { position: absolute; width: 14px; height: 14px; border-radius: 99px; border: 3px solid #fff; box-shadow: 0 2px 6px rgba(0, 0, 0, .2); }
-.map-dot.sd { left: 183px; top: 73px; background: #2E6BB7; } .map-dot.tj { left: 198px; top: 221px; background: #C9622E; }
-.map-route { position: absolute; inset: 0; width: 400px; height: 280px; }
-.traveler { position: absolute; left: 198px; top: 221px; display: flex; align-items: center; gap: 6px; transform: translate(-6px, -6px); }
-.traveler i { width: 18px; height: 18px; border-radius: 5px; background: #C98B4E; border: 2px solid #8A5A2B; }
-.traveler span { padding: 3px 8px; border-radius: 99px; background: #0C254C; color: #fff; font-size: 11px; font-weight: 800; white-space: nowrap; }
-.map-ok { position: absolute; left: 230px; top: 250px; padding: 4px 10px; border-radius: 99px; background: #16A34A; color: #fff; font-size: 12px; font-weight: 800; }
-.door { position: absolute; left: 600px; top: 216px; width: 60px; height: 196px; background: #2B3445; border-radius: 6px 0 0 0; }
-.door span { position: absolute; left: -84px; top: -26px; width: 140px; font-size: 11px; font-weight: 800; color: #6B7A90; text-align: right; }
-.team-hands { position: absolute; left: 600px; top: 300px; display: flex; gap: 10px; flex-direction: column; opacity: 0; }
-.team-hands i { width: 34px; height: 18px; border-radius: 9px; background: #F59E0B; border: 2px solid #B45309; }
+/* 1: the reserved shelf */
+.rack { position: absolute; left: 446px; top: 64px; width: 206px; height: 248px; border-left: 6px solid #94A3B8; border-right: 6px solid #94A3B8; }
+.rack-board { position: absolute; left: 0; right: 0; height: 8px; background: #94A3B8; border-radius: 2px; }
+.rack-ghost { position: absolute; border-radius: 4px; background: #E2E8F0; }
+.rack-tag { position: absolute; left: 10px; right: 10px; top: 8px; padding: 6px 10px; border-radius: 10px; background: #0C254C; color: #fff; display: flex; flex-direction: column; line-height: 1.2; }
+.rack-tag b { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: #FECD04; } .rack-tag span { font-size: 13px; font-weight: 800; }
+.rack-prog { position: absolute; left: 10px; right: 10px; top: 62px; display: flex; gap: 6px; align-items: center; }
+.rack-prog i { width: 22px; height: 8px; border-radius: 99px; background: #16A34A; }
+.rack-done { margin-left: 6px; font-size: 11px; font-weight: 800; color: #16A34A; white-space: nowrap; }
 
+/* 2 */
+.floor2 { position: absolute; left: 0; right: 0; top: 412px; height: 2px; background: #E3E8EF; }
+.wall2 { position: absolute; left: 0; right: 0; top: 0; height: 412px; background: linear-gradient(#F6F8FB, #EEF2F7); }
+.sign2 { position: absolute; left: 186px; top: 26px; display: flex; gap: 10px; align-items: center; padding: 10px 18px; border-radius: 14px; background: #0C254C; color: #fff; box-shadow: 0 8px 20px rgba(12, 37, 76, .2); }
+.sign2 img { width: 34px; height: 34px; } .sign2 div { display: flex; flex-direction: column; line-height: 1.2; }
+.sign2 b { font-size: 17px; font-weight: 900; } .sign2 span { font-size: 12px; color: #FECD04; font-weight: 700; }
+.board2 { position: absolute; left: 30px; top: 120px; width: 250px; padding: 10px 12px; border-radius: 12px; background: #111827; color: #E5E7EB; font-size: 12px; }
+.board2 p { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: #FECD04; font-weight: 800; margin-bottom: 6px; }
+.board2 div { position: relative; display: flex; gap: 10px; align-items: center; padding: 6px 0; border-top: 1px solid #1F2937; }
+.board2 div.dim { opacity: .5; } .board2 b { font-weight: 800; color: #fff; } .board2 span { color: #9CA3AF; }
+.board2 em { margin-left: auto; font-style: normal; font-weight: 800; }
+.b2-load { color: #FBBF24; position: absolute; right: 0; opacity: 0; } .b2-out { color: #34D399; }
+.dock2 { position: absolute; left: 404px; top: 150px; width: 256px; height: 262px; background: repeating-linear-gradient(#CBD5E1 0 14px, #B8C4D4 14px 16px); border-radius: 6px 6px 0 0; }
+.belt { position: absolute; left: 0; top: 352px; width: 460px; height: 62px; }
+.belt svg { width: 460px; height: 62px; overflow: visible; }
+.panel2 { position: absolute; left: 116px; top: 300px; width: 34px; height: 46px; border-radius: 6px; background: #4B5563; }
+.panel2 i { position: absolute; left: 9px; top: 9px; width: 16px; height: 16px; border-radius: 99px; background: #16A34A; box-shadow: 0 0 0 3px #1F2937; }
+.belt-pkg { left: 0; }
+.pkg.whitebox { background: #fff; border: 2px solid #D1D5DB; }
+.van { position: absolute; left: 432px; top: 262px; width: 236px; height: 150px; overflow: visible; }
+.puffs { position: absolute; left: 404px; top: 380px; display: flex; gap: 4px; opacity: 0; }
+.puffs i { width: 14px; height: 14px; border-radius: 99px; background: #D1D5DB; }
 /* 3 */
 .list-card { left: 150px !important; top: 72px !important; height: 176px; }
 .lc-row { display: flex; align-items: center; gap: 10px; padding: 9px 4px; border-bottom: 1px solid #EEF2F7; font-size: 14px; font-weight: 700; color: #0C254C; }
