@@ -56,6 +56,8 @@ address world.
   between worlds. Palettes: 0–1 US blue (#2E6BB7 tints), 2 US blue, 3–4 warm Tijuana (sand → terracotta), 5 warm,
   6 navy (#0C254C) with warm-white and yellow accents (never yellow behind the yellow mascot). The one timed colour beat,
   world 2's crossing, is a `.room-tint` overlay that is itself part of world 2's act (Kiru's colour-world trick).
+  The act stays on until n ≈ 2.62, so the tint's opacity is faded out as world 3's warm palette blends in (by the same
+  0.34–0.66 scroll blend), or the room goes double-warm for a moment (Henry's review).
 - **Prices** in world 4 are rendered on the server into the final pose from the site's live box prices (the ones
   `BoxPricing` uses). With reduced motion, without JS, or if prices fail to load, the picker still shows S/M/L/XL;
   a missing price hides its number and never shows $0 or an empty picker.
