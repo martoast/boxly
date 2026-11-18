@@ -270,7 +270,22 @@
                 </div>
                 <div ref="cardTrack" @scroll.passive="onCardTrackScroll" class="card-track flex overflow-x-auto snap-x snap-mandatory overscroll-x-contain -mx-4 md:-mx-1 pb-1">
                   <div v-for="(page, pi) in cardPages" :key="'page' + pi" class="w-full shrink-0 snap-start px-4 md:px-1">
-                    <div class="grid grid-cols-3 gap-x-2.5 md:gap-x-3.5 gap-y-3.5 md:gap-y-5">
+                    <div v-if="page === ANY_STORE_PAGE" class="h-full min-h-[18rem] rounded-2xl bg-gradient-to-br from-primary-50 via-white to-primary-100/60 ring-1 ring-primary-100 flex flex-col items-center justify-center text-center px-6 py-8">
+                      <span class="grid place-items-center w-12 h-12 rounded-full bg-primary-600 text-white shadow-sm">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m6-6H6" /></svg>
+                      </span>
+                      <p class="mt-4 text-xl md:text-2xl font-extrabold text-gray-900">Y miles de tiendas más</p>
+                      <p class="mt-2 max-w-md text-[14px] md:text-[15px] text-gray-600 leading-relaxed">Estas son solo algunas. Puedes comprar en <span class="font-semibold text-gray-800">cualquier tienda de USA</span>: escribe la tienda o pega el link del producto.</p>
+                      <div class="mt-4 flex flex-wrap justify-center gap-1.5 max-w-md">
+                        <span v-for="name in ANY_STORE_EXAMPLES" :key="name" class="rounded-full bg-white px-2.5 py-1 text-[12.5px] font-medium text-gray-600 ring-1 ring-gray-200">{{ name }}</span>
+                        <span class="rounded-full bg-white px-2.5 py-1 text-[12.5px] font-medium text-gray-400 ring-1 ring-gray-200">y más…</span>
+                      </div>
+                      <button type="button" @click="focusComposer" class="mt-5 inline-flex items-center gap-2 rounded-xl bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary-700 active:scale-[.98] transition">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 10.5a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z" /></svg>
+                        Buscar mi tienda
+                      </button>
+                    </div>
+                    <div v-else class="grid grid-cols-3 gap-x-2.5 md:gap-x-3.5 gap-y-3.5 md:gap-y-5">
                       <button
                         v-for="s in page"
                         :key="s.text"
@@ -1369,8 +1384,14 @@ const cardPages = computed(() => {
   const list = suggestions.value || []
   const pages = []
   for (let i = 0; i < list.length; i += CARDS_PER_PAGE) pages.push(list.slice(i, i + CARDS_PER_PAGE))
+  // the last slide says the cards are only examples: any US store works (Alex 2026-11-18: a shopper who reaches the end without
+  // seeing their store must not think those are the only ones)
+  if (pages.length) pages.push(ANY_STORE_PAGE)
   return pages
 })
+const ANY_STORE_PAGE = 'any-store'
+const ANY_STORE_EXAMPLES = ['Amazon', 'Walmart', 'Target', 'Sephora', 'Ulta Beauty', 'Best Buy', 'Lululemon', 'eBay'] // all live stores
+const focusComposer = () => nextTick(() => composerRef.value?.focus())
 const cardTrack = ref(null)
 const cardPage = ref(0)
 function onCardTrackScroll() {
