@@ -18,13 +18,13 @@ with the rig (step 2).*
 
 ## The order we follow
 
-One shopper, **María López**, buys from 3 US stores. These are among the stores Boxly customers buy from most:
+One shopper, **María López**, buys from 3 US stores Boxly customers shop a lot (Alex's pick, 2026-11-18):
 
 | # | Store | Item | Package |
 |---|-------|------|---------|
-| A | Bath & Body Works | body care set (mist + lotion) | small mailer bag |
+| A | Target | throw blanket | red Target mailer bag |
 | B | Gymshark | leggings | poly bag |
-| C | Nike | sneakers | orange shoe box in a brown carton |
+| C | New Balance | sneakers | grey New Balance shoe box in a brown carton |
 
 Each package carries the label exactly as customers write it: **BOXLY MARÍA LÓPEZ**, 157 Virginia Ave Suite 835, San
 Ysidro, CA 92173. Suite 835 is Boxly's own address, the same one the app gives every customer (only the name line
@@ -84,10 +84,10 @@ left two thirds.
 
 ## 0 · Hero: "Compra en cualquier tienda de EE.UU." (5.6 s, plays on load)
 
-**Copy:** *Compra en cualquier tienda de EE.UU.* / Amazon, Bath & Body Works, Nike, Gymshark… Boxly lo recibe en
+**Copy:** *Compra en cualquier tienda de EE.UU.* / Target, Amazon, Gymshark, New Balance… Boxly lo recibe en
 San Diego, lo junta en una caja y te lo manda a cualquier parte de México.
 **Store logos, inside the window:** the window's screen opens on a **logo wall** (a slow two-row marquee) of real
-logos, unaltered: Bath & Body Works, Gymshark, Nike, Amazon, Walmart, Victoria's Secret, Coach Outlet, Sephora, Ulta
+logos, unaltered: Target, Gymshark, New Balance, Bath & Body Works, Nike, Amazon, Walmart, Victoria's Secret, Coach Outlet, Sephora, Ulta
 Beauty, American Eagle, then "y miles más". It stays behind the tabs, dimmed, so the logos survive the mobile crop. On
 desktop, a few extra logos also float outside the window on springs (extras). Footer line: *Las marcas mostradas
 pertenecen a sus respectivos dueños. Boxly no está afiliado con ellas.*
@@ -96,11 +96,11 @@ Boxly adds it to that store's cart. That is the real Boxly AI flow: the agent bu
 
 | t | Boxly | Window |
 |---|-------|--------|
-| 0–0.6 s | Pops up from below the window (squash → stretch → settle), looks at you and waves: **"¡Hola, soy Boxly!"** Brows up | The logo wall drifts; three store tabs slide over it: Bath & Body Works, Gymshark, Nike |
-| 0.9 s | Turns to the window, brows tilt (reading) | Tab A: the customer's hand cursor picks the body care set |
-| 1.3 s | Taps "Agregar al carrito" with his glove (a small lean in) | Cart badge pops **1**; a small "Bath & Body Works ✓" chip lands in the tab |
+| 0–0.6 s | Pops up from below the window (squash → stretch → settle), looks at you and waves: **"¡Hola, soy Boxly!"** Brows up | The logo wall drifts; three store tabs slide over it: Target, Gymshark, New Balance |
+| 0.9 s | Turns to the window, brows tilt (reading) | Tab A: the customer's hand cursor picks the throw blanket |
+| 1.3 s | Taps "Agregar al carrito" with his glove (a small lean in) | Cart badge pops **1**; a small "Target ✓" chip lands in the tab |
 | 2.1 s | Hops to tab B (arcing hop, squash on landing) | The cursor picks the Gymshark leggings, size M; Boxly taps: badge **1**, chip "Gymshark ✓" |
-| 2.9 s | Hops to tab C | The cursor picks the Nike sneakers, size 25 MX; Boxly taps: badge **1**, chip "Nike ✓" |
+| 2.9 s | Hops to tab C | The cursor picks the New Balance sneakers, size 25 MX; Boxly taps: badge **1**, chip "New Balance ✓" |
 | 3.6 s | Steps back, brows up, looks over the three cards | The three cards line up: **"3 tiendas · 3 pedidos"** |
 | 4.4 s | Faces you, Erick's pose (thumbs up, glove on hip), smile | A pill: "Todo va a tu dirección Boxly en EE.UU." |
 | 5.0 s | Idle breath, blink | — |
@@ -116,11 +116,11 @@ escaneamos al llegar y te avisamos.
 |---|-------|--------|
 | 0–0.8 s | Stands at a counter with a handheld scanner in his right glove | A delivery hand (the carrier's, gloveless, cut by the window edge) slides package A onto the counter |
 | 0.9 s | Leans in, raises the scanner, brows together | Label close-up: **MARÍA LÓPEZ · BOXLY**, 157 Virginia Ave Suite 835, San Ysidro |
-| 1.3 s | **Beep**, a small nod | ✓ stamps on the label. The banner slides down from the window's top edge: **"Llegó 1 de 3 · Bath & Body Works"** |
+| 1.3 s | **Beep**, a small nod | ✓ stamps on the label. The banner slides down from the window's top edge: **"Llegó 1 de 3 · Target"** |
 | 2.0–2.4 s | Sets A on a shelf behind him (lift: squash, carry, set down) | Package B slides in |
 | 2.7 s | Scan, beep, nod | ✓. Notification stacks: **"Llegó 2 de 3 · Gymshark"** |
-| 3.4–3.8 s | Shelves B; the Nike carton slides in, heavier: he squats a little to scan it | — |
-| 4.1 s | Scan, beep, brows up | ✓. Notification: **"Llegó 3 de 3 · Nike"**, and the stack collapses into **"¡Ya llegaron todos!"** |
+| 3.4–3.8 s | Shelves B; the New Balance carton slides in, heavier: he squats a little to scan it | — |
+| 4.1 s | Scan, beep, brows up | ✓. Notification: **"Llegó 3 de 3 · New Balance"**, and the stack collapses into **"¡Ya llegaron todos!"** |
 | 4.8 s | Looks at you, closed smile, small nod | — |
 
 **Payoff:** your packages arrive at your own US address, and you know the moment each one lands.
@@ -160,7 +160,7 @@ escaneamos al llegar y te avisamos.
 | t | Boxly | Window |
 |---|-------|--------|
 | 0–0.7 s | Lines up A, B and C on the table, brows together (concentrating) | The box picker appears: **S · M · L · XL** with their prices in pesos *(server-rendered from the live box prices; the retired XS box never shows)* |
-| 0.9 s | Brings over an **S** box and tries the Nike carton: it pokes out | **S** highlights, then "No cabe" in grey |
+| 0.9 s | Brings over an **S** box and tries the New Balance carton: it pokes out | **S** highlights, then "No cabe" in grey |
 | 1.4 s | Pushes S aside with a small "hmm" mouth and tilted brows (one beat, not two) | — |
 | 1.7 s | Brings an **M** box; A, B and C slide in one by one, each with a small settle | **M** highlights: "Cabe ✓" and its price |
 | 2.6 s | Brows up, looks at the screen | **The customer's bare hand** taps **Pagar** |
@@ -192,7 +192,7 @@ escaneamos al llegar y te avisamos.
 | t | Boxly | Window |
 |---|-------|--------|
 | 0–0.8 s | Stands at his home spot, brows up, watching | The box arrives at a front door, then the customer's bare hands open it |
-| 1.0 / 1.5 / 2.0 s | A small hop of joy for each item | Out come the body care set, the leggings and the Nike box, each with its store name |
+| 1.0 / 1.5 / 2.0 s | A small hop of joy for each item | Out come the throw blanket, the leggings and the New Balance box, each with its store name |
 | 2.6 s | — | The banner: **"Entregado ✓"** |
 | 3.2 s | **Erick's pose exactly**: right glove thumbs up, left glove on hip, leaning toward you, open smile | The navy room (set by scroll) makes the yellow cube pop |
 | 4.4 s | Blink, idle breath | CTA under the story: **"Empieza a comprar"** |
