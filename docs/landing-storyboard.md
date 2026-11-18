@@ -2,7 +2,7 @@
 
 **Boxly** is Erick's mascot: a yellow cube with navy edges, white gloves, navy legs and navy sneakers with a yellow stripe.
 He is drawn **exactly as Erick designed him**. The cube is closed, the **brows carry the mood**, and no parts are added.
-In every world Boxly does the real work Boxly does at that step, and the window or phone shows what the customer sees
+In every world Boxly does the real work Boxly does at that step, and the window shows what the customer sees
 as a result. No gags. With the sound off and the copy unread, each world should still show what happens to the order.
 
 **Personality:** cheerful, careful, quick, proud of a well-packed box.
@@ -26,9 +26,10 @@ One shopper, **María López**, buys from 3 US stores. These are among the store
 | B | Gymshark | leggings | poly bag |
 | C | Nike | sneakers | orange shoe box in a brown carton |
 
-Each package carries a label: **MARÍA LÓPEZ · BOXLY**, 157 Virginia Ave Suite 835, San Ysidro, CA 92173. That is the
-customer's Boxly US address (already public on the site). Showing it on the labels explains the address; there is no
-separate address world.
+Each package carries the label exactly as customers write it: **BOXLY MARÍA LÓPEZ**, 157 Virginia Ave Suite 835, San
+Ysidro, CA 92173. Suite 835 is Boxly's own address, the same one the app gives every customer (only the name line
+changes), so it is not a private customer suite. Showing it on the labels explains the address; there is no separate
+address world.
 
 ## How it is built (Kiru's engine, ported)
 
@@ -45,9 +46,37 @@ separate address world.
   the glove and swings against its motion on a spring.
 - Only transforms and opacity are animated. Each element's own style is its final pose, which is what reduced motion
   shows and what the server renders.
-- Window: 660×480, screen from y 36. The phone (worlds 1, 3, 4 and 6) is the window's phone crop on small screens.
-- Room colours: worlds 0–1 US blue (#2E6BB7 tints), world 2 shifts to warm Tijuana (sand → terracotta), worlds 3–4
-  warm, world 5 warm → neutral, world 6 Boxly yellow (#FECD04) with navy (#0C254C).
+- **Mobile crop (Henry's review):** on phones the board is cropped to the window plus ~20 px, and every prop outside the
+  window that is less than 80% visible is hidden (`.offcrop`). So **everything essential lives inside the window**:
+  the store logos (a logo wall on the window's screen), the notifications and the prices. Floating cards outside the
+  window are extras on desktop only and never carry essential information.
+- **Notifications** are an iOS-style banner that slides down from the window's top edge, inside the window, and stacks
+  there. There is no separate drawn phone.
+- **Room colours follow scroll, not the act clock**: the engine blends one palette into the next over n 0.34–0.66
+  between worlds. Palettes: 0–1 US blue (#2E6BB7 tints), 2 US blue, 3–4 warm Tijuana (sand → terracotta), 5 warm,
+  6 navy (#0C254C) with warm-white and yellow accents (never yellow behind the yellow mascot). The one timed colour beat,
+  world 2's crossing, is a `.room-tint` overlay that is itself part of world 2's act (Kiru's colour-world trick).
+- **Prices** in world 4 are rendered on the server into the final pose from the site's live box prices (the ones
+  `BoxPricing` uses). With reduced motion, without JS, or if prices fail to load, the picker still shows S/M/L/XL;
+  a missing price hides its number and never shows $0 or an empty picker.
+
+### One stage, in window coordinates
+
+Like Kiru: the window is **660×480** on the board at (150,160); its screen starts at **y 36**; everything below is
+window-local px. Boxly lives in `.win-over` at window scale, in a **120×120 box (10em at 12px)**, with his feet on the
+**floor line y 448**. His home spot is **x 470–590** (bottom right of the window), so the screen's content keeps the
+left two thirds.
+
+| Station | Where (window px) | Worlds |
+|---|---|---|
+| Store tabs + logo wall (screen) | x 24–440, y 56–300 | 0 |
+| Counter / table top | x 300–640, top y 376 | 1, 3, 4 |
+| Shelf behind Boxly | x 520–650, y 250–320 | 1 |
+| Loading door (right edge) | x 600–660, y 300–448 | 2 |
+| Map (screen) | x 24–440, y 56–330 | 2, 5 |
+| Box picker (screen) | x 24–300, y 60–220 | 4 |
+| Notification banner (slides in) | x 160–500, y 40–92 | 1, 3, 4, 6 |
+| Proof-card corner (desktop extras) | outside the window, left and right | all |
 
 ---
 
@@ -55,17 +84,21 @@ separate address world.
 
 **Copy:** *Compra en cualquier tienda de EE.UU.* / Amazon, Bath & Body Works, Nike, Gymshark… Boxly lo recibe en
 San Diego, lo junta en una caja y te lo manda a cualquier parte de México.
-**Around the window:** real store logos, unaltered, floating on springs: Bath & Body Works, Gymshark, Nike, Amazon,
-Walmart, Victoria's Secret, Coach Outlet, Sephora, Ulta Beauty, American Eagle. Footer line: *Las marcas mostradas
+**Store logos, inside the window:** the window's screen opens on a **logo wall** (a slow two-row marquee) of real
+logos, unaltered: Bath & Body Works, Gymshark, Nike, Amazon, Walmart, Victoria's Secret, Coach Outlet, Sephora, Ulta
+Beauty, American Eagle, then "y miles más". It stays behind the tabs, dimmed, so the logos survive the mobile crop. On
+desktop, a few extra logos also float outside the window on springs (extras). Footer line: *Las marcas mostradas
 pertenecen a sus respectivos dueños. Boxly no está afiliado con ellas.*
+**Who does what (Henry's review):** the customer chooses (a bare hand cursor picks the item and size in Boxly AI), and
+Boxly adds it to that store's cart. That is the real Boxly AI flow: the agent builds the cart in the store itself.
 
 | t | Boxly | Window |
 |---|-------|--------|
-| 0–0.6 s | Pops up from below the window (squash → stretch → settle), looks at you and waves: **"¡Hola, soy Boxly!"** Brows up | Three store tabs fade in: Bath & Body Works, Gymshark, Nike |
-| 0.9 s | Turns to the window, brows tilt (reading) | Tab A is open: the body care set, size picked |
-| 1.3 s | Taps "Agregar al carrito" with his glove (a small lean in) | Cart badge pops **1**. A mini card flies to the window's corner: "Bath & Body Works ✓" |
-| 2.1 s | Hops to tab B (arcing hop, squash on landing) and taps | Gymshark leggings, size M: badge **1**, card "Gymshark ✓" |
-| 2.9 s | Hops to tab C and taps | Nike sneakers, size 25 MX: badge **1**, card "Nike ✓" |
+| 0–0.6 s | Pops up from below the window (squash → stretch → settle), looks at you and waves: **"¡Hola, soy Boxly!"** Brows up | The logo wall drifts; three store tabs slide over it: Bath & Body Works, Gymshark, Nike |
+| 0.9 s | Turns to the window, brows tilt (reading) | Tab A: the customer's hand cursor picks the body care set |
+| 1.3 s | Taps "Agregar al carrito" with his glove (a small lean in) | Cart badge pops **1**; a small "Bath & Body Works ✓" chip lands in the tab |
+| 2.1 s | Hops to tab B (arcing hop, squash on landing) | The cursor picks the Gymshark leggings, size M; Boxly taps: badge **1**, chip "Gymshark ✓" |
+| 2.9 s | Hops to tab C | The cursor picks the Nike sneakers, size 25 MX; Boxly taps: badge **1**, chip "Nike ✓" |
 | 3.6 s | Steps back, brows up, looks over the three cards | The three cards line up: **"3 tiendas · 3 pedidos"** |
 | 4.4 s | Faces you, Erick's pose (thumbs up, glove on hip), smile | A pill: "Todo va a tu dirección Boxly en EE.UU." |
 | 5.0 s | Idle breath, blink | — |
@@ -77,11 +110,11 @@ pertenecen a sus respectivos dueños. Boxly no está afiliado con ellas.*
 **Copy:** *Lo recibimos en San Diego.* / Cada paquete llega a tu dirección Boxly en EE.UU. con tu nombre. Lo
 escaneamos al llegar y te avisamos.
 
-| t | Boxly | Window / phone |
+| t | Boxly | Window |
 |---|-------|--------|
 | 0–0.8 s | Stands at a counter with a handheld scanner in his right glove | A delivery hand (the carrier's, gloveless, cut by the window edge) slides package A onto the counter |
 | 0.9 s | Leans in, raises the scanner, brows together | Label close-up: **MARÍA LÓPEZ · BOXLY**, 157 Virginia Ave Suite 835, San Ysidro |
-| 1.3 s | **Beep**, a small nod | ✓ stamps on the label. Phone notification slides in: **"Llegó 1 de 3 · Bath & Body Works"** |
+| 1.3 s | **Beep**, a small nod | ✓ stamps on the label. The banner slides down from the window's top edge: **"Llegó 1 de 3 · Bath & Body Works"** |
 | 2.0–2.4 s | Sets A on a shelf behind him (lift: squash, carry, set down) | Package B slides in |
 | 2.7 s | Scan, beep, nod | ✓. Notification stacks: **"Llegó 2 de 3 · Gymshark"** |
 | 3.4–3.8 s | Shelves B; the Nike carton slides in, heavier: he squats a little to scan it | — |
@@ -99,7 +132,7 @@ escaneamos al llegar y te avisamos.
 | 0–0.9 s | Pushes a hand cart with the three packages toward the right, walking (bob, arms forward) | A simple map: San Diego ● and Tijuana ● with the border line between them |
 | 1.0 s | Stops at a loading door, wipes his brow with the back of a glove (brows relaxed) | — |
 | 1.4–2.4 s | Lifts each package (A, B, then the heavier C) and hands it through the door to the crossing team (two gloved hands, cut by the frame) | A dot leaves San Diego on the map with a "3 paquetes" tag |
-| 2.6 s | Waves the team off | The dot crosses the border line. **The room colour starts shifting from US blue to warm Tijuana** |
+| 2.6 s | Waves the team off | The dot crosses the border line. **A warm `.room-tint` overlay (part of this act) washes over the room**, so the colour turns as the dot crosses; world 3's warm palette takes over by scroll |
 | 3.6 s | Turns and watches it go, brows up | The dot reaches Tijuana: "Cruzando ✓" |
 | 4.4 s | Looks at you, thumbs up | — |
 
@@ -109,30 +142,30 @@ escaneamos al llegar y te avisamos.
 
 **Copy:** *Ya están en Tijuana.* / Los escaneamos otra vez al llegar a Tijuana, para que sepas que todo cruzó.
 
-| t | Boxly | Window / phone |
+| t | Boxly | Window |
 |---|-------|--------|
 | 0–0.6 s | Already in the warm room; the three packages come off the cart onto a table | — |
 | 0.8 / 1.6 / 2.4 s | Scans A, B, C in a quicker rhythm: beep, beep, beep, a nod each | A ✓ lights next to each package in a 3-row list |
-| 3.0 s | Brows up, both gloves open (all there) | Phone notification: **"Tus paquetes ya están en Tijuana"** |
+| 3.0 s | Brows up, both gloves open (all there) | The banner slides down: **"Tus paquetes ya están en Tijuana"** |
 | 3.8 s | Looks at you, closed smile | — |
 
 **Payoff:** every package is accounted for on both sides of the border.
 
-## 4 · "Tu caja final" (6.0 s, the second wow)
+## 4 · "Tu caja final" (6.2 s, the second wow)
 
 **Copy:** *3 paquetes → 1 caja.* / Juntamos todo en una sola caja. Pagas por tamaño de caja, en pesos, sin sorpresas.
 
-| t | Boxly | Window / phone |
+| t | Boxly | Window |
 |---|-------|--------|
-| 0–0.7 s | Lines up A, B and C on the table, brows together (concentrating) | The box picker appears: **S · M · L · XL** with their prices in pesos *(read live from the site's box prices, never typed in; the retired XS box never shows)* |
+| 0–0.7 s | Lines up A, B and C on the table, brows together (concentrating) | The box picker appears: **S · M · L · XL** with their prices in pesos *(server-rendered from the live box prices; the retired XS box never shows)* |
 | 0.9 s | Brings over an **S** box and tries the Nike carton: it pokes out | **S** highlights, then "No cabe" in grey |
-| 1.5 s | Brows tilt, a small "hmm" mouth; pushes S aside | — |
-| 1.8 s | Brings an **M** box; A, B and C slide in one by one, each with a small settle | **M** highlights: "Cabe ✓" and its price |
-| 2.6 s | Brows up, looks at the phone | A glove (the customer's thumb on the phone) taps **Pagar** |
-| 3.0 s | — | **✓ Pagado** blooms |
-| 3.3–4.2 s | Closes the box flaps of the **shipping box** (the box, not Boxly), runs the tape across (the tape gun swings on a spring) | — |
-| 4.4 s | Presses a small Boxly-logo sticker on the side | — |
-| 4.9 s | Looks at you, **winks**, thumbs up | Card: **"3 paquetes → 1 caja"** |
+| 1.4 s | Pushes S aside with a small "hmm" mouth and tilted brows (one beat, not two) | — |
+| 1.7 s | Brings an **M** box; A, B and C slide in one by one, each with a small settle | **M** highlights: "Cabe ✓" and its price |
+| 2.6 s | Brows up, looks at the screen | **The customer's bare hand** taps **Pagar** |
+| 3.0 s | — | **✓ Pagado** blooms; the banner: "Pago recibido · Caja M" |
+| 3.4–4.4 s | Closes the flaps of the **shipping box** (the box, not Boxly) and runs the tape across (the tape gun swings on a spring) | — |
+| 4.6 s | Presses a small Boxly-logo sticker on the side | — |
+| 5.1 s | Looks at you, **winks**, thumbs up | Card: **"3 paquetes → 1 caja"** (inside the window) |
 
 **Payoff:** three orders become one box, priced by size, paid in pesos.
 
@@ -144,7 +177,7 @@ escaneamos al llegar y te avisamos.
 |---|-------|--------|
 | 0–0.8 s | Carries the sealed box (lift: squash, carry with a stretch) | A map of Mexico, a pin in Tijuana |
 | 1.0 s | Hands it to the courier (a uniformed arm through the frame) | A tracking card: "En camino · Guía 7741…" |
-| 1.4–3.6 s | Waves, then watches with brows up | A dashed route draws from Tijuana to the customer's city (for example Guadalajara); the room colour eases from warm to neutral |
+| 1.4–3.6 s | Waves, then watches with brows up | A dashed route draws from Tijuana to the customer's city (for example Guadalajara) |
 | 3.8 s | — | The pin in the destination bounces |
 | 4.3 s | Looks at you, closed smile | — |
 
@@ -154,17 +187,32 @@ escaneamos al llegar y te avisamos.
 
 **Copy:** *Entregado.* / Abres una caja y ahí está todo: tus 3 compras de 3 tiendas.
 
-| t | Boxly | Window / phone |
+| t | Boxly | Window |
 |---|-------|--------|
-| 0–0.8 s | Stands beside the window, brows up, watching | The box arrives at a front door, then the customer's hands open it |
+| 0–0.8 s | Stands at his home spot, brows up, watching | The box arrives at a front door, then the customer's bare hands open it |
 | 1.0 / 1.5 / 2.0 s | A small hop of joy for each item | Out come the body care set, the leggings and the Nike box, each with its store name |
-| 2.6 s | — | Phone: **"Entregado ✓"** |
-| 3.2 s | **Erick's pose exactly**: right glove thumbs up, left glove on hip, leaning toward you, open smile | Room colour: Boxly yellow with navy |
+| 2.6 s | — | The banner: **"Entregado ✓"** |
+| 3.2 s | **Erick's pose exactly**: right glove thumbs up, left glove on hip, leaning toward you, open smile | The navy room (set by scroll) makes the yellow cube pop |
 | 4.4 s | Blink, idle breath | CTA under the story: **"Empieza a comprar"** |
 
 **Payoff:** three stores, one box, at your door.
 
 ---
+
+## Proof cards (desktop extras, 2–3 per world)
+
+Floating outside the window like Kiru's, on springs. They vanish on phones, so they **never carry essential
+information**; everything they say is also in the window or the copy.
+
+| World | Cards |
+|---|---|
+| 0 | extra store logos; "Sin tarjeta americana" |
+| 1 | "Escaneado 12:41 · San Diego"; "Tu dirección en EE.UU." |
+| 2 | "Cruce diario"; "Tú no haces nada" |
+| 3 | "Escaneado 09:15 · Tijuana"; "3 de 3 ✓" |
+| 4 | the M price card; "Pagas en pesos" |
+| 5 | "Guía de rastreo"; "Toda la República" |
+| 6 | a 5-star review snippet; "3 tiendas → 1 caja" |
 
 ## Below the story (regular sections)
 
@@ -173,6 +221,13 @@ escaneamos al llegar y te avisamos.
 3. Reviews
 4. FAQ (reuse `Landing/FAQSection`)
 5. Sign-up CTA
+
+## Changes after Henry's review (2026-11-18)
+
+Logos and notifications moved inside the window (mobile crop); room colour by scroll, with a `.room-tint` act only for
+world 2's crossing; world 6 room navy; customer picks and Boxly adds to the cart; bare hands for the customer; world 4
+6.2 s with the "hmm" merged; prices server-rendered with a safe fallback; proof cards per world; one stage in window
+coordinates. Suite 835 kept: it is Boxly's shared address, not a customer's.
 
 ## Open questions
 
