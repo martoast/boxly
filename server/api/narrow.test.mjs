@@ -44,10 +44,11 @@ wf(tmp, [
   cut(/function askedToNarrowLast\(messages: any\[\]\): boolean \{[\s\S]*?\n\}/),
   cut(/function audienceGap\(messages: any\[\]\): boolean \{[\s\S]*?\n\}/),
   cut(/function answeredAudience\(messages: any\[\]\): boolean \{[\s\S]*?\n\}/),
-  'export { audienceGap }',
+  cut(/function audienceSettled\(messages: any\[\]\): boolean \{[\s\S]*?\n\}/),
+  'export { audienceGap, audienceSettled }',
 ].join('\n'));
-let audienceGap;
-try { ({ audienceGap } = await import(tmp.href)); } finally { unlinkSync(tmp); }
+let audienceGap, audienceSettled;
+try { ({ audienceGap, audienceSettled } = await import(tmp.href)); } finally { unlinkSync(tmp); }
 const said = (...texts) => texts.map((t, i) => ({ role: i % 2 ? 'assistant' : 'user', parts: [{ type: 'text', text: t }] }));
 const asks = (t) => audienceGap(said(t));
 
@@ -64,6 +65,13 @@ for (const q of ['camisa polo para hombre', 'tenis de mujer', 'sudadera para ni�
 // Answered earlier IN THIS CHAT (live 2026-10-31: "Para hombre", then asked four more times): never again
 ok('a later "chamarras" after "Para hombre" is not asked', !audienceGap(said('Tenis', '¿Para quién?', 'Para hombre', 'Listo', 'Quiero esa chamarra')));
 ok('a first "chamarras" still is', audienceGap(said('Quiero esa chamarra')));
+
+// Product + who it is for both known → no question card at all (lab 2026-11-20: "…para mujer" was asked "¿Para quién?")
+for (const q of ['Busco tenis New Balance 530 para mujer', 'sudadera para niño', 'tenis de mujer', 'camisa polo para hombre'])
+  ok(`"${q}" is settled (no ask_to_narrow offered)`, audienceSettled(said(q)));
+ok('settled by an earlier "Para hombre" too', audienceSettled(said('Tenis', '¿Para quién?', 'Para hombre', 'Listo', 'Quiero esa chamarra')));
+for (const q of ['ropa para mujer', 'algo para mi esposa', 'unos tenis', 'Victoria secret'])
+  ok(`"${q}" is not settled (a question may still help)`, !audienceSettled(said(q)));
 
 // Gendered by the word itself.
 for (const q of ['un vestido negro', 'una falda larga', 'corbata de seda', 'bikini'])

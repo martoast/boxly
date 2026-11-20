@@ -279,6 +279,16 @@ function audienceGap(messages: any[]): boolean {
   return !askedToNarrowLast(messages)
 }
 
+/** A product type AND who it is for are both known (this message, or an earlier answer in the chat): nothing left to ask —
+ *  the model must search, not ask "¿Para quién?" (lab 2026-11-20: "Busco tenis New Balance 530 para mujer" was asked
+ *  "¿Para quién buscas…?" — the model's own choice, audienceGap had not forced it; a shopper left at that same question). */
+function audienceSettled(messages: any[]): boolean {
+  const t = plainText(lastUserText(messages)).toLowerCase()
+  // a generic word ("ropa", "outfit") is not a product type yet — "ropa para mujer" may still get "¿qué tipo de ropa?"
+  if (!t || !RE_GENDERED_CATEGORY.test(t.replace(/\b(?:ropa|clothes|clothing|outfits?|prendas?)\b/g, ' '))) return false
+  return RE_AUDIENCE.test(t) || RE_SELF_GENDERED.test(t) || RE_WOMENS_STORE.test(t) || answeredAudience(messages)
+}
+
 /** Did the shopper already say who it is for in this chat (a short reply like "Para hombre" among their last few messages)? */
 function answeredAudience(messages: any[]): boolean {
   const users = (messages || []).filter((m: any) => m?.role === 'user').slice(-8, -1)
@@ -1292,6 +1302,8 @@ export default defineEventHandler(async (event) => {
       if (mustNarrow && !(steps || []).length) return { activeTools: ['ask_to_narrow'], toolChoice: 'required' }
       // A bare store name gets its question first (the live browser needs somewhere specific to go).
       if (bareStore && !(steps || []).length) return { activeTools: ['ask_to_narrow'], toolChoice: 'required' }
+      // the product and who it is for are both known: no question card, straight to the search (audienceSettled)
+      if (audienceSettled(messages) && !(steps || []).length) return { activeTools: LOOP_TOOLS.filter((t) => t !== 'ask_to_narrow') }
       const galleryAttempts = (steps || []).reduce(
         (n: number, s: any) => n + (s.toolCalls || []).filter((c: any) => GALLERY_TOOLS.includes(c.toolName)).length,
         0
