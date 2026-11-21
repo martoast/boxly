@@ -287,7 +287,8 @@ export function terminalReasonText(code: string | null | undefined): string {
     // (engine partial_match): the products are real and verified, the caveat
     // is the point. Rendered by the completed card, not as a failure.
     case 'partial_match':
-      return 'Verificamos un producto, pero no cumple todo lo que pediste; revisa los detalles antes de decidir.'
+      // also a gallery with no card that is the item asked for, only the store's closest products (Henry's batch 2026-11-21)
+      return 'No encontramos exactamente lo que pediste en esta tienda; estos son los resultados más parecidos. Revisa los detalles antes de decidir.'
     // 'worker_error', 'failed' (the sanitizer's fallback) and anything new land
     // here deliberately: honest, and never a claim we cannot support.
     default:

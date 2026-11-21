@@ -461,7 +461,7 @@ check('unsupported store copy without a list stays honest', liveFailureCopy({ ok
 check('unsupported store copy bounds and sanitises names', liveFailureCopy({ error: 'store_not_supported', supported: [1, '', 'x'.repeat(100), 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'] }).length < 160)
 check('generic failures keep the outage line', liveFailureCopy({ ok: false, error: 'live_session_unavailable' }) === 'La sesión en vivo no está disponible en este momento. Intenta de nuevo en un rato.' && liveFailureCopy(null) === 'La sesión en vivo no está disponible en este momento. Intenta de nuevo en un rato.')
 
-check('partial_match reason copy is the honest caveat', terminalReasonText('partial_match') === 'Verificamos un producto, pero no cumple todo lo que pediste; revisa los detalles antes de decidir.')
+check('partial_match reason copy is the honest caveat', terminalReasonText('partial_match') === 'No encontramos exactamente lo que pediste en esta tienda; estos son los resultados más parecidos. Revisa los detalles antes de decidir.')
 
 check('capability-unavailable copy is honest and keeps the conversation going', liveFailureCopy({ ok: false, error: 'live_capability_unavailable' }) === 'La verificación en vivo no está disponible en este momento; puedo seguir ayudándote de otra forma.')
 check('a partial_match gallery carries the visible constraint-missing label', liveResultsCaveat({ products: [{}], caveat: 'partial_match' }) === 'Verificado en la tienda, pero no cumple todo lo que pediste — revisa los detalles antes de decidir.')
