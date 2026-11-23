@@ -1908,6 +1908,9 @@ export default defineEventHandler(async (event) => {
             query: q,
             stores: names,
             live_session: { id: r.id, store_id: r.store_id || picked[0].id, store_name: names.join(' · '), status: r.status || 'pending', note: `Buscando "${q}" en ${names.join(', ')}` },
+            // the limits ACTUALLY applied (the model's own numbers are not: max_price 0.0681 was dropped above, yet the empty card
+            // told a shopper "no hay productos de $0.0681 o menos", 2026-11-23)
+            ...(filters ? { filters } : {}),
             ...(unknown.length ? { skipped: unknown } : {}),
             note: unknown.length ? `LIVE — the browser is on screen, searching "${q}" at ${names.join(', ')}; the gallery appears by itself. Write ONE short line in Spanish only saying ${unknown.join(', ')} cannot be opened live yet. Do NOT list, invent or promise products.` : `LIVE — the chat already showed the shopper that you are checking ${names.join(', ')} in a live browser. Write NO text. Do NOT list, invent or promise products — the gallery arrives by itself.`,
           }

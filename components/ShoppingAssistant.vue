@@ -662,7 +662,7 @@ import { useBoxlyCart } from '../composables/useBoxlyCart'
 import { cartPayloadFromChatProduct, variantsText, titleForColour } from '../utils/boxlyCart'
 import { pickedColourImage } from '../utils/pickerLogic'
 import { withLiveRows, newLiveResultMessages } from '../utils/liveGallery'
-import { nextHelpState, preopenUrl } from '../utils/liveShopping'
+import { nextHelpState, preopenUrl, parseSessionStateResponse } from '../utils/liveShopping'
 import { PICKER_PART } from '../utils/typedPick'
 import { notExactly, iphoneNotListed } from '../utils/exactMatch'
 
@@ -1667,11 +1667,32 @@ function noResultsText(m, part) {
   const list = chat.messages || []
   let ask = part?.type === 'tool-live_gallery' ? part : null
   for (let i = list.indexOf(m); !ask && i >= 0; i--) ask = [...(list[i]?.parts || [])].reverse().find((p) => p?.type === 'tool-live_gallery' && p.input) || null
-  const f = ask?.input || {}
+  // a search that FAILED says why (prod 2026-11-23: Lululemon's bot wall answered three shoppers' searches; they saw "no products
+  // de $0.0681 o menos" — a limit the model invented and the server had already dropped)
+  const where0 = Array.isArray(ask?.output?.stores) && ask.output.stores.length ? ask.output.stores.join(', ') : 'La tienda'
+  const why = galleryEndReason(ask)
+  if (why === 'store_blocked') return `${where0} no nos dejó buscar en este momento (la tienda bloqueó la visita). ¿Busco en otra tienda o lo intento de nuevo en un rato?`
+  if (why) return `La búsqueda en ${where0} no terminó bien. ¿Lo intento de nuevo o busco en otra tienda?`
+  // only the limits the server applied (never the model's raw input)
+  const f = ask?.output?.filters || {}
   if (!f.brand && !f.max_price && !f.on_sale) return generic
   const what = [f.on_sale ? 'promociones' : '', f.brand ? `de ${f.brand}` : '', f.max_price ? `de $${f.max_price} o menos` : ''].filter(Boolean).join(' ') || 'eso'
   const where = Array.isArray(ask?.output?.stores) && ask.output.stores.length ? ` en ${ask.output.stores.join(', ')}` : ''
   return `No encontré ${f.on_sale ? '' : 'productos '}${what}${where} ahora mismo. ¿Busco en otra tienda${f.max_price ? ' o subo un poco el precio' : ''}?`
+}
+// why an empty search ended: ONE read of its session (cached per session) — null while unknown or when it simply found nothing
+const galleryEnds = reactive({})
+function galleryEndReason(ask) {
+  const id = ask?.output?.live_session?.id
+  if (!Number.isInteger(id)) return null
+  if (!(id in galleryEnds)) {
+    galleryEnds[id] = null
+    $customFetch(`/live-shopping/sessions/${id}`).then((raw) => {
+      const st = parseSessionStateResponse(raw)
+      if (st?.status === 'failed' && st.errorCode && st.errorCode !== 'gallery_empty' && st.errorCode !== 'model_not_listed') galleryEnds[id] = st.errorCode
+    }).catch(() => {})
+  }
+  return galleryEnds[id]
 }
 function showNoResults(m, part) {
   if (!isGalleryTool(part) || part.state !== 'output-available' || hasProducts(m)) return false
