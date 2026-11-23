@@ -2318,7 +2318,10 @@ function askSimilar(row) {
   const slug = (() => { try { return new URL(row?.url).pathname.split('/').filter((x) => /^[a-z0-9]+(?:-[a-z0-9]+){2,}$/i.test(x) && /[a-z]{3}/i.test(x)).sort((a, b) => b.length - a.length)[0]?.replace(/-/g, ' ') || '' } catch { return '' } })()
   const what = row?.title ? `“${row.title}”` : slug ? `“${slug}”` : `el producto de ${row?.store_name || 'esa tienda'}`
   // a sold-out link (its store is supported): something similar that is in stock; an unsupported store: a store we buy from
+  const host = (() => { try { return new URL(row?.url).hostname.replace(/^www\./, '') } catch { return row?.store_name || 'esa tienda' } })()
   const text = row?.soldOut ? `${what} está agotado: busca algo similar que esté disponible`
+    // the store blocks us: the team buys that exact item by hand (Pottery Barn Kids 2026-11-23 got look-alikes instead)
+    : row?.unreadable === 'blocked' ? `${host} no deja que Boxly abra su página. Quiero que el equipo me cotice a mano este producto: ${row?.url || what}`
     : row?.unreadable ? `No se pudo abrir la página de ${what}: búscalo o algo similar en otra tienda`
     : `Busca algo similar a ${what} en una tienda donde sí puedan comprar`
   ensureConversation(text)

@@ -34,9 +34,10 @@
           <img v-if="row.image" :src="row.image" alt="" referrerpolicy="no-referrer" class="w-12 h-12 rounded-lg object-cover bg-white shrink-0" />
           <div class="min-w-0 flex-1">
             <p class="text-[13px] font-semibold text-gray-800 line-clamp-2">{{ row.title || host(row.url) }}</p>
-            <p class="text-[11.5px] text-amber-700 font-semibold">{{ row.unreadable === 'page_not_found' ? 'Este producto ya no está en ' + host(row.url) : 'No pudimos abrir esta página de ' + host(row.url) }}</p>
+            <p class="text-[11.5px] text-amber-700 font-semibold">{{ row.unreadable === 'page_not_found' ? 'Este producto ya no está en ' + host(row.url) : row.unreadable === 'blocked' ? host(row.url) + ' no nos deja abrir su página; el equipo puede cotizarlo a mano' : 'No pudimos abrir esta página de ' + host(row.url) }}</p>
           </div>
-          <button type="button" :disabled="sent" class="shrink-0 rounded-full border border-primary-200 px-3 py-1.5 text-[12px] font-bold text-primary-700 hover:bg-primary-50 disabled:opacity-50" @click="$emit('similar', row)">Buscar similar</button>
+          <!-- a store that BLOCKS us (Pottery Barn Kids, 2026-11-23): the team buys it by hand — never a look-alike search -->
+          <button type="button" :disabled="sent" class="shrink-0 rounded-full border border-primary-200 px-3 py-1.5 text-[12px] font-bold text-primary-700 hover:bg-primary-50 disabled:opacity-50" @click="$emit('similar', row)">{{ row.unreadable === 'blocked' ? 'Cotizar a mano' : 'Buscar similar' }}</button>
         </div>
 
         <!-- Chosen (on its card, or nothing to choose): one line, changeable until the list is sent. -->
