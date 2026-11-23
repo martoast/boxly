@@ -591,26 +591,6 @@
                     </div>
                   </div>
 
-                  <!-- Boxly Protection — per box, priced live from Stripe -->
-                  <div v-if="protectionProduct" class="pt-3 border-t border-gray-200">
-                    <label class="flex items-start gap-2.5 cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        v-model="box.has_protection"
-                        class="mt-0.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                      />
-                      <span class="text-sm">
-                        <span class="font-medium text-gray-900">🛡️ {{ t.protection }}</span>
-                        <span class="text-gray-500">
-                          +${{ formatNumber(protectionProduct.price) }} {{ String(protectionProduct.currency || '').toUpperCase() }}{{ (box.quantity || 1) > 1 ? ` × ${box.quantity}` : '' }}
-                        </span>
-                        <span v-if="order?.paid_at" class="block text-xs text-amber-600 mt-0.5">
-                          {{ t.protectionPaidWarning }}
-                        </span>
-                      </span>
-                    </label>
-                  </div>
-
                   <!-- What the courier charged for THIS box, and what's left of
                        the box price once it's paid. Courier spend is ~69% of all
                        expenses and until now lived only as per-run lump sums, so
@@ -754,13 +734,6 @@
                 <div class="flex justify-between items-center mb-2">
                   <span class="text-sm text-gray-600">{{ t.totalBoxPrice }}:</span>
                   <span class="text-lg font-bold text-gray-900">${{ formatNumber(calculatedTotalBoxPrice) }}</span>
-                </div>
-                <div v-if="calculatedProtectionTotal > 0" class="flex justify-between items-center mb-2">
-                  <span class="text-sm text-gray-600">
-                    🛡️ {{ t.protection }}
-                    <span class="text-gray-400">({{ protectedBoxCount }})</span>:
-                  </span>
-                  <span class="text-lg font-bold text-gray-900">${{ formatNumber(calculatedProtectionTotal) }}</span>
                 </div>
                 <!-- Shipping: 50% deposit -->
                 <div v-if="!isCrossing" class="flex justify-between items-center">
@@ -1540,22 +1513,6 @@
               </div>
             </div>
 
-            <!-- Boxly Protection -->
-            <div v-if="protectionProduct">
-              <label class="flex items-start gap-2.5 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer select-none transition-colors">
-                <input
-                  type="checkbox"
-                  v-model="newBox.has_protection"
-                  class="mt-0.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                />
-                <span class="text-sm">
-                  <span class="font-medium text-gray-900">🛡️ {{ t.protection }}</span>
-                  <span class="text-gray-500"> +${{ formatNumber(protectionProduct.price) }} {{ String(protectionProduct.currency || '').toUpperCase() }}</span>
-                  <span class="block text-xs text-gray-500 mt-0.5">{{ t.protectionHelp }}</span>
-                </span>
-              </label>
-            </div>
-
             <!-- Guia Number (only for shipping orders) -->
             <div v-if="!isCrossing">
               <label class="block text-sm font-medium text-gray-700 mb-1">
@@ -1646,7 +1603,7 @@ const errorMessage = ref("");
 const originalData = ref(null);
 const products = ref([]);
 const showAddBoxModal = ref(false);
-const newBox = ref({ stripe_price_id: "", has_protection: false, guia_number: "", gia_file: null, length: null, width: null, height: null, weight: null });
+const newBox = ref({ stripe_price_id: "", guia_number: "", gia_file: null, length: null, width: null, height: null, weight: null });
 const useSimpleAddress = ref(false);
 const isInitialLoad = ref(true);
 
@@ -1846,15 +1803,6 @@ const translations = {
   cancelled: { es: "Cancelado", en: "Cancelled" },
   box: { es: "caja", en: "box" },
   boxesLabel: { es: "cajas", en: "boxes" },
-  protection: { es: "Boxly Protection", en: "Boxly Protection" },
-  protectionHelp: {
-    es: "Protección contra robo, pérdida o daño de esta caja.",
-    en: "Cover against theft, loss, or damage for this box.",
-  },
-  protectionPaidWarning: {
-    es: "Esta orden ya fue pagada — el cambio no se cobra automáticamente.",
-    en: "This order is already paid — the change is not charged automatically.",
-  },
   boxLabel: { es: "Caja", en: "Box" },
   addBox: { es: "Agregar Caja", en: "Add Box" },
   addBoxTitle: { es: "Agregar Nueva Caja", en: "Add New Box" },
@@ -1881,32 +1829,7 @@ const calculatedTotalBoxPrice = computed(() => {
   }, 0);
 });
 
-// Boxly Protection, priced live from Stripe (flagged by the API).
-// Stripe carries protection in more than one currency (200 MXN and 11.60 USD).
-// A bare find() took whichever Stripe listed first — the USD one — and rendered
-// "+$11.60" beside a $4,400 MXN box. The API now filters to the billing
-// currency; this keeps the guard client-side too, because the wrong number here
-// is indistinguishable from a cheap one.
-const protectionProduct = computed(() => {
-  const matches = products.value.filter((p) => p.is_protection);
-  const want = (order.value?.currency || "mxn").toUpperCase();
-  const inCurrency = matches.filter((p) => String(p.currency).toUpperCase() === want);
-  // Highest is the list price — same rule the box price table follows.
-  return [...inCurrency].sort((a, b) => (parseFloat(b.price) || 0) - (parseFloat(a.price) || 0))[0];
-});
-
-const protectedBoxCount = computed(() =>
-  (form.value.boxes || []).reduce((n, box) => n + (box.has_protection ? (box.quantity || 1) : 0), 0)
-);
-
-const calculatedProtectionTotal = computed(() =>
-  protectedBoxCount.value * (parseFloat(protectionProduct.value?.price) || 0)
-);
-
-// What the customer owes: boxes + protection.
-const calculatedOrderTotal = computed(
-  () => calculatedTotalBoxPrice.value + calculatedProtectionTotal.value
-);
+const calculatedOrderTotal = computed(() => calculatedTotalBoxPrice.value);
 
 const calculatedBoxWeight = computed(() => {
   if (!form.value.boxes || form.value.boxes.length === 0) return null;
@@ -2136,7 +2059,7 @@ const removeBox = (index) => {
 
 const closeAddBoxModal = () => {
   showAddBoxModal.value = false;
-  newBox.value = { stripe_price_id: "", has_protection: false, guia_number: "", gia_file: null, length: null, width: null, height: null, weight: null };
+  newBox.value = { stripe_price_id: "", guia_number: "", gia_file: null, length: null, width: null, height: null, weight: null };
 };
 
 const handleNewBoxGiaFile = (e) => {
@@ -2164,7 +2087,6 @@ const addNewBox = () => {
     box_price: parseFloat(selectedProduct.price) || 0,
     currency: selectedProduct.currency?.toLowerCase() || "mxn",
     quantity: 1,
-    has_protection: !!newBox.value.has_protection,
     guia_number: newBox.value.guia_number || "",
     gia_url: null,
     gia_filename: null,
@@ -2220,7 +2142,6 @@ const fetchOrder = async () => {
         // Carried through so saving doesn't collapse a "2x Medium" entry to 1 —
         // the payload used to omit it and the API defaults to 1.
         quantity: box.quantity || 1,
-        has_protection: !!box.has_protection,
         guia_number: box.guia_number || "",
         gia_url: box.gia_url || box.gia_full_url || null,
         gia_filename: box.gia_filename || null,
@@ -2247,7 +2168,6 @@ const fetchOrder = async () => {
         box_price: parseFloat(order.value.box_price) || matchingProduct?.price || 0,
         currency: order.value.currency?.toLowerCase() || matchingProduct?.currency?.toLowerCase() || "mxn",
         quantity: 1,
-        has_protection: false,
         guia_number: order.value.guia_number || "",
         gia_url: order.value.gia_url || null,
         gia_filename: order.value.gia_filename || null,
@@ -2423,7 +2343,6 @@ const handleSubmit = async () => {
       id: b.id,
       stripe_price_id: b.stripe_price_id,
       quantity: b.quantity || 1,
-      has_protection: !!b.has_protection,
       guia_number: b.guia_number,
       length: b.length,
       width: b.width,
@@ -2447,7 +2366,6 @@ const handleSubmit = async () => {
           }
           formData.append(`boxes[${index}][stripe_price_id]`, box.stripe_price_id);
           formData.append(`boxes[${index}][quantity]`, box.quantity || 1);
-          formData.append(`boxes[${index}][has_protection]`, box.has_protection ? '1' : '0');
           formData.append(`boxes[${index}][guia_number]`, box.guia_number ?? '');
           if (box.new_gia_file) {
             formData.append(`boxes[${index}][gia_file]`, box.new_gia_file);

@@ -197,23 +197,6 @@
                       </div>
                       <p class="text-xs text-gray-400">{{ t.dimensionsHelp }}</p>
 
-                      <!-- Boxly Protection — per box, priced live from Stripe -->
-                      <label
-                        v-if="protectionProduct"
-                        class="flex items-center gap-2.5 pt-1 cursor-pointer select-none"
-                      >
-                        <input
-                          type="checkbox"
-                          v-model="box.has_protection"
-                          class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                        />
-                        <span class="text-sm text-gray-700">
-                          🛡️ {{ t.protection }}
-                          <span class="text-gray-500">
-                            +${{ protectionProduct.price }} {{ protectionProduct.currency }}{{ (box.quantity || 1) > 1 ? ` × ${box.quantity}` : '' }}
-                          </span>
-                        </span>
-                      </label>
                     </div>
                   </div>
 
@@ -222,13 +205,6 @@
                     <div class="flex justify-between text-sm">
                       <span class="text-gray-600">{{ t.totalBoxPrice }}:</span>
                       <span class="font-semibold text-gray-900">${{ totalBoxPrice.toFixed(2) }} MXN</span>
-                    </div>
-                    <div v-if="protectionTotal > 0" class="flex justify-between text-sm mt-1">
-                      <span class="text-gray-600">
-                        🛡️ {{ t.protection }}
-                        <span class="text-gray-400">({{ protectedBoxCount }} {{ protectedBoxCount === 1 ? t.boxWord : t.boxesWord }})</span>:
-                      </span>
-                      <span class="font-semibold text-gray-900">${{ protectionTotal.toFixed(2) }} MXN</span>
                     </div>
                     <div class="flex justify-between text-sm mt-1 pt-1 border-t border-purple-200">
                       <span class="text-purple-700 font-medium">{{ t.invoiceAmount }} (100%):</span>
@@ -431,7 +407,7 @@ const loadingProducts = ref(false)
 const products = ref([])
 
 const blankBox = () => ({
-  stripe_price_id: '', quantity: 1, has_protection: false,
+  stripe_price_id: '', quantity: 1,
   length: null, width: null, height: null, weight: null,
 })
 
@@ -464,9 +440,6 @@ const translations = {
   loadingProducts: { es: 'Cargando productos...', en: 'Loading products...' },
   noShippingProducts: { es: 'No hay productos de envío disponibles', en: 'No shipping products available' },
   totalBoxPrice: { es: 'Precio Total de Cajas', en: 'Total Box Price' },
-  protection: { es: 'Boxly Protection', en: 'Boxly Protection' },
-  boxWord: { es: 'caja', en: 'box' },
-  boxesWord: { es: 'cajas', en: 'boxes' },
   invoiceAmount: { es: 'Monto a Pagar', en: 'Amount Due' },
   shipDate: { es: 'Fecha de Envío', en: 'Ship Date' },
   shipDateHelp: { es: 'Día en que se enviará la caja. Aparecerá en el Tablero de Operaciones.', en: 'Day the box will ship. Appears on the Operations Board.' },
@@ -508,7 +481,6 @@ watch(() => props.show, (newVal) => {
         ? existing.map(b => ({
             stripe_price_id: b.stripe_price_id || '',
             quantity: b.quantity || 1,
-            has_protection: !!b.has_protection,
             length: b.length != null ? Number(b.length) : null,
             width: b.width != null ? Number(b.width) : null,
             height: b.height != null ? Number(b.height) : null,
@@ -532,29 +504,7 @@ const totalBoxPrice = computed(() => {
   }, 0)
 })
 
-// Boxly Protection, priced live from Stripe like every box price — but the
-// product carries prices in more than one currency (200 MXN and 11.60 USD), and
-// a bare find() returned whichever Stripe listed first. Here that fed
-// protectionTotal, so the consolidation total an admin approves could be built
-// from a USD figure. Only the currency this order bills in can go on its
-// invoice, so only that one counts.
-const protectionProduct = computed(() => {
-  const matches = products.value.filter(p => p.is_protection)
-  const want = String(props.order?.currency || 'mxn').toUpperCase()
-  const inCurrency = matches.filter(p => String(p.currency).toUpperCase() === want)
-  // Highest is the list price — same rule the box price table follows.
-  return [...inCurrency].sort((a, b) => (parseFloat(b.price) || 0) - (parseFloat(a.price) || 0))[0]
-})
-
-const protectedBoxCount = computed(() =>
-  form.value.boxes.reduce((n, box) => n + (box.has_protection ? (box.quantity || 1) : 0), 0)
-)
-
-const protectionTotal = computed(() =>
-  protectedBoxCount.value * (protectionProduct.value?.price || 0)
-)
-
-const orderTotal = computed(() => totalBoxPrice.value + protectionTotal.value)
+const orderTotal = computed(() => totalBoxPrice.value)
 
 const isValid = computed(() => {
   const hasValidBoxes = form.value.boxes.every(box => box.stripe_price_id && box.quantity >= 1)

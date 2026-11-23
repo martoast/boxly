@@ -102,7 +102,7 @@ const money = (value, cur) => {
 
 /**
  * What the customer still owes: the quote if one was issued, otherwise the
- * boxes plus Boxly Protection, less anything already paid.
+ * the boxes (plus any legacy add-on), less anything already paid.
  */
 const amountDue = (o) => {
   const paid = Number(o.amount_paid) || 0

@@ -146,9 +146,9 @@ const clauses = [
     ]
   },
   {
-    "title": "17. Protección opcional y responsabilidad",
+    "title": "17. Seguro y responsabilidad",
     "paragraphs": [
-      "El servicio no incluye automáticamente una póliza de seguro. Cuando esté disponible y se contrate expresamente para una caja, Boxly Protection es un beneficio comercial opcional de hasta $10,000 MXN por caja protegida, sin exceder el valor de compra documentado de los bienes efectivamente afectados, bajo las condiciones comunicadas y aceptadas para esa orden. No es una póliza emitida por una aseguradora ni un límite general de responsabilidad civil. Actualmente los envíos terrestres no incluyen Boxly Protection. La protección no comprende defectos de origen, bienes no enviados por el vendedor ni ganancias comerciales esperadas; las exclusiones requieren revisión causal y no eliminan responsabilidades legales propias de Boxly. Se evitará doble recuperación por el mismo daño."
+      "El servicio no incluye una póliza de seguro. Las incidencias por pérdida o daño se revisan conforme a la sección anterior, sin eliminar las responsabilidades legales propias de Boxly. Se evitará doble recuperación por el mismo daño."
     ]
   },
   {

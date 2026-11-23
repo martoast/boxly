@@ -16,8 +16,6 @@
             prices sit together. -->
     <BoxPricing />
 
-    <!-- Optional per-box theft/damage protection -->
-    <ProtectionCard />
 
 
     <!-- Wedge CTA — "send us the link": the unlimited-access promise. -->
@@ -34,7 +32,6 @@
 import WhatsAppButton from '~/components/Landing/WhatsAppButton.vue'
 import MainHeroSection from '~/components/Landing/Main/HeroSection.vue'
 import ServiceLanes from '~/components/Landing/Main/ServiceLanes.vue'
-import ProtectionCard from '~/components/ProtectionCard.vue'
 import ConciergeSpotlight from '~/components/Landing/Main/ConciergeSpotlight.vue'
 import WedgeCTA from '~/components/Landing/Main/WedgeCTA.vue'
 import FooterSection from '~/components/Landing/FooterSection.vue'

@@ -162,20 +162,11 @@
                         <span v-if="box.weight" class="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
                           {{ box.weight }} kg
                         </span>
-                        <span
-                          v-if="box.has_protection"
-                          class="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded"
-                        >
-                          🛡️ {{ t.protected }}
-                        </span>
                       </div>
                     </div>
                   </div>
                   <div class="text-right">
                     <span class="text-lg font-bold text-gray-900">${{ formatPrice(box.box_price) }}</span>
-                    <span v-if="box.has_protection" class="block text-xs text-gray-500 mt-0.5">
-                      + ${{ formatPrice(box.protection_price) }} {{ t.protection }}
-                    </span>
                   </div>
                 </div>
 
@@ -328,10 +319,6 @@
                   <div class="flex justify-between py-2.5"><dt class="text-gray-500">{{ t.itemsCount }}</dt><dd class="font-medium text-gray-900">{{ order.items?.length || 0 }}</dd></div>
                   <div class="flex justify-between py-2.5"><dt class="text-gray-500">{{ t.createdDate }}</dt><dd class="text-gray-700">{{ formatDate(order.created_at) }}</dd></div>
                   <template v-if="totalBoxPrice > 0">
-                    <div v-if="protectionTotal > 0" class="flex justify-between py-2.5">
-                      <dt class="text-gray-500">🛡️ {{ t.protection }} <span class="text-gray-400">({{ protectedBoxCount }})</span></dt>
-                      <dd class="font-medium text-gray-900">${{ formatPrice(protectionTotal) }} {{ currency }}</dd>
-                    </div>
                     <div class="flex justify-between py-2.5"><dt class="font-semibold text-gray-700">{{ t.total }}</dt><dd class="font-bold text-gray-900">${{ formatPrice(grandTotal) }} {{ currency }}</dd></div>
                     <div v-if="amountDue > 0" class="flex justify-between py-2.5"><dt class="font-semibold text-orange-600">{{ t.amountDue }}</dt><dd class="font-bold text-orange-600">${{ formatPrice(amountDue) }} {{ currency }}</dd></div>
                     <div v-else-if="amountPaid > 0" class="flex justify-between py-2.5"><dt class="font-semibold text-emerald-600">{{ t.fullyPaid }}</dt><dd class="font-bold text-emerald-600">${{ formatPrice(amountPaid) }} {{ currency }}</dd></div>
@@ -463,14 +450,7 @@ const totalBoxPrice = computed(() => {
   return parseFloat(order.value.box_price) || 0;
 });
 
-// Boxly Protection charged on this order, summed from the boxes.
-const protectedBoxCount = computed(() => {
-  if (!order.value?.boxes) return 0;
-  return order.value.boxes.reduce(
-    (n, box) => n + (box.has_protection ? (box.quantity || 1) : 0), 0
-  );
-});
-
+// Legacy add-on (retired) still counted so older orders show what was charged.
 const protectionTotal = computed(() => {
   if (!order.value?.boxes) return parseFloat(order.value?.protection_total) || 0;
   return order.value.boxes.reduce(
@@ -536,8 +516,6 @@ const translations = {
   createdDate: { es: "Fecha de Creación", en: "Created Date" },
   // Boxes
   boxes: { es: "Cajas", en: "Boxes" },
-  protection: { es: "Boxly Protection", en: "Boxly Protection" },
-  protected: { es: "Protegida", en: "Protected" },
   shippingBoxes: { es: "Cajas de Envío", en: "Shipping Boxes" },
   boxLabel: { es: "Caja", en: "Box" },
   trackingNumber: { es: "Número de Rastreo", en: "Tracking Number" },

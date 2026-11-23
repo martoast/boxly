@@ -216,8 +216,8 @@
       category: "protection",
       question: { es: "¿El servicio incluye seguro?", en: "Does the service include insurance?" },
       answer: {
-        es: ["No incluye una póliza de seguro por defecto. Si existe protección opcional para tu modalidad, su precio y condiciones se muestran antes de contratar. Debe quedar confirmada para cada caja. No contratarla no elimina tus derechos legales ni las obligaciones propias de Boxly."],
-        en: ["It does not include an insurance policy by default. If optional protection exists for your shipping method, its price and conditions are shown before you book. It must be confirmed for each box. Not buying it doesn't remove your legal rights or Boxly's own obligations."],
+        es: ["No incluye una póliza de seguro. Si algo se pierde o llega dañado, revisamos el caso con la evidencia de recepción, consolidación y transporte. Esto no elimina tus derechos legales ni las obligaciones propias de Boxly."],
+        en: ["It does not include an insurance policy. If something is lost or arrives damaged, we review the case with the receiving, consolidation and transport evidence. This doesn't remove your legal rights or Boxly's own obligations."],
       },
     },
     {
