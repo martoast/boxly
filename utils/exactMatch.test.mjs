@@ -19,3 +19,10 @@ assert.equal(iphoneNotListed('iPhone 18 Pro Max', cases), true)
 assert.equal(iphoneNotListed('iPhone 18 Pro Max', [...cases, 'Apple iPhone 18 Pro Max 256GB Unlocked']), false, 'a phone is shown')
 assert.equal(iphoneNotListed('iPhone 18 Pro Max case', cases), false, 'they asked for a case')
 assert.equal(iphoneNotListed('unlocked iphone', cases), false, 'no model number')
+
+// who it is for is not a missing word (lab 2026-11-23: "women Airlift leggings" over Alo's Airlift leggings warned "no encontré exactamente")
+const airlift = ['Airlift High-Waist Enamored Legging - Black', '7/8 High-Waist Airlift Legging - Deep Gravel']
+assert.equal(notExactly('women Airlift leggings', airlift), false)
+assert.equal(notExactly('leggings Airlift para mujer', airlift), false)
+assert.equal(notExactly('women Airbrush leggings', airlift), true, 'a missing product word still warns')
+assert.equal(notExactly('women leggings', ['Fleece Joggers']), false, 'one product word left: generic search, never warns')

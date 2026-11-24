@@ -2,10 +2,14 @@
 // carries a word the shopper named (live 2026-10-14: "Breville Spiral Luxe" → Grind Control,
 // Smart Kettle Luxe), the chat says so itself instead of passing look-alikes off as the item.
 const SKIP = new Set(['the', 'and', 'for', 'con', 'para', 'del', 'los', 'las', 'una', 'uno', 'de', 'en', 'el', 'la', 'y', 'with', 'of'])
+// WHO IT IS FOR is rarely in a title (lab 2026-11-23: "women Airlift leggings" over 10 Alo Airlift leggings said "no encontré
+// exactamente" — Alo titles never say women); the engine's own exact check skips these words too
+const AUDIENCE = new Set(['men', 'mens', 'man', 'women', 'womens', 'woman', 'kid', 'kids', 'boy', 'boys', 'girl', 'girls', 'unisex', 'adult', 'youth',
+  'hombre', 'hombres', 'mujer', 'mujeres', 'dama', 'damas', 'caballero', 'caballeros', 'nino', 'nina', 'ninos', 'ninas'])
 
 function words(s: string): string[] {
   return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
-    .replace(/[™®©]/g, ' ').split(/[^a-z0-9]+/).filter((w) => w.length >= 3 && !SKIP.has(w))
+    .replace(/[™®©]/g, ' ').split(/[^a-z0-9]+/).filter((w) => w.length >= 3 && !SKIP.has(w) && !AUDIENCE.has(w))
 }
 
 /** The query's words that no shown title contains; empty when every word is somewhere. */
