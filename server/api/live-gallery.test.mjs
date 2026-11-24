@@ -13,7 +13,7 @@ const cut = (re) => { const m = api.match(re); if (!m) throw new Error('missing 
 const block = cut(/      live_gallery: tool\(\{[\s\S]*?\n      \}\),\n/)
 const tmp = new URL('./__live_gallery.tmp.ts', import.meta.url)
 writeFileSync(tmp, [
-  "import { resolveLiveStores, liveGalleryQuery, liveStoreKey, brandIsStore as isStoreBrand } from '../../utils/liveGallery.ts'",
+  "import { resolveLiveStores, liveGalleryQuery, liveStoreKey, brandIsStore as isStoreBrand, dealAskedSinceLastSearch, fragranceQuery } from '../../utils/liveGallery.ts'",
   // A chainable stand-in for zod: the schema is not what is under test here.
   'const chain: any = new Proxy(function () {}, { get: () => chain, apply: () => chain })',
   'const z: any = chain',
@@ -46,6 +46,18 @@ const run = async (input, over = {}) => {
   const h = make(ctx)
   const out = await h.tools.live_gallery.execute(input)
   return { out, ctx, shown: h.shown() }
+}
+
+// Miguel 2026-11-23 (lociones Versace o Armani → Valentino): several brands, deals asked not inherited, loción = fragrance
+{
+  const said = (text) => ({ role: 'user', parts: [{ type: 'text', text }] })
+  const sent = async (input, messages) => (await run(input, { messages })).ctx.calls[0].body
+  const b1 = await sent({ query: "men's cologne", stores: ['Nike'], brand: 'Versace/ Armani' }, [said('Lociones versace o armani hombre')])
+  ok('several brands reach the engine as "A / B", and the store search names each', b1.filters?.brand === 'Versace / Armani' && b1.objective === "Versace Armani men's cologne")
+  const b2 = await sent({ query: 'Valentino Born in Roma lotion', stores: ['Nike'], brand: 'Valentino', on_sale: true }, [said('algunos con descuento'), { role: 'assistant', parts: [{ type: 'tool-live_gallery' }] }, said('Valentino locion de roma')])
+  ok('on_sale from a past deals search is dropped; loción is searched as cologne', !('on_sale' in (b2.filters || {})) && b2.objective === 'Valentino Born in Roma cologne')
+  const b3 = await sent({ query: 'Versace cologne', stores: ['Nike'], brand: 'Versace', on_sale: true }, [said('Algunos con descuento')])
+  ok('deals asked in this message stay', b3.filters?.on_sale === true)
 }
 
 {

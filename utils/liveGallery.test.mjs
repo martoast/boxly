@@ -1,6 +1,6 @@
 // BOXLY LAB — the live store gallery's pure helpers (utils/liveGallery.ts), 2026-09-28.
 import assert from 'node:assert/strict'
-import { resolveLiveStores, liveGalleryQuery, liveGalleryRows, withLiveRows, liveResultsAsText, newLiveResultMessages, storeKey, brandIsStore, LIVE_RESULTS_PART } from './liveGallery.ts'
+import { resolveLiveStores, liveGalleryQuery, liveGalleryRows, withLiveRows, liveResultsAsText, newLiveResultMessages, storeKey, brandIsStore, dealAskedSinceLastSearch, fragranceQuery, LIVE_RESULTS_PART } from './liveGallery.ts'
 
 let pass = 0
 const ok = (name, fn) => { fn(); console.log('  ✓ ' + name); pass++ }
@@ -105,6 +105,23 @@ ok('a brand that IS the store searched is no filter, matched by name or id (lab 
   assert.equal(brandIsStore('Nike', [{ id: 'nordstrom', name: 'Nordstrom' }]), false)
   assert.equal(brandIsStore('PINK', [{ id: 'victorias-secret', name: "Victoria's Secret" }]), false)
   assert.equal(brandIsStore('', [{ id: 'alo', name: 'Alo Yoga' }]), false)
+})
+
+const u = (text) => ({ role: 'user', parts: [{ type: 'text', text }] })
+const searched = { role: 'assistant', parts: [{ type: 'tool-live_gallery', input: { query: 'x' } }] }
+ok('deals are asked, never inherited from the last search (Miguel 2026-11-23: Valentino searched as deals only)', () => {
+  assert.equal(dealAskedSinceLastSearch([u('Versace pour home'), searched, u('Algunos con descuento')]), true)
+  assert.equal(dealAskedSinceLastSearch([u('Algunos con descuento'), searched, u('Valentino locion de roma')]), false, 'a new product after a deals search')
+  assert.equal(dealAskedSinceLastSearch([u('Quiero ver promociones de COACH'), { role: 'assistant', parts: [{ type: 'tool-ask_to_narrow' }] }, u('Bolsas')]), true, 'a narrowing answer keeps the ask')
+  assert.equal(dealAskedSinceLastSearch([u('promociones de COACH'), searched, u('Ver más: "bags" en Coach')]), true, 'Ver más repeats the search')
+  assert.equal(dealAskedSinceLastSearch([u('sale de tenis Nike')]), true)
+  assert.equal(dealAskedSinceLastSearch([u('Black Friday en Best Buy')]), true)
+})
+ok('a loción is a fragrance unless it is for the body (Miguel 2026-11-23: "Valentino locion de roma" searched body lotions)', () => {
+  assert.equal(fragranceQuery('Valentino Born in Roma lotion', [u('Valentino locion de roma')]), 'Valentino Born in Roma cologne')
+  assert.equal(fragranceQuery("Valentino Born in Roma men's lotion", [u('Valentino locion de roma'), searched, u('Para hombres')]), "Valentino Born in Roma men's cologne", 'a follow-up keeps it')
+  assert.equal(fragranceQuery('body lotion', [u('loción corporal Bath and Body Works')]), 'body lotion', 'for the body')
+  assert.equal(fragranceQuery('CeraVe lotion', [u('CeraVe lotion')]), 'CeraVe lotion', 'they said lotion')
 })
 
 console.log(`\n${pass} checks passed`)

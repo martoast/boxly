@@ -124,3 +124,30 @@ export function newLiveResultMessages(serverMessages: unknown, shownIds: Set<str
   return (Array.isArray(serverMessages) ? serverMessages : []).filter((m: any) => m && !shownIds.has(String(m.id))
     && m.role === 'assistant' && Array.isArray(m?.content?.parts) && m.content.parts.some((p: any) => p?.type === LIVE_RESULTS_PART))
 }
+
+// "PROMOCIONES" IS ASKED, NEVER INHERITED (Miguel 2026-11-23: after "algunos con descuento" for Versace, his next ask "Valentino locion
+// de roma" was still searched as deals only — 2 of 12 kept). on_sale stands when a shopper message since the last live search asks for
+// deals, or the message is "Ver más" (the same search again).
+const DEAL_RE = /\b(?:promo\w*|ofertas?|descuentos?|rebajas?|liquidaci\w*|remates?|sale|deals?|black\s*friday|cyber\s*monday|buen\s*fin|outlet|clearance|barat\w*|off)\b|%/i
+const msgText = (m: any): string => typeof m?.content === 'string' ? m.content : Array.isArray(m?.parts) ? m.parts.filter((p: any) => p?.type === 'text').map((p: any) => p.text || '').join(' ') : ''
+export function dealAskedSinceLastSearch(messages: any[]): boolean {
+  const list = Array.isArray(messages) ? messages : []
+  let i = list.length - 1
+  const texts: string[] = []
+  for (; i >= 0; i--) {
+    const m = list[i]
+    if (m?.role === 'assistant' && Array.isArray(m.parts) && m.parts.some((p: any) => p?.type === 'tool-live_gallery')) break
+    if (m?.role === 'user') texts.push(msgText(m))
+  }
+  if (/^\s*ver m[aá]s\b/i.test(texts[0] || '')) return true
+  return texts.some((t) => DEAL_RE.test(t))
+}
+
+// "LOCIÓN" IN MEXICO IS A FRAGRANCE (Miguel 2026-11-23: "Valentino locion de roma" was searched as "lotion" — body lotions): unless the
+// shopper says it is for the body or hands, the store search gets "cologne".
+export function fragranceQuery(query: string, messages: any[]): string {
+  // the last few shopper messages ("Valentino locion de roma" … "Para hombres")
+  const said = (Array.isArray(messages) ? messages : []).filter((m: any) => m?.role === 'user').slice(-3).map(msgText).join(' ').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  if (!/\blocion(?:es)?\b/.test(said) || /\b(?:corporal|cuerpo|body|manos|hand|crema|hidratante)\b/.test(said)) return query
+  return String(query || '').replace(/\blotions?\b/gi, 'cologne')
+}
