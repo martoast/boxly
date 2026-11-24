@@ -124,4 +124,9 @@ ok('a loción is a fragrance unless it is for the body (Miguel 2026-11-23: "Vale
   assert.equal(fragranceQuery('CeraVe lotion', [u('CeraVe lotion')]), 'CeraVe lotion', 'they said lotion')
 })
 
+ok('a spaced slash between brands never reaches the store search box; 1/2 zip keeps its own', () => {
+  assert.equal(liveGalleryQuery('men Versace / Armani cologne'), 'men Versace Armani cologne')
+  assert.equal(liveGalleryQuery('1/2 zip pullover'), '1/2 zip pullover')
+})
+
 console.log(`\n${pass} checks passed`)

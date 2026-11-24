@@ -57,7 +57,8 @@ export function resolveLiveStores(requested: unknown, catalog: LiveStore[], max:
 
 /** What goes in the store's own search box: one short line of product words. */
 export function liveGalleryQuery(v: unknown): string {
-  return String(v ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120).trim()
+  // a spaced slash separates brands ("men Versace / Armani cologne"), never typed into a store's search box; "1/2 zip" keeps its own
+  return String(v ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+\/\s+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120).trim()
 }
 
 const usd = (m: any): number | null => (m && typeof m === 'object' && m.currency === 'USD' && typeof m.amount === 'number' && Number.isFinite(m.amount) && m.amount >= 0 ? m.amount : null)
