@@ -1,6 +1,6 @@
 // BOXLY LAB — the live store gallery's pure helpers (utils/liveGallery.ts), 2026-09-28.
 import assert from 'node:assert/strict'
-import { resolveLiveStores, liveGalleryQuery, liveGalleryRows, withLiveRows, liveResultsAsText, newLiveResultMessages, storeKey, LIVE_RESULTS_PART } from './liveGallery.ts'
+import { resolveLiveStores, liveGalleryQuery, liveGalleryRows, withLiveRows, liveResultsAsText, newLiveResultMessages, storeKey, brandIsStore, LIVE_RESULTS_PART } from './liveGallery.ts'
 
 let pass = 0
 const ok = (name, fn) => { fn(); console.log('  ✓ ' + name); pass++ }
@@ -95,6 +95,16 @@ ok('a price RANGE tile (price_from) reads "desde" in the row and in the model\'s
   const [row] = liveGalleryRows([v1({ price_from: true, list_price: null })])
   assert.equal(row.price_from, true)
   assert.equal('price_from' in liveGalleryRows([v1()])[0], false)
+})
+
+ok('a brand that IS the store searched is no filter, matched by name or id (lab 2026-11-23: "Alo" at "Alo Yoga" kept 0 of 10)', () => {
+  assert.equal(brandIsStore('Alo', [{ id: 'alo', name: 'Alo Yoga' }]), true)
+  assert.equal(brandIsStore('Gymshark', [{ id: 'gymshark', name: 'Gymshark' }]), true)
+  assert.equal(brandIsStore('MK', [{ id: 'michael-kors', name: 'Michael Kors' }]), true)
+  assert.equal(brandIsStore('Bath & Body Works', [{ id: 'bath-body-works', name: 'Bath & Body Works' }]), true)
+  assert.equal(brandIsStore('Nike', [{ id: 'nordstrom', name: 'Nordstrom' }]), false)
+  assert.equal(brandIsStore('PINK', [{ id: 'victorias-secret', name: "Victoria's Secret" }]), false)
+  assert.equal(brandIsStore('', [{ id: 'alo', name: 'Alo Yoga' }]), false)
 })
 
 console.log(`\n${pass} checks passed`)

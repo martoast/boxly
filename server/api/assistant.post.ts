@@ -17,7 +17,7 @@ import { shortLinksIn, expandShortLinks } from '../../utils/shortLinks'
 import { LIVE_STORES_FALLBACK } from '../utils/liveStoresFallback'
 import { checkStoreLock } from '../utils/storeLock'
 import { storeHostsFromLiveStores, tagCarriedStores } from '../utils/storeHosts'
-import { resolveLiveStores, liveGalleryQuery, liveResultsAsText, liveStoreKey, type LiveStore } from '../../utils/liveGallery'
+import { resolveLiveStores, liveGalleryQuery, liveResultsAsText, liveStoreKey, brandIsStore as isStoreBrand, type LiveStore } from '../../utils/liveGallery'
 
 /**
  * AI shopping-assistant chat backend.
@@ -1872,7 +1872,7 @@ export default defineEventHandler(async (event) => {
           }
           const cleanBrand = typeof brand === 'string' ? brand.replace(/[^\p{L}\p{N} &.'-]+/gu, ' ').replace(/\s+/g, ' ').trim().slice(0, 60) : ''
           // the brand that IS one of the stores searched is no filter (every card there is that brand, and titles often leave it out)
-          const brandIsStore = cleanBrand && picked.some((st) => st.name.toLowerCase().replace(/[^a-z0-9]/g, '') === cleanBrand.toLowerCase().replace(/[^a-z0-9]/g, ''))
+          const brandIsStore = isStoreBrand(cleanBrand, picked)
           // a price limit only when the shopper wrote a number (the model once sent max_price 0.009 for "promociones")
           const filters = (() => { const f: any = {}; if (cleanBrand && !brandIsStore) f.brand = cleanBrand; if (typeof max_price === 'number' && max_price >= 1 && max_price <= 100000 && /\d/.test(lastUserText(messages))) f.max_price = Math.round(max_price * 100) / 100; if (on_sale === true) f.on_sale = true; return Object.keys(f).length ? f : null })()
           // the brand is part of what the store's search box gets (Karla "promociones PINK" 2026-11-11: VS searched just "sale", its main

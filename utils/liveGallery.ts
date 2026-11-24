@@ -22,6 +22,13 @@ export function storeKey(v: unknown): string {
 export function liveStoreKey(v: unknown): string { const k = storeKey(v); return STORE_SHORTHAND[k] || k }
 const STORE_SHORTHAND: Record<string, string> = { mk: 'michaelkors', vs: 'victoriassecret', bbw: 'bathandbodyworks', ae: 'americaneagle', nb: 'newbalance', tj: 'tjmaxx', tjmax: 'tjmaxx', nrack: 'nordstromrack' }
 
+/** True when the shopper's brand IS one of the stores searched: no filter then (every card there is that brand, and titles often leave
+ * it out). Matched by name OR id, like the own-store routing (lab 2026-11-23: brand "Alo" at "Alo Yoga" (id alo) filtered out all 10 cards). */
+export function brandIsStore(brand: unknown, stores: LiveStore[]): boolean {
+  const k = liveStoreKey(brand)
+  return !!k && stores.some((st) => liveStoreKey(st.name) === k || liveStoreKey(st.id) === k)
+}
+
 /**
  * The stores a live gallery may open: each requested name or id matched against the ENGINE's store list (GET
  * /live-shopping/stores — the only stores a session can be created for), distinct, in request order, at most `max`
