@@ -176,7 +176,7 @@ export default defineNuxtConfig({
         },
         {
           property: 'og:image',
-          content: 'https://boxly.mx/logo.jpeg'
+          content: 'https://boxly.mx/og-image.png'
         },
         // Intentionally NOT setting og:image:width/height globally —
         // page-level useHead calls (e.g. /shop/<slug>) override og:image
@@ -198,7 +198,7 @@ export default defineNuxtConfig({
         },
         { 
           name: 'twitter:image', 
-          content: 'https://boxly.mx/logo.jpeg'
+          content: 'https://boxly.mx/og-image.png'
         }
       ]
     }

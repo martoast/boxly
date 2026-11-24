@@ -56,7 +56,7 @@ useSeoMeta({
   ogTitle: 'Para Expatriados - Boxly | Compra en USA desde México',
   description: 'Servicio especializado para expatriados en México. Accede a productos de tu país de origen, compra en tiendas internacionales y recibe todo en tu domicilio en México.',
   ogDescription: 'Servicio especializado para expatriados en México. Accede a productos de tu país de origen, compra en tiendas internacionales y recibe todo en tu domicilio en México.',
-  ogImage: '/logo.jpeg',
+  ogImage: 'https://boxly.mx/og-image.png',
   twitterCard: 'summary_large_image',
 })
 </script>

@@ -71,7 +71,7 @@ useSeoMeta({
   ogTitle: 'Boxly - Compra en cualquier tienda del mundo y recíbelo en México',
   description: 'Compra en cualquier tienda del mundo y recíbelo en México. Te damos un domicilio en USA, consolidamos tus paquetes y enviamos a todo México al mejor precio.',
   ogDescription: 'Compra en cualquier tienda del mundo y recíbelo en México. Te damos un domicilio en USA, consolidamos tus paquetes y enviamos a todo México al mejor precio.',
-  ogImage: '/logo.jpeg',
+  ogImage: 'https://boxly.mx/og-image.png',
   twitterCard: 'summary_large_image',
 })
 
