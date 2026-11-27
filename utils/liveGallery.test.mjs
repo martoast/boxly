@@ -105,6 +105,9 @@ ok('a brand that IS the store searched is no filter, matched by name or id (lab 
   assert.equal(brandIsStore('Nike', [{ id: 'nordstrom', name: 'Nordstrom' }]), false)
   assert.equal(brandIsStore('PINK', [{ id: 'victorias-secret', name: "Victoria's Secret" }]), false)
   assert.equal(brandIsStore('', [{ id: 'alo', name: 'Alo Yoga' }]), false)
+  assert.equal(brandIsStore('Coach', [{ id: 'coach-outlet', name: 'Coach Outlet' }]), true, 'the store\'s leading word (Andrea 2026-11-26: 1 of 9 wallets kept)')
+  assert.equal(brandIsStore('On', [{ id: 'old-navy', name: 'Old Navy' }]), false, 'whole words only')
+  assert.equal(brandIsStore('Coach', [{ id: 'nordstrom', name: 'Nordstrom' }]), false, 'elsewhere it filters')
 })
 
 const u = (text) => ({ role: 'user', parts: [{ type: 'text', text }] })

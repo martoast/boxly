@@ -26,7 +26,12 @@ const STORE_SHORTHAND: Record<string, string> = { mk: 'michaelkors', vs: 'victor
  * it out). Matched by name OR id, like the own-store routing (lab 2026-11-23: brand "Alo" at "Alo Yoga" (id alo) filtered out all 10 cards). */
 export function brandIsStore(brand: unknown, stores: LiveStore[]): boolean {
   const k = liveStoreKey(brand)
-  return !!k && stores.some((st) => liveStoreKey(st.name) === k || liveStoreKey(st.id) === k)
+  // …and the store's LEADING words ("Coach" at "Coach Outlet", Andrea 2026-11-26: the filter kept 1 of 9 wallets — outlet titles
+  // leave "Coach" out; "Alo" at "Alo Yoga"), whole words only ("On" is not "Old Navy")
+  const words = (v: unknown) => String(v ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/&/g, 'and').split(/[^a-z0-9]+/).filter(Boolean)
+  const b = words(brand)
+  const leads = (name: unknown) => { const w = words(name); return b.length > 0 && b.length < w.length && b.every((x, i) => w[i] === x) }
+  return !!k && stores.some((st) => liveStoreKey(st.name) === k || liveStoreKey(st.id) === k || leads(st.name) || leads(st.id))
 }
 
 /**
