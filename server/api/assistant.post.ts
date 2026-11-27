@@ -17,6 +17,7 @@ import { shortLinksIn, expandShortLinks } from '../../utils/shortLinks'
 import { LIVE_STORES_FALLBACK } from '../utils/liveStoresFallback'
 import { checkStoreLock } from '../utils/storeLock'
 import { storeHostsFromLiveStores, tagCarriedStores } from '../utils/storeHosts'
+import { unaskedExtraUnits } from '../../utils/boxQuantity'
 import { resolveLiveStores, liveGalleryQuery, liveResultsAsText, liveStoreKey, brandIsStore as isStoreBrand, dealAskedSinceLastSearch, fragranceQuery, type LiveStore } from '../../utils/liveGallery'
 
 /**
@@ -1441,6 +1442,14 @@ export default defineEventHandler(async (event) => {
           // A cart / checkout page is not a product (live WSS 2026-10-18): it is never put in the box.
           const cartItem = (drawn || []).find((it: any) => it?.url && isCartLink(String(it.url)))
           if (cartItem) return { hold: true, ok: false, note: `STOP — "${cartItem.url}" is the shopper's own CART / CHECKOUT page, not a product: it is NOT in the box. We cannot see their cart from here (it lives in their browser). Ask in ONE short line for each product's own link — all of them in one message works — and you add them all at once.` }
+          // ANOTHER UNIT IS ASKED FOR, NEVER ASSUMED (Jonathan 2026-11-27, utils/boxQuantity.ts): an item already in the box comes back
+          // with a higher quantity only when the shopper's message asks for more units (or the card's quantity picker says so)
+          {
+            const lastUser = [...(messages || [])].reverse().find((m: any) => m?.role === 'user')
+            const pickedOnCard = Number.isInteger(Number(lastUser?.metadata?.quantity))
+            const extra = pickedOnCard ? [] : unaskedExtraUnits(before, drawn || [], lastUserText(messages))
+            if (extra.length) return { hold: true, ok: false, note: `STOP — NOTHING CHANGED. ${extra.map((it: any) => `"${it.name}"`).join(', ')} ${extra.length > 1 ? 'are' : 'is'} already in the box and the shopper did not ask for another unit — their message names a product. Do NOT add it again. If they want a different model or listing, search for it now with live_gallery; if it is unclear, ask in ONE short line: "¿Quieres otro igual o buscas otro modelo?"` }
+          }
           // a card that adds never drops what the box already held (the model sometimes lists only the new store's items)
           const input = withEarlierItems(before, drawn)
           // THE QUANTITY PICKED ON THE CARD (Alex 2026-10-05: five leggings): the newest user message carries it as

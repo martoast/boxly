@@ -14,6 +14,7 @@
     "test:ebay": "node --experimental-strip-types server/utils/ebay.test.mjs",
     "test:feeds": "node --experimental-strip-types server/utils/ebay.test.mjs && node --experimental-strip-types server/utils/bestbuy.test.mjs",
     "test:sizing": "node --experimental-strip-types utils/sizing.test.mjs",
+    "test:box-quantity": "node --experimental-strip-types utils/boxQuantity.test.mjs",
     "test:search-logging": "node --experimental-strip-types server/api/search-logging.test.mjs",
     "test:composer": "node components/composer-enter.test.mjs",
     "test:variant-read": "node components/variant-read.test.mjs",
